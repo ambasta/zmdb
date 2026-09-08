@@ -35,9 +35,10 @@ Import queues, workers, schedules, and `jobsExtension` from `@zmdb/jobs`. The de
 same `@zmdb/app` lifecycle.
 
 Every facade entry delegates to its owning implementation package by identity and contains no mutable state or implementation logic. AI providers, frontend bindings, observability, transports, and
-database verticals are separate opt-in packages and are not reachable from the default root.
+database verticals other than SQLite are separate opt-in packages. SQLite remains lazy behind its concern subpath.
 
-Each database subpath is an identity facade over its optional `@zmdb/*` peer. For PostgreSQL, install `@zmdb/postgres` and `pg`; neither is pulled into the default product dependency closure.
+`zmdb/sqlite` is an identity facade over the SQLite implementation included in the default install. Other database subpaths resolve through their explicitly installed `@zmdb/*` peers. For PostgreSQL,
+install `@zmdb/postgres` and `pg`; neither is pulled into the default product dependency closure.
 
 ## Generate HTTP artifacts
 
@@ -52,6 +53,9 @@ One contract load feeds the OpenAPI document and generated typed client as sibli
 compiled contract input changes. Client generation never parses the OpenAPI file.
 
 ## Documentation
+
+Start with the [server journey](https://ambasta.github.io/zmdb/docs/web-overview.html): generated SQLite migration, validated HTTP, then an explicitly selected background worker under the same app
+lifecycle.
 
 Generated-client journey: **https://ambasta.github.io/zmdb/docs/generated-client.html**
 

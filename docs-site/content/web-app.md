@@ -5,9 +5,7 @@ It exposes lifecycle hooks and `await using` graceful shutdown. Its optional sec
 ## Bootstrapping
 
 ```ts
-import { createApp } from '@zmdb/web';
-import { createServer } from 'node:http';
-import { toNodeHandler } from '@zmdb/web';
+import { createApp } from 'zmdb/web';
 
 const app = createApp(AppModule);
 await app.init(); // run lifecycle init hooks
@@ -24,7 +22,7 @@ await app.fetch(new Request('http://x/ping')); // Fetch (Hono/edge)
 Implement any of these on a controller (or provider) and they run at the right time:
 
 ```ts
-import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from '@zmdb/app/lifecycle';
+import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from 'zmdb/app/lifecycle';
 
 class Db implements OnModuleInit, OnShutdown {
   onModuleInit() {
@@ -36,11 +34,11 @@ class Db implements OnModuleInit, OnShutdown {
 }
 ```
 
-| phase     | order                                                                                                     |
-| --------- | --------------------------------------------------------------------------------------------------------- |
-| `init()`  | eager instances: `onModuleInit` → `onApplicationBootstrap` → configured extensions in order → gRPC bind   |
-| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass                              |
-| shutdown  | gRPC closes → extensions stop in reverse order → instances `onShutdown` in **reverse construction order** |
+| phase     | order                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------- |
+| `init()`  | eager instances: `onModuleInit` → `onApplicationBootstrap` → configured extensions in order |
+| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass                |
+| shutdown  | extensions stop in reverse order → instances `onShutdown` in **reverse construction order** |
 
 “All” means every constructed object provider and controller. Value providers enter the ledger when registered; factory providers enter only when resolved. A factory first resolved after `init()` is
 still shut down, without retroactive init hooks, and an unresolved factory is never constructed for lifecycle.
@@ -64,5 +62,7 @@ await app.init();
 - Granular import: `import { createApp } from '@zmdb/web/app'`.
 
 ## Cross-links
+
+- [One server with HTTP and selected jobs](./web-overview.html) — one `createApp` call owns the worker extension; the caller closes the listener and database
 
 - [Modules & providers](./web-modules.html) · [Request pipeline](./web-pipeline.html)

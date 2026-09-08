@@ -7,12 +7,12 @@ issued a typed query.
 ## 1. Install
 
 ```bash
-npm add zmdb@alpha @zmdb/sqlite@alpha
+npm add zmdb@alpha
 ```
 
-`zmdb` exposes the cohesive product API, while `@zmdb/sqlite` supplies the selected SQLite implementation and is also available through `zmdb/sqlite`. (Prefer granular installs? See
-[Installation](./installation.html).) Then wire the transformer once — see [AOT setup](./aot-setup.html). It is not an optimisation you can skip: `schemaOf<T>()` and the validators read a type
-argument, which does not exist at runtime, so an untransformed build throws rather than quietly checking nothing.
+`zmdb` includes SQLite and exposes its driver through `zmdb/sqlite`. (Prefer granular installs? See [Installation](./installation.html).) Then wire the transformer once — see
+[AOT setup](./aot-setup.html). It is not an optimisation you can skip: `schemaOf<T>()` and the validators read a type argument, which does not exist at runtime, so an untransformed build throws rather
+than quietly checking nothing.
 
 ## 2. Declare your table once
 
@@ -147,6 +147,8 @@ const user = await users.create(payload);
 ```
 
 ## Where to go next
+
+- [One server journey](./web-overview.html) — generate the migration, serve validated HTTP, and explicitly add a SQLite-backed worker to the same application
 
 - [Schema declaration](./schema-declaration.html), the [tag reference](./tags-reference.html) and [Column types](./column-types.html)
 - [Relations](./relations.html) and [typed populate/join results](./populate-results.html)

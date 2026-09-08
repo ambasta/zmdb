@@ -5,7 +5,10 @@ protocol-neutral `@zmdb/app` kernel. It does not use `reflect-metadata` or runti
 
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
-## Install
+Applications normally install `zmdb` and use `zmdb/web`; see the [server journey](https://ambasta.github.io/zmdb/docs/web-overview.html). Select this package directly when an advanced dependency
+boundary needs HTTP without the full product facade.
+
+## Advanced: install HTTP alone
 
 ```bash
 npm add @zmdb/web@alpha
@@ -16,7 +19,7 @@ npm add @zmdb/web@alpha
 ## Entry points
 
 The package root contains the common HTTP APIs. Its complete feature entry set is `/app`, `/compression`, `/context`, `/contract`, `/contract/compiler`, `/csrf`, `/data`, `/devtools`, `/dto-pipes`,
-`/gateways`, `/health`, `/middleware`, `/openapi`, `/pipeline`, `/routing`, `/static`, `/testing`, `/upload`, and `/versioning`.
+`/gateways`, `/health`, `/integrations`, `/middleware`, `/openapi`, `/pipeline`, `/routing`, `/static`, `/testing`, `/upload`, and `/versioning`.
 
 `@zmdb/web/contract` contains inert HTTP declarations and serialisable `HttpContractIR`. The build-time `@zmdb/web/contract/compiler` entry compiles those declarations and emits deterministic typed
 client modules whose runtime imports are limited to `@zmdb/client`. `zmdb client generate` projects the same compiled IR into sibling OpenAPI and client artifacts; it does not derive one from the
@@ -24,8 +27,8 @@ other.
 
 Typed gRPC servers and clients ship from `@zmdb/transport-grpc`, core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, and Redis Pub/Sub ships from
 `@zmdb/transport-redis`; none of their old web subpaths forwards. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`. Queues, workers, scheduling,
-leases, and the SQLite memory backend live in `@zmdb/jobs`; the removed web paths do not forward. Install `@zmdb/jobs-postgres@alpha` with `pg@^8.23.0` when those jobs use a caller-owned PostgreSQL
-pool or client.
+and leases live in `@zmdb/jobs`; SQLite durable and memory storage lives in the separately selected `@zmdb/jobs-sqlite`. The removed web paths do not forward. Install `@zmdb/jobs-postgres@alpha` with
+`pg@^8.23.0` when those jobs use a caller-owned PostgreSQL pool or client.
 
 Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install
 `@zmdb/otel@alpha` with `@opentelemetry/api@^1.9.1` to adapt caller-owned tracers and meters; web has no OpenTelemetry peer or forwarding subpath.

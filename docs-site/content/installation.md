@@ -1,13 +1,11 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-eight packages are published today: thirty-seven focused packages plus the `zmdb` facade. The
-recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
-`@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/compiler`, `@zmdb/migrations`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider
-integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/singlestore`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,
-`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs` plus its storage integrations remain independently installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7+. Install `zmdb` for schema, validation, ORM, migrations, configuration, CLI, application lifecycle and HTTP,
+with SQLite included. Add jobs, other database providers and protocol integrations only when the application selects them. The [server journey](./web-overview.html) demonstrates these choices in one
+application; the [package reference](./package-reference.html) lists the independently usable owners.
 
 ## Recommended: one product install
 
 ```bash
-npm add zmdb@alpha @zmdb/sqlite@alpha
+npm add zmdb@alpha
 ```
 
 ```ts
@@ -15,13 +13,13 @@ import { defineRepository, is, schemaOf, type CreateDTO, type Entity, type Prima
 import { sqliteDriver } from 'zmdb/sqlite';
 ```
 
-The `zmdb` package re-exports the curated public API of its eight required workspace dependencies, with complete concerns under `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`, `zmdb/web`,
-`zmdb/compiler`, `zmdb/migrations`, and `zmdb/testing`. Database selection is explicit: each database package owns its compiler traits, migrations, introspection, and structural driver. The matching
-`zmdb/sqlite`, `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach`, and `zmdb/singlestore` facades resolve only when that optional database package is installed. The `zmdb/web` facade
+The `zmdb` package re-exports the curated public API of its required workspace dependencies, with complete concerns under `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`, `zmdb/web`,
+`zmdb/compiler`, `zmdb/migrations`, and `zmdb/testing`. SQLite is included by default and exposed through `zmdb/sqlite`. Each database package owns its compiler traits, migrations, introspection and
+structural driver. The `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach` and `zmdb/singlestore` facades resolve when their optional database package is installed. The `zmdb/web` facade
 combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
 
-The older `zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, and `zmdb/relations` paths remain as compatibility entries. Type-only imports from either the root or those paths disappear from emitted
-JavaScript.
+The focused `zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, and `zmdb/relations` entries expose their documented concerns. Type-only imports from either the root or those paths disappear from
+emitted JavaScript.
 
 `@zmdb/mysql` is independently installable and is not pulled in by the default product. Install it with `mysql2` when the application selects MySQL; importing the package does not load the client.
 
@@ -272,7 +270,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/mysql`              | MySQL compilation, migrations, introspection, and structural mysql2 driver                     |
 | `@zmdb/app`                | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health      |
 | `@zmdb/web`                | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters        |
-| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and SQLite memory storage             |
+| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and explicit storage-provider ports   |
 | `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adapter for caller-owned pools and clients                               |
 | `@zmdb/client`             | Dependency-free HTTP transport, cancellation, authentication, and typed errors                 |
 | `@zmdb/react`              | React context, query, mutation, and component-lifecycle cancellation                           |

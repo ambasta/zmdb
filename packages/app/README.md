@@ -3,7 +3,10 @@
 The protocol-neutral application kernel for zmdb. It owns Stage-3 metadata, dependency injection, modules, lifecycle, transport-neutral messaging, command applications, events, CQRS, state machines,
 health contracts, and dependency-free observability ports.
 
-## Install
+For the cohesive server product, install `zmdb` and use `zmdb/app` for application concerns. The [server journey](https://ambasta.github.io/zmdb/docs/web-overview.html) combines HTTP and selected jobs
+under this lifecycle.
+
+## Advanced: install the kernel alone
 
 ```bash
 npm add @zmdb/app@alpha

@@ -2,9 +2,20 @@
 // Packed external-consumer evidence for the app/web/jobs core split (#646).
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
@@ -319,8 +330,140 @@ function verifyTarget(packages, scratch) {
   process.stdout.write(journey.stdout);
 }
 
+async function verifyDocumented() {
+  const { command } = await import('../consumer-cli/registry.mjs');
+  const { startRegistry } = await import('../consumer-jobs-providers/registry.mjs');
+  const packages = workspacePackages();
+  const roots = ['@zmdb/jobs', '@zmdb/jobs-sqlite', 'zmdb'];
+  const names = workspaceClosure(packages, roots);
+  const scratch = mkdtempSync(join(tmpdir(), 'zmdb-documented-server-'));
+  const report = { failures: [], cleaned: false };
+  let registry;
+  try {
+    // Use the existing packed-consumer lock, covering only shared build and pack outputs.
+    const lock = join(tmpdir(), `zmdb-adapter-packed-build-${encodeURIComponent(realpathSync(ROOT))}.lock`);
+    const started = Date.now();
+    for (;;) {
+      try {
+        mkdirSync(lock);
+        break;
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        if (Date.now() - started > 600_000) throw new Error(`Timed out waiting for ${lock}`, { cause: error });
+        await delay(50);
+      }
+    }
+    let archives;
+    try {
+      for (const name of names) {
+        await command(process.execPath, [join(ROOT, 'scripts/build-package.mjs')], {
+          cwd: packages.get(name).dir,
+          expected: 0,
+          timeout: 600_000,
+        });
+      }
+      archives = packWorkspace(packages, names, scratch);
+    } finally {
+      rmSync(lock, { recursive: true });
+    }
+
+    registry = await startRegistry(
+      [...archives].map(([name, tarball]) => ({
+        manifest: publishManifest(packages.get(name).manifest),
+        tarball,
+      })),
+    );
+    const consumer = join(scratch, 'consumer');
+    mkdirSync(join(consumer, 'src'), { recursive: true });
+    writeFileSync(
+      join(consumer, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'documented-zmdb-server',
+          private: true,
+          type: 'module',
+          dependencies: Object.fromEntries(
+            roots.map(name => [
+              name,
+              name === 'zmdb' ? `file:${archives.get(name)}` : packages.get(name).manifest.version,
+            ]),
+          ),
+          devDependencies: { typescript: '7.0.2', '@types/node': '26.4.1', esbuild: '0.28.2' },
+        },
+        null,
+        2,
+      ),
+    );
+    writeFileSync(
+      join(consumer, '.npmrc'),
+      `@zmdb:registry=${registry.origin}\nregistry=https://registry.npmjs.org/\naudit=false\nfund=false\n`,
+    );
+    await command(
+      'npm',
+      ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--cache', join(scratch, 'npm-cache')],
+      {
+        cwd: consumer,
+        expected: 0,
+        timeout: 600_000,
+      },
+    );
+    const workspaceLinks = roots.flatMap(name => {
+      const installed = realpathSync(join(consumer, 'node_modules', name));
+      return relative(consumer, installed).startsWith('..') ? [installed] : [];
+    });
+    const productFixture = join(ROOT, 'fixtures/consumer-product');
+    for (const file of ['build.mjs', 'zmdb.config.ts']) cpSync(join(productFixture, file), join(consumer, file));
+    cpSync(join(productFixture, 'src/schema.ts'), join(consumer, 'src/schema.ts'));
+    for (const file of ['documented-server.ts', 'documented-server-contracts.ts']) {
+      cpSync(join(FIXTURE, 'src', file), join(consumer, 'src', file));
+    }
+    cpSync(join(FIXTURE, 'tsconfig.documented.json'), join(consumer, 'tsconfig.consumer.json'));
+    const env = { ZMDB_PRODUCT_DATABASE: join(consumer, 'orders.sqlite') };
+    for (const operation of ['codegen', 'generate', 'migrate']) {
+      const argv = [join(consumer, 'node_modules/.bin/zmdb'), operation, '--json'];
+      if (operation === 'generate') argv.push('--name', 'create_orders');
+      await command(process.execPath, argv, { cwd: consumer, env, expected: 0 });
+    }
+    const checked = await command(
+      process.execPath,
+      ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.consumer.json'],
+      {
+        cwd: consumer,
+        env,
+        expected: 0,
+      },
+    );
+    const installedManifest = JSON.parse(readFileSync(join(consumer, 'package.json'), 'utf8'));
+    report.installed = {
+      directDependencies: Object.keys(installedManifest.dependencies).toSorted(),
+      typecheck: checked.code,
+      workspaceLinks,
+    };
+    mkdirSync(join(consumer, 'dist'));
+    await command(process.execPath, ['build.mjs', 'src/documented-server.ts', 'dist/server.mjs'], {
+      cwd: consumer,
+      env,
+      expected: 0,
+    });
+    const runtime = await command(process.execPath, ['dist/server.mjs'], { cwd: consumer, env, expected: 0 });
+    Object.assign(report, JSON.parse(runtime.stdout));
+  } catch (error) {
+    report.failures.push(error.stack ?? String(error));
+  } finally {
+    const cleanup = await Promise.allSettled([
+      Promise.resolve().then(() => registry?.close()),
+      Promise.resolve().then(() => rmSync(scratch, { recursive: true, force: true })),
+    ]);
+    for (const result of cleanup) if (result.status === 'rejected') report.failures.push(String(result.reason));
+    report.cleaned = cleanup.every(result => result.status === 'fulfilled');
+  }
+  console.log(JSON.stringify(report));
+  if (report.failures.length > 0) process.exitCode = 1;
+}
+
 function main() {
   const mode = process.argv[2];
+  if (mode === '--documented') return verifyDocumented();
   if (mode !== '--jobs' && mode !== '--plain' && mode !== '--target') {
     throw new Error('usage: verify-installed.mjs --jobs|--plain|--target');
   }
@@ -336,5 +479,5 @@ function main() {
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main();
+  await main();
 }

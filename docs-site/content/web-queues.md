@@ -9,6 +9,9 @@ npm add @zmdb/jobs@alpha
 Import queues, workers, schedules, and `jobsExtension` directly from `@zmdb/jobs`. The `zmdb` package neither installs jobs nor exposes a `zmdb/jobs` facade; application startup and bounded shutdown
 still run through the same `@zmdb/app` extension lifecycle.
 
+The [server journey](./web-overview.html) attaches a real worker with `createApp(Module, { extensions: [jobsExtension({ workers })] })`. HTTP and jobs use one application lifecycle; no jobs facade or
+second application is required.
+
 ## Delivery is at-least-once: make the effect idempotent
 
 A worker can commit an effect and die before it marks the job done. That crash window makes delivery **at-least-once**, so every handler must make a repeated invocation harmless. Scaling from one
@@ -50,7 +53,11 @@ takes a provider-created `JobEnqueuer` bound to the caller's connection.
 
 ## Choosing a backend
 
-For tests and local process-only work, the memory backend is ready immediately:
+For tests and local process-only work, explicitly install the SQLite provider. Its memory backend is ready immediately:
+
+```bash
+npm add @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha
+```
 
 ```ts
 import { createMemoryJobStore } from '@zmdb/jobs-sqlite';

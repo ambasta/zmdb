@@ -1,88 +1,47 @@
-This is where `@zmdb/web` meets the [data layer](./repository.html). A controller **injects a repository** via [DI](./web-di.html), validates the request body against your **schema-derived DTO**, and
-returns typed entities — all on the same zero-overhead path as the rest of zmdb.
+The server uses one `Order` declaration for validation, repository types and generated migrations. Start from the [complete HTTP and selected-jobs journey](./web-overview.html), whose runnable program
+uses only public product concerns plus explicitly selected jobs packages.
 
-## Define once, wire it up
+## Bind the declared schema to SQLite
+
+These excerpts share the complete program's `Order` declaration and database filename:
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { schemaOf } from '@zmdb/schema';
-import { assert } from '@zmdb/validator';
-import { defineRepository, type BaseRepository } from '@zmdb/orm';
-import { sqlite, sqliteDriver } from '@zmdb/sqlite';
-import type { CreateDTO } from 'zmdb/derive';
-import { repositoryToken } from '@zmdb/app/data';
-import { Container, Inject } from '@zmdb/app/di';
-import { Controller, Get, Post, createRouter, validateWith } from '@zmdb/web';
-import type { Ctx } from '@zmdb/web';
-import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+import { defineRepository, schemaOf } from 'zmdb';
+import { sqlite, sqliteDriver } from 'zmdb/sqlite';
 
-export interface Order extends Table<'orders'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  userId: number & Sql<'integer'> & References<'users.id'>;
-  total: number & Sql<'numeric'>;
-}
-
-const orderSchema = schemaOf<Order>();
-
-// A typed DI token for the repository over this schema.
-const OrderRepo = repositoryToken<Order>('OrderRepo');
+const database = new DatabaseSync(databasePath);
+const orders = defineRepository(schemaOf<Order>(), sqliteDriver(database), { dialect: sqlite });
 ```
 
-`schemaOf<Order>()` is the one call that crosses from the type to a value, and it is compile-time only — the transformer replaces it with the reflected schema object. Everything downstream, including
-the DI token, is parameterised on `Order` itself: the value is what the query compiler needs, the type is what your code is written in.
+SQLite is included in `npm add zmdb@alpha`. `schemaOf<Order>()` is compiled by the public AOT plugin, and `zmdb generate` / `zmdb migrate` supply and apply the table definition before startup. The
+caller owns the database handle. A repository's returned rows are plain objects; changing a property does not persist it.
 
-## The controller injects the repository
+## Validate the HTTP input before writing
 
 ```ts
+import { Controller, Post, assert, type CreateDTO, type Ctx } from 'zmdb';
+
 @Controller('/orders')
 class OrdersController {
-  @Inject(OrderRepo)
-  repo!: BaseRepository<Order>; // fully typed — no 'as'
-
   @Post()
-  create(ctx: Ctx<Record<never, string>, CreateDTO<Order>>) {
-    return this.repo.create(ctx.body); // validated CreateDTO → persisted
-  }
-
-  @Get('/:id')
-  get(ctx: Ctx<{ id: string }>) {
-    return this.repo.findById(Number(ctx.params.id));
+  async create(ctx: Ctx<Record<never, string>, CreateDTO<Order>>) {
+    const order = await orders.create(assert<CreateDTO<Order>>(ctx.body));
+    await queue.enqueue('order.created', { orderId: order.id, name: order.name });
+    return order;
   }
 }
 ```
 
-## Bind, validate, serve
+The complete example declares the queue explicitly and attaches its real worker through `jobsExtension` on the same `createApp` call. Invalid input returns 400 before creating either an order or a
+job. A valid response contains the persisted entity; the worker consumes its typed payload. The order write and this separate memory queue are not transactionally atomic.
 
-```ts
-const db = new DatabaseSync(':memory:');
-db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total NUMERIC NOT NULL)');
+For dependency injection, bind the same repository through `repositoryToken` from `zmdb/app/data`; [dependency injection](./web-di.html) describes provider lifetimes. For a PostgreSQL database or
+durable job storage, select the corresponding provider and keep its connection ownership explicit.
 
-const container = new Container();
-container.register(OrderRepo, defineRepository(orderSchema, sqliteDriver(db), { dialect: sqlite }));
+## Cleanup
 
-const controller = container.build(OrdersController); // @Inject satisfied here
-const router = createRouter();
-router.register(controller, {
-  // validateWith adapts any validator into the pipeline's validate-before-handler
-  // hook. `assert<CreateDTO<Order>>` is inlined at build time — no runtime parser
-  // is embedded.
-  create: { validateBody: validateWith(raw => assert<CreateDTO<Order>>(raw)) },
-});
+Close the caller's HTTP listener first. Await application disposal to drain extensions and run shutdown hooks, then close caller-owned stores and database connections. The runnable installed example
+checks the closed handles and rebinds its released port.
 
-await router.handle({ method: 'POST', path: '/orders', headers: {}, rawBody: { userId: 1, total: 42 } });
-// 200 → the persisted, typed order
-```
-
-> [!IMPORTANT] The body is validated **before** `create` runs — an invalid payload never reaches the repository (→ 400). `assert<CreateDTO<Order>>` is bound to the declaration by its type argument, so
-> a column added to `Order` is checked here with nothing else to update.
-
-## Design notes
-
-- **No `as`** — the repository token carries the schema, so the injected field is `BaseRepository<Order>`.
-- **One source of truth** — `Order` is the interface; the DDL, the DTOs, the validator and the OpenAPI document are all derived from it. See [Schema Declaration](./schema-declaration.html).
-- The repository is a plain [zmdb repository](./repository.html): no proxies, no identity map, [inert rows](./inert-rows.html).
-- First-class validation/serialization _pipes_ (the `@nestjs/swagger`/ `ClassSerializerInterceptor` analogues) build on this — coming with the middleware layer.
-
-## Cross-links
-
-- [Repository](./repository.html) · [Dependency injection](./web-di.html) · [Request pipeline](./web-pipeline.html)
+See [repositories](./repository.html), [request pipeline](./web-pipeline.html), [application lifecycle](./web-app.html) and [queues](./web-queues.html).

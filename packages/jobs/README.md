@@ -31,6 +31,9 @@ await app.init();
 await app[Symbol.asyncDispose]();
 ```
 
+The [complete server example](https://ambasta.github.io/zmdb/docs/web-overview.html) creates a real SQLite worker and supplies this extension to `createApp`, so HTTP and jobs share one application
+lifecycle.
+
 Replace the empty arrays with the workers and schedulers owned by that application. The extension uses the same startup, rollback, reverse shutdown, and grace deadline as every other `@zmdb/app`
 extension.
 

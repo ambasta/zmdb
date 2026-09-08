@@ -1,64 +1,101 @@
-`@zmdb/web` is the **Stage-3 HTTP framework** for the zmdb ecosystem — controllers, typed request context, middleware, OpenAPI, gateways, and testing over the protocol-neutral `@zmdb/app` kernel, with
-**zero `reflect-metadata` and zero runtime type reflection**. Controllers inject app-owned services, routes validate request bodies via the [AOT validator](./aot-setup.html), and responses serialize
-through the same zero-overhead path as the rest of zmdb.
+Build one server with `zmdb`: a TypeScript schema supplies validation and repository types, the CLI generates its SQLite migration, and `createApp` serves the HTTP controllers. Add background jobs
+explicitly when a request needs asynchronous work. The same application owns the selected worker's startup and shutdown.
 
-> [!NOTE] `@zmdb/web` and `@zmdb/app` are in **early alpha**. The package boundary is intentional: app owns metadata, DI, modules, lifecycle, commands, events, CQRS, state, health contracts, and
-> observability ports; web owns HTTP-facing composition.
+Requires Node.js 26+, TypeScript 7+, ESM and Stage-3 decorators. Set `experimentalDecorators` to `false`; no `reflect-metadata` setup is needed.
 
-## Install
+## Start with the product
 
 ```bash
-npm add @zmdb/web@alpha
-# or via the product facade:
 npm add zmdb@alpha
+npm add --save-dev typescript@7.0.2 @types/node@26.4.1 esbuild@0.28.2
 ```
 
-> Requires **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. Uses **Stage 3** standard decorators — set `"experimentalDecorators": false` (the default under a modern `tsconfig`). No
-> `reflect-metadata`.
+SQLite is included. Use `zmdb` for the common vocabulary and focused concerns such as `zmdb/app`, `zmdb/web`, `zmdb/orm` and `zmdb/sqlite` when needed. The [quick start](./quick-start.html) introduces
+schema types; [AOT setup](./aot-setup.html) explains the required compiler transform.
 
-## Why Stage 3 (and not `experimentalDecorators`)?
+The [complete runnable server](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-server-core/src/documented-server.ts) uses the tested
+[Order schema](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-product/src/schema.ts), [configuration](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-product/zmdb.config.ts)
+and [public AOT build](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-product/build.mjs). The snippets below are excerpts from that complete program.
 
-NestJS-style frameworks rely on `experimentalDecorators` + `emitDecoratorMetadata`
+Generate the migration from the schema before starting the application:
 
-- `reflect-metadata`, which does **runtime type reflection** on every decorated class. `@zmdb/web` rejects that: it uses the **standardized** Stage-3 decorators and stores per-class data in the
-  well-known **`Symbol.metadata`** record (`context.metadata`). Route tables and the DI graph are resolved **once at class-init**, never re-reflected per request — consistent with zmdb's
-  [zero-overhead](./inert-rows.html) philosophy.
+```bash
+npx zmdb codegen
+npx zmdb generate --name create_orders
+npx zmdb migrate
+```
 
-## The metadata baseline
+The example configuration takes its database filename from `ZMDB_PRODUCT_DATABASE`. The CLI and application must receive the same filename. Migration generation supplies the SQL; the application does
+not handwrite its own table definition.
 
-Every decorator in the framework builds on one primitive — reading the Stage-3 metadata a decorator wrote:
+## Validate before persistence
 
 ```ts
-import { metadataOf } from '@zmdb/app';
+import { Controller, Post, assert, type CreateDTO, type Ctx } from 'zmdb';
 
-function Tagged(value: string) {
-  return function <T extends abstract new (...args: never[]) => unknown>(_target: T, context: ClassDecoratorContext<T>): void {
-    context.metadata.tag = value; // stored in Symbol.metadata
-  };
+@Controller('/orders')
+class OrdersController {
+  @Post()
+  async create(ctx: Ctx<Record<never, string>, CreateDTO<Order>>) {
+    const order = await orders.create(assert<CreateDTO<Order>>(ctx.body));
+    await queue.enqueue('order.created', { orderId: order.id, name: order.name });
+    return order;
+  }
 }
-
-@Tagged('users')
-class UsersController {}
-
-metadataOf(UsersController).tag; // 'users'
 ```
 
-`metadataOf(target)` reads the well-known `Symbol.metadata` record off a decorated class behind a runtime type-guard — **no `as`, no `reflect-metadata`**. For an undecorated class it returns a frozen
-empty record (never `undefined`), so callers can read slots unconditionally.
+`Order`, its repository and the selected queue are declared in the complete program. The AOT build compiles `schemaOf<Order>()` and the validator. An empty name returns HTTP 400 before either
+inserting an order or enqueueing a job. A valid request persists the entity and enqueues its typed job before returning the response. See [data integration](./web-data-integration.html) for the
+repository boundary.
 
-> [!NOTE] Node 26 / V8 does not yet expose `Symbol.metadata`. `@zmdb/app` ships the one zero-dependency polyfill that installs the well-known symbol when absent (a no-op once a runtime ships it
-> natively); it assigns only `Symbol.metadata` and mutates no other global.
+## Add a selected worker to the same application
 
-## Design invariants
+```bash
+npm add @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha
+```
 
-- **No `as` on the consumer surface.** You never need a type assertion to use the framework correctly.
-- **No runtime reflection / no `reflect-metadata`.** Metadata lives in `context.metadata`; type information is erased.
-- **Zero required third-party runtime dependencies.**
-- **ESM-only, Node 26+, TS 7+, Stage 3.**
+The core jobs package supplies queues, workers, schedules and provider ports. `@zmdb/jobs-sqlite` supplies both durable SQLite storage and the memory store used by this runnable example. Jobs are
+absent from a default product install; there is no `zmdb/jobs` facade.
 
-See the project [ARCHITECTURE](https://github.com/ambasta/zmdb/blob/main/ARCHITECTURE.md) for where `@zmdb/web` fits in the package DAG and the language/perf policy.
+```ts
+import { jobsExtension } from '@zmdb/jobs';
+import { createApp } from 'zmdb';
 
-## Package boundary
+const app = createApp(ServerModule, {
+  graceMs: 1000,
+  extensions: [jobsExtension({ workers: [worker] })],
+});
+await app.init();
+```
 
-Use `@zmdb/app` for protocol-neutral application code and `@zmdb/web` for HTTP declarations and adapters. Applications can use the curated combined surface at `zmdb/web` without naming either
-implementation package.
+The example's worker validates the `order.created` payload and records the actual processed order identifier. `app.init()` starts it through the extension: there is no separate manual worker start or
+second application. The [queues guide](./web-queues.html) covers retry, dead letters, durable providers and idempotency. Delivery remains at-least-once. Inserting an order and enqueueing in the
+separate memory store are not one atomic transaction; use the provider's transactional enqueue API when an application requires that guarantee.
+
+## Serve and close owned resources
+
+The complete program bridges a real Node HTTP listener to `app.fetch`, sends its invalid and valid requests over loopback TCP, and observes the worker's completed job. Its `finally` blocks close the
+listener, await `app[Symbol.asyncDispose]()` to drain the worker, then close the caller-owned store and order database. The lifecycle is shared; resource ownership is explicit.
+
+From a repository checkout, run the exact installed example:
+
+```bash
+node fixtures/consumer-server-core/verify-installed.mjs --documented
+```
+
+This command builds and packs the selected packages, performs a real npm installation outside the workspace, typechecks the complete example, invokes the installed CLI/AOT build, and prints the
+measured HTTP/job/cleanup result. It exits after the demonstration and removes its consumer. It is also the executable source for these excerpts.
+
+## Advanced package boundaries
+
+| Need                          | Public choice                   | Owner and dependency direction                                  |
+| ----------------------------- | ------------------------------- | --------------------------------------------------------------- |
+| Cohesive server               | `zmdb`, `zmdb/app`, `zmdb/web`  | Product concerns delegate to their canonical owners             |
+| Application kernel alone      | `@zmdb/app`                     | DI, modules, lifecycle, commands and protocol-neutral ports     |
+| HTTP alone                    | `@zmdb/web`                     | Depends on app; owns routes, request contexts and HTTP adapters |
+| Selected jobs                 | `@zmdb/jobs`                    | Depends on app; owns queues, workers and scheduling             |
+| Selected SQLite job store     | `@zmdb/jobs-sqlite`             | Depends on the jobs protocol and SQLite owner                   |
+| Selected PostgreSQL job store | `@zmdb/jobs-postgres` with `pg` | Borrows a caller-owned PostgreSQL pool/client                   |
+
+See [application lifecycle](./web-app.html), [installation](./installation.html) and [package reference](./package-reference.html). Select broker transports and other integrations separately; they are
+not prerequisites for this server journey.
