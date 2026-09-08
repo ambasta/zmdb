@@ -1831,26 +1831,23 @@ export function toFetchHandler(
     const response = await router.handle({
       method: request.method,
       path: url.pathname,
-      headers: Object.fromEntries(request.headers),
+      headers: flattenFetchHeaders(request.headers),
       rawBody: raw.value,
       scheme: url.protocol.slice(0, -1),
     });
-    const headers = fetchHeaders(response);
     if (request.method === 'HEAD' || response.status === 204 || response.status === 304) {
+      const headers = fetchHeaders(response);
       if (response.body.kind === 'stream') {
         await response.body.value.cancel('response has no body').catch(() => undefined);
       }
       headers.delete('content-length');
       return new Response(null, { status: response.status, headers });
     }
-    switch (response.body.kind) {
-      case TEXT_BODY_KIND:
-        return new Response(fetchTextBody(response.body.value, headers), { status: response.status, headers });
-      case 'bytes':
-        return new Response(response.body.value, { status: response.status, headers });
-      case 'stream':
-        return new Response(response.body.value, { status: response.status, headers });
+    if (response.body.kind === TEXT_BODY_KIND) {
+      const headers = withoutTransferEncoding(response.headers);
+      return new Response(fetchTextBody(response.body.value, headers), { status: response.status, headers });
     }
+    return new Response(response.body.value, { status: response.status, headers: fetchHeaders(response) });
   };
 }
 
@@ -1915,6 +1912,18 @@ function flattenHeaders(headers: Readonly<Record<string, string | string[] | und
       flat[key] = value.join(', ');
     }
   }
+  return flat;
+}
+
+function flattenFetchHeaders(headers: Headers): Record<string, string> {
+  const flat: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    if (key === '__proto__') {
+      Object.defineProperty(flat, key, { value, enumerable: true, configurable: true, writable: true });
+    } else {
+      flat[key] = value;
+    }
+  });
   return flat;
 }
 
@@ -2018,9 +2027,15 @@ function fetchHeaders(response: WebResponse): Headers {
   return headers;
 }
 
-function fetchTextBody(value: string, headers: Headers): string | Uint8Array<ArrayBuffer> | null {
+function fetchTextBody(
+  value: string,
+  headers: Readonly<Record<string, string>>,
+): string | Uint8Array<ArrayBuffer> | null {
   if (value.length === 0) {
     return null;
   }
-  return headers.has('content-type') ? value : new TextEncoder().encode(value);
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === 'content-type') return value;
+  }
+  return new TextEncoder().encode(value);
 }

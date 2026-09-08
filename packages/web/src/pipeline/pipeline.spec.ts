@@ -71,6 +71,38 @@ class ShadowController {
 }
 
 describe('@zmdb/web pipeline: route table', () => {
+  it('preserves ordinary Fetch header records and mixed-case response headers', async () => {
+    @Controller('/fetch-headers')
+    class HeaderController {
+      @Get()
+      read(ctx: Ctx) {
+        expect(Object.getPrototypeOf(ctx.headers)).toBe(Object.prototype);
+        expect(Object.hasOwn(ctx.headers, '__proto__')).toBe(true);
+        return respond({
+          status: 200,
+          body: JSON.stringify({ prototypeHeader: ctx.headers.__proto__, values: ctx.headers['x-values'] }),
+          headers: { 'Content-Type': 'application/custom', 'Transfer-Encoding': 'chunked', 'X-Reply': 'yes' },
+        });
+      }
+    }
+    const router = createRouter();
+    router.register(new HeaderController());
+    const response = await toFetchHandler(router)(
+      new Request('http://localhost/fetch-headers', {
+        headers: [
+          ['__proto__', 'ordinary-value'],
+          ['X-Values', 'first'],
+          ['x-values', 'second'],
+        ],
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/custom');
+    expect(response.headers.get('transfer-encoding')).toBeNull();
+    expect(response.headers.get('x-reply')).toBe('yes');
+    expect(await response.json()).toEqual({ prototypeHeader: 'ordinary-value', values: 'first, second' });
+  });
+
   it.each([false, true])('shares loaders within each request (observability: %s)', async observed => {
     const scopes: unknown[] = [];
     const guarded = new WeakMap<object, unknown>();
