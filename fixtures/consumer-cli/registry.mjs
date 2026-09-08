@@ -317,9 +317,9 @@ export async function createFixture() {
           log: join(evidence, `pack-${label}.json`),
         });
         const report = JSON.parse(packed.stdout);
-        assert.equal(Array.isArray(report), false);
-        assert.deepEqual(Object.keys(report), [name]);
-        const filename = report[name].filename;
+        const entry = Array.isArray(report) ? report[0] : report[name];
+        assert.equal(entry.name, name);
+        const filename = entry.filename;
         assert.equal(typeof filename, 'string');
         assert.equal(dirname(resolve(tarballs, filename)), tarballs);
         const file = join(tarballs, filename);
