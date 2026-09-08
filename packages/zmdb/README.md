@@ -13,7 +13,40 @@ npm add zmdb@alpha
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-## Entry points
+## Build a SQLite HTTP application
+
+Start with the [product quick start](https://ambasta.github.io/zmdb/docs/quick-start.html) and the [complete server journey](https://ambasta.github.io/zmdb/docs/web-overview.html). SQLite is included
+in the default install. Declare a schema type, derive its validator and repository access, generate its migration, then serve the controller through one application.
+
+The [complete product example](https://github.com/ambasta/zmdb/tree/main/fixtures/consumer-product) contains the schema, HTTP program, TypeScript configuration, `zmdb.config.ts`, and `build.mjs`. Its
+application imports only `zmdb` and public `zmdb/*` concerns. Use those files in an ESM project with TypeScript 7, Node.js 26 types and esbuild as development tools. From that project directory:
+
+```bash
+export ZMDB_PRODUCT_DATABASE="$PWD/product.sqlite"
+npx zmdb codegen
+npx zmdb generate --name create_orders
+npx zmdb migrate
+npx zmdb check
+node build.mjs src/main.ts dist/main.mjs
+node dist/main.mjs
+```
+
+The CLI and the public `zmdb/compiler` AOT build read the same `zmdb.config.ts`. The database filename must be the same for migration and application execution. The example sends real loopback HTTP
+requests: invalid input returns 400 before a write, valid input is persisted, and the program closes its listener and database before exiting. Its installed consumer check already exercises these
+commands against real package archives; this example is a complete demonstration rather than a permanently running development server.
+
+Use the [same-app worker example](https://ambasta.github.io/zmdb/docs/web-overview.html#add-a-selected-worker-to-the-same-application) when the application needs background jobs. Jobs and their
+provider are an explicit selection; they are not required for the default SQLite HTTP application.
+
+## Advanced package boundaries
+
+Use `zmdb` for the common application vocabulary and a `zmdb/*` subpath for a focused concern. The direct `@zmdb/*` packages are implementation owners with explicit dependency boundaries for advanced
+consumers; they are not additional assembly steps for the default application. Each facade delegates by identity to its canonical owner.
+
+The [generated package reference](https://ambasta.github.io/zmdb/docs/package-reference.html) contains the package-role, dependency and installation tables from the official catalog and manifests. The
+[architecture reference](https://ambasta.github.io/zmdb/docs/architecture.html) explains the owner graph.
+
+### Product entry points
 
 - Application defaults: `zmdb`
 - Product concerns: `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`, `zmdb/web`

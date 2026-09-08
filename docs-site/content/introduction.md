@@ -1,6 +1,9 @@
 zmdb is a TypeScript data layer that eliminates schema-drift maintenance. You **declare your table as a type** and every derived artifact — entity types, create/update DTOs, runtime validation, JSON
 serialization, OpenAPI, DDL, and repository CRUD — is produced from that single source of truth, at **compile time**.
 
+Start with the [product quick start](./quick-start.html), then follow the [SQLite HTTP application journey](./web-overview.html): one `zmdb` install, one configuration, generated migrations, AOT
+validation and typed persistence behind an HTTP controller. Granular package choices belong in the [advanced package reference](./package-reference.html).
+
 ## The core idea
 
 Other tools make you write your types more than once: a TypeScript type, plus a schema, plus decorators, plus DTOs. Every one of those is a place for drift. zmdb removes the schema object entirely —
