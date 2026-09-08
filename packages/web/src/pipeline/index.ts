@@ -6,6 +6,7 @@
 import '@zmdb/app';
 import type { FileHandle } from 'node:fs/promises';
 
+import { createRequestData } from '@zmdb/app/data';
 import type { Constructor } from '@zmdb/app/di';
 import { fromTraceContext } from '@zmdb/app/observability';
 import type { Observability, Span, Tracer } from '@zmdb/app/observability';
@@ -1111,14 +1112,14 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           return response;
         }
 
-        const ctx = {
+        const ctx = Object.assign(createRequestData(), {
           params: matchedParams,
           body: req.rawBody,
           query: req.query ?? {},
           headers: req.headers,
           method,
           path: req.path,
-        };
+        });
 
         for (const guard of matched.guards ?? []) {
           try {
@@ -1369,14 +1370,14 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         if (params === undefined) {
           continue;
         }
-        const ctx = {
+        const ctx = Object.assign(createRequestData(), {
           params,
           body: req.rawBody,
           query: req.query ?? {},
           headers: req.headers,
           method,
           path: req.path,
-        };
+        });
         for (const guard of bound.guards ?? []) {
           try {
             if (!(await guard.canActivate(ctx))) {

@@ -1,3 +1,4 @@
+import { createRequestData } from '@zmdb/app/data';
 import {
   EventPattern,
   MessagePattern,
@@ -176,14 +177,14 @@ describe('@zmdb/web app: createApp', () => {
       extensions: [transportExtension({ transports: [transport], dispatcher })],
     });
     await app.init();
-    const httpContext: Ctx = {
+    const httpContext: Ctx = Object.assign(createRequestData(), {
       params: {},
       body: undefined,
       query: {},
       headers: { 'x-api-key': 'secret' },
       method: 'GET',
       path: '/orders',
-    };
+    });
 
     expect(await guard.canActivate(httpContext)).toBe(true);
     expect(await guard.canActivate({ ...httpContext, headers: {} })).toBe(false);

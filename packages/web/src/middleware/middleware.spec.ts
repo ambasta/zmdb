@@ -1,3 +1,4 @@
+import { createRequestData } from '@zmdb/app/data';
 // Tests (#289) for guards/pipes/interceptors/filters — RED first (middleware
 // exports absent). Order, short-circuit, transform, interceptor wrap, error
 // mapping. Per packages/web/src/middleware/SPEC.md.
@@ -8,7 +9,7 @@ import { text } from '../pipeline/index.js';
 import { runChain, type Guard, type Pipe, type Interceptor, type ExceptionFilter, type Chain } from './index.js';
 
 function ctxWith(body: unknown): Ctx<Record<string, string>, unknown> {
-  return { params: {}, body, query: {}, headers: {}, method: 'POST', path: '/' };
+  return Object.assign(createRequestData(), { params: {}, body, query: {}, headers: {}, method: 'POST', path: '/' });
 }
 
 describe('@zmdb/web middleware: chain', () => {

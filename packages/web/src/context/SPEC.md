@@ -20,7 +20,12 @@ The single argument a handler receives (Stage 3 has no parameter decorators). Al
 
 \`\`\`ts interface Ctx< Params extends Record<string, string> = Record<never, string>, Body = unknown, Query extends Record<string, string | readonly string[]> = Record<never, string>,
 
-> { readonly params: Params; readonly body: Body; readonly query: Query; readonly headers: Readonly<Record<string, string>>; readonly method: string; readonly path: string; } \`\`\`
+> { readonly params: Params; readonly body: Body; readonly query: Query; readonly headers: Readonly<Record<string, string>>; readonly method: string; readonly path: string; readonly loaders:
+> LoaderScope; } \`\`\`
+
+`Ctx` includes the `RequestData` contract from `@zmdb/app/data`. The router creates one request data owner for each matched request. Its `loaders` getter creates a `LoaderScope` on first access and
+returns that same scope to guards and handlers. Concurrent requests have separate scopes; direct repository reads do not use them implicitly. Standalone request contexts can use `createRequestData()`
+from `@zmdb/app/data`.
 
 ### `HandlerFor<Path, Body, Query, Result>`
 

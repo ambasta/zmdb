@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { createRequestData } from '@zmdb/app/data';
 import { describe, expect, it } from 'vitest';
 
 import { type Ctx, type Guard, type QueryValues } from '../index.js';
@@ -69,7 +70,14 @@ async function csrfFor(session: string | undefined, overrides: Partial<FrozenCsr
 
 /** A `Ctx` with nothing on it but the four things this middleware reads. */
 function ctxFor(method: string, headers: Readonly<Record<string, string>> = {}): AnyCtx {
-  return { params: {}, body: undefined, query: {}, headers, method, path: '/orders' };
+  return Object.assign(createRequestData(), {
+    params: {},
+    body: undefined,
+    query: {},
+    headers,
+    method,
+    path: '/orders',
+  });
 }
 
 function withToken(method: string, token: string, extra: Readonly<Record<string, string>> = {}): AnyCtx {

@@ -2,6 +2,7 @@
 // (epic #257, spec ./SPEC.md). Pure types + one small runtime helper. No `as`,
 // no reflection.
 
+import type { RequestData } from '@zmdb/app/data';
 import type { Span } from '@zmdb/app/observability';
 
 /**
@@ -27,7 +28,7 @@ export interface Ctx<
   Params extends Record<string, string> = Record<never, string>,
   Body = unknown,
   Query extends QueryValues = Record<never, string>,
-> {
+> extends RequestData {
   readonly params: Params;
   readonly body: Body;
   readonly query: Query;

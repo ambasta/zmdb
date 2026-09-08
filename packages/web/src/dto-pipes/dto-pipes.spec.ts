@@ -1,3 +1,4 @@
+import { createRequestData } from '@zmdb/app/data';
 // Tests (#299) for DTO validation/serialization pipes — RED first (dto-pipes
 // exports absent). Pipe rejects invalid, serializer emits, dtoChain composes.
 // Per packages/web/src/dto-pipes/SPEC.md.
@@ -18,7 +19,7 @@ function assertCreateUser(raw: unknown): CreateUser {
 }
 
 function ctxWith(body: unknown): Ctx<Record<string, string>, unknown> {
-  return { params: {}, body, query: {}, headers: {}, method: 'POST', path: '/' };
+  return Object.assign(createRequestData(), { params: {}, body, query: {}, headers: {}, method: 'POST', path: '/' });
 }
 
 describe('@zmdb/web dto-pipes: validationPipe', () => {

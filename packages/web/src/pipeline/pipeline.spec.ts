@@ -71,6 +71,54 @@ class ShadowController {
 }
 
 describe('@zmdb/web pipeline: route table', () => {
+  it.each([false, true])('shares loaders within each request (observability: %s)', async observed => {
+    const scopes: unknown[] = [];
+    const guarded = new WeakMap<object, unknown>();
+    @Controller('/scopes')
+    class ScopedController {
+      @Get()
+      read(ctx: Ctx) {
+        const loaders = Reflect.get(ctx, 'loaders');
+        expect(loaders).toBe(guarded.get(ctx));
+        expect(loaders).toBeDefined();
+        return 'ok';
+      }
+    }
+    const router = createRouter(
+      observed
+        ? {
+            meter: {
+              counter: () => ({ add() {} }),
+              histogram: () => ({ record() {} }),
+            },
+          }
+        : {},
+    );
+    router.register(new ScopedController(), {
+      read: {
+        guards: [
+          {
+            canActivate: ctx => {
+              scopes.push(Reflect.get(ctx, 'loaders'));
+              guarded.set(ctx, Reflect.get(ctx, 'loaders'));
+              return true;
+            },
+          },
+        ],
+      },
+    });
+    const handler = toFetchHandler(router);
+    const responses = await Promise.all([
+      handler(new Request('http://localhost/scopes')),
+      handler(new Request('http://localhost/scopes')),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(200);
+    }
+    expect(scopes[0]).toBeDefined();
+    expect(scopes[0]).not.toBe(scopes[1]);
+  });
+
   it('lets the first-declared route win when two match', async () => {
     const router = createRouter();
     router.register(new ShadowController());

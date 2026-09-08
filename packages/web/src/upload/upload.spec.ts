@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 
+import { createRequestData } from '@zmdb/app/data';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -175,7 +176,7 @@ function ctxWith(
   body: unknown,
   headers: Readonly<Record<string, string>> = { 'content-type': CONTENT_TYPE },
 ): Ctx<Record<string, string>, unknown> {
-  return { params: {}, body, query: {}, headers, method: 'POST', path: '/upload' };
+  return Object.assign(createRequestData(), { params: {}, body, query: {}, headers, method: 'POST', path: '/upload' });
 }
 
 /**

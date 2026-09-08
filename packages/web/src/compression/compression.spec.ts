@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { createRequestData } from '@zmdb/app/data';
 import { describe, expect, it } from 'vitest';
 
 import { text, type AnyCtx, type WebResponse } from '../index.js';
@@ -106,7 +107,14 @@ function streamResponse(
 }
 
 function ctxFor(headers: Readonly<Record<string, string>> = {}, method = 'GET'): AnyCtx {
-  return { params: {}, body: undefined, query: {}, headers, method, path: '/report' };
+  return Object.assign(createRequestData(), {
+    params: {},
+    body: undefined,
+    query: {},
+    headers,
+    method,
+    path: '/report',
+  });
 }
 
 function accepting(encoding: string, method = 'GET'): AnyCtx {

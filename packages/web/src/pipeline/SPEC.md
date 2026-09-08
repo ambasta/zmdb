@@ -42,7 +42,8 @@ export interface RouterOptions {
   5. **Invoke** the handler with the ctx.
   6. **Serialize** the result to JSON (`200`); a thrown handler → `500`, except a framework boundary error whose status is already decided (the multipart pipe's `400`/`413`). A handler that returns a
      response built by one of the factories below is returned verbatim instead, status and headers included.
-- No per-request reflection; one `Ctx` + one result object allocated per request.
+- No per-request reflection. Each matched request receives a `Ctx` with its own lazy `loaders` scope, shared by guards and the handler. The normal and observed pipelines use the same request-data
+  factory; direct repository reads retain their existing execution behavior.
 
 ### Handler-controlled responses
 
