@@ -78,13 +78,16 @@ export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
     for (const entry of tarballs) {
       const bytes = await readFile(entry.tarball);
       const digest256 = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-      const sha256 = typeof digest256.toHex === 'function' ? digest256.toHex() : Array.from(digest256, b => b.toString(16).padStart(2, '0')).join('');
+      const sha256 =
+        typeof digest256.toHex === 'function'
+          ? digest256.toHex()
+          : Array.from(digest256, b => b.toString(16).padStart(2, '0')).join('');
       const digest512 = new Uint8Array(await crypto.subtle.digest('SHA-512', bytes));
-      const sha512Base64 = typeof digest512.toBase64 === 'function' ? digest512.toBase64() : Buffer.from(digest512).toString('base64');
-      integrities.set(
-        entry.manifest.name,
-        `sha512-${sha512Base64}`,
-      );
+      const sha512Base64 =
+        typeof digest512.toBase64 === 'function'
+          ? digest512.toBase64()
+          : globalThis['btoa'](String.fromCharCode(...digest512));
+      integrities.set(entry.manifest.name, `sha512-${sha512Base64}`);
       report.tarballs.push({ name: entry.manifest.name, version: entry.manifest.version, sha256 });
     }
     registry = await startRegistry(tarballs);

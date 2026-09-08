@@ -174,9 +174,12 @@ function executeSample(directory, sample) {
     jsx: 'automatic',
     logLevel: 'silent',
   });
+  const preload = 'data:text/javascript,globalThis.fetch=()=>{throw new Error("network access disabled")};';
   const result = spawnSync(
     process.execPath,
     [
+      '--import',
+      preload,
       '--permission',
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
