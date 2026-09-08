@@ -1,0 +1,6 @@
+import type { CreateDTO } from 'zmdb';
+import type { Order } from './schema.js';
+
+export const draft: CreateDTO<Order> = { name: 'fixture' };
+export const copied = draft.name;
+export const rows = [draft];

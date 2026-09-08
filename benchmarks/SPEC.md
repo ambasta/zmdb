@@ -81,8 +81,8 @@ below apply to future engineering-cost comparisons and do not retroactively qual
 ### 8.1 Frozen inputs and workload boundaries
 
 Use the existing [default product consumer](../fixtures/consumer-product/) and [HTTP plus selected-worker consumer](../fixtures/consumer-server-core/) as separate application workloads. Keep the
-[existing type-instantiation workload](../.github/scripts/verify-instantiations.mjs) and [multi-module build workload](../.github/scripts/build-budget.mjs) as distinct compiler stress cases. Runtime
-operations come from the validation/ORM matrices above and the [framework harness](./harness/framework/SPEC.md); an HTTP-only score is not a validation score.
+[existing type-instantiation workload](../.github/scripts/verify-instantiations.mjs) and [multi-module build workload](../.github/scripts/verify-build-budget.mjs) as distinct compiler stress cases.
+Runtime operations come from the validation/ORM matrices above and the [framework harness](./harness/framework/SPEC.md); an HTTP-only score is not a validation score.
 
 Before collecting comparative data, pin each workload's source/configuration hashes, exact operation trace, input size, selected public entry, correctness oracle and cache policy. The same workload
 runs against baseline and candidate; an API migration that needs different source must retain both hashes and explain the equivalent operations. Freeze parameters before seeing candidate results. Do
