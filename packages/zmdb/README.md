@@ -97,3 +97,6 @@ Full docs: **https://ambasta.github.io/zmdb/**
 ## License
 
 GNU General Public License v3.0 or later (GPL-3.0-or-later) — see [LICENSE](./LICENSE).
+
+Continue through the [quick start](../../docs-site/content/quick-start.md), [blog API tutorial](../../docs-site/content/tutorial-blog-api.md) and
+[generated client](../../docs-site/content/generated-client.md). Select database and framework packages from the [generated package reference](../../docs-site/content/package-reference.md).

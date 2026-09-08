@@ -8,66 +8,17 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Product and packages
+## Build one application
 
-Install `zmdb` for the cohesive schema, validation, typed ORM, migration, HTTP, configuration, and CLI product facade with SQLite included. Select other database verticals explicitly; MySQL
-applications install `@zmdb/mysql` with `mysql2`. The other independently installable `@zmdb/*` packages are advanced dependency firebreaks, integrations, and tooling rather than a second beginner
-setup. Their membership, product roles, facade exposure, documentation ownership, and external-consumer evidence come from the [canonical product catalog](./scripts/product/catalog.mjs); the
-[package reference](./docs-site/content/package-reference.md) renders that inventory.
+Install `zmdb` to define a schema, generate its migration, validate requests and persist typed records behind an HTTP controller. SQLite is included. Start with the
+[quick start](./docs-site/content/quick-start.md), then follow the [blog API tutorial](./docs-site/content/tutorial-blog-api.md) and [generated client](./docs-site/content/generated-client.md).
 
-CockroachDB is selected through `@zmdb/cockroach`, a one-way child of `@zmdb/postgres` that owns Cockroach-specific types, migrations, catalog normalization, retries, and its real-server acceptance.
-SingleStore is selected through `@zmdb/singlestore`, a one-way child of `@zmdb/mysql` that owns storage/distribution DDL, catalog normalization, conservative refusals, and mandatory packed real-server
-acceptance.
+The product uses the same schema through validation, SQL, repositories and HTTP. The [runnable server journey](./docs-site/content/web-overview.md) demonstrates a real HTTP request, persistence and a
+selected background worker under one application lifecycle.
 
-AI and MCP stay outside the product facade: install provider-neutral `@zmdb/ai`, then add only the Anthropic, LangChain, Vercel AI SDK, or MCP package the application uses. The
-[LLM package and migration guide](./docs-site/content/llm-strategy.md) lists the exact installs, optional peers, and replacements for every removed schema-core LLM subpath.
-
-Background jobs are selected the same way: install `@zmdb/jobs` only when an application needs queues or schedules, then pass `jobsExtension(...)` through the existing application lifecycle. The
-default `zmdb` install has no jobs dependency and deliberately exposes no `zmdb/jobs` compatibility facade.
-
-React is opt-in as well: install `@zmdb/react` only when a generated client needs React context and component-lifecycle ownership.
-
-React Native is opt-in too: install `@zmdb/react-native` with React and React Native when the same generated client needs AppState cancellation, explicit offline policy, and application-selected
-connectivity and credential storage.
-
-Angular is opt-in too: install `@zmdb/angular` with Angular core and RxJS when a generated client needs dependency injection, signals, `DestroyRef`, and Observable cancellation.
-
-Vue is opt-in too: install `@zmdb/vue` with Vue 3 when a generated client needs application injection, reactive query/mutation state, scope cancellation, and per-application SSR isolation.
-
-Svelte is opt-in too: install `@zmdb/svelte` only when a generated client needs typed Svelte context, subscription-aware stores, and component-lifecycle cancellation.
-
-SvelteKit is a separate opt-in layer: install `@zmdb/sveltekit` when server loads need request-local `event.fetch`, explicit credential forwarding, native framework errors, and abandoned-navigation
-cancellation. Its browser entry reuses `@zmdb/svelte`; its server entry is physically separate.
-
-Next.js is opt-in: install `@zmdb/next` for request-scoped App Router server clients and browser bindings over `@zmdb/react`, without adding Next or React to the default product.
-
-Nuxt is opt-in too: install `@zmdb/nuxt` for request-scoped Nitro transport, native hydration, and browser bindings over `@zmdb/vue`, without adding Nuxt or Vue to the default product.
-
-Solid is opt-in too: install `@zmdb/solid` with Solid 1 when a generated client needs typed context, native resources, owner cancellation, and native Suspense/error propagation.
-
-All nine UI and meta-framework packages consume the same generated HTTP client. The [Client Applications guide](./docs-site/content/framework-integrations.md) compares their CSR, SSR, hydration,
-cancellation, and native-lifecycle ownership before linking to one framework-native guide per package.
-
-Optional server integrations stay outside the `zmdb` default install:
-
-- `@zmdb/protobuf` has no peer or external resource; `@zmdb/compiler` emits its artifacts.
-- `@zmdb/mssql` requires `mssql@^12.7.0`; the application constructs and owns the pool while the package supplies the complete T-SQL compiler, migration, structural-driver, and catalog-introspection
-  vertical.
-- `@zmdb/singlestore` accepts a consumer-owned `mysql2@^3.24.3` pool and binds it to the SingleStore dialect without installing the client as a hard dependency.
-- `@zmdb/transport-grpc` requires `@grpc/grpc-js@^1.14.4`; the application owns the server extension and the caller closes each client.
-- `@zmdb/transport-kafka` requires `kafkajs@>=2.2.4 <3.0.0`; the selected event transport owns its producer/consumer, ordered offsets, partition retries and bounded drain.
-- `@zmdb/transport-nats` requires `@nats-io/transport-node@^3.4.0`; the application extension starts, drains, and closes its connection.
-- `@zmdb/transport-rabbitmq` requires `amqplib@^2.0.1`; the application extension owns its connection, channels, retry, and dead-letter setup.
-- `@zmdb/transport-redis` requires `redis@^6.2.1`; the application extension owns its publisher/subscriber clients and bounded drain.
-- `@zmdb/transport-sqs` requires `@aws-sdk/client-sqs@>=3.1127.0 <4.0.0`; the caller owns its SDK client and standard queues, while the adapter settles current receipts and drains bounded work.
-- `@zmdb/jobs-postgres` requires `pg@^8.23.0`; the caller owns the pool/client and the adapter never closes or releases it.
-- `@zmdb/otel` requires `@opentelemetry/api@^1.9.1`; the caller owns providers, exporters, tracers, meters, and shutdown.
-
-`@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/compiler` owns build-time reflection and emission, while `@zmdb/validator` is the compiler-free
-validation runtime.
-
-Tooling is independently usable: `@zmdb/compiler` owns reflection and build adapters, `@zmdb/migrations` owns schema plans and ledger execution, and `@zmdb/cli` owns the single `zmdb` executable. The
-[tooling guide](./docs-site/content/tooling-boundaries.md) explains standalone installs, configuration, required peers and the generated-runtime boundary.
+Choose a database, client framework, job provider or transport when the application needs it. The [generated package reference](./docs-site/content/package-reference.md) owns package identities,
+installation commands, peer requirements and support evidence. The [integration guide](./docs-site/content/framework-integrations.md) connects the generated HTTP client to the selected framework.
+Advanced dependency boundaries are explained in the [runtime foundation](./docs-site/content/runtime-foundation.md) and [tooling](./docs-site/content/tooling-boundaries.md) guides.
 
 > The workspace publishes **42 packages** across **185 export-map entry points**. Vitest discovers runtime tests from the workspace. The compatibility inventory covers 504 of 742 upstream API suites
 > and explains why the other 238 are out of scope.
@@ -121,7 +72,8 @@ The default import is the lazy, logic-free application surface. Focused APIs rem
 `schemaOf<T>()` is resolved at build time because TypeScript erases type arguments before the program runs. Set up the build plugin, or run the code generator, as described in
 [AOT setup](https://ambasta.github.io/zmdb/docs/aot-setup.html). Calling untransformed code fails with a clear error instead of returning an empty schema.
 
-You can also install individual packages or subclass `BaseRepository` from `zmdb/orm`. The [full quick start](https://ambasta.github.io/zmdb/docs/quick-start.html) covers both approaches.
+You can also install individual packages or subclass `BaseRepository` from `zmdb/orm`. Continue through the [full quick start](https://ambasta.github.io/zmdb/docs/quick-start.html) and
+[blog API tutorial](https://ambasta.github.io/zmdb/docs/tutorial-blog-api.html).
 
 ## One HTTP contract, two public artifacts
 

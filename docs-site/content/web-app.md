@@ -66,3 +66,5 @@ await app.init();
 - [One server with HTTP and selected jobs](./web-overview.html) — one `createApp` call owns the worker extension; the caller closes the listener and database
 
 - [Modules & providers](./web-modules.html) · [Request pipeline](./web-pipeline.html)
+
+Continue with the [generated HTTP client](./generated-client.html), [client applications](./framework-integrations.html) and the [generated integration reference](./package-reference.html).

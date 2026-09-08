@@ -1,236 +1,156 @@
-A complete blog API — schema, migrations, repository, HTTP, validation, OpenAPI, tests — with nothing declared twice. Roughly 200 lines end to end.
+Build a small blog API with the same `zmdb` installation used in the [quick start](./quick-start.html). One table declaration supplies repository types, migration input and request validation. The
+application serves that repository through HTTP; the [generated-client workflow](./generated-client.html) then gives callers a public contract.
 
-## 1. Install and configure the transformer
+This tutorial uses the included SQLite provider and caller-owned database connection. The
+[complete installed server example](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-server-core/src/documented-server.ts) demonstrates the same schema, repository, HTTP and shutdown
+boundaries with a real Node listener and an optional worker.
+
+## 1. Create the project
 
 ```bash
-yarn add zmdb
+npx zmdb@alpha new project blog
+cd blog
+npm install
 ```
 
-```ts {"mode":"compile","id":"example-001"}
-// vite.config.ts
-import { defineConfig } from 'vite';
-import { zmdbAot } from 'zmdb/compiler';
+The CLI supplies the strict TypeScript configuration, AOT build and application scripts. Keep that build configuration: `schemaOf<T>()` and `assert<T>()` require the transform. See
+[AOT setup](./aot-setup.html) for an existing project.
 
-export default defineConfig({ plugins: [await zmdbAot()] });
-```
+## 2. Declare the post once
 
-See [AOT Setup](./aot-setup.html) for tsc, tsup, esbuild and webpack.
+Replace `src/schema.ts` with the table declaration:
 
-## 2. The schema
+```ts {"mode":"compile","id":"schema","group":"blog-app","file":"src/schema.ts","environment":"node"}
+import type { MinLength, PrimaryKey, Serial, Sql, Table } from 'zmdb';
 
-Two tables and one relation. This file is the only place the shape of a post exists.
-
-```ts {"mode":"compile","id":"example-002"}
-// src/schema.ts
-import type { HasDefault, Length, ManyToOne, OneToMany, Pattern, PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/schema';
-
-export interface Author extends Table<'authors'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'> & Unique & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;
-  name: string & Sql<'varchar'> & Length<80>;
-  posts?: Post[] & OneToMany<'posts', 'authorId'>;
-}
-
-export interface Post extends Table<'posts'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  authorId: number & Sql<'integer'> & References<'authors.id'>;
-  title: string & Sql<'varchar'> & Length<200>;
-  body: string & Sql<'text'>;
-  published: boolean & HasDefault;
-  createdAt: Date & Sql<'timestamp'> & HasDefault;
-  author?: Author & ManyToOne<'authors', 'authorId'>;
+export interface BlogPost extends Table<'posts'> {
+  readonly id: number & Sql<'integer'> & Serial & PrimaryKey;
+  readonly title: string & Sql<'text'> & MinLength<1>;
+  readonly body: string & Sql<'text'>;
 }
 ```
 
-The derived types come for free:
+`CreateDTO<BlogPost>` excludes the generated identifier and requires the title and body. `Entity<BlogPost>` describes the stored row. Changing the declaration updates these types and the AOT
+validator; [type derivation](./type-derivation.html) explains the other request and query shapes.
 
-```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
-import type { CreateDTO, Entity } from 'zmdb';
+## 3. Generate and apply the migration
 
-type Row = Entity<Post>;
-// { id: number; authorId: number; title: string; body: string; published: boolean; createdAt: Date }
+Use the public configuration in `zmdb.config.ts`. Both the CLI and application below open `blog.sqlite` from the project directory.
 
-type NewPost = CreateDTO<Post>;
-// { authorId: number; title: string; body: string; published?: boolean; createdAt?: Date }
-```
+```ts {"mode":"compile","id":"configuration","group":"blog-app","file":"zmdb.config.ts","environment":"node"}
+import { DatabaseSync } from 'node:sqlite';
+import { defineConfig } from 'zmdb/config';
+import { sqlite, sqliteDriver } from 'zmdb/sqlite';
 
-`id` is gone because it is `Serial`; `published` and `createdAt` are optional because they say `HasDefault`. The relations are gone too — a join target is not something to `INSERT`. Nothing restated
-any of that; it was read off the declaration.
-
-## 3. Migrations
-
-```ts {"mode":"illustrative","id":"example-004","reason":"The application supplies the local modules ../src/schema.js; this fence is an excerpt of that project."}
-// scripts/generate.ts
-import { diff, emitUp, snapshot } from 'zmdb/migrations';
-import { schemaOf } from 'zmdb';
-import type { Author, Post } from '../src/schema.js';
-import { readFileSync, writeFileSync } from 'node:fs';
-
-const prev = JSON.parse(readFileSync('migrations/snapshot.json', 'utf8'));
-const next = snapshot([schemaOf<Author>(), schemaOf<Post>()]);
-
-const sql = diff(prev, next).map(op => emitUp(op, 'postgres'));
-writeFileSync(`migrations/${Date.now()}_auto.sql`, sql.join(';\n') + ';\n');
-writeFileSync('migrations/snapshot.json', JSON.stringify(next, null, 2));
-```
-
-Run it, commit both files, and apply with the [runner](./migrations-cli.html). Full workflow in [Migrations](./migrations.html).
-
-## 4. Repositories
-
-```ts {"mode":"illustrative","id":"example-005","reason":"The application supplies the local modules ./driver.js, ./schema.js; this fence is an excerpt of that project."}
-// src/repositories.ts
-import { defineRepository, schemaOf } from 'zmdb';
-import type { Author, Post } from './schema.js';
-import { driver } from './driver.js';
-
-export const authorRepo = defineRepository(schemaOf<Author>(), driver);
-export const postRepo = defineRepository(schemaOf<Post>(), driver);
-
-export type PostRepo = typeof postRepo;
-```
-
-`defineRepository(schema, driver, options?)` returns a **repository instance**, not a class — it builds an anonymous `BaseRepository` subclass with the schema bound as a static and constructs it.
-`findById`, `find`, `findOne`, `list`, `create`, `update`, `delete`, `aggregate` and the populate/join methods are all typed against the schema you passed. Exporting `typeof postRepo` as a named type
-is what lets a controller annotate its injected field.
-
-Relations need no wiring here. `OneToMany<'posts', 'authorId'>` on the interface in step 2 is the whole declaration: `authorRepo.findAll({ populate: ['posts'] })` type-checks the key against it and
-batches the child query from the same tag. There used to be a `relations` option on this call that restated the target and the foreign key.
-
-## 5. A driver
-
-```ts {"mode":"compile","id":"example-006"}
-import { postgres } from '@zmdb/postgres';
-// src/driver.ts
-import { Pool } from 'pg';
-import type { Driver } from 'zmdb';
-import type { CompiledQuery } from 'zmdb/sql';
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
-export const driver: Driver = {
-  dialect: postgres,
-  async execute(query: CompiledQuery) {
-    const res = await pool.query(query.text, [...query.parameters]);
-    return res.rows;
-  },
-};
-```
-
-That is the entire database integration. See [Writing a Driver](./custom-driver.html).
-
-## 6. The HTTP layer
-
-```ts {"mode":"illustrative","id":"example-007","reason":"The application supplies the local modules ./repositories.js, ./schema.js, ./tokens.js; this fence is an excerpt of that project."}
-// src/posts.controller.ts
-import { Controller, Get, Post as HttpPost, ValidationError, assert, type CreateDTO, type Ctx } from 'zmdb';
-import { Inject } from 'zmdb/web';
-import type { PostRepo } from './repositories.js';
-import type { Post } from './schema.js';
-import { postRepoToken } from './tokens.js';
-
-@Controller('/posts')
-export class PostsController {
-  @Inject(postRepoToken) private readonly repo!: PostRepo;
-
-  @Get('/')
-  async list() {
-    return this.repo.list({
-      where: { published: { eq: true } },
-      orderBy: [{ column: 'createdAt', dir: 'desc' }],
-      page: { limit: 20 },
+export default defineConfig({
+  schema: './src/schema.ts',
+  dialect: sqlite,
+  project: './tsconfig.json',
+  out: './migrations',
+  driver: () => {
+    const database = new DatabaseSync('blog.sqlite');
+    return Object.assign(sqliteDriver(database), {
+      [Symbol.dispose]: () => database.close(),
     });
-  }
-
-  @Get('/:id')
-  async byId(ctx: Ctx<{ id: string }>) {
-    const post = await this.repo.findById(Number(ctx.params.id), { populate: ['author'] });
-    if (post === undefined) throw new ValidationError('post not found', []);
-    return post; // post.author is typed, because you asked for it
-  }
-
-  @HttpPost('/')
-  async create(ctx: Ctx<Record<never, string>, unknown>) {
-    const dto = assert<CreateDTO<Post>>(ctx.body); // validator generated from the type
-    return this.repo.create(dto);
-  }
-}
-```
-
-`assert<CreateDTO<Post>>` is a validator the transformer derived from the declaration, so adding a required column breaks this call site — not the request, at runtime, in production.
-
-> [!TIP] `Ctx<Params, Body, Query>` is generic over the three request parts. `PathParams<'/posts/:id'>` derives `{ id: string }` from the path literal if you would rather not restate it. See
-> [Typed Request Context](./web-context.html).
-
-## 7. Wire it up
-
-```ts {"mode":"illustrative","id":"example-008","reason":"The application supplies the local modules ./posts.controller.js, ./repositories.js, ./tokens.js; this fence is an excerpt of that project."}
-// src/app.ts
-import { createServer } from 'node:http';
-import { Module, createApp } from 'zmdb';
-import { bodyText } from 'zmdb/web';
-import { PostsController } from './posts.controller.js';
-import { postRepo } from './repositories.js';
-import { postRepoToken } from './tokens.js';
-
-@Module({
-  controllers: [PostsController],
-  providers: [{ token: postRepoToken, useValue: postRepo }],
-})
-export class AppModule {}
-
-await using app = createApp(AppModule);
-await app.init(); // runs onModuleInit / onApplicationBootstrap
-
-createServer((req, res) => {
-  app.handle({ method: req.method ?? 'GET', path: req.url ?? '/', headers: req.headers as Record<string, string> }).then(async r => {
-    res.writeHead(r.status, r.headers);
-    res.end(await bodyText(r));
-  });
-}).listen(3000);
-```
-
-`app.fetch(request)` is the same application behind a `Request`/`Response` pair, which is what you want on Workers, Deno and Bun. See [Application Bootstrap](./web-app.html). The module-level Node
-snippet buffers a streamed response; use `toNodeHandler(router)` when the route surface is registered directly on a router and must stream with backpressure.
-
-## 8. OpenAPI, derived
-
-```ts {"mode":"illustrative","id":"example-009","reason":"The application supplies the local modules ./http-contract.js; this fence is an excerpt of that project."}
-import { toOpenApi } from 'zmdb/web';
-import { compileHttpContracts } from 'zmdb/web/contract/compiler';
-
-import { HTTP_CONTRACT } from './http-contract.js';
-
-const compiled = compileHttpContracts([{ file: new URL('./http-contract.ts', import.meta.url), exportName: 'HTTP_CONTRACT', contract: HTTP_CONTRACT }], { session });
-const doc = toOpenApi(compiled.ir, { info: { title: 'Blog', version: '1.0.0' } });
-```
-
-The contract's `GET /posts` response schema is reflected once during compilation, then shared by routing, OpenAPI, and generated clients. `session` is the build's caller-owned `ReflectSession`. See
-[OpenAPI Generation](./web-openapi.html).
-
-## 9. Tests
-
-```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
-import { createTestApp } from 'zmdb/testing';
-import { expect, it } from 'vitest';
-
-it('rejects a post with no title', async () => {
-  await using app = createTestApp(AppModule);
-  const res = await app.request({ method: 'POST', path: '/posts', body: { authorId: 1, body: 'x' } });
-  expect(res.status).toBe(400);
+  },
 });
 ```
 
-No database needed for the validation path — swap `driver` for a fake in `overrides` to test the query path against asserted SQL text. See [Testing](./web-testing.html).
+```bash
+npx zmdb codegen
+npx zmdb generate --name create_posts
+npx zmdb migrate
+```
 
-## What you did not have to write
+Review and commit the generated migration and snapshot. Subsequent schema changes use the same generation and ledger workflow. The [migration guide](./migrations.html) covers reviewing plans and
+[database selection](./drivers.html) covers choosing another complete provider.
 
-- a second schema for validation
-- a DTO class per request shape
-- `@ApiProperty()` annotations
-- a `params` interface
-- a metadata plugin to recover types the decorators could not see
+## 4. Bind validation, persistence and HTTP
 
----
+Replace `src/main.ts` with this program. The repository uses the same schema and SQLite dialect as the migration. The controller validates the incoming create DTO before persistence.
 
-See also: [Quick Start](./quick-start.html) · [Schema Declaration](./schema-declaration.html) · [Building an API with zmdb](./web-data-integration.html) · [Migrations](./migrations.html)
+```ts {"mode":"compile","id":"application","group":"blog-app","file":"src/main.ts","environment":"node"}
+import { DatabaseSync } from 'node:sqlite';
+import { Controller, Get, Module, Post, assert, createApp, defineRepository, schemaOf, type CreateDTO, type Ctx } from 'zmdb';
+import { sqlite, sqliteDriver } from 'zmdb/sqlite';
+
+import type { BlogPost } from './schema.js';
+
+const database = new DatabaseSync('blog.sqlite');
+const posts = defineRepository(schemaOf<BlogPost>(), sqliteDriver(database), { dialect: sqlite });
+
+@Controller('/posts')
+class PostsController {
+  @Get()
+  list() {
+    return posts.find({});
+  }
+
+  @Post()
+  create(ctx: Ctx<Record<never, string>, CreateDTO<BlogPost>>) {
+    return posts.create(assert<CreateDTO<BlogPost>>(ctx.body));
+  }
+}
+
+@Module({ controllers: [PostsController] })
+class BlogModule {}
+
+const app = createApp(BlogModule);
+try {
+  await app.init();
+  const created = await app.fetch(
+    new Request('http://blog.local/posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'First post', body: 'Hello from zmdb.' }),
+    }),
+  );
+  console.log(created.status, await created.json());
+
+  const listed = await app.fetch(new Request('http://blog.local/posts'));
+  console.log(listed.status, await listed.json());
+} finally {
+  try {
+    await app[Symbol.asyncDispose]();
+  } finally {
+    database.close();
+  }
+}
+```
+
+```bash
+npm run check
+npm run build
+npm start
+```
+
+The example dispatches standard HTTP `Request` objects through the application, prints the responses and exits after closing its resources. To serve requests over a Node listener, follow the
+[server journey](./web-overview.html), which includes body/header forwarding and listener cleanup. [Application lifecycle](./web-app.html) explains initialization and shutdown ownership.
+
+The generated validator rejects an empty title. Repository writes remain explicit, and returned rows are plain data. Extend the same repository with [filters](./filters.html),
+[pagination](./pagination.html) and [relations](./relations.html) as the application needs them.
+
+## 5. Share the HTTP contract with callers
+
+Follow [Generated HTTP client](./generated-client.html) to declare the operations with `defineHttpContract` and `httpOperation`, bind that declaration to routing, and configure the sibling OpenAPI and
+client outputs in `zmdb.config.ts`. Use the post entity and create DTO as the application's response and request types.
+
+```bash
+npx zmdb client generate
+npx zmdb client generate --check
+```
+
+Run these commands after adding the HTTP contract and output configuration. The same compiled operation model supplies runtime registration, OpenAPI and client generation. The generated client accepts
+the caller's base URL, authentication and cancellation; it does not invent a second data model.
+
+Continue to [client applications](./framework-integrations.html) for the selected UI framework. Add [background jobs](./web-queues.html), [authentication](./web-authentication.html) or other
+integrations at their existing application boundaries.
+
+## Check the application at its public boundaries
+
+The [HTTP testing guide](./web-testing.html) shows request/response tests and provider overrides. Keep a real selected-database integration check for persistence and migrations. The
+[installed server example](./web-overview.html#serve-and-close-owned-resources) exercises a real HTTP listener, invalid and valid requests, database persistence and shutdown through the public
+packages.
+
+The next steps stay on the same product path: [schema](./schema-declaration.html) → [repository](./repository.html) → [validation](./validators-validate.html) → [HTTP](./web-overview.html) →
+[generated client](./generated-client.html) → [integrations](./package-reference.html).

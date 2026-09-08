@@ -139,3 +139,6 @@ you `the database generates "id", so a payload cannot supply it` rather than a s
 - [is](./validators-is.html) — boolean type guard
 - [tags](./validators-tags.html) — the constraints (`Min`, `Pattern`, …)
 - [unions-refinements](./unions-refinements.html) — union types and custom refinements
+
+Use validation at the [HTTP boundary](./web-overview.html), then share the operation model with a [generated client](./generated-client.html). The [blog API tutorial](./tutorial-blog-api.html)
+connects these steps.

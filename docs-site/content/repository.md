@@ -174,3 +174,5 @@ try {
 - [Read DTOs](./read-dtos.html) — typed filtering, ordering, pagination
 - [Transactions](./transactions.html) — transaction management details
 - [Validation](./validators-is.html) — AOT-validated payloads
+
+Continue with [request validation](./validators-validate.html) and the [blog API tutorial](./tutorial-blog-api.html) to expose this repository through HTTP.

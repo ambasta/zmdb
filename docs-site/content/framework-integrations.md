@@ -67,3 +67,6 @@ Choose the guide for the owning application:
 Astro, Electron, Ember, Lit, Qwik, and Remix do not currently earn framework packages. Create the generated client at the framework's ordinary request or context boundary, pass its methods through the
 framework's own lifecycle primitives, and forward cancellation signals to each operation. These are recipes, not package or conformance claims: there is no `@zmdb/astro`, `@zmdb/electron`,
 `@zmdb/ember`, `@zmdb/lit`, `@zmdb/qwik`, or `@zmdb/remix` package.
+
+Start from the [generated client contract](./generated-client.html), then follow the selected framework guide above. Server-side additions use the same [application lifecycle](./web-app.html);
+[package reference](./package-reference.html) owns their current install and support rows.

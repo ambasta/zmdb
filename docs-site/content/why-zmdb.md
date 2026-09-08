@@ -55,19 +55,20 @@ If you delete `email` from the interface, every one of those changes in the same
 **2. Rows are data.** A read returns a plain object. There is no identity map holding it, no proxy deciding whether a property access is free or a query, and no `flush()` inferring your intent from a
 diff. See [Why fetched rows are inert](./inert-rows.html).
 
-**3. Zero required runtime dependencies.** `@zmdb/*` packages depend on nothing at runtime. The driver you write is yours; the ~15-line `Driver` interface is the whole contract.
+**3. Explicit ownership.** The runtime foundation has no external runtime dependencies. Database providers, HTTP, build tooling and optional integrations have their own declared dependencies and
+resource ownership. The default `zmdb` install includes SQLite; select a supported driver instead of writing an adapter for the beginner path. See [Runtime foundation](./runtime-foundation.html) and
+[Database selection](./drivers.html).
 
-> [!NOTE] Those rules cost you things. There is no `ON CONFLICT` yet and no GraphQL layer — the first is not built, the second [will not be](./web-graphql.html). The explicit result cache remains
-> deliberately separate from an identity map. The [anti-patterns page](./anti-patterns.html) lists what is excluded on principle and the
-> [coverage gate](https://github.com/ambasta/zmdb/blob/main/.github/scripts/verify-docs-coverage.mjs) lists the rest — every page in this manual marked **ToDo** names documentation or capability work
-> that remains, and every page marked **Not planned** names one that is not.
+These rules exclude identity maps, automatic unit-of-work flushing and lazy relation proxies. [Anti-patterns](./anti-patterns.html) explains those boundaries. Use the
+[generated package reference](./package-reference.html) and [client integration guide](./framework-integrations.html) for current package and framework support.
 
 ## When not to use zmdb
 
-- You need a target we do not compile: Gel or MongoDB, or a SQL dialect beyond Postgres, MySQL, SQLite, SQL Server, CockroachDB and SingleStore. See [Dialects](./dialect-postgres.html).
+- You need a target we do not compile: Gel or MongoDB, or a SQL dialect beyond Postgres, MySQL, SQLite, SQL Server, CockroachDB and SingleStore. See [Database selection](./drivers.html).
 - You want the ORM to track your objects and work out the writes. That is the [unit of work](./anti-patterns.html), and it is excluded by design, not deferred.
 - You cannot run a TypeScript transformer in your build. The transformer is not optional — see [AOT Setup](./aot-setup.html).
 
 ---
 
-See also: [Introduction](./introduction.html) · [Architecture](./architecture.html) · [AOT vs JIT](./jit-vs-aot.html) · [Anti-patterns](./anti-patterns.html)
+Continue with [Quick start](./quick-start.html) → [Blog API](./tutorial-blog-api.html) → [Generated client](./generated-client.html). See [Architecture](./architecture.html) for ownership and
+[Anti-patterns](./anti-patterns.html) for deliberate limits.

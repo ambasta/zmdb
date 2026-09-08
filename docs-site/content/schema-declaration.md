@@ -182,5 +182,6 @@ example from `schema.columns`). Repository DTOs continue to use declared propert
 - [Column Types](./column-types.html) — the SQL type set and why it is small
 - [Type Derivation](./type-derivation.html) — `Entity`, the DTOs, and the read models
 - [Relations](./relations.html) — declaring and traversing relationships
-- [Codemod](./codemod.html) — converting a `defineSchema` project
 - [Repository](./repository.html) — using a schema for CRUD
+
+Continue with the [repository](./repository.html) to persist this schema, then [validate requests](./validators-validate.html) in the [blog API tutorial](./tutorial-blog-api.html).

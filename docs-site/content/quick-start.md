@@ -1,8 +1,8 @@
 This guide takes you from an empty project to a validated, type-safe data layer in a few minutes. By the end you will have defined a schema, derived its types, run CRUD through a repository, and
-issued a typed query.
+issued a typed query. Continue with the [blog API tutorial](./tutorial-blog-api.html) to put the same data layer behind HTTP, then [generate its client contract](./generated-client.html).
 
-> [!NOTE] zmdb targets **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. It never opens a database connection itself — you inject a small `Driver`, so it works with `pg`, `mysql2`,
-> `better-sqlite3`, or `node:sqlite`.
+> [!NOTE] zmdb targets **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. The default product includes the SQLite provider. You own its connection and pass the selected driver into the
+> repository; other database providers are explicit selections.
 
 ## 1. Install
 
@@ -38,7 +38,7 @@ export interface Order extends Table<'orders'> {
 Each property is its **app type** intersected with **tags**. The app type is what your code sees; the tags say what TypeScript has no syntax for. Tags are phantom `unique symbol` slots, so they erase
 completely — this file compiles to no JavaScript at all.
 
-There is no builder DSL and no global registry. If you have a codebase full of `defineSchema('users', { id: serial().primaryKey() })`, the [codemod](./codemod.html) converts it.
+The build reads the TypeScript declaration. No separate builder declaration or global schema registry is required.
 
 ## 3. Types derive automatically
 
@@ -61,8 +61,7 @@ type UpdateUser = UpdateDTO<User>; //  Partial<CreateUser>
 
 ## 4. CRUD through a repository
 
-A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the `@zmdb/sqlite` `node:sqlite` driver — a genuinely
-zero-dependency setup:
+A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the included `zmdb/sqlite` adapter for `node:sqlite`:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { DatabaseSync } from 'node:sqlite';
@@ -148,6 +147,7 @@ const user = await users.create(payload);
 
 ## Where to go next
 
+- [Blog API](./tutorial-blog-api.html) → [Generated HTTP client](./generated-client.html) → [Client applications](./framework-integrations.html)
 - [One server journey](./web-overview.html) — generate the migration, serve validated HTTP, and explicitly add a SQLite-backed worker to the same application
 
 - [Schema declaration](./schema-declaration.html), the [tag reference](./tags-reference.html) and [Column types](./column-types.html)

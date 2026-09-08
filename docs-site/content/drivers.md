@@ -247,3 +247,6 @@ gives you a real database with no server; see [Testing](./testing.html).
 ---
 
 See also: [Custom Driver](./custom-driver.html) · [Read Replicas](./read-replicas.html) · [Transactions](./transactions.html)
+
+Continue with [migrations](./migrations.html), then use the selected driver in the [blog API tutorial](./tutorial-blog-api.html). [Package reference](./package-reference.html) owns provider
+installation and support evidence.
