@@ -66,11 +66,11 @@ Optional server integrations stay outside the `zmdb` default install:
 `@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/compiler` owns build-time reflection and emission, while `@zmdb/validator` is the compiler-free
 validation runtime.
 
-Compiler tooling is independently usable: install `@zmdb/compiler` when a build, linter, Metro project, or no-bundler workflow needs the TypeScript front end directly. The
-[installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
+Tooling is independently usable: `@zmdb/compiler` owns reflection and build adapters, `@zmdb/migrations` owns schema plans and ledger execution, and `@zmdb/cli` owns the single `zmdb` executable. The
+[tooling guide](./docs-site/content/tooling-boundaries.md) explains standalone installs, configuration, required peers and the generated-runtime boundary.
 
 > The workspace publishes **42 packages** across **185 export-map entry points**. Vitest discovers runtime tests from the workspace. The compatibility inventory covers 504 of 742 upstream API suites
-> and explains why the other 238 are out of scope. The documentation site contains 271 supported pages, 3 TODO pages, and 13 pages for features we do not plan to add.
+> and explains why the other 238 are out of scope.
 
 ## Quick Start
 

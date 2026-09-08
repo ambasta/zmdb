@@ -35,16 +35,17 @@ compares all nine official packages, and links to their framework-native lifecyc
 
 `npm add zmdb@alpha` installs none of the packages or peers below. Add only the integration selected by the application:
 
-| Capability         | Install                                                                         | Lifecycle and ownership                                                   |
-| ------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Protobuf artifacts | `npm add @zmdb/protobuf@alpha && npm add --save-dev @zmdb/compiler@alpha`       | no runtime peer or external resource; compiler emits the artifacts        |
-| Typed gRPC         | `npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                          |
-| Core NATS          | `npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0`             | app starts, drains, and closes the strategy connection                    |
-| RabbitMQ           | `npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1`                         | app owns connection, channels, retry, and dead-letter topology            |
-| Redis Pub/Sub      | `npm add @zmdb/transport-redis@alpha redis@^6.2.1`                              | app owns publisher/subscriber clients and bounded drain                   |
-| Background jobs    | `npm add @zmdb/jobs@alpha`                                                      | app starts and drains explicit workers/schedulers through `jobsExtension` |
-| PostgreSQL jobs    | `npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0`                 | caller owns and closes/releases the pool or client                        |
-| OpenTelemetry      | `npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.0`                            | caller owns providers, exporters, tracers, meters, and shutdown           |
+| Capability         | Install                                                                         | Lifecycle and ownership                                                          |
+| ------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Protobuf artifacts | `npm add @zmdb/protobuf@alpha && npm add --save-dev @zmdb/compiler@alpha`       | no runtime peer or external resource; compiler emits the artifacts               |
+| Typed gRPC         | `npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                                 |
+| Core NATS          | `npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0`             | app starts, drains, and closes the strategy connection                           |
+| RabbitMQ           | `npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1`                         | app owns connection, channels, retry, and dead-letter topology                   |
+| Redis Pub/Sub      | `npm add @zmdb/transport-redis@alpha redis@^6.2.1`                              | app owns publisher/subscriber clients and bounded drain                          |
+| Background jobs    | `npm add @zmdb/jobs@alpha`                                                      | app starts and drains explicit workers/schedulers through `jobsExtension`        |
+| SQLite jobs        | `npm add @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha`                              | explicit persistent stores borrow a database; memory stores own and close theirs |
+| PostgreSQL jobs    | `npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0`                 | caller owns and closes/releases the pool or client                               |
+| OpenTelemetry      | `npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.0`                            | caller owns providers, exporters, tracers, meters, and shutdown                  |
 
 The package owns the adapter; the peer owns the external protocol client. `@zmdb/app` owns transport-neutral messaging and observability ports, while `@zmdb/jobs` owns queue and worker behavior.
 `@zmdb/compiler` owns TypeScript reflection and emission; `@zmdb/protobuf` owns the calls, service-artifact types, and generated wire runtime that emitted code imports.
@@ -69,11 +70,15 @@ compatibility facade or automatically install jobs.
 
 ## Advanced: install sub-packages individually
 
-Prefer to depend only on the pieces you use (better tree-shaking):
+Choose runtime dependencies separately from the build tools. For example, a standalone SQLite data layer can use:
 
 ```bash
-npm install @zmdb/schema @zmdb/sql @zmdb/compiler @zmdb/migrations @zmdb/validator @zmdb/orm @zmdb/sqlite @zmdb/app @zmdb/web
+npm add @zmdb/schema@alpha @zmdb/sql@alpha @zmdb/validator@alpha @zmdb/orm@alpha @zmdb/sqlite@alpha
+npm add --save-dev @zmdb/compiler@alpha typescript@^7.0.2
 ```
+
+Install `@zmdb/cli@alpha` with TypeScript instead when you want the single `zmdb` command; it includes the compiler and migrations engines. Install `@zmdb/migrations@alpha` directly when code owns the
+snapshot, plan or runner workflow. The [tooling guide](./tooling-boundaries.html) explains config ownership, optional adapter peers and which entries belong in generated runtime code.
 
 ## Install Individual Packages
 
@@ -87,13 +92,16 @@ npm install @zmdb/schema
 npm install @zmdb/sql
 
 # Schema snapshots, migration plans, runners, introspection, and declaration emission
-npm install @zmdb/migrations
+npm add @zmdb/migrations@alpha
 
 # Runtime validation + serialization
 npm install @zmdb/validator
 
 # TypeScript reflection, AOT emission, build adapters, and lint rules
-npm install --save-dev @zmdb/compiler typescript@^7
+npm add --save-dev @zmdb/compiler@alpha typescript@^7.0.2
+
+# The single zmdb executable for codegen, migrations and application commands
+npm add --save-dev @zmdb/cli@alpha typescript@^7.0.2
 
 # Repository with CRUD + transactions
 npm install @zmdb/orm
@@ -116,8 +124,11 @@ npm install @zmdb/app
 # HTTP framework over the application kernel
 npm install @zmdb/web
 
-# Queues, workers, scheduling, and the SQLite memory backend
+# Portable queues, workers, and scheduling with explicit storage providers
 npm install @zmdb/jobs
+
+# SQLite persistence or an owned memory store
+npm install @zmdb/jobs @zmdb/jobs-sqlite
 
 # Optional PostgreSQL jobs adapter
 npm install @zmdb/jobs @zmdb/jobs-postgres pg@^8.23.0
@@ -263,6 +274,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/migrations`         | Snapshots, diffs, DDL plans, files, runners, introspection, and declaration emission           |
 | `@zmdb/validator`          | Runtime full/shallow is/assert/validate, equals/random, errors, and serialization              |
 | `@zmdb/compiler`           | TypeScript reflection, AOT emission, project compilation, build adapters, and lint rules       |
+| `@zmdb/cli`                | The single zmdb executable, project commands, scaffolding, inspection and CLI library APIs     |
 | `@zmdb/orm`                | Auto-validating CRUD, hooks, transactions, populate                                            |
 | `@zmdb/mssql`              | T-SQL compilation, migrations, structural driver, introspection, and capability refusals       |
 | `@zmdb/postgres`           | PostgreSQL compiler traits, migrations, introspection, structural `pg` driver, and cursors     |
@@ -271,6 +283,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/app`                | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health      |
 | `@zmdb/web`                | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters        |
 | `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and explicit storage-provider ports   |
+| `@zmdb/jobs-sqlite`        | SQLite persistence and owned memory stores for portable jobs                                   |
 | `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adapter for caller-owned pools and clients                               |
 | `@zmdb/client`             | Dependency-free HTTP transport, cancellation, authentication, and typed errors                 |
 | `@zmdb/react`              | React context, query, mutation, and component-lifecycle cancellation                           |

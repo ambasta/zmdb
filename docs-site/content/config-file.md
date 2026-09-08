@@ -1,5 +1,5 @@
-`zmdb.config.ts` is the build-tool and database-command configuration file. The loader is published from `zmdb/config`; it discovers one file, executes it with Node, validates its data fields, and
-returns absolute paths.
+`zmdb.config.ts` is the build-tool and database-command configuration file. `@zmdb/compiler/config` owns discovery and loading; `@zmdb/compiler/config/contract` owns `defineConfig` and its authoring
+types. The product exposes these APIs through `zmdb/config`. Loading discovers one file, executes it with Node, validates its data fields and returns absolute paths.
 
 It does not initialise an application. Repositories still receive an explicit driver, and importing `zmdb` does not read the filesystem.
 
@@ -7,8 +7,8 @@ It does not initialise an application. Repositories still receive an explicit dr
 
 ```ts
 // zmdb.config.ts
-import { postgres } from 'zmdb/postgres';
-import { defineConfig } from 'zmdb/config';
+import { postgres } from '@zmdb/postgres';
+import { defineConfig } from '@zmdb/compiler/config/contract';
 
 export default defineConfig({
   schema: ['src/**/*.schema.ts'],
@@ -21,7 +21,7 @@ identity and author-facing types live in a dependency-light contract module; dis
 entry.
 
 ```ts
-import { loadConfig } from 'zmdb/config';
+import { loadConfig } from '@zmdb/compiler/config';
 
 const config = await loadConfig();
 
@@ -31,9 +31,9 @@ config.schemaFiles; // absolute files, expanded eagerly
 config.outDir; // absolute migration output directory
 ```
 
-The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, `client generate`, and `studio` commands consume this loader. Direct `@zmdb/compiler`
-project compilation and `zmdb/compiler` use the same resolved project and naming strategy. `zmdb new project` emits this public import and a build adapter that delegates discovery to `zmdb/compiler`;
-the generated runtime entry never imports the loader. `up` is deliberately refused because it is ambiguous between migration application and snapshot upgrade.
+The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, `client generate`, and `studio` commands consume this loader; `codegen` uses it when a
+config is present. The configured plugin from `@zmdb/compiler` or `zmdb/compiler` also loads these project and naming settings. A direct `compileProject` caller supplies them explicitly.
+`zmdb new project` emits the product config import and a build adapter using `zmdb/compiler`; its generated runtime entry never imports the loader.
 
 ## The resolved path is observable
 
@@ -66,8 +66,8 @@ Under `--json`, the same path is the top-level `config` value. An explicit `--co
 | `http.client.out`   | `string`                                        | required with HTTP | generated `.ts`, relative to config                       |
 
 `loadConfig` also returns `resolvedNaming`: the selected built-in singleton, the custom `namingStrategy` by identity, or an empty identity strategy. Every database command passes that object into
-schema reflection. `@zmdb/compiler` project compilation and `zmdb/compiler` discover the same config and pass the same value to the compiler APIs; the committed consumer fixtures exercise both routes
-against byte-identical config files.
+schema reflection. The configured compiler plugin and `zmdb codegen` pass the same value to the compiler APIs. A custom compiler script can call `loadConfig` and pass `config.project` and
+`config.resolvedNaming` to `compileProject`, as shown in [Code Generation](./cli-codegen.html).
 
 Every glob must match at least one file, and every matched file must belong to the configured TypeScript project. A match outside the project is an error rather than a silently omitted table.
 

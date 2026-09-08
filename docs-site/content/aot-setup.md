@@ -1,5 +1,5 @@
-AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime parsing overhead. `@zmdb/compiler` transforms the full and depth-limited `is`/`assert`/`validate` families into
-direct JavaScript checks — no Zod-style runtime parsers, no reflection.
+AOT (ahead-of-time) validation compiles TypeScript types into JavaScript checks at build time. `@zmdb/compiler` owns reflection and emission; generated application code uses the published runtime
+owners, including `@zmdb/validator`, without loading the compiler.
 
 ## Why AOT?
 
@@ -13,24 +13,28 @@ const ok = is<{ email: string }>(input);
 const ok = typeof input === 'object' && input !== null && typeof input.email === 'string';
 ```
 
-> [!IMPORTANT] AOT validation achieves 5-24× speedup over runtime validators on assert operations. See [benchmarks](./benchmarks.html) for real numbers.
-
 ## Build Plugin
 
-The AOT transformer is available as an unplugin for Vite, esbuild, Webpack, and Rollup:
+Install the compiler and its required TypeScript peer in the build environment:
+
+```bash
+npm add --save-dev @zmdb/compiler@alpha typescript@^7.0.2
+```
+
+The configured root plugin is available for Vite, esbuild, Webpack, and Rollup:
 
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite';
-import { zmdbAot } from 'zmdb/compiler';
+import { zmdbAot } from '@zmdb/compiler';
 
 export default defineConfig({
   plugins: [await zmdbAot()],
 });
 ```
 
-The product compiler entry discovers `zmdb.config.ts`, including its project and naming strategy. Tooling that owns config loading can instead use the synchronous low-level `@zmdb/compiler/unplugin`
-entry and pass `project` and `naming` explicitly. The old `zmdb/unplugin` spelling is absent.
+The async compiler root entry discovers `zmdb.config.ts`, including its project and naming strategy. `zmdb/compiler` exposes the same configured factory for product consumers. Tooling that owns config
+loading can use the synchronous `@zmdb/compiler/unplugin` entry and pass `project` and `naming` explicitly. [Tooling Boundaries](./tooling-boundaries.html) explains the package and runtime graph.
 
 ## Metro for React Native and Expo
 
@@ -45,9 +49,9 @@ const { withZmdb } = require('@zmdb/compiler/metro');
 module.exports = withZmdb(getDefaultConfig(__dirname));
 ```
 
-The supported range is Metro `>=0.87.0 <0.88.0`. `withZmdb` keeps Expo's or the application's existing Babel transformer and delegates to it after the shared zmdb transform. See
-[React Native Client](./client-react-native.html) for generated-client lifecycle and [React Native & Expo](./connect-react-native.html) for the bare-RN form, embedded SQLite boundary, worker-memory
-tuning, the cache key, and the one dev-server case that needs a reset.
+Install the selected peers `metro@^0.87.0` and `metro-babel-transformer@^0.87.0`. On Node.js 26, the CommonJS configuration loads this explicit compiler subpath synchronously. `withZmdb` keeps Expo's
+or the application's existing Babel transformer and delegates to it after the shared zmdb transform. See [React Native Client](./client-react-native.html) for generated-client lifecycle and
+[React Native & Expo](./connect-react-native.html) for the bare-RN form, embedded SQLite boundary, worker-memory tuning, the cache key, and the one dev-server case that needs a reset.
 
 ## Direct compiler integration
 

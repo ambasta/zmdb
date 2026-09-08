@@ -1,11 +1,16 @@
-`@zmdb/compiler` compiles zmdb validators and schemas ahead of time **without a bundler**, writes the result beside the source, and exposes checking as a library operation.
+`zmdb codegen` compiles validators and schemas ahead of time **without a bundler**. The single executable comes from `@zmdb/cli` and delegates to `@zmdb/compiler`.
 
 ```bash
-npm add --save-dev @zmdb/compiler@alpha typescript@^7
+npm add --save-dev @zmdb/cli@alpha typescript@^7.0.2
+npx zmdb codegen --project tsconfig.json
+npx zmdb codegen --project tsconfig.json --check
+npx zmdb codegen --project tsconfig.json --watch
 ```
 
-The compiler package deliberately owns no executable. The unified `zmdb` CLI is a separate package boundary; build systems, custom tools, and the future CLI all call the same `compileProject` and
-`writeCompileResult` operations.
+`--check` writes nothing and exits with code `1` when artifacts are stale. `--watch` retains one compiler session until interruption; it cannot be combined with `--check` or `--json`. Config is
+optional for this command: an explicit `--project` wins, then the loaded config's project, then `tsconfig.json` in the working directory. A supplied config also provides the naming strategy.
+
+The compiler package owns the same `compileProject` and `writeCompileResult` APIs for custom tools. Install `@zmdb/compiler@alpha` with `typescript@^7.0.2` when only the library is needed.
 
 ## A project compiler script
 
@@ -103,12 +108,12 @@ A requested file that is outside the project, duplicated after normalisation, or
 
 ## Which route should I use?
 
-| Build shape                                    | Compiler route                                        |
-| ---------------------------------------------- | ----------------------------------------------------- |
-| Vite, Rollup, esbuild, webpack, or Rspack      | [`@zmdb/compiler/unplugin`](./aot-setup.html)         |
-| React Native or Expo                           | [`@zmdb/compiler/metro`](./connect-react-native.html) |
-| plain `tsc`, Node type stripping, Bun, or Deno | `compileProject` + `writeCompileResult`               |
-| a library that ships generated validators      | project compilation; commit the generated files       |
+| Build shape                                        | Compiler route                                                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Vite, Rollup, esbuild, webpack, or Rspack          | configured `@zmdb/compiler` plugin; explicit options via [`@zmdb/compiler/unplugin`](./aot-setup.html) |
+| React Native or Expo                               | [`@zmdb/compiler/metro`](./connect-react-native.html)                                                  |
+| project compilation before running the application | `zmdb codegen`, or `compileProject` + `writeCompileResult`                                             |
+| a library that ships generated validators          | project compilation; commit the generated files                                                        |
 
 All routes reuse the same reflection, transform, and emission implementation.
 

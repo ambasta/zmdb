@@ -57,6 +57,7 @@ export const PRODUCT_JOURNEY = [
     pages: [
       'configuration',
       'testing',
+      'tooling-boundaries',
       'cli-overview',
       'config-file',
       'cli-codegen',

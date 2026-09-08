@@ -86,6 +86,10 @@ export const PAGE_META = {
     title: 'Architecture',
     status: 'supported',
   },
+  'tooling-boundaries': {
+    title: 'Tooling: compiler, migrations and CLI',
+    status: 'supported',
+  },
   faq: {
     title: 'FAQ',
     status: 'supported',

@@ -11,15 +11,28 @@ Part of **[zmdb](https://github.com/ambasta/zmdb)**. Application runtime code im
 npm add -D @zmdb/compiler@alpha typescript@^7.0.2
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**.
+> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+**. Published modules are ESM; Node.js 26 also supports synchronous `require('@zmdb/compiler/metro')`
+> from a CommonJS Metro configuration.
+
+## Choose a compilation route
+
+- Use the sole `zmdb` executable from `@zmdb/cli` for `zmdb codegen --project tsconfig.json`.
+- Use `compileProject({ project })` to collect artifacts without changing the project, then `writeCompileResult(result)` to publish them. Its `{ check: true }` option reports stale artifacts without
+  writing them. `watchCodegen` provides the retained-session watch API.
+- Use the root `zmdbAot` function for an async build plugin that loads the project's zmdb config. The synchronous `@zmdb/compiler/unplugin` entry accepts explicit project and naming options when the
+  caller owns configuration.
+- Select `@zmdb/compiler/metro` for Metro or `@zmdb/compiler/lint` for Oxlint, installing that adapter's optional peers.
+
+Configuration belongs to this package: `@zmdb/compiler/config` loads it and `@zmdb/compiler/config/contract` provides `defineConfig` and its structural types. The product facade exposes the curated
+compiler and config APIs through `zmdb/compiler` and `zmdb/config`.
 
 ## Entry points
 
-`@zmdb/compiler`, `@zmdb/compiler/config`, `@zmdb/compiler/emit`, `@zmdb/compiler/errors`, `@zmdb/compiler/lint`, `@zmdb/compiler/metro`, `@zmdb/compiler/reflect`, `@zmdb/compiler/testing`,
-`@zmdb/compiler/transform`, `@zmdb/compiler/unplugin`
+`@zmdb/compiler`, `@zmdb/compiler/config`, `@zmdb/compiler/config/contract`, `@zmdb/compiler/emit`, `@zmdb/compiler/errors`, `@zmdb/compiler/lint`, `@zmdb/compiler/metro`, `@zmdb/compiler/reflect`,
+`@zmdb/compiler/testing`, `@zmdb/compiler/transform`, `@zmdb/compiler/unplugin`
 
-The root exports `compileProject` and `writeCompileResult`. Generated application JavaScript imports runtime helpers from the source's published runtime owner, such as `zmdb`, `@zmdb/validator`, or
-`@zmdb/protobuf`; it never imports this package.
+Generated application JavaScript imports runtime helpers from the source's published runtime owner, such as `zmdb`, `@zmdb/validator`, or `@zmdb/protobuf`; it never imports this package. Install the
+runtime owners used by your application as runtime dependencies and keep compiler setup in the build environment.
 
 TypeScript is a required peer. Oxlint, Metro, and Metro's Babel transformer are optional peers used only by the matching explicit subpaths.
 
