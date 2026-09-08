@@ -570,7 +570,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
         fixture,
         fixtureDocument(
           sampleFence(JSON.stringify({ mode: 'compile', id: 'external-network', run: true, environment: 'node' }), [
-            "await fetch('https://example.com');",
+            "import { writeFileSync } from 'node:fs'; writeFileSync('external.txt', 'state');",
           ]),
         ),
       );
