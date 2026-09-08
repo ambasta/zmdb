@@ -5,14 +5,14 @@ export { ValidationError, claimsValidationIssues, validationIssuesOf } from '@zm
 export { aliasRow, attachPopulated, compilePopulate } from '@zmdb/orm/relations';
 export { applyOrderBy, applyPagination, compileWhere } from '@zmdb/orm/dto';
 export { buildListResult, isRecord, resolveRelation, schemaOf } from '@zmdb/schema';
-export { createStateUpdatePayload, defineEntityStateMachine, defineStateTransitions } from '@zmdb/schema';
+export { createStateUpdatePayload, defineEntityStateMachine, defineStateTransitions } from '@zmdb/app';
 export {
   type AllowedTargetStates,
   type EntityStateMachine,
   type EntityStateMachineOptions,
   type StateTransitions,
   type StateUpdateDTO,
-} from '@zmdb/schema';
+} from '@zmdb/app';
 export {
   type ColumnFlags,
   type ColumnMeta,
