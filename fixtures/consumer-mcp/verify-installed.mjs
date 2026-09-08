@@ -28,9 +28,33 @@ function packageName(directory) {
   return JSON.parse(readFileSync(join(PACKAGES, directory, 'package.json'), 'utf8')).name;
 }
 
+function toBase64(bytes) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const triple = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    result += chars[(triple >> 18) & 63] + chars[(triple >> 12) & 63] + chars[(triple >> 6) & 63] + chars[triple & 63];
+  }
+  if (i < bytes.length) {
+    const triple = (bytes[i] << 16) | ((bytes[i + 1] || 0) << 8);
+    result += chars[(triple >> 18) & 63] + chars[(triple >> 12) & 63];
+    result += i + 1 < bytes.length ? chars[(triple >> 6) & 63] : '=';
+    result += '=';
+  }
+  return result;
+}
+
+function toHex(bytes) {
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function digest(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const hash = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hash.toBase64() : hash.toHex();
+  if (encoding === 'base64') {
+    return typeof hash.toBase64 === 'function' ? hash.toBase64() : toBase64(hash);
+  }
+  return typeof hash.toHex === 'function' ? hash.toHex() : toHex(hash);
 }
 
 const temporary = mkdtempSync(join(tmpdir(), 'zmdb-mcp-consumer-'));
