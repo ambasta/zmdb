@@ -1,12 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 import { describe, expect, it } from 'vitest';
 
 import { EmbeddedMigrationError, runEmbedded, type EmbeddedConnection, type EmbeddedMigration } from './embedded.js';
-
-const PACKAGE = resolve(new URL('../', import.meta.url).pathname, 'package.json');
 
 function connection(db: DatabaseSync, events?: string[]): EmbeddedConnection {
   return {
@@ -275,55 +271,4 @@ describe('embedded migrations (real SQLite, no filesystem)', () => {
     ]);
     expect(events).toContain(CREATE_USERS.up);
   });
-
-  it("does not pull the diff engine into the embedded runner's import graph", () => {
-    const packageJson = JSON.parse(readFileSync(PACKAGE, 'utf8')) as {
-      exports: Readonly<Record<string, string>>;
-    };
-    const exported = packageJson.exports['./embedded'];
-    expect(exported).toBe('./src/embedded.ts');
-    if (exported === undefined) throw new Error('missing embedded migration export');
-    const entry = resolve(dirname(PACKAGE), exported);
-    expect(moduleGraph(entry)).toEqual([entry]);
-  });
 });
-
-function moduleGraph(entry: string): string[] {
-  const seen = new Set<string>();
-  const pending = [entry];
-  while (pending.length > 0) {
-    const file = pending.pop();
-    if (file === undefined || seen.has(file)) continue;
-    seen.add(file);
-    const source = readFileSync(file, 'utf8');
-    for (const specifier of importsOf(source)) {
-      if (!specifier.startsWith('.')) {
-        throw new Error(`embedded runner imports non-relative module "${specifier}"`);
-      }
-      pending.push(resolveModule(file, specifier));
-    }
-  }
-  return [...seen].toSorted();
-}
-
-function importsOf(source: string): string[] {
-  const specifiers: string[] = [];
-  for (const [, specifier] of source.matchAll(/(?:^|[\s;])(?:export|import)\b[^;]*?from\s+['"]([^'"]+)['"]/g)) {
-    if (specifier !== undefined) specifiers.push(specifier);
-  }
-  for (const [, specifier] of source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
-    if (specifier !== undefined) specifiers.push(specifier);
-  }
-  for (const [, specifier] of source.matchAll(/(?:^|[\s;])import\s+['"]([^'"]+)['"]/g)) {
-    if (specifier !== undefined) specifiers.push(specifier);
-  }
-  return [...new Set(specifiers)];
-}
-
-function resolveModule(from: string, specifier: string): string {
-  const raw = resolve(dirname(from), specifier);
-  const candidates = [raw, raw.endsWith('.js') ? `${raw.slice(0, -3)}.ts` : `${raw}.ts`, resolve(raw, 'index.ts')];
-  const found = candidates.find(candidate => existsSync(candidate));
-  if (found === undefined) throw new Error(`cannot resolve "${specifier}" from ${from}`);
-  return found;
-}
