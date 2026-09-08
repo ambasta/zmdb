@@ -130,7 +130,6 @@ function base64Encode(str: string): string {
   throw new Error('No base64 encoder available');
 }
 
-
 function base64Decode(str: string): string {
   const remainder = str.length % 4;
   const last = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'.indexOf(str.at(-1) ?? '');
