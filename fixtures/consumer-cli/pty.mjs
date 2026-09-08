@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { stripVTControlCharacters } from 'node:util';
 
 import { cleanEnvironment, trackChild } from './registry.mjs';
 const quote = text => `'${text.replaceAll("'", "'\\''")}'`;
@@ -27,7 +28,7 @@ export function pty(argv, { cwd, env = {} }) {
   return {
     child,
     exited,
-    read: () => output,
+    read: () => stripVTControlCharacters(output),
     write: text => child.stdin.write(text),
     eof: () => child.stdin.write('\x04'),
     signal: signal => process.kill(-child.pid, signal),

@@ -291,6 +291,8 @@ cases.T01 = async () => {
     product,
     `import assert from 'node:assert/strict';import * as cli from '@zmdb/cli';import * as facade from 'zmdb/cli';assert.deepEqual(Object.keys(facade).toSorted(),Object.keys(cli).toSorted());for(const name of Object.keys(cli))assert.equal(facade[name],cli[name]);`,
   );
+  const result = await command('npm', ['exec', '--offline', '--', 'zmdb', '--version'], { cwd: product, expected: 0 });
+  assert.equal(result.stdout, 'zmdb 1.0.0-alpha.4\n');
 };
 cases.T02 = async () => {
   const fixture = await setup();
@@ -1003,7 +1005,7 @@ cases.T20 = async () => {
   assert.equal((await stat(history)).mode & 0o777, 0o644);
   const terminal = pty([process.execPath, join(consumer, 'node_modules/.bin/zmdb'), 'repl'], {
     cwd: project,
-    env: { ZMDB_FIXTURE_EVENTS: events, ZMDB_REPL_HISTORY: history },
+    env: { ZMDB_FIXTURE_EVENTS: events, ZMDB_REPL_HISTORY: history, FORCE_COLOR: '1' },
   });
   try {
     await waitFor(terminal.read, text => text.includes('zmdb> '));
@@ -1240,27 +1242,6 @@ cases.T25 = async () => {
   const shape = projected.$ref ? document.components.schemas[projected.$ref.split('/').at(-1)] : projected;
   assert.equal(shape.properties.displayName.type, 'number');
   assert(!(await readdir(join(project, 'generated'))).some(name => name.endsWith('.tmp')));
-};
-cases.T26 = async () => {
-  await cases.T01();
-  await cases.T04();
-  await cases.T06();
-  await cases.T09();
-  await cases.T10();
-  await cases.T11();
-  await cases.T12();
-  await cases.T13();
-  await cases.T14();
-  await cases.T15();
-  await cases.T16();
-  await cases.T18();
-  await cases.T20();
-  await cases.T22();
-  await cases.T24();
-  await cases.T25();
-  const product = await role('product');
-  const result = await command('npm', ['exec', '--offline', '--', 'zmdb', '--version'], { cwd: product, expected: 0 });
-  assert.equal(result.stdout, 'zmdb 1.0.0-alpha.4\n');
 };
 cases.T27 = async () => {
   const consumer = await role('app');

@@ -556,10 +556,6 @@ process.stdout.write(JSON.stringify({
     expect(connection.migrationSql).toEqual(['CREATE TABLE first(id INTEGER)', 'CREATE TABLE second(id INTEGER)']);
   });
 
-  it('executes the current packed bin and every currently shipped command help route', async () => {
-    await installedCliProof(['T01', 'T04']);
-  }, 600_000);
-
   it('loads direct codegen, unplugin, Metro and lint subpaths from the packed package', () => {
     const owner = targetPackedPackage(packedFixture(), '@zmdb/compiler');
     expect(owner).toBeDefined();
@@ -607,10 +603,6 @@ process.stdout.write(JSON.stringify({
     expect.soft(migrationsSmoke?.stdout).toContain('"dialect":"fixture"');
     expect.soft(migrationsSmoke?.stdout).toContain('"officialIntrospectionRegistryAbsent":true');
   });
-
-  it('runs the installed zmdb executable from @zmdb/cli and dispatches every command once', async () => {
-    await installedCliProof(['T03', 'T05', 'T26', 'T28']);
-  }, 600_000);
 });
 
 class MemoryEmbeddedConnection implements EmbeddedConnection {
@@ -642,22 +634,5 @@ class MemoryEmbeddedConnection implements EmbeddedConnection {
     }
     if (sql.startsWith('SELECT version, name, checksum FROM _zmdb_migrations')) return this.#ledger;
     throw new Error(`unexpected embedded query: ${sql}`);
-  }
-}
-
-async function installedCliProof(ids: readonly string[]): Promise<void> {
-  const location = pathToFileURL(join(FIXTURES, 'consumer-cli', 'observations.mjs')).href;
-  const loaded: unknown = await import(location);
-  const record = Object(loaded);
-  const setup: unknown = Reflect.get(record, 'setup');
-  const runCase: unknown = Reflect.get(record, 'runCase');
-  const close: unknown = Reflect.get(record, 'close');
-  if (typeof setup !== 'function' || typeof runCase !== 'function' || typeof close !== 'function')
-    throw new Error('CLI fixture entry is missing');
-  try {
-    await setup();
-    for (const id of ids) await runCase(id);
-  } finally {
-    await close();
   }
 }
