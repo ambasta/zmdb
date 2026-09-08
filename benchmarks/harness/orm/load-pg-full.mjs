@@ -29,6 +29,8 @@ await client.query(`
   CREATE INDEX ON orders(customer_id);
   CREATE INDEX ON products(supplier_id);
   CREATE INDEX ON employees(recipient_id);
+  CREATE INDEX customers_company_name_fts_idx ON customers USING GIN (to_tsvector('english', company_name));
+  CREATE INDEX products_name_fts_idx ON products USING GIN (to_tsvector('english', name));
 `);
 
 async function load(table, cols) {

@@ -7,8 +7,7 @@ import { postgres } from '@zmdb/postgres';
 import { createQueryCompiler } from '@zmdb/sql';
 import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
 import { ftsSelectFrom } from '@zmdb/sql/fts';
-import { joinableSelectFrom } from '@zmdb/sql/joins';
-import { sql, eq, asc } from 'drizzle-orm';
+import { sql, eq, asc, getTableColumns } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { pgTable, integer, text, numeric } from 'drizzle-orm/pg-core';
 import { Hono } from 'hono';
@@ -23,22 +22,85 @@ const pool = new Pool({
   max: 12,
 });
 
-// drizzle schema
-const customers = pgTable('customers', { id: integer('id').primaryKey(), companyName: text('company_name') });
-const employees = pgTable('employees', { id: integer('id').primaryKey(), recipientId: integer('recipient_id') });
-const suppliers = pgTable('suppliers', { id: integer('id').primaryKey() });
+// Drizzle projects every column in the shared PostgreSQL seed.
+const customers = pgTable('customers', {
+  id: integer('id').primaryKey(),
+  company_name: text('company_name'),
+  contact_name: text('contact_name'),
+  contact_title: text('contact_title'),
+  address: text('address'),
+  city: text('city'),
+  postal_code: text('postal_code'),
+  region: text('region'),
+  country: text('country'),
+  phone: text('phone'),
+  fax: text('fax'),
+});
+const employees = pgTable('employees', {
+  id: integer('id').primaryKey(),
+  last_name: text('last_name'),
+  first_name: text('first_name'),
+  title: text('title'),
+  title_of_courtesy: text('title_of_courtesy'),
+  birth_date: text('birth_date'),
+  hire_date: text('hire_date'),
+  address: text('address'),
+  city: text('city'),
+  postal_code: text('postal_code'),
+  country: text('country'),
+  home_phone: text('home_phone'),
+  extension: integer('extension'),
+  notes: text('notes'),
+  recipient_id: integer('recipient_id'),
+});
+const suppliers = pgTable('suppliers', {
+  id: integer('id').primaryKey(),
+  company_name: text('company_name'),
+  contact_name: text('contact_name'),
+  contact_title: text('contact_title'),
+  address: text('address'),
+  city: text('city'),
+  region: text('region'),
+  postal_code: text('postal_code'),
+  country: text('country'),
+  phone: text('phone'),
+});
 const products = pgTable('products', {
   id: integer('id').primaryKey(),
   name: text('name'),
-  supplierId: integer('supplier_id'),
+  qt_per_unit: text('qt_per_unit'),
+  unit_price: numeric('unit_price'),
+  units_in_stock: integer('units_in_stock'),
+  units_on_order: integer('units_on_order'),
+  reorder_level: integer('reorder_level'),
+  discontinued: integer('discontinued'),
+  supplier_id: integer('supplier_id'),
 });
-const orders = pgTable('orders', { id: integer('id').primaryKey() });
+const orders = pgTable('orders', {
+  id: integer('id').primaryKey(),
+  order_date: text('order_date'),
+  required_date: text('required_date'),
+  shipped_date: text('shipped_date'),
+  ship_via: integer('ship_via'),
+  freight: numeric('freight'),
+  ship_name: text('ship_name'),
+  ship_city: text('ship_city'),
+  ship_region: text('ship_region'),
+  ship_postal_code: text('ship_postal_code'),
+  ship_country: text('ship_country'),
+  customer_id: integer('customer_id'),
+  employee_id: integer('employee_id'),
+});
 const details = pgTable('order_details', {
-  orderId: integer('order_id'),
-  productId: integer('product_id'),
+  unit_price: numeric('unit_price'),
   quantity: integer('quantity'),
-  unitPrice: numeric('unit_price'),
+  discount: numeric('discount'),
+  order_id: integer('order_id'),
+  product_id: integer('product_id'),
 });
+const employeeColumns = Object.keys(getTableColumns(employees)).map(column => `employees.${column}`);
+const productColumns = Object.keys(getTableColumns(products)).map(column => `products.${column}`);
+const orderColumns = Object.keys(getTableColumns(orders)).map(column => `orders.${column}`);
 const ddb = drizzle(pool, { schema: { customers, employees, suppliers, products, orders, details } });
 const k = new Kysely<Record<string, Record<string, unknown>>>({ dialect: new PostgresDialect({ pool }) });
 const qc = createQueryCompiler(postgres);
@@ -46,7 +108,7 @@ const qc = createQueryCompiler(postgres);
 // derived from the compiled SQL text, so Postgres caches the plan server-side
 // (prepared statement) and skips per-request planning — a transparent,
 // stateless optimization (no identity map / no proxy), aimed at the tail.
-// Default (unset) uses the simple protocol, identical to the other ORMs here.
+// Default (unset) uses unnamed statements, matching the other ORMs here.
 const PREPARED = process.env.ZMDB_PREPARED === '1';
 const stmtNames = new Map<string, string>();
 let stmtSeq = 0;
@@ -143,21 +205,24 @@ const routes: Record<string, Record<string, H | null>> = {
   '/employee-with-recipient': {
     drizzle: async q =>
       ddb
-        .select()
+        .select({ ...getTableColumns(employees), recipient: sql`row_to_json(r)` })
         .from(employees)
-        .leftJoin(sql`employees r`, sql`r.id = ${employees.recipientId}`)
+        .leftJoin(sql`employees r`, sql`r.id = ${employees.recipient_id}`)
         .where(eq(employees.id, num(q.get('id') ?? undefined))),
     kysely: async q =>
       k
         .selectFrom('employees')
         .leftJoin('employees as r', 'r.id', 'employees.recipient_id')
         .selectAll('employees')
+        .select(ksql`row_to_json(r)`.as('recipient'))
         .where('employees.id', '=', num(q.get('id') ?? undefined))
         .execute(),
     zmdb: async q => {
-      const c = joinableSelectFrom('employees as e', postgres)
-        .leftJoin('employees as r', 'r.id', 'e.recipient_id')
-        .where('e.id', '=', num(q.get('id') ?? undefined))
+      const c = aggregateSelectFrom('employees', postgres)
+        .select(employeeColumns)
+        .expr('row_to_json(r)', 'recipient')
+        .leftJoin('employees as r', 'r.id', 'employees.recipient_id')
+        .where('employees.id', '=', num(q.get('id') ?? undefined))
         .compile();
       return zq(c.text, c.parameters as unknown[]);
     },
@@ -237,19 +302,22 @@ const routes: Record<string, Record<string, H | null>> = {
   '/product-with-supplier': {
     drizzle: async q =>
       ddb
-        .select()
+        .select({ ...getTableColumns(products), supplier: sql`row_to_json(${suppliers})` })
         .from(products)
-        .leftJoin(suppliers, eq(suppliers.id, products.supplierId))
+        .leftJoin(suppliers, eq(suppliers.id, products.supplier_id))
         .where(eq(products.id, num(q.get('id') ?? undefined))),
     kysely: async q =>
       k
         .selectFrom('products')
         .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
-        .selectAll()
+        .selectAll('products')
+        .select(ksql`row_to_json(suppliers)`.as('supplier'))
         .where('products.id', '=', num(q.get('id') ?? undefined))
         .execute(),
     zmdb: async q => {
-      const c = joinableSelectFrom('products', postgres)
+      const c = aggregateSelectFrom('products', postgres)
+        .select(productColumns)
+        .expr('row_to_json(suppliers)', 'supplier')
         .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
         .where('products.id', '=', num(q.get('id') ?? undefined))
         .compile();
@@ -259,9 +327,9 @@ const routes: Record<string, Record<string, H | null>> = {
   '/orders-with-details': {
     drizzle: async q =>
       ddb
-        .select({ id: orders.id, cnt: sql`count(${details.productId})::int` })
+        .select({ id: orders.id, cnt: sql`count(${details.product_id})::int` })
         .from(orders)
-        .leftJoin(details, eq(details.orderId, orders.id))
+        .leftJoin(details, eq(details.order_id, orders.id))
         .groupBy(orders.id)
         .orderBy(asc(orders.id))
         .limit(num(q.get('limit') ?? undefined, 50))
@@ -277,15 +345,13 @@ const routes: Record<string, Record<string, H | null>> = {
         .limit(num(q.get('limit') ?? undefined, 50))
         .offset(num(q.get('offset') ?? undefined))
         .execute(),
-    // zmdb: aggregate directly on order_details grouped by order_id (the FK lives
-    // there, so no join is needed for the per-order counts/sums).
     zmdb: async q => {
-      const c = aggregateSelectFrom('order_details', postgres)
-        .select(['order_id'])
-        .count('product_id', 'products_count')
-        .sum('quantity', 'quantity_sum')
-        .groupBy('order_id')
-        .orderBy('order_id', 'asc')
+      const c = aggregateSelectFrom('orders', postgres)
+        .select(['orders.id'])
+        .expr('count(order_details.product_id)::int', 'cnt')
+        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .groupBy('orders.id')
+        .orderBy('orders.id', 'asc')
         .limit(num(q.get('limit') ?? undefined, 50))
         .offset(num(q.get('offset') ?? undefined))
         .compile();
@@ -295,9 +361,9 @@ const routes: Record<string, Record<string, H | null>> = {
   '/order-with-details': {
     drizzle: async q =>
       ddb
-        .select({ id: orders.id, cnt: sql`count(${details.productId})::int` })
+        .select({ id: orders.id, cnt: sql`count(${details.product_id})::int` })
         .from(orders)
-        .leftJoin(details, eq(details.orderId, orders.id))
+        .leftJoin(details, eq(details.order_id, orders.id))
         .where(eq(orders.id, num(q.get('id') ?? undefined)))
         .groupBy(orders.id),
     kysely: async q =>
@@ -309,14 +375,13 @@ const routes: Record<string, Record<string, H | null>> = {
         .where('orders.id', '=', num(q.get('id') ?? undefined))
         .groupBy('orders.id')
         .execute(),
-    // zmdb: aggregate on order_details for the single order id (no join needed).
     zmdb: async q => {
-      const c = aggregateSelectFrom('order_details', postgres)
-        .select(['order_id'])
-        .count('product_id', 'products_count')
-        .sum('quantity', 'quantity_sum')
-        .having('order_id', '=', num(q.get('id') ?? undefined))
-        .groupBy('order_id')
+      const c = aggregateSelectFrom('orders', postgres)
+        .select(['orders.id'])
+        .expr('count(order_details.product_id)::int', 'cnt')
+        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .where('orders.id', '=', num(q.get('id') ?? undefined))
+        .groupBy('orders.id')
         .compile();
       return zq(c.text, c.parameters as unknown[]);
     },
@@ -324,40 +389,36 @@ const routes: Record<string, Record<string, H | null>> = {
   '/order-with-details-and-products': {
     drizzle: async q =>
       ddb
-        .select()
+        .select({ ...getTableColumns(orders), detail: sql`row_to_json(${details})` })
         .from(orders)
-        .leftJoin(details, eq(details.orderId, orders.id))
+        .leftJoin(details, eq(details.order_id, orders.id))
         .where(eq(orders.id, num(q.get('id') ?? undefined))),
     kysely: async q =>
       k
         .selectFrom('orders')
         .leftJoin('order_details', 'order_details.order_id', 'orders.id')
-        .selectAll()
+        .selectAll('orders')
+        .select(ksql`row_to_json(order_details)`.as('detail'))
         .where('orders.id', '=', num(q.get('id') ?? undefined))
         .execute(),
-    // This used to issue two SEQUENTIAL queries — parent, await, then children —
-    // while both peers did one leftJoin. That is not an ORM difference, it is
-    // twice the round trips and twice the pool residency per request, and it cost
-    // exactly what you would expect: under 400 VUs on a pool of 12 this route's
-    // p95 was 183ms against 119-130ms for the peers, and it was the only route of
-    // the thirteen where zmdb lost. It also dragged the whole suite's p95 to
-    // 161ms while the other twelve routes sat 20-25% AHEAD of both peers.
-    //
-    // Same query, same shape, same one round trip as the peers now.
     zmdb: async q => {
-      const c = joinableSelectFrom('orders', postgres)
+      const c = aggregateSelectFrom('orders', postgres)
+        .select(orderColumns)
+        .expr('row_to_json(order_details)', 'detail')
         .leftJoin('order_details', 'order_details.order_id', 'orders.id')
         .where('orders.id', '=', num(q.get('id') ?? undefined))
         .compile();
       return zq(c.text, c.parameters as unknown[]);
     },
   },
-  // #97 — /search-* now served by zmdb via the FTS builder (was DNF).
   '/search-customer': {
     drizzle: async q =>
-      ddb.execute(
-        sql`select * from customers where to_tsvector('english', company_name) @@ to_tsquery('english', ${q.get('term') ?? 'ltd'})`,
-      ),
+      ddb
+        .select()
+        .from(customers)
+        .where(
+          sql`to_tsvector('english', ${customers.company_name}) @@ to_tsquery('english', ${q.get('term') ?? 'ltd'})`,
+        ),
     kysely: async q =>
       k
         .selectFrom('customers')
@@ -373,9 +434,10 @@ const routes: Record<string, Record<string, H | null>> = {
   },
   '/search-product': {
     drizzle: async q =>
-      ddb.execute(
-        sql`select * from products where to_tsvector('english', name) @@ to_tsquery('english', ${q.get('term') ?? 'chai'})`,
-      ),
+      ddb
+        .select()
+        .from(products)
+        .where(sql`to_tsvector('english', ${products.name}) @@ to_tsquery('english', ${q.get('term') ?? 'chai'})`),
     kysely: async q =>
       k
         .selectFrom('products')
