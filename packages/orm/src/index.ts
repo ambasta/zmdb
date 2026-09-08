@@ -42,6 +42,8 @@ import {
   type ComparisonPredicate,
   type CompiledQuery,
   type DialectTarget,
+  type Driver,
+  type ExecuteOptions,
   type Predicate,
   type SelectBuilder,
   type SetValue,

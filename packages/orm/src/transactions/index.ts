@@ -1,13 +1,7 @@
 // Transactions — implementation (#36 transaction context primitive).
 // createTransactionalDb.transaction() issues BEGIN/COMMIT/ROLLBACK and
 // tx.savepoint() issues SAVEPOINT / RELEASE / ROLLBACK TO SAVEPOINT.
-import {
-  dialectTraits,
-  type CompiledQuery,
-  type DialectTarget,
-  type Driver,
-  type SqlDialect,
-} from '@zmdb/sql';
+import { dialectTraits, type CompiledQuery, type DialectTarget, type Driver, type SqlDialect } from '@zmdb/sql';
 
 import { type ExecuteOptions } from '../index.js';
 
