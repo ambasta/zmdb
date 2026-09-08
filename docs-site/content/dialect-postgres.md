@@ -1,4 +1,25 @@
-Postgres is the dialect with the fewest compromises: it is the only one where materialized views compile, and its placeholder and quoting rules are what the compiler was designed around first.
+`@zmdb/postgres` is the official PostgreSQL vertical. Its frozen dialect owns compiler traits, migrations, catalog introspection and structural execution; `@zmdb/cockroach` extends its public family
+surface with a separate server contract.
+
+## Database-selection workflow
+
+The six official database packages use the same selection workflow. The [package reference](./package-reference.html) owns current install and peer ranges; the
+[PostgreSQL package README](https://github.com/ambasta/zmdb/tree/main/packages/postgres#install) includes the standalone TypeScript setup and full capability table.
+
+| Step             | PostgreSQL selection                                                                                                                                                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install          | `npm add @zmdb/postgres@1.0.0-alpha.4 pg@^8.23.0`                                                                                                                                                                                                         |
+| Configure        | Supply an application-owned `pg` client to `postgresDriver(client)`; the application closes it.                                                                                                                                                           |
+| Compile          | `createQueryCompiler(postgres)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                             |
+| Migrate          | `postgres.migrations.emitUp(operation)` and `postgres.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                               |
+| Introspect       | `postgres.introspector.snapshot(driver)` reads the real catalog.                                                                                                                                                                                          |
+| Execute          | `driver.execute(query)` runs the compiled query; `driver.transaction(...)` pins transaction work.                                                                                                                                                         |
+| Capabilities     | Read `postgres.capabilities` and the package capability table; client-specific requirements still apply.                                                                                                                                                  |
+| Refusals         | cursor/cancellation paths without the required client support; see the detailed boundaries below.                                                                                                                                                         |
+| Testing evidence | [The installed PostgreSQL consumer](https://github.com/ambasta/zmdb/tree/main/fixtures/database-postgres) and [the common six-database qualification](https://github.com/ambasta/zmdb/issues/676) prove their recorded package, client and server inputs. |
+
+A hosted-service connection guide is a recipe using one of these owners or an explicitly supplied structural adapter. Protocol compatibility alone does not create another official package or transfer
+the recorded server qualification to that service.
 
 ## Selecting it
 
@@ -13,19 +34,19 @@ const userRepo = defineRepository(users, postgresDriver(pool));
 
 ## What it emits
 
-|                         | Postgres                           |
-| ----------------------- | ---------------------------------- |
-| Identifier quoting      | `"users"."id"`                     |
-| Placeholders            | `$1`, `$2`, …                      |
-| `serial`                | `SERIAL`                           |
-| `bigint`                | `BIGINT`                           |
-| `boolean`               | `BOOLEAN`                          |
-| `json`                  | `JSONB`                            |
-| `timestamp`             | `TIMESTAMPTZ`                      |
-| `numeric`               | `NUMERIC`                          |
-| Case-insensitive `LIKE` | `ILIKE` — the only dialect with it |
-| Materialized views      | supported                          |
-| `RETURNING`             | supported                          |
+|                         | Postgres                               |
+| ----------------------- | -------------------------------------- |
+| Identifier quoting      | `"users"."id"`                         |
+| Placeholders            | `$1`, `$2`, …                          |
+| `serial`                | `SERIAL`                               |
+| `bigint`                | `BIGINT`                               |
+| `boolean`               | `BOOLEAN`                              |
+| `json`                  | `JSONB`                                |
+| `timestamp`             | `TIMESTAMPTZ`                          |
+| `numeric`               | `NUMERIC`                              |
+| Case-insensitive `LIKE` | `ILIKE`; also inherited by CockroachDB |
+| Materialized views      | supported                              |
+| `RETURNING`             | supported                              |
 
 ```ts
 compiler.selectFrom('users').where('email', '=', 'a@b.c').compile();
@@ -34,7 +55,7 @@ compiler.selectFrom('users').where('email', '=', 'a@b.c').compile();
 
 ## `ilike`
 
-`ilike` is a first-class operator in both the builder and the DTO, and Postgres is the only dialect where it maps to a native operator:
+`ilike` is a first-class operator in both the builder and the DTO. PostgreSQL and its CockroachDB family map it to a native operator:
 
 ```ts
 await repo.find({ name: { ilike: '%ada%' } });
@@ -44,9 +65,9 @@ await repo.find({ name: { ilike: '%ada%' } });
 On MySQL/SingleStore and SQL Server, case-insensitivity normally comes from the collation instead; on SQLite, `LIKE` is already case-insensitive for ASCII. Cockroach follows the Postgres operator
 grammar. If a query has to behave the same on all six, that difference is worth a test.
 
-## Features you reach past the builder for
+## SQL features and explicit escape hatches
 
-Postgres has a lot the builder does not model. All of them work through [raw SQL](./raw-sql.html):
+These guides cover the modeled operations and the places that still require [raw SQL](./raw-sql.html):
 
 - `ON CONFLICT` — see [Upsert](./upsert.html)
 - `JSONB` operators (`->>`, `@>`, `?`) — see [JSON Properties](./json-properties.html)
@@ -85,7 +106,8 @@ how you get rounding errors in an invoice.
 
 Postgres-wire-compatible services include [local Postgres](./connect-postgres.html), [Neon](./connect-neon.html), [Supabase](./connect-supabase.html),
 [Vercel Postgres](./connect-vercel-postgres.html), [Xata](./connect-xata.html), [Nile](./connect-nile.html), [PGlite](./connect-pglite.html) and [AWS Data API](./connect-aws-data-api.html). Cockroach
-uses the same wire adapter through its dedicated [`'cockroach'` variant](./dialect-cockroach.html).
+uses the public PostgreSQL-family adapter through its dedicated [`@zmdb/cockroach` package](./dialect-cockroach.html). These hosted-service guides describe connection recipes; they are not additional
+official database packages or automatic qualification of every provider API.
 
 ---
 

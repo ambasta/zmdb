@@ -1,4 +1,24 @@
-SQLite is fully supported and is the dialect zmdb's own tests use most, because a schema-shaped database is one function call away and needs no server.
+`@zmdb/sqlite` is the official SQLite vertical. The default `zmdb` application includes it through `zmdb/sqlite`; independently installed consumers can select `@zmdb/sqlite` directly.
+
+## Database-selection workflow
+
+The six official database packages use the same selection workflow. The [package reference](./package-reference.html) owns current install and peer ranges; the
+[SQLite package README](https://github.com/ambasta/zmdb/tree/main/packages/sqlite#install) includes the standalone TypeScript setup and full capability table.
+
+| Step             | SQLite selection                                                                                                                                                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install          | `npm add @zmdb/sqlite@1.0.0-alpha.4`                                                                                                                                                                                                                |
+| Configure        | Supply an application-owned `node:sqlite` client to `sqliteDriver(client)`; the application closes it.                                                                                                                                              |
+| Compile          | `createQueryCompiler(sqlite)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                         |
+| Migrate          | `sqlite.migrations.emitUp(operation)` and `sqlite.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                             |
+| Introspect       | `sqlite.introspector.snapshot(driver)` reads the real catalog.                                                                                                                                                                                      |
+| Execute          | `driver.execute(query)` runs the compiled query; `driver.transaction(...)` pins transaction work.                                                                                                                                                   |
+| Capabilities     | Read `sqlite.capabilities` and the package capability table; client-specific requirements still apply.                                                                                                                                              |
+| Refusals         | schemas, standalone sequences and row-level security; see the detailed boundaries below.                                                                                                                                                            |
+| Testing evidence | [The installed SQLite consumer](https://github.com/ambasta/zmdb/tree/main/fixtures/database-sqlite) and [the common six-database qualification](https://github.com/ambasta/zmdb/issues/676) prove their recorded package, client and server inputs. |
+
+A hosted-service connection guide is a recipe using one of these owners or an explicitly supplied structural adapter. Protocol compatibility alone does not create another official package or transfer
+the recorded server qualification to that service.
 
 ## Selecting it
 
@@ -6,7 +26,7 @@ SQLite is fully supported and is the dialect zmdb's own tests use most, because 
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 
 const compiler = createQueryCompiler(sqlite);
-const userRepo = defineRepository(users, sqliteDriver(db), { dialect: sqlite });
+const userRepo = defineRepository(users, sqliteDriver(db));
 ```
 
 ## What it emits
@@ -25,40 +45,23 @@ const userRepo = defineRepository(users, sqliteDriver(db), { dialect: sqlite });
 | Materialized views | **not supported** — throws `UnsupportedFeatureError`      |
 | `RETURNING`        | supported (3.35+)                                         |
 
-## The three types that need conversion
+## Column-specific value conversion
 
-SQLite has five storage classes, so three of the ten column types do not round-trip on their own. Handle it in the driver, which is the only place that knows the client:
+Use the official adapter for `node:sqlite` execution, transaction pinning and statement handling:
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
+import { sqliteDriver } from '@zmdb/sqlite';
 
 const db = new DatabaseSync('app.db');
-db.exec('PRAGMA foreign_keys = ON');
-db.exec('PRAGMA journal_mode = WAL');
-
-export const driver: Driver = {
-  async execute(q) {
-    const stmt = db.prepare(q.text);
-    const rows = q.text.trimStart().toUpperCase().startsWith('SELECT') ? stmt.all(...q.parameters) : (stmt.run(...q.parameters), []);
-    return rows.map(hydrate);
-  },
-};
-
-function hydrate(row: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...row,
-    active: row.active === undefined ? undefined : Boolean(row.active),
-    createdAt: typeof row.createdAt === 'string' ? new Date(row.createdAt) : row.createdAt,
-    address: typeof row.address === 'string' ? JSON.parse(row.address) : row.address,
-  };
-}
+export const driver = sqliteDriver(db);
 ```
 
-Per-column and explicit. A generic "coerce every 0/1 to boolean" rule will turn a real `count` of `1` into `true`.
+SQLite stores booleans as integers, JSON as text and timestamps using the declared storage representation. Put any application-specific conversion beside the column through a
+[custom type](./custom-types.html) with `toDb` / `fromDb`; do not replace the official execution adapter with a SELECT-prefix parser. Conversion must be per column: changing every `0` or `1` to a
+boolean also changes ordinary integer data. The application closes `db` after its work.
 
-For the same three going _in_, a [custom type](./custom-types.html) with `toDb` / `fromDb` puts the conversion next to the column declaration instead, which is usually the better home for it.
-
-## The pragmas are not optional
+## Connection pragmas
 
 ```sql
 PRAGMA foreign_keys = ON;   -- off by default, per connection
@@ -67,7 +70,7 @@ PRAGMA busy_timeout = 5000; -- wait for the write lock instead of failing
 ```
 
 `foreign_keys` being off by default is the one that bites: the constraint exists in your migration, and nothing enforces it. `sqliteDriver(db)` enables it when the adapter wraps the connection. A
-custom driver must still set it on every connection itself.
+custom driver must still set it on every connection itself. WAL mode and the busy timeout remain application choices.
 
 ## Types are advisory
 
@@ -76,8 +79,8 @@ guarantees and the [validators](./validators-assert.html) are doing more of the 
 
 ## One writer
 
-SQLite serialises writes at the database level. WAL mode lets readers proceed during a write, but two concurrent writers means one gets `SQLITE_BUSY`. That is fine for a single-process application and
-wrong for a multi-instance service — which is the real limit on using SQLite in production, not performance.
+SQLite serialises writes at the database level. WAL mode lets readers proceed during a write; contending writers must wait or handle `SQLITE_BUSY`. Choose the connection and deployment model around
+that locking behavior.
 
 ## Why it is the best test database
 
@@ -97,7 +100,7 @@ export function freshDb() {
 }
 ```
 
-`node:sqlite` is a built-in, so this adds no dependency; `:memory:` gives per-test isolation in under a millisecond. See [Testing](./testing.html).
+`node:sqlite` is a built-in, so this adds no client dependency; separate `:memory:` connections give isolated databases. See [Testing](./testing.html).
 
 > [!WARNING] Testing on SQLite and deploying on Postgres means the differences above are untested. `ILIKE`, `RETURNING`, `ON CONFLICT`, JSON operators, transactional DDL and case sensitivity all
 > differ. Run the fast suite on SQLite and a smaller integration suite against the real dialect.

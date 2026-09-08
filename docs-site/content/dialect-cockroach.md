@@ -1,6 +1,26 @@
 `@zmdb/cockroach` is the complete CockroachDB vertical. It is a one-way child of the public `@zmdb/postgres` family surface: PostgreSQL owns shared wire, compiler, migration, cursor, and catalog
 primitives, while Cockroach owns every override, refusal, retry code, live-server assertion, and packed-consumer check.
 
+## Database-selection workflow
+
+The six official database packages use the same selection workflow. The [package reference](./package-reference.html) owns current install and peer ranges; the
+[CockroachDB package README](https://github.com/ambasta/zmdb/tree/main/packages/cockroach#install) includes the standalone TypeScript setup and full capability table.
+
+| Step             | CockroachDB selection                                                                                                                                                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install          | `npm add @zmdb/cockroach@1.0.0-alpha.4 pg@^8.23.0`                                                                                                                                                                                                          |
+| Configure        | Supply an application-owned `pg` client to `cockroachDriver(client)`; the application closes it.                                                                                                                                                            |
+| Compile          | `createQueryCompiler(cockroach)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                              |
+| Migrate          | `cockroach.migrations.emitUp(operation)` and `cockroach.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                               |
+| Introspect       | `cockroach.introspector.snapshot(driver)` reads the real catalog.                                                                                                                                                                                           |
+| Execute          | `driver.execute(query)` runs the compiled query; `driver.transaction(...)` pins transaction work.                                                                                                                                                           |
+| Capabilities     | Read `cockroach.capabilities` and the package capability table; client-specific requirements still apply.                                                                                                                                                   |
+| Refusals         | PostgreSQL extensions, full-text operators, row-level security and cancelVia; see the detailed boundaries below.                                                                                                                                            |
+| Testing evidence | [The installed CockroachDB consumer](https://github.com/ambasta/zmdb/tree/main/fixtures/database-cockroach) and [the common six-database qualification](https://github.com/ambasta/zmdb/issues/676) prove their recorded package, client and server inputs. |
+
+A hosted-service connection guide is a recipe using one of these owners or an explicitly supplied structural adapter. Protocol compatibility alone does not create another official package or transfer
+the recorded server qualification to that service.
+
 ## Using it
 
 ```ts

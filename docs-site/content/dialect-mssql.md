@@ -1,6 +1,26 @@
 Install `@zmdb/mssql` for T-SQL compilation, modeled migration DDL, structural execution and catalog introspection. Its optional [`mssql`](https://www.npmjs.com/package/mssql) peer remains
 application-selected; the package does not open, close or configure the pool.
 
+## Database-selection workflow
+
+The six official database packages use the same selection workflow. The [package reference](./package-reference.html) owns current install and peer ranges; the
+[SQL Server package README](https://github.com/ambasta/zmdb/tree/main/packages/mssql#install) includes the standalone TypeScript setup and full capability table.
+
+| Step             | SQL Server selection                                                                                                                                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install          | `npm add @zmdb/mssql@1.0.0-alpha.4 mssql@^12.7.0`                                                                                                                                                                                                      |
+| Configure        | Supply an application-owned `mssql` client to `mssqlDriver(client)`; the application closes it.                                                                                                                                                        |
+| Compile          | `createQueryCompiler(mssql)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                             |
+| Migrate          | `mssql.migrations.emitUp(operation)` and `mssql.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                                  |
+| Introspect       | `mssql.introspector.snapshot(driver)` reads the real catalog.                                                                                                                                                                                          |
+| Execute          | `driver.execute(query)` runs the compiled query; `driver.transaction(...)` pins transaction work.                                                                                                                                                      |
+| Capabilities     | Read `mssql.capabilities` and the package capability table; client-specific requirements still apply.                                                                                                                                                  |
+| Refusals         | unordered pagination and unmodeled row-level-security declarations; see the detailed boundaries below.                                                                                                                                                 |
+| Testing evidence | [The installed SQL Server consumer](https://github.com/ambasta/zmdb/tree/main/fixtures/database-mssql) and [the common six-database qualification](https://github.com/ambasta/zmdb/issues/676) prove their recorded package, client and server inputs. |
+
+A hosted-service connection guide is a recipe using one of these owners or an explicitly supplied structural adapter. Protocol compatibility alone does not create another official package or transfer
+the recorded server qualification to that service.
+
 ```ts
 import sql from 'mssql';
 import { createQueryCompiler } from '@zmdb/sql';

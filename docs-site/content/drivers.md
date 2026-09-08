@@ -1,5 +1,5 @@
-A `Driver` is the whole database abstraction: one required dialect object, one method that runs a compiled query and returns rows, plus optional streaming and capability metadata. Everything above it
-— repositories, transactions, replicas, logging, caching and observability — composes around that boundary.
+An official database package binds its dialect, compiler traits, migration hooks, introspector and structural driver into one vertical. A `Driver` is its execution boundary: a required dialect object
+and a method that runs a compiled query and returns rows, with optional streaming. Repositories, transactions, replicas, logging, caching and observability compose around that boundary.
 
 ```ts
 import { type CompiledQuery, type SqlDialect } from '@zmdb/sql';
@@ -15,7 +15,21 @@ export interface Driver<Name extends string = string> {
 `CompiledQuery` always has `text` and `parameters`. It may also have optional compile-time `telemetry` when an observing wrapper requests it. An ordinary driver hands the text and parameters to the
 client and returns rows; it does not parse SQL. `Driver` lives in `@zmdb/orm`, not in the compiler.
 
-## First-party drivers
+## Six official database owners
+
+| Database                                  | Owning package      | Driver              | Client selected by the application | Family direction                 |
+| ----------------------------------------- | ------------------- | ------------------- | ---------------------------------- | -------------------------------- |
+| [SQLite](./dialect-sqlite.html)           | `@zmdb/sqlite`      | `sqliteDriver`      | `node:sqlite`                      | independent                      |
+| [PostgreSQL](./dialect-postgres.html)     | `@zmdb/postgres`    | `postgresDriver`    | `pg`                               | parent of CockroachDB            |
+| [MySQL](./dialect-mysql.html)             | `@zmdb/mysql`       | `mysqlDriver`       | `mysql2/promise`                   | parent of SingleStore            |
+| [SQL Server](./dialect-mssql.html)        | `@zmdb/mssql`       | `mssqlDriver`       | `mssql`                            | independent                      |
+| [CockroachDB](./dialect-cockroach.html)   | `@zmdb/cockroach`   | `cockroachDriver`   | `pg`                               | depends on the PostgreSQL family |
+| [SingleStore](./dialect-singlestore.html) | `@zmdb/singlestore` | `singlestoreDriver` | `mysql2/promise`                   | depends on the MySQL family      |
+
+Each dialect guide follows the same install, configure, compile, migrate, introspect, execute, capability, refusal and evidence workflow. `zmdb` includes SQLite; applications select another provider
+and its client explicitly. The child packages own their differing schema, catalog and refusal rules. Neither parent imports or depends on its child.
+
+## Configure the client
 
 ```ts
 // node:sqlite — no external dependency
@@ -66,10 +80,10 @@ const pool = await sql.connect(process.env.DATABASE_URL!);
 const users = defineRepository(UserSchema, mssqlDriver(pool));
 ```
 
-All four accept **structural** types — `SqliteDatabase` is `{ exec(sql); prepare(sql) }`, `MysqlQueryable` is the `execute`/transaction subset of `mysql2/promise`, `PgQueryable` is `{ query(…) }`, and
-`MssqlPool` is `{ request(); transaction() }` — so the real client objects are assignable without a client library becoming a runtime dependency of the adapter. `@zmdb/sqlite` declares no third-party
-database client; `node:sqlite` is built in. `@zmdb/mysql` and `@zmdb/mssql` declare their clients only as optional peers. Install `mysql2`, `pg`, or `mssql` in the application that selects the
-corresponding adapter.
+The four base adapters accept **structural** types — `SqliteDatabase` is `{ exec(sql); prepare(sql) }`, `MysqlQueryable` is the `execute`/transaction subset of `mysql2/promise`, `PgQueryable` is
+`{ query(…) }`, and `MssqlPool` is `{ request(); transaction() }` — so the real client objects are assignable without a client library becoming a runtime dependency of the adapter. `@zmdb/sqlite`
+declares no third-party database client; `node:sqlite` is built in. `@zmdb/postgres`, `@zmdb/mysql` and `@zmdb/mssql` declare their clients only as optional peers. The CockroachDB and SingleStore
+adapters reuse those structural client shapes while binding their own dialects. Install `mysql2`, `pg`, or `mssql` in the application that selects the corresponding adapter.
 
 > [!NOTE] Every driver declares its dialect object. Driver wrappers must preserve the wrapped dialect. The repository uses that same frozen `SqlDialect` object for compilation, limits, retries and
 > returning behavior.
@@ -83,9 +97,20 @@ configuration remain yours.
 `sqliteDriver` exposes a native stepped stream. `postgresDriver` exposes a server-cursor stream when given a `Pool`, fetching `batchSize` rows per round trip and releasing the checked-out connection
 on iterator cleanup. A bare Postgres `Client` and the SQL Server adapter omit `stream`, so repositories use their documented buffered fallback unless `requireCursor: true` refuses it.
 
+## Qualification and provider recipes
+
+An official vertical has a public immutable dialect/driver pair, explicit capability and refusal metadata, its own migration and catalog semantics, and an independent packed consumer. The
+[six-database qualification](https://github.com/ambasta/zmdb/issues/676) installs real npm archives and checks public declarations, dependency/client ownership, parameterized CRUD, migrations,
+transaction rollback and catalog introspection. Database-specific consumers cover the additional claimed semantics against their recorded servers. Missing required services fail qualification; a
+structural or captured-query unit test alone is not live-server evidence.
+
+Hosted PostgreSQL/MySQL services, HTTP database APIs and alternate SQLite bindings are connection recipes unless they have their own admitted package and qualification. A recipe can reuse a family
+dialect where its behavior matches, but must state the limits of its adapter and cannot inherit a server's evidence merely by speaking a similar protocol.
+
 ## Writing your own
 
-Any database with a client that takes SQL plus parameters:
+Supply a structural adapter when the selected provider API does not fit an official client adapter. Preserve the dialect and parameter array, and implement only the transaction, streaming and
+cancellation behavior that the provider actually supports:
 
 ```ts
 import { type Driver } from '@zmdb/orm';

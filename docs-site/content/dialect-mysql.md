@@ -1,6 +1,26 @@
 `@zmdb/mysql` is the complete MySQL vertical: its immutable dialect object owns compilation, DDL and migrations, catalog introspection, capabilities and the structural `mysql2/promise` adapter.
 Row-returning repository writes remain deliberately narrower: `create`, ordinary `update`, and ordinary `upsert` refuse because MySQL cannot satisfy their returned-entity contract in one statement.
 
+## Database-selection workflow
+
+The six official database packages use the same selection workflow. The [package reference](./package-reference.html) owns current install and peer ranges; the
+[MySQL package README](https://github.com/ambasta/zmdb/tree/main/packages/mysql#install) includes the standalone TypeScript setup and full capability table.
+
+| Step             | MySQL selection                                                                                                                                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install          | `npm add @zmdb/mysql@1.0.0-alpha.4 mysql2@^3.24.3`                                                                                                                                                                                                |
+| Configure        | Supply an application-owned `mysql2/promise` client to `mysqlDriver(client)`; the application closes it.                                                                                                                                          |
+| Compile          | `createQueryCompiler(mysql)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                        |
+| Migrate          | `mysql.migrations.emitUp(operation)` and `mysql.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                             |
+| Introspect       | `mysql.introspector.snapshot(driver)` reads the real catalog.                                                                                                                                                                                     |
+| Execute          | `driver.execute(query)` runs the compiled query; `driver.transaction(...)` pins transaction work.                                                                                                                                                 |
+| Capabilities     | Read `mysql.capabilities` and the package capability table; client-specific requirements still apply.                                                                                                                                             |
+| Refusals         | RETURNING, standalone sequences, partial indexes and row-level security; see the detailed boundaries below.                                                                                                                                       |
+| Testing evidence | [The installed MySQL consumer](https://github.com/ambasta/zmdb/tree/main/fixtures/database-mysql) and [the common six-database qualification](https://github.com/ambasta/zmdb/issues/676) prove their recorded package, client and server inputs. |
+
+A hosted-service connection guide is a recipe using one of these owners or an explicitly supplied structural adapter. Protocol compatibility alone does not create another official package or transfer
+the recorded server qualification to that service.
+
 ## Selecting it
 
 ```ts
@@ -72,7 +92,8 @@ schema is a MySQL one:
 return rows.map(r => ({ ...r, active: Boolean(r.active) }));
 ```
 
-Or use `mysql2`'s `typeCast` to handle `TINY` columns with length 1 globally. Either way, decide it once — a row where `active` is `0` is truthy in JavaScript, and that bug reads as correct code.
+Or use `mysql2`'s `typeCast` to handle `TINY` columns with length 1 globally. Either way, decide it once: a numeric `0` is falsy, but it still differs from the boolean `false` promised by an
+application schema.
 
 ## Case sensitivity
 

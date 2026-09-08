@@ -1,32 +1,111 @@
-# `@zmdb/cockroach`
+# @zmdb/cockroach
 
-CockroachDB support for zmdb, implemented as a one-way child of the public `@zmdb/postgres` family surface.
+The CockroachDB vertical owns the immutable `cockroach` dialect, its migration hooks and catalog introspector, and the `cockroachDriver` adapter. The shared query compiler comes from `@zmdb/sql`;
+repository and driver contracts come from `@zmdb/orm`. `cockroachVertical` pairs this dialect with its driver factory.
 
-```ts
-import { cockroach, cockroachDriver } from '@zmdb/cockroach';
-import { createQueryCompiler } from '@zmdb/sql';
-import { Pool } from 'pg';
+## Install
 
-const pool = new Pool({ connectionString: process.env.COCKROACH_URL });
-const compiler = createQueryCompiler(cockroach);
-const driver = cockroachDriver(pool);
-
-await driver.execute(compiler.selectFrom('users').compile());
+```bash
+npm add @zmdb/cockroach@1.0.0-alpha.4 @zmdb/sql@1.0.0-alpha.4 @zmdb/migrations@1.0.0-alpha.4 pg@^8.23.0
 ```
 
-The child keeps PostgreSQL quoting, placeholders, DML, migrations, cursors and catalog parsing where Cockroach accepts them. It overrides the parts that are not interchangeable:
+For the TypeScript snippets, install the declaration inputs used by the packed consumer:
 
-- `serial` emits `INT8 DEFAULT unique_rowid()`;
-- `integer` emits `INT4`;
-- PostgreSQL extensions, explicit index methods/operator classes, full-text operators and row-level-security declarations are refused;
-- migration connections report non-transactional DDL and omit PostgreSQL's transaction wrapper because `CREATE TABLE` survives `ROLLBACK`;
-- server-side cancellation is not advertised or accepted because CockroachDB does not provide PostgreSQL's `pg_cancel_backend()` function; and
-- catalog indexes are read through CockroachDB's `SHOW` surface and normalized with the rest of the PostgreSQL-family snapshot.
+```bash
+npm add -D typescript@7.0.2 @types/node@26.4.1 @types/pg@8.23.1
+```
 
-The raw driver preserves node-postgres's `INT8` representation: `unique_rowid()` values arrive as decimal strings, and the live lane proves they exceed JavaScript's safe-integer range. Pass those
-values back as opaque parameters; do not coerce them with `Number`.
+Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `zmdb` adds its selected
+database package and client rather than replacing the product facade.
 
-`40001` is classified as retryable, but retrying is always explicit. A retry re-runs the entire transaction callback, potentially `maxRetries + 1` times. Keep HTTP calls, message publishing, file
-writes and every other non-idempotent external side effect outside a retrying callback: a database rollback cannot undo them.
+The package installs its PostgreSQL-family parent, not `pg`. Install `pg` explicitly for this recipe; no client or pool is loaded by importing the vertical.
 
-See the CockroachDB dialect guide in the documentation site for the full capability and refusal matrix.
+## Configure
+
+The snippets below are successive steps in one module.
+
+```ts
+import { Pool } from 'pg';
+import { cockroach, cockroachDriver } from '@zmdb/cockroach';
+
+const client = new Pool({ connectionString: process.env.DATABASE_URL });
+const driver = cockroachDriver(client);
+```
+
+The application owns the client and closes it with `await client.end()` in a `finally` block after its work. Hosted services that accept this client's protocol are connection recipes, not additional
+official database packages or automatically qualified server variants.
+
+## Compile
+
+```ts
+import { createQueryCompiler } from '@zmdb/sql';
+
+const compiler = createQueryCompiler(cockroach);
+const query = compiler.selectFrom('users').where('id', '=', 7).compile();
+```
+
+Compilation is pure: the result carries SQL text and a separate parameter array. It does not create the `users` table or open a connection.
+
+## Migrate
+
+Use `cockroach.migrations.emitUp(operation)` to obtain this database's DDL and `cockroach.migrations.connection(driver)` to create its migration connection. Pass reviewed migration records to `up` and
+`down` from `@zmdb/migrations`; transactional behavior follows the capability table below. The [complete installed workflow](../../fixtures/consumer-database-publication/runtime.mjs) creates a fresh
+table, applies and rolls back its migration, and closes the supplied client.
+
+## Introspect
+
+```ts
+const snapshot = await cockroach.introspector.snapshot(driver);
+```
+
+The snapshot comes from the selected database's real catalog through the same driver. `cockroachIntrospector` is also exported directly. Introspection and generated DDL use this vertical's semantics.
+
+## Execute
+
+```ts
+const rows = await driver.execute(query);
+```
+
+Run this after migrating or otherwise creating the table. Use `driver.transaction(async transaction => ...)` for a pinned transactional driver; the application decides whether to retry. Query values
+travel as parameters, not SQL string interpolation.
+
+## Capabilities
+
+These entries describe `cockroach.capabilities`; a true entry can still require the client support described below.
+
+| Capability                            | Advertised support |
+| ------------------------------------- | ------------------ |
+| INSERT/upsert/UPDATE/DELETE returning | yes                |
+| Transactional DDL                     | no                 |
+| Schemas                               | yes                |
+| Sequences                             | yes                |
+| Generated columns                     | yes                |
+| Partial indexes                       | yes                |
+| Foreign keys                          | yes                |
+| Row-level security                    | no                 |
+| Streaming                             | yes                |
+| Server-side cancellation              | no                 |
+
+## Refusals and ownership
+
+PostgreSQL extensions, explicit index methods/operator classes, full-text operators and row-level-security declarations are refused. DDL is non-transactional. `cancelVia` is refused because
+CockroachDB does not provide PostgreSQL `pg_cancel_backend()`. A retryable `40001` can rerun the complete transaction callback; keep non-idempotent external effects outside it.
+
+CockroachDB is a one-way child of `@zmdb/postgres`. It reuses the public PostgreSQL-family factories, then owns CockroachDB migration, type and catalog overrides. The parent never depends on its
+child; sharing the wire client does not make PostgreSQL acceptance evidence for CockroachDB.
+
+`serial` emits `INT8 DEFAULT unique_rowid()` and `integer` emits `INT4`. The driver preserves node-postgres INT8 values as decimal strings; keep generated IDs opaque instead of coercing them with
+`Number`.
+
+## Testing evidence
+
+The [database publication qualification](../../fixtures/consumer-database-publication) builds real npm archives and installs this selected package in an independent consumer. Its public workflow
+covers strict declarations, package/client ownership, parameterized CRUD, transaction rollback, migration application/rollback and catalog introspection. The
+[CockroachDB consumer](../../fixtures/database-cockroach) adds the database-specific capability and refusal checks.
+
+Issue [#676](https://github.com/ambasta/zmdb/issues/676) records the completed installed workflows. Those observations are scoped to their recorded clients and servers; they do not certify every
+compatible hosted service. Qualification reports identify their source, archive and server inputs. See the [CockroachDB guide](../../docs-site/content/dialect-cockroach.md) for the detailed contract.
+
+## License
+
+GNU General Public License v3.0 or later (GPL-3.0-or-later) — see [LICENSE](./LICENSE).

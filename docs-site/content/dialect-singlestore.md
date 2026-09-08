@@ -2,6 +2,26 @@ Installable database vertical: `@zmdb/singlestore`. It is a one-way child of `@z
 parent, while the child owns SingleStore storage/distribution declarations, catalog adaptation, and conservative refusals. The mandatory packed-consumer lane runs against the official SingleStore Dev
 Image.
 
+## Database-selection workflow
+
+The six official database packages use the same selection workflow. The [package reference](./package-reference.html) owns current install and peer ranges; the
+[SingleStore package README](https://github.com/ambasta/zmdb/tree/main/packages/singlestore#install) includes the standalone TypeScript setup and full capability table.
+
+| Step             | SingleStore selection                                                                                                                                                                                                                                         |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install          | `npm add @zmdb/singlestore@1.0.0-alpha.4 mysql2@^3.24.3`                                                                                                                                                                                                      |
+| Configure        | Supply an application-owned `mysql2/promise` client to `singlestoreDriver(client)`; the application closes it.                                                                                                                                                |
+| Compile          | `createQueryCompiler(singlestore)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                              |
+| Migrate          | `singlestore.migrations.emitUp(operation)` and `singlestore.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                             |
+| Introspect       | `singlestore.introspector.snapshot(driver)` reads the real catalog.                                                                                                                                                                                           |
+| Execute          | `driver.execute(query)` runs the compiled query; `driver.transaction(...)` pins transaction work.                                                                                                                                                             |
+| Capabilities     | Read `singlestore.capabilities` and the package capability table; client-specific requirements still apply.                                                                                                                                                   |
+| Refusals         | foreign keys, unsupported storage/index changes and RETURNING; see the detailed boundaries below.                                                                                                                                                             |
+| Testing evidence | [The installed SingleStore consumer](https://github.com/ambasta/zmdb/tree/main/fixtures/database-singlestore) and [the common six-database qualification](https://github.com/ambasta/zmdb/issues/676) prove their recorded package, client and server inputs. |
+
+A hosted-service connection guide is a recipe using one of these owners or an explicitly supplied structural adapter. Protocol compatibility alone does not create another official package or transfer
+the recorded server qualification to that service.
+
 ## Using it
 
 ```ts
