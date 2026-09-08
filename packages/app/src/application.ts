@@ -75,16 +75,19 @@ export function createApplication(rootModule: ModuleClass, options: ApplicationO
   const controllerBindings = Object.freeze([
     ...(runtime?.controllers ?? compiled.controllers.map(controller => ({ kind: 'eager' as const, controller }))),
   ]);
-  const extensionContext: ApplicationExtensionContext = {
-    container: compiled.container,
-    controllers: Object.freeze([...compiled.controllers]),
-    commands: Object.freeze([...compiled.commands]),
-    observability,
-  };
-  Object.defineProperty(extensionContext, APPLICATION_EXTENSION_BRIDGE, {
-    value: Object.freeze({ controllers: controllerBindings }),
-  });
-  const context = Object.freeze(extensionContext);
+  let context: ApplicationExtensionContext | undefined;
+  if (extensions.length > 0) {
+    const extensionContext: ApplicationExtensionContext = {
+      container: compiled.container,
+      controllers: Object.freeze([...compiled.controllers]),
+      commands: Object.freeze([...compiled.commands]),
+      observability,
+    };
+    Object.defineProperty(extensionContext, APPLICATION_EXTENSION_BRIDGE, {
+      value: Object.freeze({ controllers: controllerBindings }),
+    });
+    context = Object.freeze(extensionContext);
+  }
   const entered: ApplicationExtension[] = [];
   let state: 'created' | 'starting' | 'running' | 'stopping' | 'stopped' | 'failed-cleaned' = 'created';
   let initPromise: Promise<void> | undefined;
@@ -119,9 +122,11 @@ export function createApplication(rootModule: ModuleClass, options: ApplicationO
     state = 'starting';
     try {
       await runInit(instances);
-      for (const extension of extensions) {
-        entered.push(extension);
-        await extension.start(context);
+      if (context !== undefined) {
+        for (const extension of extensions) {
+          entered.push(extension);
+          await extension.start(context);
+        }
       }
       state = 'running';
     } catch (startupError) {
