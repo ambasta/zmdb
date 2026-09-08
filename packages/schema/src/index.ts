@@ -22,7 +22,7 @@ export interface ValidationIssue {
   readonly value?: unknown;
 }
 
-class ValidationError extends Error {
+export class ValidationError extends Error {
   readonly issues: readonly ValidationIssue[];
 
   constructor(message: string, issues: readonly ValidationIssue[] = []) {
