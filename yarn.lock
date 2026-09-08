@@ -4808,9 +4808,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/benchmarks@workspace:benchmarks"
   dependencies:
-    "@zmdb/schema": "workspace:*"
-    "@zmdb/sql": "workspace:*"
-    "@zmdb/validator": "workspace:*"
+    "@zmdb/schema": "workspace:^"
+    "@zmdb/sql": "workspace:^"
+    "@zmdb/validator": "workspace:^"
     kysely: "npm:^0.29.5"
   languageName: unknown
   linkType: soft
@@ -5188,7 +5188,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/schema@workspace:*, @zmdb/schema@workspace:^, @zmdb/schema@workspace:packages/schema":
+"@zmdb/schema@workspace:^, @zmdb/schema@workspace:packages/schema":
   version: 0.0.0-use.local
   resolution: "@zmdb/schema@workspace:packages/schema"
   dependencies:
@@ -5234,7 +5234,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/sql@workspace:*, @zmdb/sql@workspace:^, @zmdb/sql@workspace:packages/sql":
+"@zmdb/sql@workspace:^, @zmdb/sql@workspace:packages/sql":
   version: 0.0.0-use.local
   resolution: "@zmdb/sql@workspace:packages/sql"
   dependencies:
@@ -5371,7 +5371,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/validator@workspace:*, @zmdb/validator@workspace:^, @zmdb/validator@workspace:packages/validator":
+"@zmdb/validator@workspace:^, @zmdb/validator@workspace:packages/validator":
   version: 0.0.0-use.local
   resolution: "@zmdb/validator@workspace:packages/validator"
   dependencies:

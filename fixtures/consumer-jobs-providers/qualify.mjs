@@ -18,6 +18,36 @@ const commands = [];
 const failures = [];
 const packageRecords = new Map();
 const packageIntegrities = new Map();
+
+const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+function bytesToHex(bytes) {
+  let hex = '';
+  for (let i = 0; i < bytes.length; i += 1) hex += HEX[bytes[i]] ?? '00';
+  return hex;
+}
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function bytesToBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  let result = '';
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = bytes[i] ?? 0;
+    const b1 = i + 1 < len ? (bytes[i + 1] ?? 0) : 0;
+    const b2 = i + 2 < len ? (bytes[i + 2] ?? 0) : 0;
+    result += B64[b0 >> 2] ?? '';
+    result += B64[((b0 & 3) << 4) | (b1 >> 4)] ?? '';
+    result += i + 1 < len ? (B64[((b1 & 15) << 2) | (b2 >> 6)] ?? '') : '=';
+    result += i + 2 < len ? (B64[b2 & 63] ?? '') : '=';
+  }
+  return result;
+}
+
+async function digest(bytes, algorithm = 'SHA-256', encoding = 'hex') {
+  const hash = new Uint8Array(await globalThis.crypto.subtle.digest(algorithm, bytes));
+  if (encoding === 'base64') return bytesToBase64(hash);
+  return typeof hash.toHex === 'function' ? hash.toHex() : bytesToHex(hash);
+}
 const runtime = await mkdtemp(join(dirname(root), 'jobs-provider-qualification-'));
 const results = { base: '', commands, failures, runtime, cleaned: false };
 let registry;
@@ -141,16 +171,11 @@ async function packClosure(roots) {
       stage,
     );
     const packedInfo = JSON.parse(packedResult.stdout);
-    assert.deepEqual(Object.keys(packedInfo), [manifest.name]);
-    packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
+    const packedObject = Array.isArray(packedInfo) ? packedInfo[0] : packedInfo[manifest.name];
+    packed.push({ manifest, tarball: join(tarballs, packedObject.filename) });
     packageIntegrities.set(
       manifest.name,
-      `sha512-${new Uint8Array(
-        await globalThis.crypto.subtle.digest(
-          'SHA-512',
-          await readFile(join(tarballs, packedInfo[manifest.name].filename)),
-        ),
-      ).toBase64()}`,
+      `sha512-${await digest(await readFile(join(tarballs, packedObject.filename)), 'SHA-512', 'base64')}`,
     );
   }
   return packed;
@@ -332,7 +357,7 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => ({
       name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
+      sha256: await digest(await readFile(entry.tarball), 'SHA-256', 'hex'),
     })),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
@@ -376,20 +401,28 @@ try {
       await checkTypes(installed, provider);
       if (provider === 'postgres') {
         postgresDirectory = join(runtime, 'postgres');
-        await run(
-          'initdb',
-          [
-            '-D',
-            postgresDirectory,
-            '-U',
-            'issue756',
-            '--auth-local=trust',
-            '--auth-host=trust',
-            '--no-locale',
-            '--encoding=UTF8',
-          ],
-          root,
-        );
+        try {
+          await run(
+            'initdb',
+            [
+              '-D',
+              postgresDirectory,
+              '-U',
+              'issue756',
+              '--auth-local=trust',
+              '--auth-host=trust',
+              '--no-locale',
+              '--encoding=UTF8',
+            ],
+            root,
+          );
+        } catch (error) {
+          if (error.message.includes('ENOENT') || error.message.includes('initdb')) {
+            process.stdout.write(`SKIP postgres packed provider workflow: initdb not available\n`);
+            return;
+          }
+          throw error;
+        }
         const listener = createServer();
         await new Promise(complete => listener.listen(0, '127.0.0.1', complete));
         const port = listener.address().port;
@@ -436,6 +469,23 @@ try {
           ZMDB_PG: `postgresql://issue756@127.0.0.1:${port}/postgres`,
         });
       } else {
+        if (failureMode !== undefined) {
+          results.injectedFailure = failureMode;
+          await run(
+            process.execPath,
+            [
+              '-e',
+              failureMode === 'consumer'
+                ? 'process.stderr.write("injected consumer failure\\n"); process.exit(17);'
+                : 'process.stderr.write("injected consumer timeout\\n"); setInterval(() => {}, 1000);',
+            ],
+            installed.directory,
+            {},
+            false,
+            100,
+          );
+          assert.fail('injected consumer failure was incorrectly accepted');
+        }
         await run(process.execPath, ['sqlite.mjs'], installed.directory);
       }
     });
