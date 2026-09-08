@@ -134,6 +134,8 @@ mkdirSync(join(OUT, 'benchmarks'), { recursive: true });
 // replaced by a fallback: benchmarks.mjs renders an explicit "not measured" panel
 // naming the command that produces it, because a placeholder zero is a claim.
 const BENCH_DATA = [
+  'engineering.json',
+  'engineering-raw.json.gz',
   'validation.json',
   'orm.json',
   'framework.json',

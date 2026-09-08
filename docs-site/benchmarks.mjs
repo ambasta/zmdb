@@ -1,8 +1,7 @@
 // Benchmarks dashboard.
 //
-// Renders benchmarks/site/{validation,orm,framework}.json — the files
-// benchmarks/scripts/bench.mjs normalises out of the three upstream suites — as
-// one interactive page inside the docs shell.
+// Renders the committed engineering capture and the validation, ORM and framework
+// summaries in benchmarks/site as one page inside the docs shell.
 //
 // Two deliberate choices:
 //
@@ -22,7 +21,7 @@ import { PALETTE_HTML, THEME_BOOT, shellJs, topbarHtml } from './shell.mjs';
 
 const SUITE_META = {
   validation: {
-    label: 'Validation',
+    label: 'Historical validation',
     blurb:
       'zmdb registered as two participants in moltar/typescript-runtime-type-benchmarks and run by the upstream runner, ' +
       'one forked process per library, against the whole field. <code>zmdb</code> is the runtime validator walking a ' +
@@ -31,7 +30,7 @@ const SUITE_META = {
     command: 'yarn bench:validation',
   },
   orm: {
-    label: 'ORM',
+    label: 'Historical ORM',
     blurb:
       'zmdb added as a participant server in drizzle-team/drizzle-benchmarks and replayed with k6 over the upstream ' +
       '13-route request list, against the same Postgres, the same driver and the same pool geometry as every other ' +
@@ -39,13 +38,11 @@ const SUITE_META = {
     command: 'yarn bench:orm',
   },
   framework: {
-    label: 'HTTP framework',
+    label: 'HTTP framework captures',
     blurb:
-      '@zmdb/web against the the-benchmarker/web-frameworks shared contract — <code>GET /</code>, <code>GET /user/:id</code>, ' +
-      '<code>POST /user</code> — with every peer built and measured on this same machine, same load generator, same ' +
-      'concurrency levels. Each participant passes the contract check before any load is applied. Our app is served on ' +
-      '<code>node</code>, <code>bun</code> and <code>deno</code> from one bundle, so those three rows differ only by the ' +
-      'runtime that ran them.',
+      'Captured @zmdb/web and peer workloads under the the-benchmarker/web-frameworks shared contract — ' +
+      '<code>GET /</code>, <code>GET /user/:id</code>, <code>POST /user</code>. The dated Node refresh appears ' +
+      'alongside historical peer, Bun and Deno captures from separate measurement sessions.',
     command: 'yarn bench:framework',
   },
 };
@@ -116,6 +113,100 @@ function panel(name, data, body) {
 <p class="note">${meta.blurb}</p>
 ${provenanceHtml(data)}
 ${data === null ? missingHtml(name) : body}
+</section>`;
+}
+
+function engineeringPanel(data) {
+  if (data === null) {
+    return `<section class="suite" id="suite-engineering"><h2>Engineering costs</h2>
+<p>No committed <code>engineering.json</code> capture is available. See the
+<a href="https://github.com/ambasta/zmdb/blob/main/benchmarks/harness/README.md">reproduction workflow</a>.</p></section>`;
+  }
+  const source = `https://github.com/ambasta/zmdb/blob/${encodeURIComponent(data.sourceRevision)}`;
+  const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 });
+  const value = measured => `<data value="${escapeHtml(measured)}">${number.format(measured)}</data>`;
+  const groups = [
+    {
+      id: 'editor',
+      title: 'Editor and compiler',
+      prefixes: ['editor/', 'compiler/'],
+      source: 'benchmarks/scripts/typescript.mjs',
+      note: 'Public product and server-core consumer projects: language-service operations and clean, incremental and affected-edit compilation.',
+    },
+    {
+      id: 'build',
+      title: 'Build, package and consumer',
+      prefixes: ['build/', 'package/', 'consumer/'],
+      source: 'benchmarks/scripts/lifecycle.mjs',
+      note: 'Clean builds remove emitted output; cached builds repeat the same build command with filesystem and dependency caches retained. Installed size and package count include TypeScript and installation tooling.',
+    },
+    {
+      id: 'startup',
+      title: 'Startup and first work',
+      prefixes: ['startup/'],
+      source: 'benchmarks/scripts/lifecycle.mjs',
+      note: 'Separate application initialization, process readiness, first HTTP request, first application query through SQLite and shutdown intervals.',
+    },
+    {
+      id: 'postgres',
+      title: 'PostgreSQL replay',
+      prefixes: ['postgres/'],
+      source: 'benchmarks/harness/orm/run-k6-rich.sh',
+      note: 'zmdb-only HTTP replay. Latency medians and p90/p95/p99 rows are medians of per-run percentiles; they are not percentiles of a pooled request distribution. The range is the minimum and maximum run summary.',
+    },
+  ];
+  const metadata = [
+    ['Capture', `${data.startedAt} → ${data.completedAt}`],
+    ['Node / npm / Yarn', `${data.node} / ${data.npm} / ${data.yarn}`],
+    ['TypeScript / SQLite', `${data.typescript} / ${data.sqlite}`],
+    ['PostgreSQL', data.postgres],
+    ['Load generator', data.k6],
+    ['Platform', data.platform],
+    ['CPU', `${data.cpu} (${data.logicalCpus} logical CPUs)`],
+    ['Memory', `${number.format(data.totalMemoryBytes)} bytes`],
+    ['Initial load average', data.initialLoadAverage.join(', ')],
+    ['Rounds', data.rounds],
+  ];
+  return `<section class="suite" id="suite-engineering">
+<h2>Engineering costs — current-product capture</h2>
+<p>Recorded zmdb measurements at revision <a href="https://github.com/ambasta/zmdb/commit/${encodeURIComponent(data.sourceRevision)}"><code>${escapeHtml(data.sourceRevision)}</code></a>.
+Each row uses the committed metric name, unit, median and min–max range. Values are displayed to three decimal places;
+full precision and every sample are available in the downloads.</p>
+<div class="grid-scroll"><table class="prov-table"><tbody>${metadata
+    .map(([label, detail]) => `<tr><th>${label}</th><td>${escapeHtml(detail)}</td></tr>`)
+    .join('')}</tbody></table></div>
+<p class="note honest">${escapeHtml(data.methodology)}</p>
+<p class="note">OS caches are warm or unflushed, including clean-build runs; this capture does not measure a cold OS cache.
+PostgreSQL and the load generator are co-located. These zmdb-only results are separate from the historical competitor,
+PostgreSQL 16, Bun and Deno measurements below.</p>
+<p><a href="./engineering.json" download>Summary and per-metric samples (JSON)</a> ·
+<a href="./${escapeHtml(data.rawFile)}" download>Complete raw runs and command output (gzip JSON)</a> ·
+<a href="https://github.com/ambasta/zmdb/blob/main/benchmarks/scripts/baseline.mjs">Aggregation and metric definitions</a></p>
+${groups
+  .map(group => {
+    const metrics = data.metrics.filter(metric => group.prefixes.some(prefix => metric.name.startsWith(prefix)));
+    return `<h3 id="engineering-${group.id}">${group.title}</h3>
+<p class="note">${group.note} <a href="${source}/${group.source}">Measurement source</a>.</p>
+<div class="grid-scroll"><table><thead><tr><th>Metric</th><th>Unit</th><th class="num">Samples</th>
+<th class="num">Median</th><th class="num">Min–max</th></tr></thead><tbody>${metrics
+      .map(
+        metric => `<tr><th scope="row"><code>${escapeHtml(metric.name)}</code></th><td>${escapeHtml(metric.unit)}</td>
+<td class="num">${metric.samples.length}</td><td class="num">${value(metric.median)}</td>
+<td class="num">${value(metric.min)}–${value(metric.max)}</td></tr>`,
+      )
+      .join('')}</tbody></table></div>`;
+  })
+  .join('')}
+<h3>Reproduce this workload</h3>
+<p>Use an idle machine, a fresh work directory outside the repository, an installed k6 executable and a PostgreSQL server
+seeded with the <a href="${source}/benchmarks/harness/orm/load-pg-full.mjs">Northwind loader</a>.
+The capture records: <code>${escapeHtml(data.reproduction)}</code>.</p>
+<pre><code>K6=/absolute/path/to/k6 PGURL='postgres://user:password@localhost:55432/bench' \\
+  node benchmarks/scripts/baseline.mjs --work-dir ../zmdb-engineering-run --rounds ${data.rounds}
+node --import ./scripts/ts-specifier-hook.mjs docs-site/build.mjs</code></pre>
+<p class="note">The baseline script invokes the linked editor/compiler, lifecycle and PostgreSQL workloads and retains
+all rounds. The docs build renders the committed files. See the
+<a href="https://github.com/ambasta/zmdb/blob/main/benchmarks/harness/README.md#engineering-costs">reproduction guide</a> for setup and individual diagnostic commands.</p>
 </section>`;
 }
 
@@ -199,12 +290,17 @@ function frameworkPanel(data) {
   const runtimeLine =
     runtimes.length === 0
       ? ''
-      : `<p class="note">Our app is measured on <b>${runtimes.length} runtime${runtimes.length === 1 ? '' : 's'}</b> —
-${runtimes.map(r => `<code>${escapeHtml(r.runtime)} ${escapeHtml(r.version ?? '')}</code>`).join(', ')} — from one bundle, so
-the runtime is the only thing that differs between those rows. A runtime that is missing here was never run; it is not a
-zero and not a node number wearing another label.</p>
+      : `<p class="note">Recorded runtimes: <b>${runtimes.length}</b> —
+${runtimes
+  .map(
+    r =>
+      `<code>${escapeHtml(r.runtime)} ${escapeHtml(r.version ?? '')}</code>: ${escapeHtml(r.workers ?? '?')} ${r.workers === 1 ? 'worker' : 'workers'}, measured ${escapeHtml(r.measuredAt ?? 'date not recorded')}`,
+  )
+  .join('; ')}.
+The peer, Bun and Deno rows are historical; their recorded versions and dates are separate from the Node refresh.
+Missing runtimes were not measured.</p>
 <div class="admonition warning"><div class="adm-title">⚠️ These rows do not all use the machine the same way</div>
-<p>Every <code>@zmdb/web</code> row is <b>${runtimes[0].workers ?? '?'} process</b>. The Go peers take all cores through
+<p>The Go peers take all cores through
 <code>GOMAXPROCS</code> and the Rust peers through <code>num_cpus</code>, so ranking across languages here is a ranking of
 core counts as much as of frameworks${
           interleaved === null ? '.' : ' — the per-core, order-rotated table further down is the like-for-like reading.'
@@ -270,7 +366,6 @@ above would be the exact mistake this dashboard is trying not to make.</p>
 }
 
 const DASH_CSS = `
-main{max-width:1160px}
 .suite{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:22px 0}
 .suite h2{border:0;margin:0 0 8px;font-size:22px}
 .suite h3{margin:26px 0 6px;font-size:15px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
@@ -610,30 +705,27 @@ export function benchmarkHighlights(dashDir) {
 
 export function buildBenchmarksPage({ css, navHtml, dashDir }) {
   const data = {
+    engineering: read(dashDir, 'engineering'),
     validation: read(dashDir, 'validation'),
     orm: read(dashDir, 'orm'),
     framework: read(dashDir, 'framework'),
   };
 
-  const nav = `<div class="suitenav">${Object.entries(SUITE_META)
+  const nav = `<div class="suitenav"><a href="#suite-engineering">Engineering costs</a>${Object.entries(SUITE_META)
     .map(([key, meta]) => `<a href="#suite-${key}">${meta.label}</a>`)
     .join('')}</div>`;
 
-  const intro = `<p>zmdb run <b>inside the actual upstream benchmark suites</b>, against the real competitor field, on this
-machine. Each suite is a git submodule under <code>benchmarks/upstream/</code>; zmdb is added to it by
-<code>benchmarks/scripts/graft.mjs</code> as a participant plus a minimal patch, and never by editing how the suite measures.
-Reproduce any panel below with <code>yarn bench</code>.</p>
-<div class="admonition note"><div class="adm-title">📝 What these numbers are, and are not</div>
-<p>They are indicative of the machine in the provenance block, not an official ranking — every panel names its hardware,
-its upstream commit and its load profile so you can weigh it. A capability a library cannot express is reported as
-<b>DNF</b> and never summed into a score, and a participant that failed to build or load is <b>listed by name</b> rather
-than dropped, because an omission reads as an absence of competition. Where a metric disagrees with the headline ordering
-— it does in the ORM panel — both are shown.</p></div>`;
+  const intro = `<p>The current-product engineering capture records editor/compiler, build, packaging, installed-consumer,
+startup and PostgreSQL costs. Its metadata and downloadable samples identify the code and machine measured.</p>
+<div class="admonition note"><div class="adm-title">Capture boundaries</div>
+<p>The validation and ORM competitor tables are historical upstream-suite captures. The HTTP panel retains the dated
+Node refresh alongside older peer, Bun and Deno results; those entries were not all rerun together. Their provenance
+belongs to each capture. They do not form a fresh comparison against the PostgreSQL 18.6 engineering replay.</p></div>`;
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Benchmarks — zmdb docs</title>
-<meta name="description" content="zmdb measured inside the upstream moltar validation, drizzle-benchmarks ORM and the-benchmarker/web-frameworks HTTP suites, with full provenance."/>
+<meta name="description" content="zmdb engineering costs with raw samples and reproduction commands, alongside historical validation, ORM and HTTP benchmark captures."/>
 <script>${THEME_BOOT}</script>
 <style>${css}${DASH_CSS}</style></head><body>
 ${topbarHtml({ base: '../', active: 'benchmarks', withNavToggle: true })}
@@ -648,6 +740,7 @@ ${navHtml(null, '../docs/')}</aside>
 <h1>Benchmarks</h1>
 ${intro}
 ${nav}
+${engineeringPanel(data.engineering)}
 ${validationPanel(data.validation)}
 ${ormPanel(data.orm)}
 ${frameworkPanel(data.framework)}

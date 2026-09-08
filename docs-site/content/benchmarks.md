@@ -1,8 +1,12 @@
-zmdb runs inside the **actual upstream benchmark harnesses** against the **real competitor libraries**:
+The [engineering dashboard](../benchmarks/index.html#suite-engineering) renders the committed current-product measurements for editor/compiler operations, builds, packaging, installed consumers,
+startup and PostgreSQL replay. Each metric includes its unit, sample count, median and min–max range, with the captured revision, tool versions, date and machine details.
 
-- **ORM** — the drizzle-benchmarks routes + k6 vs Drizzle/Kysely against real PostgreSQL 16. zmdb serves all 13 routes (0 DNF).
-- **Validation** — the moltar typescript-runtime-type-benchmarks runner vs Zod v3/v4, Valibot, Ajv, TypeBox, ArkType, myzod, typia — across **Node, Bun and Deno**.
+Download the [summary and per-metric samples](../benchmarks/engineering.json) or [complete raw runs and command output](../benchmarks/engineering-raw.json.gz). The
+[baseline script](https://github.com/ambasta/zmdb/blob/main/benchmarks/scripts/baseline.mjs) defines the metrics; the
+[reproduction guide](https://github.com/ambasta/zmdb/blob/main/benchmarks/harness/README.md#engineering-costs) describes setup and individual workloads.
 
-DNF cases are enumerated individually, never summed or faked; we don't claim a "fastest" title we haven't earned across the full workload.
+Percentile rows summarize **per-run percentiles**, not a pooled latency distribution. Installed size includes TypeScript and installation tooling. OS caches are not flushed, cached builds retain
+filesystem/dependency caches, and PostgreSQL shares the machine with the load generator.
 
-📊 **Interactive dashboard:** [open the benchmarks →](../benchmarks/index.html)
+The older upstream competitor results remain separately labelled historical. Their PostgreSQL 16, validation, peer, Bun and Deno results were not rerun with the current-product engineering capture.
+The HTTP panel also identifies its separate dated Node refresh.

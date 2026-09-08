@@ -1,12 +1,26 @@
-# Benchmark Results (real upstream suites, complete accounting)
+# Benchmark results
 
 > Historical upstream comparisons used **real competitor libraries** on the local development machine, Node 26.8.1 and PostgreSQL 16 (Podman). Reproduction: [`harness/`](./harness). The 2026-09-08
-> refresh below covers only zmdb startup, observability and Node HTTP. Other ORM, validation, peer and cross-runtime results remain historical; no competitors were rerun.
+> captures below cover zmdb engineering costs, startup, observability and Node HTTP. The engineering replay uses its recorded PostgreSQL 18.6 server. Competitor ORM, validation, peer and cross-runtime
+> results remain historical; no competitors were rerun.
 >
-> 📊 **Interactive dashboard** (charts, Node/Bun/Deno tabs): https://ambasta.github.io/zmdb/benchmarks/ — source in [`site/`](./site), built + deployed via GitHub Pages (docs at the root, benchmarks
-> under `/benchmarks/`).
+> 📊 **Interactive dashboard** (engineering costs and historical comparisons): https://ambasta.github.io/zmdb/benchmarks/ — source in [`site/`](./site), built + deployed via GitHub Pages (docs at the
+> root, benchmarks under `/benchmarks/`).
 
 ---
+
+## Engineering costs — captured product revision
+
+The dashboard reads [engineering.json](./site/engineering.json) directly, including every editor/compiler, build/package/consumer, startup and PostgreSQL metric with its recorded unit, samples, median
+and range. The artifact identifies the revision, capture dates, machine and tool/database versions. [engineering-raw.json.gz](./site/engineering-raw.json.gz) retains the individual runs and command
+output; [baseline.mjs](./scripts/baseline.mjs) defines the aggregation and links the standalone workloads.
+
+For PostgreSQL latency rows, each reported median is the median of the runs' percentile summaries, not a percentile computed over pooled requests. Consumer installation size and package count include
+TypeScript and installation tooling. Clean builds remove emitted output; cached builds repeat the command with filesystem/dependency caches retained. OS caches are not flushed, and PostgreSQL is
+co-located with the load generator. These are zmdb-only measurements of the captured revision, separate from the historical competitor comparisons below.
+
+Reproduce with `node benchmarks/scripts/baseline.mjs --work-dir ../zmdb-engineering-run --rounds 7` after setting `K6` and `PGURL` for an installed load generator and seeded PostgreSQL server. See the
+[reproduction guide](./harness/README.md#engineering-costs). Building the docs renders the committed summaries without measuring again.
 
 ## Application startup — before and after the app extraction
 

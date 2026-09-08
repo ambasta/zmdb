@@ -1,14 +1,43 @@
 # Benchmark reproduction
 
-zmdb run as a participant in the **exact upstream benchmark suites**, against real installed competitor libraries. Authoritative results: [`../RESULTS.md`](../RESULTS.md). Rendered dashboard:
-`site/benchmarks/index.html` after `yarn build:docs`.
+The dashboard combines the committed current-product engineering capture with historical upstream comparisons. Capture provenance and limitations are in [`../RESULTS.md`](../RESULTS.md); downloadable
+inputs are under [`../site/`](../site). Render `site/benchmarks/index.html` with `node --import ./scripts/ts-specifier-hook.mjs docs-site/build.mjs` from the repository root.
 
-## The short version
+## Engineering costs
+
+Run on an idle machine from the repository root. Use a fresh work directory outside the source workspace; the baseline retains each round and command output there. Install the ORM harness
+dependencies, provide an existing PostgreSQL server and seed it with the Northwind loader before the capture:
+
+```sh
+cd benchmarks/harness/orm
+npm install
+PGURL='postgres://user:password@localhost:55432/bench' node load-pg-full.mjs
+cd ../../..
+K6=/absolute/path/to/k6 PGURL='postgres://user:password@localhost:55432/bench' \
+  node benchmarks/scripts/baseline.mjs --work-dir ../zmdb-engineering-run --rounds 7
+node --import ./scripts/ts-specifier-hook.mjs docs-site/build.mjs
+```
+
+[`baseline.mjs`](../scripts/baseline.mjs) writes `../site/engineering.json` and `../site/engineering-raw.json.gz`. The summary carries the captured revision, date, versions, machine, methodology and
+every metric's name, unit, raw samples, median and min–max range. The gzip file retains the editor/compiler responses, lifecycle records, PostgreSQL summaries and command output. Keep both files
+together when publishing a capture.
+
+For individual diagnostic runs, use the existing workload scripts:
+
+- [Editor/compiler](../scripts/typescript.mjs): `node benchmarks/scripts/typescript.mjs --output ../zmdb-editor.json`.
+- [Build/package/installed consumer and SQLite startup](../scripts/lifecycle.mjs): `node benchmarks/scripts/lifecycle.mjs --work-dir ../zmdb-lifecycle-run --stage all`.
+- [PostgreSQL replay](./orm/run-k6-rich.sh): the baseline runs this script with `ORMS=zmdb`; `K6` and `PGURL` select the load generator and seeded server.
+
+Clean builds remove emitted output; cached builds repeat the same command and retain filesystem/dependency caches. OS caches are not flushed. Installed size and package count include TypeScript and
+installation tooling. PostgreSQL and the load generator share the machine. Percentile rows report medians and ranges of per-run percentiles rather than a pooled latency distribution. This capture
+measures zmdb only; the older PostgreSQL 16, competitor, Bun and Deno comparisons retain their own historical provenance.
+
+## Historical upstream suites
 
 ```sh
 git submodule update --init --depth 1   # the three upstream suites
 yarn bench                              # graft zmdb in, measure, normalise
-yarn build:docs                         # render the dashboard
+node --import ./scripts/ts-specifier-hook.mjs docs-site/build.mjs                         # render the dashboard
 ```
 
 `yarn bench` takes the suites one at a time and prints, for each, either the measurement or the precondition that is missing. It never fills a gap with a zero — a suite that could not run is reported
@@ -54,8 +83,8 @@ Both participants are three lines of re-export. What they re-export comes from `
 | `aot.generated.ts`   | the inlined functions, from the real `transformFile`           |
 
 Both come off the same `is<Moltar>(...)` call site, so the two rows cannot end up describing different shapes, and the generator refuses to write anything if the source has a semantic error, if the
-reflection declines a type, or if the transform leaves a generic call in place. Run it with `yarn bench:validation:generate`; CI runs `yarn bench:validation:generate:check`, which fails on drift,
-because a stale generated file means the published numbers describe a shape nobody declared.
+reflection declines a type, or if the transform leaves a generic call in place. Run it with `yarn bench:validation:generate`; `yarn bench:validation:generate:check` checks the existing generated files
+for drift.
 
 The AOT participant used to be a hand-inlined file whose header claimed it was "EXACTLY as zmdb's transformer WOULD emit". It was not, and the difference was worth 15% on `assertLoose` — see footnote
 ¹ in [`../RESULTS.md`](../RESULTS.md).
@@ -89,7 +118,7 @@ bash benchmarks/harness/validation/run-shallow.sh --write-final
 
 The default command prints diagnostic JSON. `--write-final` writes `site/shallow-validation.json` only when both modes stay within the declared 1.25× max/min spread ceiling. Every run first checks six
 semantic probes, rotates through eight distinct populated rows, observes every boolean result, and uses six balanced orders so each mode appears three times in each position. The final artifact
-records all 12 raw samples, runtime provenance, and a SHA-256 manifest of every benchmark input; `yarn verify:bench` recomputes the manifest and the published summary rows.
+records all 12 raw samples, runtime provenance, and a SHA-256 manifest of every benchmark input.
 
 `--libs` also filters the normalisation step, so a partial run rewrites the dashboard JSON with only the libraries it measured. To refresh a couple of rows without dropping the rest, run with
 `--libs=…` and then `yarn bench:normalize`.
@@ -151,29 +180,15 @@ See [`framework/SPEC.md`](./framework/SPEC.md) for the full contract, methodolog
 ## Where the numbers end up
 
 `bench.mjs` normalises each suite's raw output into `../site/{validation,orm,framework}.json`, each carrying the upstream commit that was grafted, the machine, the runtime, the load profile and the
-measurement's own timestamp. `docs-site/benchmarks.mjs` renders those files and nothing else, so a figure on the docs site can always be traced to a file you can download from the same page.
+measurement's own timestamp. `baseline.mjs` separately writes the current-product engineering summary and compressed raw output. `docs-site/benchmarks.mjs` renders the committed summaries and links
+their downloadable inputs.
 
 Those JSON files are **committed**. That is the whole handover between measuring and publishing.
 
-## Nothing here runs in CI
+## Publishing a capture
 
-Measuring happens on a machine someone can name. A GitHub runner is a shared VM of unstated hardware with neighbours competing for the same cores, so a number from one is not worth committing, and a
-throughput threshold against one fails on runner variance rather than on a regression — which is how a guardrail teaches people to ignore it.
+Measurement commands run manually on a named machine. Commit the summary and raw output together, preserve their captured revision and environment, and update `../RESULTS.md` when a capture changes
+the documented conclusions. The docs build reads those committed inputs; it does not rerun the workloads. Historical results retain their original provenance when the current code or database version
+changes.
 
-So the split is:
-
-| Locally, by a human                                   | In CI                                          |
-| ----------------------------------------------------- | ---------------------------------------------- |
-| `yarn bench` — graft, measure, normalise              | `yarn verify:bench` — check what was committed |
-| `yarn guardrail --live` — measure now vs the baseline | Pages renders `../site/*.json` as-is           |
-| commit `../site/*.json` + `../RESULTS.md`             | —                                              |
-
-`yarn verify:bench` (`.github/scripts/verify-bench-results.mjs`) measures nothing. It checks that each committed JSON still names its machine, methodology and timestamp, that it has rows including a
-zmdb one, that `../RESULTS.md` covers every in-scope case, and that each file's `upstreamCommit` still matches the submodule pinned in the tree. That last check is the one with teeth: bumping an
-upstream submodule invalidates every number measured against the old one, and CI will say so instead of publishing stale figures under a new commit.
-
-An architecture EPIC may temporarily list affected suites in `../DEFERRED.json` when the user explicitly requires measurement to happen after every functional child. Ordinary `yarn verify:bench` still
-verifies every non-deferred result and reports the tracking issue; `yarn verify:bench:epic` adds `--strict-deferred` and fails while that marker exists. Removing the marker without committing the
-required result also fails, so deferred measurements block only the named EPIC and cannot disappear silently.
-
-`yarn guardrail` needs `--current <file>` or an explicit `--live`. It used to measure when given neither, which is exactly the accident this arrangement is meant to prevent.
+`yarn guardrail` needs `--current <file>` or an explicit `--live`; the latter performs a new measurement.
