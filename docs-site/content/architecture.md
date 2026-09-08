@@ -9,8 +9,8 @@ row, point to an equal-or-inward zone, and have a strictly lower canonical ring.
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, `scripts/release/policy.mjs`, and the admitted manifests: **40 catalog packages**, **81 direct workspace edges**, **8
-core packages**, **29 integration packages**, **3 tooling packages**, and canonical rings **0–5**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, `scripts/release/policy.mjs`, and the admitted manifests: **41 catalog packages**, **82 direct workspace edges**, **8
+core packages**, **30 integration packages**, **3 tooling packages**, and canonical rings **0–5**.
 
 | Ring | Zone        | Release unit | Package                    | Direct workspace dependencies                                                                                                                                              |
 | ---- | ----------- | ------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,6 +50,7 @@ core packages**, **29 integration packages**, **3 tooling packages**, and canoni
 | 4    | integration | integration  | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                                                |
 | 4    | integration | integration  | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                                                |
 | 4    | integration | integration  | `@zmdb/transport-redis`    | `@zmdb/app`                                                                                                                                                                |
+| 4    | integration | integration  | `@zmdb/transport-sqs`      | `@zmdb/app`                                                                                                                                                                |
 | 4    | application | core         | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/schema`<br>`@zmdb/validator`                                                                                                                         |
 | 5    | integration | integration  | `@zmdb/jobs-postgres`      | `@zmdb/jobs`<br>`@zmdb/postgres`                                                                                                                                           |
 | 5    | integration | integration  | `@zmdb/jobs-sqlite`        | `@zmdb/jobs`<br>`@zmdb/sqlite`                                                                                                                                             |

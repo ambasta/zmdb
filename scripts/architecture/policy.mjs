@@ -422,6 +422,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  'transport-sqs': packagePolicy({
+    directory: 'packages/transport-sqs',
+    zone: 'integration',
+    ring: 4,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   'jobs-postgres': packagePolicy({
     directory: 'packages/jobs-postgres',
     zone: 'integration',

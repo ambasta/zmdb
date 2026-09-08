@@ -58,6 +58,7 @@ Optional server integrations stay outside the `zmdb` default install:
 - `@zmdb/transport-nats` requires `@nats-io/transport-node@^3.4.0`; the application extension starts, drains, and closes its connection.
 - `@zmdb/transport-rabbitmq` requires `amqplib@^2.0.1`; the application extension owns its connection, channels, retry, and dead-letter setup.
 - `@zmdb/transport-redis` requires `redis@^6.2.1`; the application extension owns its publisher/subscriber clients and bounded drain.
+- `@zmdb/transport-sqs` requires `@aws-sdk/client-sqs@>=3.1127.0 <4.0.0`; the caller owns its SDK client and standard queues, while the adapter settles current receipts and drains bounded work.
 - `@zmdb/jobs-postgres` requires `pg@^8.23.0`; the caller owns the pool/client and the adapter never closes or releases it.
 - `@zmdb/otel` requires `@opentelemetry/api@^1.9.1`; the caller owns providers, exporters, tracers, meters, and shutdown.
 
@@ -67,8 +68,8 @@ validation runtime.
 Compiler tooling is independently usable: install `@zmdb/compiler` when a build, linter, Metro project, or no-bundler workflow needs the TypeScript front end directly. The
 [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
-> The workspace publishes **40 packages** across **183 export-map entry points**. Vitest discovers **326 runtime test files**. The compatibility inventory covers 504 of 742 upstream API suites and
-> explains why the other 238 are out of scope. The documentation site contains 271 supported pages, 3 TODO pages, and 13 pages for features we do not plan to add.
+> The workspace publishes **41 packages** across **184 export-map entry points**. Vitest discovers runtime tests from the workspace. The compatibility inventory covers 504 of 742 upstream API suites
+> and explains why the other 238 are out of scope. The documentation site contains 271 supported pages, 3 TODO pages, and 13 pages for features we do not plan to add.
 
 ## Quick Start
 

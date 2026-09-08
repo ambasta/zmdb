@@ -22,7 +22,7 @@ export interface TransportStrategy {
 }
 ```
 
-All three packaged strategies use a versioned JSON envelope and reject an `undefined` payload. Malformed JSON reaches the dispatcher as `RawMessage.parseError`, with the original input retained for
+The packaged strategies use a versioned JSON envelope and reject an `undefined` payload. Malformed JSON reaches the dispatcher as `RawMessage.parseError`, with the original input retained for
 `onInvalidPayload`. `traceparent` / `tracestate` travel in the envelope; correlation and reply destinations use either envelope fields or native broker metadata.
 
 ## Settlement matrix
@@ -135,3 +135,12 @@ No bespoke TCP framing is shipped.
 ---
 
 See also: [Microservices](./web-microservices.html) · [Custom Transports](./web-microservices-custom-transport.html) · [Hybrid Applications](./web-hybrid-application.html)
+
+## SQS standard queues
+
+Install `@zmdb/transport-sqs@alpha`, `@zmdb/app@alpha` and `@aws-sdk/client-sqs@3.1127.0`. Supply a caller-owned `SQSClient`, distinct source and dead-letter queue URLs, and the explicit polling,
+visibility, concurrency and timeout options documented in the package SPEC. Attach `createSqsStrategy(options)` with `transportExtension`.
+
+Successful dispatch deletes the current receipt. Retry changes visibility; dead-letter handling waits for the destination send before deleting the source. Closing stops polling and drains accepted
+work within its grace period; the caller destroys the client after app shutdown. This event transport advertises `true / true / false` capabilities and refuses FIFO and request/response. Standard
+queues can redeliver, so handlers must account for duplicates. Local acceptance uses the real AWS SDK with isolated ElasticMQ and WireMock fixtures.

@@ -81,13 +81,9 @@ const RELEASE =
   })();
 const PRODUCT_CATALOG = ARCHITECTURE.catalog;
 
-function expectedPackageCount(): 39 | 40 {
+function expectCliCatalogOwnership(): void {
   const cli = ARCHITECTURE.packages.find(pkg => pkg.npmName === '@zmdb/cli');
   const product = ARCHITECTURE.packages.find(pkg => pkg.npmName === 'zmdb');
-  if (cli === undefined) {
-    expect(product?.manifest['dependencies']).not.toHaveProperty('@zmdb/cli');
-    return 39;
-  }
   expect(cli).toMatchObject({
     id: 'cli',
     directory: 'packages/cli',
@@ -97,7 +93,6 @@ function expectedPackageCount(): 39 | 40 {
   });
   expect(product?.manifest['dependencies']).toHaveProperty('@zmdb/cli', 'workspace:1.0.0-alpha.4');
   expect(product?.manifest['exports']).toMatchObject({ './cli': './src/cli/index.ts' });
-  return 40;
 }
 
 let measuredFacade: ReturnType<typeof inspectProductFacade> | undefined;
@@ -449,9 +444,10 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
 
   it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
     const report = await catalogReport();
+    expectCliCatalogOwnership();
     expect(report.membershipProblems).toEqual([]);
-    expect(report.rows).toHaveLength(expectedPackageCount());
-    expect(report.manifests.size).toBe(expectedPackageCount());
+    expect(report.rows.map(row => row.npmName).toSorted()).toEqual(PRODUCT_CATALOG.map(row => row.npmName).toSorted());
+    expect([...report.manifests.keys()].toSorted()).toEqual(PRODUCT_CATALOG.map(row => row.directory).toSorted());
 
     const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
     const staleManifests = new Map(report.manifests);
@@ -511,10 +507,22 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
   it('discovers every packed external consumer from its catalog owner', () => {
     const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
 
+    expectCliCatalogOwnership();
     expect(report.problems).toEqual([]);
-    expect(report.assignments).toHaveLength(expectedPackageCount());
-    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(expectedPackageCount() - 10);
-    expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(10);
+    expect(report.assignments.map(assignment => assignment.npmName).toSorted()).toEqual(
+      PRODUCT_CATALOG.map(row => row.npmName).toSorted(),
+    );
+    for (const kind of ['fixture', 'reason'] as const)
+      expect(
+        report.assignments
+          .filter(assignment => kind in assignment)
+          .map(assignment => assignment.npmName)
+          .toSorted(),
+      ).toEqual(
+        PRODUCT_CATALOG.filter(row => kind in row.consumer)
+          .map(row => row.npmName)
+          .toSorted(),
+      );
   });
 
   it('rejects an undocumented package, duplicate public role, or facade export with no owner', async () => {

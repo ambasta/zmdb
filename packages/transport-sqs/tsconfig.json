@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "allowJs": true, "skipLibCheck": false, "lib": ["ESNext", "DOM", "DOM.Iterable"] },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist"]
+}

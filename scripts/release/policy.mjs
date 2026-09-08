@@ -132,6 +132,9 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
   'transport-redis': releasePackage('integration', 'fixtures/consumer-server-integrations', ['app'], {
     redis: peer('^6.2.1', '6.2.1', 'fixtures/consumer-server-integrations'),
   }),
+  'transport-sqs': releasePackage('integration', 'fixtures/consumer-transport-sqs', ['app'], {
+    '@aws-sdk/client-sqs': peer('>=3.1127.0 <4.0.0', '3.1127.0', 'fixtures/consumer-transport-sqs'),
+  }),
   vue: releasePackage('integration', 'fixtures/client-adapters/vue', ['client'], {
     vue: peer('>=3.5.42 <4.0.0', '3.5.42', 'fixtures/client-adapters/vue'),
   }),

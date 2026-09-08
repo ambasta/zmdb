@@ -465,6 +465,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-server-integrations' },
   }),
   productPackage({
+    id: 'transport-sqs',
+    directory: 'packages/transport-sqs',
+    npmName: '@zmdb/transport-sqs',
+    role: 'transport-sqs',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'SQS standard-queue events' },
+    docsOwner: 'web-microservices-transports',
+    consumer: { fixture: 'fixtures/consumer-transport-sqs' },
+  }),
+  productPackage({
     id: 'validator',
     directory: 'packages/validator',
     npmName: '@zmdb/validator',

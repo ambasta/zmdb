@@ -111,6 +111,17 @@ export const CONSUMER_CASES = Object.freeze({
     service: 'ZMDB_REDIS_URL',
     evidence: 'real Redis event and request/response',
   }),
+  'transport-sqs': existing(
+    'fixtures/consumer-transport-sqs',
+    ['contracts.ts', 'installed.mjs', 'app.mjs', 'broker.mjs', 'runtime.mjs', 'wire.mjs'],
+    {
+      roots: ['app'],
+      runtime: 'lib/installed.mjs',
+      service: 'ZMDB_760_SQS_ENDPOINT',
+      evidence:
+        'real AWS SDK standard queues, HTTP faults and application lifecycle; also requires ZMDB_760_WIRE_ENDPOINT',
+    },
+  ),
   validator: foundation('validator'),
   vue: existing('fixtures/client-adapters/vue', ['src/ssr.ts'], {
     runtime: 'lib/ssr.js',

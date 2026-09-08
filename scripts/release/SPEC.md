@@ -136,6 +136,7 @@ The current public inventory is classified exactly once:
 | `transport-nats`     | `@zmdb/transport-nats`     | integration   | `fixtures/consumer-server-integrations`     |
 | `transport-rabbitmq` | `@zmdb/transport-rabbitmq` | integration   | `fixtures/consumer-server-integrations`     |
 | `transport-redis`    | `@zmdb/transport-redis`    | integration   | `fixtures/consumer-server-integrations`     |
+| `transport-sqs`      | `@zmdb/transport-sqs`      | integration   | `fixtures/consumer-transport-sqs`           |
 | `vue`                | `@zmdb/vue`                | integration   | `fixtures/client-adapters/vue`              |
 | `web`                | `@zmdb/web`                | core          | `yarn verify:publish`                       |
 | `zmdb`               | `zmdb`                     | core          | `fixtures/consumer-product`                 |
@@ -263,6 +264,7 @@ changes no manifest.
 | `@zmdb/transport-nats`     | `@nats-io/transport-node@^3.4.0`; `3.4.0`                                                                                                                           |
 | `@zmdb/transport-rabbitmq` | `amqplib@^2.0.1`; `2.0.1`                                                                                                                                           |
 | `@zmdb/transport-redis`    | `redis@^6.2.1`; `6.2.1`                                                                                                                                             |
+| `@zmdb/transport-sqs`      | `@aws-sdk/client-sqs@>=3.1127.0 <4.0.0`; `3.1127.0`                                                                                                                 |
 | `@zmdb/vue`                | `vue@>=3.5.42 <4.0.0`; `3.5.42`                                                                                                                                     |
 | `@zmdb/web`                | `typescript@>=7.0.2 <8.0.0`; `7.0.2`                                                                                                                                |
 

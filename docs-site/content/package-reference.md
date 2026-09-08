@@ -59,6 +59,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/transport-nats     | 1.0.0-alpha.4 | integration  | transport-nats  | integration: core NATS messaging               | `npm add @zmdb/transport-nats@1.0.0-alpha.4 @nats-io/transport-node@^3.4.0 @zmdb/app@1.0.0-alpha.4`              | Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.                                                                           | web-microservices-transports |
 | @zmdb/transport-rabbitmq | 1.0.0-alpha.4 | integration  | rabbitmq        | integration: RabbitMQ                          | `npm add @zmdb/transport-rabbitmq@1.0.0-alpha.4 @zmdb/app@1.0.0-alpha.4 amqplib@^2.0.1`                          | RabbitMQ transport strategy for the zmdb application messaging contract, with confirmed retries and owned dead-letter topology.                                                | web-microservices-transports |
 | @zmdb/transport-redis    | 1.0.0-alpha.4 | integration  | transport-redis | integration: Redis Pub/Sub                     | `npm add @zmdb/transport-redis@1.0.0-alpha.4 @zmdb/app@1.0.0-alpha.4 redis@^6.2.1`                               | Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.                                                                                 | web-microservices-transports |
+| @zmdb/transport-sqs      | 1.0.0-alpha.4 | integration  | transport-sqs   | integration: SQS standard-queue events         | `npm add @zmdb/transport-sqs@1.0.0-alpha.4 '@aws-sdk/client-sqs@>=3.1127.0 <4.0.0' @zmdb/app@1.0.0-alpha.4`      | SQS standard-queue transport for the zmdb application messaging contract, with explicit receipts, retry visibility and confirmed dead-letter handoff.                          | web-microservices-transports |
 | @zmdb/validator          | 1.0.0-alpha.4 | core         | validator       | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/validate/equals/random, unions, transforms, and generated-code errors.                          | aot-setup                    |
 | @zmdb/vue                | 1.0.0-alpha.4 | integration  | vue             | integration: Vue 3                             | `npm add @zmdb/vue@1.0.0-alpha.4 'vue@>=3.5.42 <4.0.0'`                                                          | Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb clients.                                                                                        | client-vue                   |
 | @zmdb/web                | 1.0.0-alpha.4 | core         | web             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                      | web-overview                 |
@@ -926,6 +927,25 @@ Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messa
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
+
+### `@zmdb/transport-sqs`
+
+SQS standard-queue transport for the zmdb application messaging contract, with explicit receipts, retry visibility and confirmed dead-letter handoff.
+
+- **Release unit:** `integration`
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:** None.
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `@aws-sdk/client-sqs` → `>=3.1127.0 <4.0.0`
+  - `@zmdb/app` → `1.0.0-alpha.4`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/consumer-transport-sqs
 
 ### `@zmdb/validator`
 

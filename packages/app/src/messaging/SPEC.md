@@ -295,18 +295,19 @@ connection closing remain in the adapter.
 
 ## 9. Broker strategies
 
-The three concrete clients implement the same strategy contract from dedicated packages:
+The selected broker clients implement the same strategy contract from dedicated packages:
 
 - `@zmdb/transport-redis` uses Redis Pub/Sub;
 - `@zmdb/transport-nats` uses core NATS;
-- `@zmdb/transport-rabbitmq` uses a RabbitMQ topic exchange.
+- `@zmdb/transport-rabbitmq` uses a RabbitMQ topic exchange;
+- `@zmdb/transport-sqs` uses explicitly supplied SQS standard queues.
 
 Importing `@zmdb/app` or `@zmdb/app/messaging` reaches none of those clients. The old neutral web entry no longer exists. A plain app install therefore contains no broker client.
 
-All three broker clients are required peers of only their selected transport package. Their old web subpaths are deleted with no forwarding layer.
+Broker clients are required peers of only their selected transport package. Their old web subpaths are deleted with no forwarding layer.
 
-All three adapters use the same versioned JSON envelope. Payloads must be JSON-serializable and cannot be `undefined`. The envelope carries W3C trace propagation; correlation and reply destinations
-use either envelope fields or the broker's native metadata. Parsing remains the strategy's responsibility: malformed JSON becomes `RawMessage.parseError` with the original text retained in `payload`.
+These adapters use the same versioned JSON envelope. Payloads must be JSON-serializable and cannot be `undefined`. The envelope carries W3C trace propagation; correlation and reply destinations use
+either envelope fields or the broker's native metadata. Parsing remains the strategy's responsibility: malformed JSON becomes `RawMessage.parseError` with the original text retained in `payload`.
 
 ### 9.1 Delivery semantics
 
@@ -329,6 +330,11 @@ compiled to a trie at construction; delivery never scans the configured pattern 
 
 RabbitMQ requires a positive `prefetch`, which is its backpressure control. It owns the main queue, a TTL retry queue and a dead-letter queue. A retry is publisher-confirmed before the original
 delivery is acknowledged. Immediate `nack(requeue: true)` remains deliberately absent: it would return a deterministic failure to the queue head in a tight loop.
+
+SQS uses a caller-owned AWS SDK client and explicit source and dead-letter queue URLs. A successful dispatch deletes the current receipt; retry changes that receipt's visibility with upward rounding
+to whole seconds; a dead settlement confirms the destination send before deleting the source. Intake and in-flight work are bounded, shutdown aborts pending polls, and the adapter never destroys the
+caller client. Its capabilities are `true / true / false`. Standard-queue redelivery remains possible; FIFO and request/response are refused. The complete options and wire fields are owned by
+`packages/transport-sqs/SPEC.md`.
 
 ### 9.2 Deferred transports
 

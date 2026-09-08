@@ -33,8 +33,8 @@ Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #
 `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`,
 `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
 `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/compiler`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, #674 adds `@zmdb/singlestore`, #697 adds `@zmdb/next`, #698 adds
-`@zmdb/nuxt`, and #699 adds `@zmdb/sveltekit`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current thirty-eight manifests keep `1.0.0-alpha.4`, declare 73 direct non-dev
-workspace edges, and declare 63 peer dependencies: 18 optional peer entries plus 45 required peer entries projected from release policy.
+`@zmdb/nuxt`, and #699 adds `@zmdb/sveltekit`. Issue #710 removed the temporary LangChain-to-schema-core edge. `loadArchitecture(root)` enumerates current manifests and their direct non-dev workspace
+and peer declarations from the product catalog. Release-policy validation checks the required peer projection.
 
 ## 2. Canonical policy API
 
@@ -459,6 +459,15 @@ export const PACKAGE_POLICY = {
     directory: 'packages/transport-redis',
     zone: 'integration',
     ring: 5,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  },
+  'transport-sqs': {
+    directory: 'packages/transport-sqs',
+    zone: 'integration',
+    ring: 4,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
