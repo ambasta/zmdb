@@ -57,8 +57,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string, listener: (...args: readonly unknown[]) => void): this;
+  removeListener(event: string, listener: (...args: readonly unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -382,38 +382,72 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
-async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
-  try {
-    for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
-    }
-  } finally {
-    await iterator.return?.();
-  }
+function isDecodedRequest(data: unknown): data is DecodedRequest {
+  return typeof data === 'object' && data !== null && 'ok' in data;
 }
 
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
+async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
+  const queue: DecodedRequest[] = [];
+  let resolver: (() => void) | undefined;
+  let ended = false;
+  let streamError: unknown = undefined;
+
+  const onData = (data: unknown) => {
+    if (isDecodedRequest(data)) {
+      queue.push(data);
+    }
+    if (resolver !== undefined) {
+      const wake = resolver;
+      resolver = undefined;
+      wake();
+    }
+  };
+  const onEnd = () => {
+    ended = true;
+    if (resolver !== undefined) {
+      const wake = resolver;
+      resolver = undefined;
+      wake();
+    }
+  };
+  const onError = (err: unknown) => {
+    streamError = err;
+    if (resolver !== undefined) {
+      const wake = resolver;
+      resolver = undefined;
+      wake();
+    }
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
   try {
-    return await Promise.race([iterator.next(), aborted]);
+    for (;;) {
+      if (scope.signal.aborted) throw scope.reason();
+      if (streamError !== undefined) throw streamError;
+      const item = queue.shift();
+      if (item !== undefined) {
+        yield requestValue(item);
+        continue;
+      }
+      if (ended) return;
+
+      await new Promise<void>((resolve, reject) => {
+        resolver = resolve;
+        const onAbort = () => reject(scope.reason());
+        if (scope.signal.aborted) {
+          onAbort();
+        } else {
+          scope.signal.addEventListener('abort', onAbort, { once: true });
+        }
+      });
+    }
   } finally {
-    removeAbort();
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
   }
 }
 

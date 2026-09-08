@@ -8,9 +8,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/schema": "workspace:*",
-    "@zmdb/sql": "workspace:*",
-    "@zmdb/validator": "workspace:*",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/sql": "workspace:^",
+    "@zmdb/validator": "workspace:^",
     "kysely": "^0.29.5"
   },
   "engines": {
