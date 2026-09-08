@@ -1,5 +1,5 @@
-import { analyzeQuery, type CompiledQuery } from '@zmdb/sql';
 import { type SelectedDriver, type TransactionalDriver } from '@zmdb/orm';
+import { analyzeQuery, type CompiledQuery } from '@zmdb/sql';
 
 import { sqlite } from './dialect.js';
 
