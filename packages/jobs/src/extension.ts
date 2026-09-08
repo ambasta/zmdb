@@ -71,10 +71,11 @@ async function stopAll(
     ...workers.toReversed().map(participant => (remaining: number) => participant.onShutdown({ graceMs: remaining })),
     ...stores.toReversed().map(store => (remaining: number) => store.close({ graceMs: remaining })),
   ];
+  let deadlineExpired = false;
   for (const stop of stops) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const remaining = Math.max(0, deadline - Date.now());
+      const remaining = deadlineExpired ? 0 : Math.max(0, deadline - Date.now());
       const work = Promise.resolve(stop(remaining));
       await Promise.race([
         work,
@@ -86,6 +87,9 @@ async function stopAll(
         }),
       ]);
     } catch (error) {
+      if ((error as { name?: string })?.name === 'TimeoutError') {
+        deadlineExpired = true;
+      }
       errors.push(error);
     } finally {
       clearTimeout(timer);
