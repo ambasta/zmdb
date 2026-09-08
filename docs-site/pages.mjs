@@ -82,6 +82,10 @@ export const PAGE_META = {
     title: 'Tutorial: a blog API end to end',
     status: 'supported',
   },
+  'runtime-foundation': {
+    title: 'Runtime Foundation',
+    status: 'supported',
+  },
   architecture: {
     title: 'Architecture',
     status: 'supported',

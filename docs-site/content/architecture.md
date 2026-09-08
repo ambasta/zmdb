@@ -2,6 +2,8 @@ zmdb ships one product through focused package firebreaks. Official membership a
 come only from `scripts/architecture/policy.mjs`; and release groups, version movement, and compatibility ranges come only from `scripts/release/policy.mjs`. The generated view below is the complete
 current dependency graph and release-unit classification, not a simplified diagram maintained beside them.
 
+The [runtime foundation guide](./runtime-foundation.md) explains the four standalone packages, their exact inward dependencies and the limits of the zero-external-dependency guarantee.
+
 ## Executable package graph and rings
 
 Zones move outward from foundation through runtime, application, integration, tooling, and the facade. Every direct workspace dependency must be present in both the consumer manifest and its policy

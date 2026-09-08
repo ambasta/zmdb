@@ -349,6 +349,7 @@ export const PRODUCT_JOURNEY = [
   {
     title: 'Reference',
     pages: [
+      'runtime-foundation',
       'architecture',
       'faq',
       'gotchas',
