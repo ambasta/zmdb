@@ -11,8 +11,16 @@ export async function startRegistry(packages) {
     tarballs.set(entry.manifest.name, {
       ...entry,
       bytes,
-      integrity: `sha512-${typeof sha512.toBase64 === 'function' ? sha512.toBase64() : Buffer.from(sha512).toString('base64')}`,
-      shasum: typeof sha1.toHex === 'function' ? sha1.toHex() : Buffer.from(sha1).toString('hex'),
+      integrity: `sha512-${
+        typeof sha512.toBase64 === 'function'
+          ? sha512.toBase64()
+          : // oxlint-disable-next-line eslint/no-restricted-globals
+            btoa(String.fromCharCode(...sha512))
+      }`,
+      shasum:
+        typeof sha1.toHex === 'function'
+          ? sha1.toHex()
+          : Array.from(sha1, b => b.toString(16).padStart(2, '0')).join(''),
     });
   }
   let origin;

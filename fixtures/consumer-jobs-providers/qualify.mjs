@@ -334,7 +334,8 @@ try {
       const u8 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
       return {
         name: entry.manifest.name,
-        sha256: typeof u8.toHex === 'function' ? u8.toHex() : Buffer.from(u8).toString('hex'),
+        sha256:
+          typeof u8.toHex === 'function' ? u8.toHex() : Array.from(u8, b => b.toString(16).padStart(2, '0')).join(''),
       };
     }),
   );
