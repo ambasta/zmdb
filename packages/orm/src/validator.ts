@@ -1,5 +1,6 @@
-import { isRecord, ValidationError, type CoreSchema, type ValidationIssue } from '@zmdb/schema-core';
-import { shapeOfVariant } from '@zmdb/schema-core/ir';
+import { isRecord, type CoreSchema } from '@zmdb/schema';
+import { shapeOfVariant } from '@zmdb/schema/ir';
+import { ValidationError, type ValidationIssue } from '@zmdb/validator';
 
 export interface CompiledValidator {
   validateCreate(payload: unknown): Record<string, unknown>;

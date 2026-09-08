@@ -1,6 +1,6 @@
 import { schemasFrom } from '@zmdb/compiler/testing';
-import type { ColumnMeta } from '@zmdb/schema-core';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import type { ColumnMeta } from '@zmdb/schema';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from './index.js';
