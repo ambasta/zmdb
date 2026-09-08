@@ -1,4 +1,4 @@
-import { type ProtoScalar, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
+import { type ObjectIR, type ProtoScalar, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
 
 type NumericMethod =
   | 'uint32'
@@ -56,10 +56,40 @@ const FLOATING = new Set<ProtoScalar>(['float', 'double']);
 
 type Refuse = (path: string, reason: string, source?: string) => undefined;
 
+export type FieldAtomIR = Extract<TypeIR, { kind: 'scalar' | 'object' | 'ref' }>;
+
+export function collectMessages(
+  node: TypeIR,
+  suggested: string,
+  register: (node: ObjectIR, suggested: string) => boolean,
+): void {
+  switch (node.kind) {
+    case 'object':
+      if (!register(node, suggested)) return;
+      for (const property of node.properties) {
+        collectMessages(property.type, `${suggested}${safeName(property.name)}`, register);
+      }
+      return;
+    case 'array':
+      collectMessages(node.element, suggested, register);
+      return;
+    case 'tuple':
+      for (const [index, element] of node.elements.entries()) {
+        collectMessages(element, `${suggested}${index + 1}`, register);
+      }
+      return;
+    case 'union':
+      for (const member of node.members) collectMessages(member, suggested, register);
+      return;
+    default:
+      return;
+  }
+}
+
 export function planField<Atom>(
   node: TypeIR,
   path: string,
-  atomPlan: (node: TypeIR, path: string) => Atom | undefined,
+  atomPlan: (node: FieldAtomIR, path: string) => Atom | undefined,
   enumeration: (path: string, values: readonly string[]) => Atom,
   refuse: Refuse,
 ): FieldPlan<Atom> | undefined {
@@ -104,8 +134,27 @@ export function planField<Atom>(
     return refuse(path, 'this TypeScript union has no single protobuf field spelling');
   }
 
-  const atom = atomPlan(node, path);
-  return atom === undefined ? undefined : { atom, repeated: false, nullable: false };
+  switch (node.kind) {
+    case 'scalar':
+    case 'object':
+    case 'ref': {
+      const atom = atomPlan(node, path);
+      return atom === undefined ? undefined : { atom, repeated: false, nullable: false };
+    }
+    case 'literal':
+      return typeof node.value === 'string'
+        ? { atom: enumeration(path, [node.value]), repeated: false, nullable: false }
+        : refuse(path, 'a numeric or boolean literal has no protobuf wire constraint');
+    case 'tuple':
+      return refuse(path, 'a tuple has no protobuf field spelling; declare a numbered wrapper message');
+    case 'unknown':
+      return refuse(path, '`unknown` has no protobuf wire type');
+    case 'null':
+    case 'undefined':
+      return refuse(path, 'a protobuf field cannot contain only null or undefined');
+    case 'unsupported':
+      return refuse(path, node.reason, node.source);
+  }
 }
 
 export function planScalar(

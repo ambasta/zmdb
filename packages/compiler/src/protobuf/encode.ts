@@ -7,6 +7,7 @@
 import { type ObjectIR, type PropertyIR, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
 
 import {
+  collectMessages,
   IDENTIFIER,
   isPacked,
   planField,
@@ -14,6 +15,7 @@ import {
   safeName,
   type AtomPlan,
   type EnumPlan,
+  type FieldAtomIR,
   type FieldPlan as ProtoFieldPlan,
 } from './plan.js';
 
@@ -85,30 +87,16 @@ class EncoderEmitter {
   }
 
   #collect(node: TypeIR, suggested: string): void {
-    switch (node.kind) {
-      case 'object': {
-        if (this.#objectHelpers.has(node)) return;
-        const helper = this.#name(`Encode${safeName(node.name ?? suggested)}`);
-        this.#objectHelpers.set(node, helper);
-        if (node.name !== undefined && !this.#namedHelpers.has(node.name)) this.#namedHelpers.set(node.name, helper);
-        this.#objects.push(node);
-        for (const property of node.properties) {
-          this.#collect(property.type, `${suggested}${safeName(property.name)}`);
-        }
-        return;
+    collectMessages(node, suggested, (message, name) => {
+      if (this.#objectHelpers.has(message)) return false;
+      const helper = this.#name(`Encode${safeName(message.name ?? name)}`);
+      this.#objectHelpers.set(message, helper);
+      if (message.name !== undefined && !this.#namedHelpers.has(message.name)) {
+        this.#namedHelpers.set(message.name, helper);
       }
-      case 'array':
-        this.#collect(node.element, suggested);
-        return;
-      case 'tuple':
-        for (const [index, element] of node.elements.entries()) this.#collect(element, `${suggested}${index + 1}`);
-        return;
-      case 'union':
-        for (const member of node.members) this.#collect(member, suggested);
-        return;
-      default:
-        return;
-    }
+      this.#objects.push(message);
+      return true;
+    });
   }
 
   #renderMessage(node: ObjectIR): void {
@@ -175,7 +163,7 @@ class EncoderEmitter {
     );
   }
 
-  #atom(node: TypeIR, path: string): AtomPlan | undefined {
+  #atom(node: FieldAtomIR, path: string): AtomPlan | undefined {
     switch (node.kind) {
       case 'scalar':
         return this.#scalar(node, path);
@@ -191,22 +179,6 @@ class EncoderEmitter {
           ? this.#refuse(path, `protobuf back-reference \`${node.name}\` has no message declaration`)
           : { kind: 'message', helper, wire: 2 };
       }
-      case 'literal':
-        return typeof node.value === 'string'
-          ? this.#enum(path, [node.value])
-          : this.#refuse(path, 'a numeric or boolean literal has no protobuf wire constraint');
-      case 'tuple':
-        return this.#refuse(path, 'a tuple has no protobuf field spelling; declare a numbered wrapper message');
-      case 'unknown':
-        return this.#refuse(path, '`unknown` has no protobuf wire type');
-      case 'null':
-      case 'undefined':
-        return this.#refuse(path, 'a protobuf field cannot contain only null or undefined');
-      case 'unsupported':
-        return this.#refuse(path, node.reason, node.source);
-      case 'array':
-      case 'union':
-        return this.#refuse(path, 'an internal protobuf encoder plan was not reduced to one field');
     }
   }
 

@@ -4,9 +4,10 @@
 // `protoDescriptor<T>()`, and the emitted application receives one string literal.
 // No descriptor, parser or field table is walked at runtime.
 
-import { type ObjectIR, type PropertyIR, type ProtoScalar, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
+import { type ObjectIR, type PropertyIR, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
 
 import type { GrpcServiceIR } from './grpc-ir.js';
+import { IDENTIFIER, planScalar } from './plan.js';
 
 export interface ProtoDescriptorDiagnostic {
   readonly path: string;
@@ -25,11 +26,7 @@ interface FieldType {
   readonly nullable: boolean;
 }
 
-const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PACKAGE = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/;
-const THIRTY_TWO_BIT = new Set<ProtoScalar>(['int32', 'uint32', 'sint32', 'fixed32', 'sfixed32']);
-const SIXTY_FOUR_BIT = new Set<ProtoScalar>(['int64', 'uint64', 'sint64', 'fixed64', 'sfixed64']);
-const FLOATING = new Set<ProtoScalar>(['float', 'double']);
 
 /** Emit a complete proto3 file, or named diagnostics when the IR has no honest spelling. */
 export function emitProtoDescriptor(root: TypeIR, preferredName?: string): ProtoDescriptorResult {
@@ -277,45 +274,16 @@ class DescriptorEmitter {
   }
 
   #scalar(node: ScalarIR, path: string): string | undefined {
-    const proto = node.proto;
-    switch (node.scalar) {
-      case 'number':
-      case 'integer':
-        if (proto === undefined) return 'double';
-        if (THIRTY_TWO_BIT.has(proto) || FLOATING.has(proto)) return proto;
-        if (SIXTY_FOUR_BIT.has(proto)) {
-          return this.#refuse(
-            path,
-            `Proto<'${proto}'> needs bigint because a TypeScript number cannot preserve every 64-bit integer`,
-          );
-        }
-        return this.#refuse(path, `Proto<'${proto}'> is not a numeric protobuf scalar`);
-      case 'bigint':
-        if (proto === undefined) {
-          return this.#refuse(path, 'an untagged bigint has no inferable protobuf width or signedness; add Proto<K>');
-        }
-        return SIXTY_FOUR_BIT.has(proto)
-          ? proto
-          : this.#refuse(path, `a bigint protobuf field needs an explicit 64-bit scalar, not Proto<'${proto}'>`);
-      case 'boolean':
-        if (proto === undefined || proto === 'bool') return 'bool';
-        return this.#refuse(path, `a boolean protobuf field cannot use Proto<'${proto}'>`);
-      case 'string':
-        if (proto === undefined || proto === 'string') return 'string';
-        if (proto === 'bytes') {
-          return this.#refuse(
-            path,
-            "Proto<'bytes'> needs Uint8Array, and the current reflection refuses typed-array data types",
-          );
-        }
-        return this.#refuse(path, `a string protobuf field cannot use Proto<'${proto}'>`);
-      case 'date':
-        if (proto !== undefined) {
-          return this.#refuse(path, `Date has the fixed google.protobuf.Timestamp mapping, not Proto<'${proto}'>`);
-        }
+    const plan = planScalar(
+      node,
+      path,
+      () => {
         this.#needsTimestamp = true;
         return 'google.protobuf.Timestamp';
-    }
+      },
+      (location, reason, source) => this.#refuse(location, reason, source),
+    );
+    return plan?.kind === 'timestamp' ? plan.helper : plan?.method;
   }
 
   #enum(owner: string, field: string, values: readonly string[]): string {
