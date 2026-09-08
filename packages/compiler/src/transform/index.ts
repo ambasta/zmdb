@@ -21,8 +21,8 @@
 // compiler parsed, so `transformFile` checks that before it trusts one.
 
 import type { ToolProvider } from '@zmdb/ai';
-import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from '@zmdb/aot-validator';
-import type { SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
+import { type SchemaIR, type ShapeIR, type TypeIR } from '@zmdb/schema/ir';
+import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from '@zmdb/validator';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
 import {
   isLiteralTypeNode,

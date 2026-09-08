@@ -6,7 +6,7 @@ directly, giving you full control over SQL generation.
 Combine rows from two or more SELECT statements. Use `union` for distinct rows, `unionAll` to keep duplicates.
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
@@ -15,7 +15,7 @@ const query1 = compiler.selectFrom('users').select(['id', 'name']).where('active
 
 const query2 = compiler.selectFrom('archived_users').select(['id', 'name']).compile();
 
-import { setOperation, union } from '@zmdb/query-compiler/set-ops';
+import { setOperation, union } from '@zmdb/sql/set-ops';
 
 const combined = setOperation('union', [query1, query2], 'postgres');
 
@@ -28,7 +28,7 @@ const combined = setOperation('union', [query1, query2], 'postgres');
 `INTERSECT` returns rows present in both queries. `EXCEPT` returns rows from the first query that aren't in the second.
 
 ```ts
-import { setOperation } from '@zmdb/query-compiler/set-ops';
+import { setOperation } from '@zmdb/sql/set-ops';
 
 // Active users who have placed orders
 const activeWithOrders = setOperation('intersect', [activeUsersQuery, ordersQuery], 'postgres');
@@ -44,7 +44,7 @@ const neverOrdered = setOperation('except', [allUsersQuery, ordersQuery], 'postg
 When you need to run multiple independent statements in one database round-trip, use `batch`. This is useful for bulk inserts, multi-table updates, or running migrations.
 
 ```ts
-import { batch, createQueryCompiler } from '@zmdb/query-compiler';
+import { batch, createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);

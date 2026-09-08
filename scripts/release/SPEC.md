@@ -43,7 +43,7 @@ Compatibility evidence has a stricter meaning:
 
 A workspace symlink, root hoisting, a `workspace:` alias, source-mode Vitest, or a successful monorepo typecheck is not compatibility evidence.
 
-For the disputed Vercel floor, the #746 probe packed `@zmdb/query-compiler`, `@zmdb/schema-core`, `@zmdb/ai`, and `@zmdb/ai-vercel`, installed those four tarballs with exact `ai@7.0.93`, `zod@4.5.4`,
+For the disputed Vercel floor, the #746 probe packed `@zmdb/sql`, `@zmdb/schema`, `@zmdb/ai`, and `@zmdb/ai-vercel`, installed those four tarballs with exact `ai@7.0.93`, `zod@4.5.4`,
 `typescript@7.0.2`, and `@types/node@26.4.1` through npm 12.0.2 on Node 26.8.1. It resolved both `ai` and `@zmdb/ai-vercel` from the temporary consumer's `node_modules`. Strict usage with
 `exactOptionalPropertyTypes: true` and the documented `skipLibCheck: true` typechecked; runtime reported adapter version `1.0.0-alpha.4`, AI SDK version `7.0.93`, keys `description`, `execute`, and
 `inputSchema`, and result `packed-7.0.93`.
@@ -104,7 +104,7 @@ The current public inventory is classified exactly once:
 | `ai-langchain`       | `@zmdb/ai-langchain`       | integration   | `fixtures/llm-adapters`                     |
 | `ai-vercel`          | `@zmdb/ai-vercel`          | integration   | `fixtures/llm-adapters` plus the #746 probe |
 | `angular`            | `@zmdb/angular`            | integration   | `fixtures/client-adapters`                  |
-| `aot-validator`      | `@zmdb/aot-validator`      | core          | `yarn verify:publish`                       |
+| `aot-validator`      | `@zmdb/validator`          | core          | `yarn verify:publish`                       |
 | `app`                | `@zmdb/app`                | core          | `yarn verify:publish`                       |
 | `cli`                | `@zmdb/cli`                | tooling       | `fixtures/consumer-cli`                     |
 | `client`             | `@zmdb/client`             | integration   | `fixtures/consumer-http-client`             |
@@ -122,11 +122,11 @@ The current public inventory is classified exactly once:
 | `otel`               | `@zmdb/otel`               | integration   | `fixtures/consumer-server-integrations`     |
 | `postgres`           | `@zmdb/postgres`           | integration   | `fixtures/database-postgres`                |
 | `protobuf`           | `@zmdb/protobuf`           | integration   | `yarn verify:publish`                       |
-| `query-compiler`     | `@zmdb/query-compiler`     | core          | `yarn verify:publish`                       |
+| `query-compiler`     | `@zmdb/sql`                | core          | `yarn verify:publish`                       |
 | `react`              | `@zmdb/react`              | integration   | `fixtures/client-adapters`                  |
 | `react-native`       | `@zmdb/react-native`       | integration   | `fixtures/client-adapters`                  |
-| `repository`         | `@zmdb/repository`         | core          | `yarn verify:publish`                       |
-| `schema-core`        | `@zmdb/schema-core`        | core          | `yarn verify:publish`                       |
+| `repository`         | `@zmdb/orm`                | core          | `yarn verify:publish`                       |
+| `schema-core`        | `@zmdb/schema`             | core          | `yarn verify:publish`                       |
 | `singlestore`        | `@zmdb/singlestore`        | integration   | `fixtures/database-singlestore`             |
 | `solid`              | `@zmdb/solid`              | integration   | `fixtures/client-adapters`                  |
 | `sqlite`             | `@zmdb/sqlite`             | integration   | `fixtures/database-sqlite`                  |
@@ -162,7 +162,7 @@ Nested fixture manifests are test assets outside the root workspace set and are 
 
 The eight core packages carry one byte-identical SemVer and move together:
 
-`@zmdb/query-compiler`, `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/repository`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/web`, and `zmdb`.
+`@zmdb/sql`, `@zmdb/schema`, `@zmdb/validator`, `@zmdb/orm`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/web`, and `zmdb`.
 
 A release that changes any core package releases all eight, even when seven tarballs are byte-identical apart from metadata. This preserves one coherent product version and makes the umbrella version
 sufficient to identify every core contract.

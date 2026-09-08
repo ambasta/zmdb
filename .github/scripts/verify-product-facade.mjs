@@ -268,9 +268,10 @@ function rootSourceOwnership(root) {
   for (const match of source.matchAll(/export\s+(type\s+)?\{([\s\S]*?)\}\s+from\s+['"]([^'"]+)['"]/g)) {
     const [, typeKeyword, body = '', specifier = ''] = match;
     const owner = specifier.startsWith('.') ? 'zmdb' : packageName(specifier);
-    const target = typeKeyword === undefined ? values : types;
-    for (const name of namesFromExportBlock(body)) {
-      target.push({ name, owner });
+    for (const member of body.replaceAll(/\/\*[\s\S]*?\*\//g, '').split(',')) {
+      const typeOnly = typeKeyword !== undefined || /^type\s+/.test(member.trim());
+      const target = typeOnly ? types : values;
+      for (const name of namesFromExportBlock(member)) target.push({ name, owner });
     }
   }
 

@@ -16,8 +16,8 @@ import {
   type MigrationPlan,
   type MigrationTableOptions,
   type SchemaObjectOperation,
-} from '@zmdb/query-compiler';
-import type { IndexColumn, IndexDef, RoutineDef, RoutineSqlType } from '@zmdb/query-compiler/schema-objects';
+} from '@zmdb/sql';
+import { type IndexColumn, type IndexDef, type RoutineDef, type RoutineSqlType } from '@zmdb/sql/schema-objects';
 
 const TYPES = Object.freeze({
   serial: 'INT AUTO_INCREMENT',
@@ -537,7 +537,6 @@ function migrationConnection<Name extends string>(
 
   const connection: MigrationConnection<Name> = {
     name,
-    dialect: driver.dialect,
     transactionalDdl: false,
     async exec(sql) {
       for (const statement of splitGeneratedStatements(sql)) await execute(statement);

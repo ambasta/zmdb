@@ -1,4 +1,4 @@
-import type { TypeIR } from '@zmdb/schema-core/ir';
+import { type TypeIR } from '@zmdb/schema/ir';
 
 /** One service method reflected into the existing protobuf message IR. */
 export interface GrpcMethodIR {

@@ -15,18 +15,18 @@
 // that inlines the same schema instead.
 
 import { schemasFrom } from '@zmdb/compiler/testing';
-import type {
-  HasDefault,
-  MaxLength,
-  Min,
-  MinLength,
-  Pattern,
-  PrimaryKey,
-  References,
-  Serial,
-  Sql,
-  Table,
-} from '@zmdb/schema-core/tags';
+import {
+  type HasDefault,
+  type MaxLength,
+  type Min,
+  type MinLength,
+  type Pattern,
+  type PrimaryKey,
+  type References,
+  type Serial,
+  type Sql,
+  type Table,
+} from '@zmdb/schema/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

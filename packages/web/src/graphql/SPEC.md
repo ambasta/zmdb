@@ -3,8 +3,8 @@
 > **Not planned.** GraphQL is out of scope for zmdb: the epics and every sub-issue under them are closed as wontfix, and no code in this tree implements this document. It stays frozen as the record of
 > what was decided and why — the failure modes it names are the ones anyone building this outside zmdb will meet.
 
-Part of `@zmdb/web`, a new `./graphql` subpath. The resolver half of the GraphQL core epic: `packages/schema-core/src/sdl/SPEC.md` freezes the SDL a type produces, and this freezes what runs when a
-client asks for a field.
+Part of `@zmdb/web`, a new `./graphql` subpath. The resolver half of the GraphQL core epic: `packages/schema/src/sdl/SPEC.md` freezes the SDL a type produces, and this freezes what runs when a client
+asks for a field.
 
 The claim the epic makes is that a resolver is structurally a controller — a method on a container-resolved class with typed arguments and a typed return — so this should be a second front end over
 machinery that already exists rather than a second framework.
@@ -146,8 +146,8 @@ registry.register<PostQueries>(container.build(PostResolver), {
 `validate` is **required by the type** for every field that has arguments, and the epic's "no path around it" is therefore not a runtime check that could be skipped — it is a compile error at the
 registration site.
 
-The validator is the caller's for the reason `packages/schema-core/src/llm/chat/SPEC.md` §3 and `.../llm/adapters/SPEC.md` §2 give at length: `assert<T>` is inlined where the checker can resolve `T`,
-and inside a published generic there is no `T` to resolve, so a framework that offered to validate for you would fall back to a runtime walk — which §2.2 forbids anyway.
+The validator is the caller's for the reason `packages/schema/src/llm/chat/SPEC.md` §3 and `.../llm/adapters/SPEC.md` §2 give at length: `assert<T>` is inlined where the checker can resolve `T`, and
+inside a published generic there is no `T` to resolve, so a framework that offered to validate for you would fall back to a runtime walk — which §2.2 forbids anyway.
 
 `[keyof A] extends [never]` degrades in the safe direction, like `HasEffectful<R>` in the chat loop: an `args` type that widened to a record still has keys, so `validate` stays required. Only a
 declaration that genuinely says "no arguments" relaxes it.
@@ -268,7 +268,7 @@ export class GqlError extends Error {
 
 ### 7.1 What crosses to the client, and what does not
 
-The rule is `packages/schema-core/src/llm/chat/SPEC.md` §6's, applied to a different boundary because the exposure is identical — a message assembled from an exception, sent to something outside the
+The rule is `packages/schema/src/llm/chat/SPEC.md` §6's, applied to a different boundary because the exposure is identical — a message assembled from an exception, sent to something outside the
 program:
 
 - A validation failure yields the **paths and expectations** via `validationIssuesOf(error)`, and **never `ValidationIssue.value`**. The client needs to know which argument was wrong; echoing what
@@ -291,7 +291,7 @@ That is worth naming rather than quietly relying on, in both directions: it mean
 asymmetry — fields can carry a chain, routes still cannot — is a gap in the HTTP side, not a GraphQL design. Closing it is `applyChain`'s job, in the epic that owns routing; this epic must not grow a
 second chain runner while waiting.
 
-Also settled here, because it changes two of #539's test titles and the epic's fifth Definition-of-Done item: schema-first generation is refused (`packages/schema-core/src/sdl/SPEC.md` §11). The
+Also settled here, because it changes two of #539's test titles and the epic's fifth Definition-of-Done item: schema-first generation is refused (`packages/schema/src/sdl/SPEC.md` §11). The
 replacements:
 
 - `generates resolver signature types from an SDL document` becomes `reports every field where an external SDL document and the emitted schema disagree`, over `sdlDiff`.
@@ -452,7 +452,7 @@ Three kinds of directive get three different answers.
 **`@deprecated(reason:)` is emitted**, and it is the only one. It comes from a new tag, so the SDL and the declaration cannot disagree:
 
 ```ts
-/** In `@zmdb/schema-core/tags`. */
+/** In `@zmdb/schema/tags`. */
 export type Deprecated<Reason extends string> = { readonly __deprecated?: Reason };
 
 export interface Post extends Table<'posts'> {

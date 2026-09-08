@@ -1,5 +1,5 @@
-import { is, validate } from '@zmdb/aot-validator/utilities';
-import { schemaOf } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema';
+import { is, validate } from '@zmdb/validator';
 
 import type { User } from './user.js';
 

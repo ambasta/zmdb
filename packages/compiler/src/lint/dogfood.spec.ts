@@ -22,7 +22,7 @@ const IGNORE_PATTERNS = [
   'benchmarks/harness/framework/peers/**',
   '**/.results/**',
   '**/*.app.mjs',
-  'packages/schema-core/src/derive/__budget__/**',
+  'packages/schema/src/derive/__budget__/**',
   'packages/compiler/src/lint/__fixtures__/*.input.ts',
 ];
 
@@ -59,7 +59,7 @@ it("reports nothing on this repository's own source", () => {
           },
           overrides: [
             {
-              files: [join(ROOT, 'packages/schema-core/src/json.type-test.ts')],
+              files: [join(ROOT, 'packages/schema/src/json.type-test.ts')],
               rules: {
                 // This compile-only assertion deliberately demonstrates the
                 // invalid `unknown & Sql<'json'>` reduction that the rule reports.

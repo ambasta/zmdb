@@ -51,8 +51,8 @@ await router.handle({ method: 'POST', path: '/users', headers: {}, rawBody: { no
 // { status: 400, ... }  — validateBody threw; create() never ran
 ```
 
-> [!IMPORTANT] Validation runs **before** the handler, so an invalid body never reaches your code. Pair `validateBody` with `@zmdb/aot-validator`'s `assert` for zero-runtime-parser validation against
-> a schema DTO.
+> [!IMPORTANT] Validation runs **before** the handler, so an invalid body never reaches your code. Pair `validateBody` with `@zmdb/validator`'s `assert` for zero-runtime-parser validation against a
+> schema DTO.
 
 ## Adapters (no hard deps)
 

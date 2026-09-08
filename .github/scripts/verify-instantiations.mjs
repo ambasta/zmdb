@@ -62,11 +62,7 @@
 // A rising number fails; a falling one is reported with the edit to make, which is the same
 // convention as `verify:escape-hatches`.
 
-import {
-  COLUMNS_PER_TABLE,
-  cleanup,
-  measure,
-} from '../../packages/schema-core/src/derive/__testing__/instantiations.ts';
+import { COLUMNS_PER_TABLE, cleanup, measure } from '../../packages/schema/src/derive/__testing__/instantiations.ts';
 
 /** The at-scale measurement point, and the smaller one linearity is judged against. */
 const TABLES = 512;

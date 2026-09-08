@@ -1,4 +1,4 @@
-import { defineSqlDialect, type DialectTypeMap, type PaginationTail } from '@zmdb/query-compiler';
+import { defineSqlDialect, type DialectTypeMap, type PaginationTail } from '@zmdb/sql';
 
 import { sqliteIntrospector } from './introspector.js';
 import { sqliteMigrations } from './migrations.js';

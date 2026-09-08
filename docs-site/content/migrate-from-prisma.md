@@ -12,7 +12,7 @@ model User {
 ```
 
 ```ts
-import { schemaOf } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema';
 import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
 export interface User extends Table<'users'> {

@@ -1,5 +1,5 @@
-import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
-import type { SelectedDriver, TransactionalDriver } from '@zmdb/repository';
+import { type SelectedDriver, type TransactionalDriver } from '@zmdb/orm';
+import { type CompiledQuery, type SqlDialect } from '@zmdb/sql';
 
 /** The node-mssql Request surface used by the adapter. */
 export interface MssqlRequest {

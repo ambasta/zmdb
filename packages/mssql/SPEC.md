@@ -11,8 +11,8 @@ export function mssqlDriver(pool: MssqlPool, options?: MssqlOptions): Transactio
 export const mssqlVertical: DatabaseVertical<'mssql', MssqlPool, MssqlOptions>;
 ```
 
-The package depends on `@zmdb/query-compiler` and `@zmdb/repository`. `mssql` is an optional peer and development dependency. The public adapter remains structural: applications pass an
-already-connected node-mssql-compatible pool, and importing the package neither loads a client implementation nor opens a connection.
+The package depends on `@zmdb/sql` and `@zmdb/orm`. `mssql` is an optional peer and development dependency. The public adapter remains structural: applications pass an already-connected
+node-mssql-compatible pool, and importing the package neither loads a client implementation nor opens a connection.
 
 ## Capabilities
 

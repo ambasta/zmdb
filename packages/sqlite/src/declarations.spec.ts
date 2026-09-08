@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { schemasFrom } from '@zmdb/compiler/testing';
 import { snapshot, type ChangeOp, type SchemaSnapshot } from '@zmdb/migrations';
 import { emitDeclarations } from '@zmdb/migrations/declarations';
-import type { CatalogSchemaSnapshot } from '@zmdb/migrations/introspect';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { type CatalogSchemaSnapshot } from '@zmdb/migrations/introspect';
+import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 import { describe, expect, it } from 'vitest';
 
 import { sqlite } from './dialect.js';

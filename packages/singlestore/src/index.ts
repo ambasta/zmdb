@@ -11,8 +11,8 @@ import {
   type MysqlQueryResult,
   type MysqlResultHeader,
 } from '@zmdb/mysql';
-import { extendSqlDialect, type SqlDialect } from '@zmdb/query-compiler';
-import type { DatabaseVertical } from '@zmdb/repository';
+import { type DatabaseVertical } from '@zmdb/orm';
+import { extendSqlDialect, type SqlDialect } from '@zmdb/sql';
 
 import { singlestoreIntrospector } from './introspect.js';
 import { SINGLESTORE_TYPE_OVERRIDES, singlestoreMigrations } from './migrations.js';

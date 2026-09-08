@@ -1,4 +1,4 @@
-import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from '@zmdb/schema-core/tags';
+import { type PrimaryKey, type Serial, type SoftDelete, type Sql, type Table } from '@zmdb/schema/tags';
 import { describe, expect, it } from 'vitest';
 
 import { schemasFrom } from '../testing/index.js';

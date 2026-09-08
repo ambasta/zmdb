@@ -2,7 +2,7 @@ Entity filters are repository-level defaults. A filter returns compiler predicat
 post-filtering.
 
 ```ts
-import { BaseRepository, type FilterDef } from '@zmdb/repository';
+import { BaseRepository, type FilterDef } from '@zmdb/orm';
 
 const livePosts = {
   name: 'live',
@@ -51,7 +51,7 @@ The tenant value belongs to the request, while the filter definition belongs to 
 
 ```ts
 import type { Ctx } from '@zmdb/web';
-import { BaseRepository, type Driver, type FilterDef } from '@zmdb/repository';
+import { BaseRepository, type Driver, type FilterDef } from '@zmdb/orm';
 
 const tenant = {
   name: 'tenant',
@@ -311,7 +311,7 @@ CREATE UNIQUE INDEX "users_email_unique" ON "users" ("email")
 On PostgreSQL, a partial unique index gives replacement rows the opposite policy:
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const ddl = createIndexDdl(
   {

@@ -5,7 +5,7 @@ Small things that are easy to miss.
 Every builder ends in `.compile()`, which returns `{ text, parameters }`. No connection, no mocking:
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const { text, parameters } = createQueryCompiler(postgres).selectFrom('users').where('age', '>=', 18).orderBy('email', 'asc').limit(10).compile();
@@ -32,7 +32,7 @@ Useful for spotting portability problems before deploy, and for tests that must 
 ## Generate realistic fixtures from the schema
 
 ```ts
-import { seedRows } from '@zmdb/repository/seeding';
+import { seedRows } from '@zmdb/orm/seeding';
 
 const rows = seedRows(userSchema, { count: 50, seed: 1234 });
 ```
@@ -43,7 +43,7 @@ number at least eighteen. It is the same sampler [`random<T>()`](./random.html) 
 ## Generate a value from any type, not just a schema
 
 ```ts
-import { random } from '@zmdb/aot-validator/utilities';
+import { random } from '@zmdb/validator';
 
 const u = random<User>();
 ```
@@ -53,7 +53,7 @@ The transformer derives the generator from `User` itself. Handy for property-bas
 ## `stringify` is faster than `JSON.stringify` for known types
 
 ```ts
-import { stringify, assertStringify } from '@zmdb/aot-validator/serialization';
+import { stringify, assertStringify } from '@zmdb/validator/serialization';
 
 stringify(user); // no key discovery at runtime
 assertStringify<User>(user); // validate, then serialize
@@ -78,7 +78,7 @@ Use `validate` for form submissions where the user wants the whole list, `assert
 ## Derive OpenAPI components for a whole schema set in one call
 
 ```ts
-import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const { schemas } = toOpenApiComponents([users, posts, comments]);
 ```

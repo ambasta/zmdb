@@ -1,19 +1,16 @@
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { join } from 'node:path';
 
-import { validate } from '@zmdb/aot-validator/utilities';
 import { mssql } from '@zmdb/mssql';
-import { createQueryCompiler, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/query-compiler';
-import { BaseRepository, ValidationError, type Driver } from '@zmdb/repository';
-import { jsonSchemaFromIR, objectTypeFromIR, schemaFromIR, type SchemaIR, type TypeIR } from '@zmdb/schema-core/ir';
-import { compilePopulate } from '@zmdb/schema-core/relations';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { BaseRepository, ValidationError, type Driver } from '@zmdb/orm';
+import { compilePopulate } from '@zmdb/orm/relations';
+import { jsonSchemaFromIR, objectTypeFromIR, schemaFromIR, type SchemaIR, type TypeIR } from '@zmdb/schema/ir';
+import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
+import { createQueryCompiler, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/sql';
+import { validate } from '@zmdb/validator';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  PACKED_BUILD_TEST_TIMEOUT_MS,
-  withPackedBuildLock,
-} from '../../../fixtures/client-adapters/src/packed-project.js';
+import { PACKED_BUILD_TEST_TIMEOUT_MS } from '../../../fixtures/client-adapters/src/packed-project.js';
 import { officialDialects, sqliteDialect, type OfficialDialectName } from './testing/official-dialects.fixture.js';
 
 const ROOT = process.cwd();
@@ -160,53 +157,78 @@ const ORM_IR: SchemaIR = {
 let packedResult: SpawnSyncReturns<string>;
 
 beforeAll(() => {
-  packedResult = withPackedBuildLock(ROOT, () =>
-    spawnSync(process.execPath, [PACKED_VERIFIER], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      timeout: 300_000,
-    }),
-  );
+  packedResult = spawnSync(process.execPath, [PACKED_VERIFIER], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: PACKED_BUILD_TEST_TIMEOUT_MS - 10_000,
+  });
 }, PACKED_BUILD_TEST_TIMEOUT_MS);
 
 function packedOutput(): string {
-  return [packedResult.stdout, packedResult.stderr].filter(Boolean).join('\n');
+  return [
+    packedResult.error?.message,
+    packedResult.signal ? `signal: ${packedResult.signal}` : undefined,
+    packedResult.stdout,
+    packedResult.stderr,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function packedLane(lane: string): { readonly lane: string; readonly installed: readonly string[] } {
+  expect(packedResult.status, packedOutput()).toBe(0);
+  const report = JSON.parse(packedResult.stdout) as {
+    readonly consumers: readonly { readonly lane: string; readonly installed: readonly string[] }[];
+    readonly failures: readonly unknown[];
+    readonly cleaned: boolean;
+  };
+  expect(report.failures).toEqual([]);
+  expect(report.cleaned).toBe(true);
+  expect(report.consumers.map(consumer => consumer.lane).toSorted()).toEqual([
+    'application',
+    'generated',
+    'orm',
+    'schema',
+    'sql',
+    'validator',
+  ]);
+  const matches = report.consumers.filter(consumer => consumer.lane === lane);
+  expect(matches).toHaveLength(1);
+  return matches[0]!;
 }
 
 describe('runtime foundation package cutover (#636)', () => {
-  it.fails.each(TARGET_PACKAGE_ROOTS)('imports the final public root %s', packageName => {
-    const result = spawnSync(process.execPath, ['--input-type=module', '--eval', `await import('${packageName}')`], {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
-    expect(result.status, result.stderr).toBe(0);
+  it.each(TARGET_PACKAGE_ROOTS)('imports the final public root %s', async packageName => {
+    const imported = await import(/* @vite-ignore */ packageName);
+    expect(imported).toBeDefined();
   });
 
-  it.fails('installs @zmdb/schema alone and derives/types/serializes schema documents without SQL', () => {
-    expect(packedResult.status, packedOutput()).toBe(0);
-    expect(packedResult.stdout).toContain('schema: @zmdb/schema packed runtime and declarations OK');
+  it('installs schema alone and derives/types/serializes schema documents without SQL', () => {
+    expect(packedLane('schema').installed).toEqual(['@zmdb/schema']);
   });
 
-  it.fails('installs @zmdb/sql alone and compiles representative statements for every supported dialect', () => {
-    expect(packedResult.status, packedOutput()).toBe(0);
-    expect(packedResult.stdout).toContain('sql: @zmdb/sql packed runtime and declarations OK');
+  it('installs SQL alone and compiles through an injected structural dialect', () => {
+    expect(packedLane('sql').installed).toEqual(['@zmdb/sql']);
   });
 
-  it.fails('installs @zmdb/validator with only @zmdb/schema and executes emitted validation and serialization helpers', () => {
-    expect(packedResult.status, packedOutput()).toBe(0);
-    expect(packedResult.stdout).toContain(
-      'validator: @zmdb/schema, @zmdb/validator packed runtime and declarations OK',
-    );
+  it('installs validator with only schema and executes validation and serialization helpers', () => {
+    expect(packedLane('validator').installed).toEqual(['@zmdb/schema', '@zmdb/validator']);
+    expect(packedLane('generated').installed).toEqual(['@zmdb/schema', '@zmdb/validator']);
   });
 
-  it.fails('installs @zmdb/orm with the three foundation dependencies and performs typed SQLite CRUD', () => {
-    expect(packedResult.status, packedOutput()).toBe(0);
-    expect(packedResult.stdout).toContain(
-      'orm: @zmdb/orm, @zmdb/schema, @zmdb/sql, @zmdb/validator packed runtime and declarations OK',
-    );
+  it('installs ORM with its foundation dependencies and proves SQLite CRUD in the application lane', () => {
+    expect(packedLane('orm').installed).toEqual(['@zmdb/orm', '@zmdb/schema', '@zmdb/sql', '@zmdb/validator']);
+    expect(packedLane('application').installed).toEqual([
+      '@zmdb/migrations',
+      '@zmdb/orm',
+      '@zmdb/schema',
+      '@zmdb/sql',
+      '@zmdb/sqlite',
+      '@zmdb/validator',
+    ]);
   });
 
-  it.fails('cannot resolve any old package name or old public import after cutover', () => {
+  it('cannot resolve any old package name or old public import after cutover', () => {
     for (const packageName of OLD_PACKAGE_ROOTS) {
       const result = spawnSync(
         process.execPath,

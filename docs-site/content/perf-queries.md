@@ -64,7 +64,7 @@ count suggests.
 standalone unique index. See [Indexes & Constraints](./indexes-constraints.html).
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 createIndexDdl({ name: 'posts_author_created', table: 'posts', columns: ['author_id', 'created_at'] }, 'postgres');
 ```

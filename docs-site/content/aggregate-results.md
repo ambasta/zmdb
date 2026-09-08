@@ -6,8 +6,8 @@ aggregation specification.
 Use `AggregateSpec<S>` to declare what you want to compute:
 
 ```ts
-import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
-import type { AggregateResult, AggregateSpec } from '@zmdb/schema-core/dto';
+import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
+import { type AggregateResult, type AggregateSpec } from '@zmdb/schema/dto';
 
 const spec: AggregateSpec<Order> = {
   groupBy: ['status'],

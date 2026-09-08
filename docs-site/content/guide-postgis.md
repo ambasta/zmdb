@@ -35,7 +35,7 @@ Catalog pull can discover that the column is PostGIS-backed, but it cannot infer
 ## Create the spatial index
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const indexSql = createIndexDdl(
   {
@@ -86,7 +86,7 @@ GeoJSON positions are longitude first. Swapped latitude/longitude remains a vali
 For a declared `geometry` column, `stDWithin<T>(column, point, distance)` supplies the closed predicate and binds both the GeoJSON value and distance:
 
 ```ts
-import { createQueryCompiler, stDWithin } from '@zmdb/query-compiler';
+import { createQueryCompiler, stDWithin } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const nearby = createQueryCompiler(postgres)
@@ -101,7 +101,7 @@ The distance above is in the geometry's coordinate units. `stContains<T>` is the
 polygon rather than an arbitrary object:
 
 ```ts
-import { stContains } from '@zmdb/query-compiler';
+import { stContains } from '@zmdb/sql';
 
 interface GeoJsonPolygon {
   readonly type: 'Polygon';
@@ -164,7 +164,7 @@ Use `ST_DWithin` in `WHERE`, not `ST_Distance(...) < r`. Of those two radius for
 ## Type raw results
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 
 export interface VenueHit {
   id: number;

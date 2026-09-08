@@ -1,4 +1,4 @@
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 /** The process is not wedged. Synchronous by construction. */
 export interface LivenessCheck {

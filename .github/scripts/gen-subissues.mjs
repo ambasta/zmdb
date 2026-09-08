@@ -24,7 +24,7 @@ const EPICS = [
   {
     parent: 1,
     slug: 'schema-core',
-    title: '@zmdb/schema-core',
+    title: '@zmdb/schema',
     subs: [
       {
         t: 'Freeze spec: column DSL, modifiers, and metadata shape',
@@ -42,7 +42,7 @@ const EPICS = [
           'Write failing snapshot test of the CoreSchema object produced by a representative schema.',
         ],
         accept: [
-          'A committed `SPEC.md` in packages/schema-core enumerating every builder/modifier and the metadata shape.',
+          'A committed `SPEC.md` in packages/schema enumerating every builder/modifier and the metadata shape.',
           'Test file compiles and all tests FAIL (no implementation yet).',
         ],
       },
@@ -98,7 +98,7 @@ const EPICS = [
   {
     parent: 2,
     slug: 'query-compiler',
-    title: '@zmdb/query-compiler',
+    title: '@zmdb/sql',
     subs: [
       {
         t: 'Freeze spec: CompiledQuery contract + builder grammar',
@@ -155,7 +155,7 @@ const EPICS = [
   {
     parent: 3,
     slug: 'aot-validator',
-    title: '@zmdb/aot-validator',
+    title: '@zmdb/validator',
     subs: [
       {
         t: 'Freeze spec: transformer contract + emitted-JS shape',
@@ -207,7 +207,7 @@ const EPICS = [
   {
     parent: 4,
     slug: 'repository',
-    title: '@zmdb/repository',
+    title: '@zmdb/orm',
     subs: [
       {
         t: 'Freeze spec: BaseRepository API + validation interception contract',

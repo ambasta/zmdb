@@ -1,5 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import { TypeCompiler } from '@sinclair/typebox/compiler';
+import { is, equals } from '@zmdb/validator';
 import Ajv from 'ajv';
 // Focused, honest validation benchmark that reuses moltar's exact data model
 // and the four case kinds (parseSafe / parseStrict / assertLoose / assertStrict).
@@ -47,7 +48,6 @@ import {
 } from 'valibot';
 import { object as zObject, number as zNumber, string as zString, boolean as zBoolean } from 'zod';
 
-import { is, equals } from '../../../packages/aot-validator/src/utilities/index.js';
 import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './aot.generated.js';
 import { MOLTAR } from './model.generated.js';
 import type { Moltar } from './model.js';

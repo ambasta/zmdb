@@ -43,7 +43,7 @@ createQueryCompiler(postgres).insertInto('users').values(row).onConflict('id').d
 ```
 
 If _every_ inserted column is a conflict target the set list would be empty SQL, so the compiler sets them all back to themselves. That is a deliberate no-op rather than an oversight, and it is
-commented as such at `packages/query-compiler/src/index.ts:287`.
+commented as such at `packages/sql/src/index.ts:287`.
 
 **`doUpdate(['name'])` — those columns only.**
 

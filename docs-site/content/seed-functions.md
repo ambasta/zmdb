@@ -1,9 +1,9 @@
-`@zmdb/repository/seeding` generates rows that satisfy a schema, from a seed you choose, so the same seed produces the same data.
+`@zmdb/orm/seeding` generates rows that satisfy a schema, from a seed you choose, so the same seed produces the same data.
 
 ## Generating rows
 
 ```ts
-import { seedRows } from '@zmdb/repository/seeding';
+import { seedRows } from '@zmdb/orm/seeding';
 import { userSchema } from './schema.js';
 
 const rows = seedRows(userSchema, { count: 50, seed: 1 });
@@ -14,7 +14,7 @@ Every column gets a value that satisfies its **declaration**, not merely its SQL
 `Min`/`Max`, `MinLength`/`MaxLength`, a string-literal union's members and a `json` column's payload shape all reach the generator. Same seed, same rows — which is what makes a seeded test
 reproducible and a seeded failure debuggable.
 
-> [!NOTE] This is a change from the generator that lived in `@zmdb/schema-core/seeding`. That one read `ColumnMeta.type` and two flags and nothing else, so a constrained column got a value that often
+> [!NOTE] This is a change from the generator that lived in `@zmdb/schema/seeding`. That one read `ColumnMeta.type` and two flags and nothing else, so a constrained column got a value that often
 > violated the constraint and `repo.create` then rejected the row. It also returned `Record<string, unknown>[]`, which every call site had to cast. Both were the same defect — a second, weaker value
 > generator beside the one the validator emits — and both went away when `seedRows` became a loop over that one.
 
@@ -48,7 +48,7 @@ await driver.execute(q);
 an optional field is set:
 
 ```ts
-import { makeRng, seedRows } from '@zmdb/repository/seeding';
+import { makeRng, seedRows } from '@zmdb/orm/seeding';
 
 const rng = makeRng(42);
 const pick = <T>(xs: readonly [T, ...T[]]): T => xs[Math.floor(rng() * xs.length)] ?? xs[0];
@@ -115,7 +115,7 @@ Use a distinct seed per test so one test's data cannot make another pass. See [T
 For a payload that is not a table row, `random<T>()` in the validator does the same job against an arbitrary type:
 
 ```ts
-import { random } from '@zmdb/aot-validator/utilities';
+import { random } from '@zmdb/validator';
 
 const body = random<CreateUserRequest>();
 ```

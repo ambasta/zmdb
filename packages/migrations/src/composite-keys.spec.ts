@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { UnsupportedFeatureError } from '@zmdb/query-compiler';
+import { UnsupportedFeatureError } from '@zmdb/sql';
 import { describe, it, expect } from 'vitest';
 
 import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, type TableSnapshot } from './index.js';

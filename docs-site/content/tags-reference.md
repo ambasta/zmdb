@@ -1,4 +1,4 @@
-Every tag, in one place. Import from `zmdb/tags` (or `@zmdb/schema-core/tags`) unless noted.
+Every tag, in one place. Import from `zmdb/tags` (or `@zmdb/schema/tags`) unless noted.
 
 Most tags are optional `unique symbol` property slots:
 
@@ -128,7 +128,7 @@ age: number & Sql<'integer'> & Min<18> & Max<120>;
 email: string & Sql<'varchar'> & Length<255> & Pattern<'^\\S+@\\S+$'>;
 ```
 
-`Rule<Name>` is the named escape hatch, and an **unregistered name is a build error**, not a silently skipped check. The runtime vocabulary in `@zmdb/aot-validator` uses the same spellings —
+`Rule<Name>` is the named escape hatch, and an **unregistered name is a build error**, not a silently skipped check. The runtime vocabulary in `@zmdb/validator` uses the same spellings —
 `tags.Min(18)`, `tags.Max(120)` — so there is one name per constraint rather than one per layer.
 
 A template literal type derives a pattern on its own: `` `${string}@${string}` `` becomes `^[\s\S]*@[\s\S]*$`, merged with rather than replaced by an explicit `Pattern<…>`. `${number}` is refused —
@@ -179,8 +179,8 @@ TypeScript already says all six, the reflection reads them off the type directly
 
 ## Two installs of `zmdb`
 
-`unique symbol` identity is nominal, so two copies of `@zmdb/schema-core` in one `node_modules` produce two non-matching `Serial` tags from identical source text. The consequence is not a type error:
-the filter that picks serial columns collapses to `never`, `Omit<T, never>` is `T`, and a generated column silently becomes **required** on insert — while the emitted validator, which matches tags by
+`unique symbol` identity is nominal, so two copies of `@zmdb/schema` in one `node_modules` produce two non-matching `Serial` tags from identical source text. The consequence is not a type error: the
+filter that picks serial columns collapses to `never`, `Omit<T, never>` is `T`, and a generated column silently becomes **required** on insert — while the emitted validator, which matches tags by
 name, still treats it as generated.
 
 That asymmetry is why the build refuses it. The reflection can see the escaped symbol ids the type system distinguishes (`__@zmdbSerial@1` against `__@zmdbSerial@12`) and names both spellings in the

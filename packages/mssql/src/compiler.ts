@@ -7,7 +7,7 @@ import {
   type DialectReturningColumn,
   type DialectReturningContext,
   type DialectUpsertContext,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
 
 function outputColumn(
   context: DialectReturningContext,

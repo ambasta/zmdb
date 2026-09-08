@@ -657,7 +657,7 @@ export function rewriteFile(text, { converted, imports, used }) {
   }));
 
   const tags = [...new Set(converted.flatMap(declaration => declaration.tags))].toSorted();
-  const importLine = `import type { ${tags.join(', ')} } from '@zmdb/schema-core/tags';`;
+  const importLine = `import type { ${tags.join(', ')} } from '@zmdb/schema/tags';`;
   const lastImport = imports.at(-1);
   const edits = [
     ...schemaEdits,
@@ -759,7 +759,7 @@ export function convertFiles(project, files) {
  *
  * Relative only. The repository writes `'./fixtures.ts'` with the extension, which is what
  * ESM requires and what makes this a path join rather than a resolution algorithm; a bare
- * `'@zmdb/schema-core'` would need the real one, and guessing at it is how a codemod
+ * `'@zmdb/schema'` would need the real one, and guessing at it is how a codemod
  * silently converts against the wrong file.
  */
 export function moduleResolver(program) {

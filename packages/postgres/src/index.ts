@@ -1,11 +1,11 @@
+import { type DatabaseVertical, type TransactionalDriver } from '@zmdb/orm';
 import {
   defineSqlDialect,
   type DatabaseCapabilities,
   type PaginationTail,
   type ResolvedDialectTraits,
   type SqlDialect,
-} from '@zmdb/query-compiler';
-import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
+} from '@zmdb/sql';
 
 import { POSTGRES_TYPES } from './constants.js';
 import { postgresFamilyDriver, type PgConnection, type PgOptions, type PgQueryable } from './driver.js';

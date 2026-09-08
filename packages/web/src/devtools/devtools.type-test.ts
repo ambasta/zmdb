@@ -1,5 +1,5 @@
-import type { Scope } from '@zmdb/app/di';
-import type { ModuleClass } from '@zmdb/app/modules';
+import { type Scope } from '@zmdb/app/di';
+import { type ModuleClass } from '@zmdb/app/modules';
 // The graph description, as types. Tests freeze for the epic "The module graph as a first-class
 // object" (#598 / spec freeze #599); the frozen text is `./SPEC.md` §2 and §10.2.
 //
@@ -25,7 +25,7 @@ import type { ModuleClass } from '@zmdb/app/modules';
 // this file. `devtools.spec.ts` reaches the same end with a user-defined type predicate rather than
 // an assertion, and `../modules/__fixtures__/large-graph.ts` needs exactly one, named in its own
 // comment, to hand `@Module` a definition whose `imports` today's `ModuleDef` does not admit.
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 
 import type { WebApplication } from '../app/index.js';
 import type { AppModule } from '../modules/__fixtures__/large-graph.js';

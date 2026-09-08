@@ -4,7 +4,7 @@
 // and call the small wire runtime; no descriptor, field table or property-name loop
 // reaches the application.
 
-import type { ObjectIR, PropertyIR, ProtoScalar, ScalarIR, TypeIR } from '@zmdb/schema-core/ir';
+import { type ObjectIR, type PropertyIR, type ProtoScalar, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
 
 export interface ProtoEncodeDiagnostic {
   readonly path: string;

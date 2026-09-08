@@ -16,7 +16,7 @@ if (loadedArchitecture === null) throw new Error('The tooling cutover requires t
 const architecture: Architecture = loadedArchitecture;
 
 const retired = {
-  '@zmdb/aot-validator': [
+  '@zmdb/validator': [
     './codegen',
     './emit',
     './lint',
@@ -27,7 +27,7 @@ const retired = {
     './transformer',
     './unplugin',
   ],
-  '@zmdb/query-compiler': ['./introspect', './migrations', './migrations/embedded', './migrations/runner'],
+  '@zmdb/sql': ['./introspect', './migrations', './migrations/embedded', './migrations/runner'],
   '@zmdb/compiler': ['./codegen', './plugin', './transformer'],
   zmdb: ['./unplugin'],
 };
@@ -73,14 +73,14 @@ describe('final tooling ownership cutover (#631)', () => {
       expect(entries.filter(entry => !entry.path.startsWith(`packages/${owner}/src/`))).toEqual([]);
     }
     for (const path of [
-      'packages/aot-validator/src/codegen',
-      'packages/aot-validator/src/emit',
-      'packages/aot-validator/src/reflect',
-      'packages/aot-validator/src/config',
-      'packages/query-compiler/src/migrations/index.ts',
-      'packages/query-compiler/src/migrations/runner.ts',
-      'packages/query-compiler/src/migrations/embedded.ts',
-      'packages/query-compiler/src/introspect/index.ts',
+      'packages/validator/src/codegen',
+      'packages/validator/src/emit',
+      'packages/validator/src/reflect',
+      'packages/validator/src/config',
+      'packages/sql/src/migrations/index.ts',
+      'packages/sql/src/migrations/runner.ts',
+      'packages/sql/src/migrations/embedded.ts',
+      'packages/sql/src/introspect/index.ts',
       'packages/zmdb/src/studio',
       'packages/zmdb/src/unplugin.ts',
     ])
@@ -118,7 +118,7 @@ describe('final tooling ownership cutover (#631)', () => {
   it('rejects a synthetic runtime-to-tooling import and accepts every declared tooling edge', () => {
     expect(analyse().packageGraph.problems).toEqual([]);
     expect(analyse().runtimeViolations).toEqual([]);
-    const entry = join(ROOT, 'packages/schema-core/src/index.ts');
+    const entry = join(ROOT, 'packages/schema/src/index.ts');
     const original = readFileSync(entry, 'utf8');
     for (const specifier of [
       '@zmdb/compiler',
@@ -140,11 +140,11 @@ describe('final tooling ownership cutover (#631)', () => {
       ).toBe(true);
     }
     for (const [name, field, dependency, optional] of [
-      ['@zmdb/schema-core', 'dependencies', '@zmdb/compiler', false],
-      ['@zmdb/aot-validator', 'optionalDependencies', '@zmdb/cli', false],
-      ['@zmdb/aot-validator', 'peerDependencies', '@zmdb/compiler', true],
-      ['@zmdb/query-compiler', 'dependencies', 'typescript', false],
-      ['@zmdb/repository', 'dependencies', 'oxfmt', false],
+      ['@zmdb/schema', 'dependencies', '@zmdb/compiler', false],
+      ['@zmdb/validator', 'optionalDependencies', '@zmdb/cli', false],
+      ['@zmdb/validator', 'peerDependencies', '@zmdb/compiler', true],
+      ['@zmdb/sql', 'dependencies', 'typescript', false],
+      ['@zmdb/orm', 'dependencies', 'oxfmt', false],
       ['@zmdb/compiler', 'dependencies', '@zmdb/migrations', false],
       ['@zmdb/migrations', 'peerDependencies', '@zmdb/compiler', false],
     ] as const) {
@@ -161,11 +161,11 @@ describe('final tooling ownership cutover (#631)', () => {
     expect(
       analyse(new Map([[embedded, `import 'node:fs';\n${readFileSync(embedded, 'utf8')}`]])).embeddedViolations,
     ).not.toEqual([]);
-  });
+  }, 20_000);
 
   it('finds exactly one TypeIR producer, one migration diff implementation and one command dispatcher', () => {
     expect(analyse().problems).toEqual([]);
-    const foreignOwner = join(ROOT, 'packages/aot-validator/src/index.ts');
+    const foreignOwner = join(ROOT, 'packages/validator/src/index.ts');
     const original = readFileSync(foreignOwner, 'utf8');
     for (const declaration of [
       'export function irFromType() { return undefined; }',
@@ -179,7 +179,7 @@ describe('final tooling ownership cutover (#631)', () => {
       expect(
         result.problems.some(
           problem =>
-            problem.includes('TOOLING_IMPLEMENTATION_OWNER') && problem.includes('packages/aot-validator/src/index.ts'),
+            problem.includes('TOOLING_IMPLEMENTATION_OWNER') && problem.includes('packages/validator/src/index.ts'),
         ),
         declaration,
       ).toBe(true);

@@ -11,7 +11,7 @@ yarn fmt                                                        # rewritten file
 
 ```ts
 // before
-import { defineSchema, serial, text, varchar } from '@zmdb/schema-core';
+import { defineSchema, serial, text, varchar } from '@zmdb/schema';
 
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
@@ -22,7 +22,7 @@ const UserSchema = defineSchema('users', {
 
 ```ts
 // after
-import type { Length, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/schema-core/tags';
+import { type Length, type PrimaryKey, type Serial, type Sql, type Table, type Unique } from '@zmdb/schema/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -34,7 +34,7 @@ export interface User extends Table<'users'> {
 Three edits, collected against the original offsets and applied in one back-to-front pass so none invalidates another's positions:
 
 1. the `const … = defineSchema(…);` statement becomes the interface;
-2. a `import type { … } from '@zmdb/schema-core/tags'` line is added after the last existing import, naming exactly the tags the conversion used;
+2. a `import type { … } from '@zmdb/schema/tags'` line is added after the last existing import, naming exactly the tags the conversion used;
 3. the DSL names the rewrite made unused are pruned from their import clause — and a file that still calls `text()` outside a schema keeps its import, because "unused" is computed on the tree rather
    than by counting occurrences.
 

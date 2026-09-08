@@ -233,12 +233,12 @@ export declare function Interval(ms: number, opts?: { readonly overlap?: false }
     title: '[EPIC] Application messaging — events, CQRS, and a transactional outbox',
     labels: ['enhancement', 'area:web', 'area:query', 'parity:nestjs'],
     pages: ['web-events', 'web-cqrs', 'transactional-outbox'],
-    packages: ['@zmdb/web', '@zmdb/query-compiler', '@zmdb/repository'],
+    packages: ['@zmdb/web', '@zmdb/sql', '@zmdb/orm'],
     motivation: `
 "no application event emitter module; EventBus covers entity lifecycle only", "no command/query bus or saga
 runtime", and "no outbox table helper and no dispatcher loop".
 
-\`EventBus\` exists (packages/repository/src/entity-modeling/index.ts:17) but it is about entity lifecycle,
+\`EventBus\` exists (packages/orm/src/entity-modeling/index.ts:17) but it is about entity lifecycle,
 which is a different thing from an application event. So the first gap is real but small.
 
 The third is the one that justifies the epic, and it is worth stating why rather than treating it as a
@@ -285,7 +285,7 @@ carries weight.
         files: [
           '`packages/web/src/events/SPEC.md` (new)',
           '`packages/web/src/cqrs/SPEC.md` (new)',
-          '`packages/query-compiler/src/outbox/SPEC.md` (new)',
+          '`packages/sql/src/outbox/SPEC.md` (new)',
         ],
         api: `
 export declare function OnEvent<T>(event: EventType<T>): MethodDecorator;
@@ -340,7 +340,7 @@ export interface OutboxRecord {
         files: [
           '`packages/web/src/events/events.spec.ts` (new)',
           '`packages/web/src/cqrs/cqrs.type-test.ts`, `cqrs.spec.ts` (new)',
-          '`packages/query-compiler/src/outbox/outbox.spec.ts` (new)',
+          '`packages/sql/src/outbox/outbox.spec.ts` (new)',
         ],
         tests: [
           '`never delivers an event published in a rolled-back transaction` — real database, real transaction, real rollback. The headline test.',
@@ -378,9 +378,9 @@ export interface OutboxRecord {
         goal: 'Ship the declared outbox table, publish-inside-transaction, and a dispatcher that is multi-instance safe, cannot stall, and does not poll hot.',
         why: 'The most valuable slice in the epic, and it goes first because the events and CQRS work reads better once transactional publishing exists — an event emitter that can publish transactionally is a different thing from one that cannot.',
         files: [
-          '`packages/query-compiler/src/outbox/index.ts` (new) — table declaration and dispatcher.',
-          '`packages/repository/src/index.ts` — publishing within a transaction.',
-          '`packages/query-compiler/src/migrations/index.ts` — the outbox table in a migration.',
+          '`packages/sql/src/outbox/index.ts` (new) — table declaration and dispatcher.',
+          '`packages/orm/src/index.ts` — publishing within a transaction.',
+          '`packages/sql/src/migrations/index.ts` — the outbox table in a migration.',
         ],
         steps: [
           'Declare the outbox table as a normal schema object so it appears in snapshots and migrations like any other table — no runtime table creation (§2.4).',
@@ -411,7 +411,7 @@ export interface OutboxRecord {
         goal: 'Ship typed application events with error isolation, the decided await semantics, and transactional emission through the outbox.',
         files: [
           '`packages/web/src/events/index.ts` (new)',
-          '`packages/repository/src/entity-modeling/index.ts` — the `EventBus` relationship.',
+          '`packages/orm/src/entity-modeling/index.ts` — the `EventBus` relationship.',
         ],
         steps: [
           'Register handlers explicitly and build the dispatch map at startup.',

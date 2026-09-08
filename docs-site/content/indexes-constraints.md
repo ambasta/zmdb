@@ -8,7 +8,7 @@ constraints.
 Use `createIndexDdl` to generate index DDL. The function accepts an `IndexDef` with the index name, table, and columns.
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const indexDef = {
   name: 'idx_users_email',
@@ -29,7 +29,7 @@ CREATE INDEX "idx_users_email" ON "users" ("email")
 Unique indexes enforce uniqueness and can serve as alternative primary keys or enforce unique constraints on non-primary columns.
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const uniqueIndex = {
   name: 'idx_users_email_unique',
@@ -53,7 +53,7 @@ CREATE UNIQUE INDEX "idx_users_email_unique" ON "users" ("email")
 For queries that filter on multiple columns, composite indexes can significantly improve performance. Column order matters — put the most selective column first.
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const compositeIndex = {
   name: 'idx_orders_tenant_status',
@@ -74,7 +74,7 @@ CREATE INDEX "idx_orders_tenant_status" ON "orders" ("tenant_id", "status", "cre
 Partial indexes only include rows that match a condition, making them smaller and faster for specific query patterns.
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const partialIndex = {
   name: 'idx_orders_pending',
@@ -98,7 +98,7 @@ CREATE INDEX "idx_orders_pending" ON "orders" ("id") WHERE status = 'pending'
 Check constraints validate that column values meet a condition. Use `checkConstraintDdl` to generate the DDL.
 
 ```ts
-import { checkConstraintDdl } from '@zmdb/query-compiler/schema-objects';
+import { checkConstraintDdl } from '@zmdb/sql/schema-objects';
 
 const constraint = {
   name: 'chk_users_age',
@@ -151,7 +151,7 @@ ALTER TABLE "users" ADD CONSTRAINT "chk_username_length" CHECK (char_length(user
 For queries that use expressions in WHERE clauses, expression indexes can improve performance.
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 // Lowercase email index for case-insensitive lookups
 const expressionIndex = {

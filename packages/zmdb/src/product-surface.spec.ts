@@ -1,19 +1,19 @@
 import { join } from 'node:path';
 
-import {
-  AssertError as ownerAssertError,
-  assert as ownerAssert,
-  is as ownerIs,
-  validate as ownerValidate,
-} from '@zmdb/aot-validator/utilities';
 import { Module as ownerModule } from '@zmdb/app/modules';
 import { defineConfig as ownerDefineConfig } from '@zmdb/compiler/config/contract';
 import {
   IncompleteKeyError as ownerIncompleteKeyError,
   ValidationError as ownerValidationError,
   defineRepository as ownerDefineRepository,
-} from '@zmdb/repository';
-import { schemaOf as ownerSchemaOf } from '@zmdb/schema-core';
+} from '@zmdb/orm';
+import { schemaOf as ownerSchemaOf } from '@zmdb/schema';
+import {
+  AssertError as ownerAssertError,
+  assert as ownerAssert,
+  is as ownerIs,
+  validate as ownerValidate,
+} from '@zmdb/validator';
 import { createApp as ownerCreateApp } from '@zmdb/web/app';
 import {
   Controller as ownerController,
@@ -173,9 +173,9 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
   });
 
   it('keeps the root facade free of executable implementation logic', () => {
-    expect(verifyFacadeSource("export { schemaOf } from '@zmdb/schema-core';", 'clean facade')).toEqual([]);
-    expect(verifyFacadeSource("export * as schema from '@zmdb/schema-core';", 'wildcard facade')).toEqual([
-      "wildcard facade contains executable or non-delegating source: export * as schema from '@zmdb/schema-core';",
+    expect(verifyFacadeSource("export { schemaOf } from '@zmdb/schema';", 'clean facade')).toEqual([]);
+    expect(verifyFacadeSource("export * as schema from '@zmdb/schema';", 'wildcard facade')).toEqual([
+      "wildcard facade contains executable or non-delegating source: export * as schema from '@zmdb/schema';",
     ]);
     expect(verifyFacadeSource('export const cache = new Map();', 'planted facade')).toEqual([
       'planted facade contains executable or non-delegating source: export const cache = new Map();',
@@ -229,12 +229,12 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
       {
         facade: 'zmdb/schema',
         owners: [
-          '@zmdb/schema-core',
-          '@zmdb/schema-core/dto',
-          '@zmdb/schema-core/ir',
-          '@zmdb/schema-core/openapi',
-          '@zmdb/schema-core/custom-types',
-          '@zmdb/schema-core/naming',
+          '@zmdb/schema',
+          '@zmdb/schema/dto',
+          '@zmdb/schema/ir',
+          '@zmdb/schema/openapi',
+          '@zmdb/schema/custom-types',
+          '@zmdb/schema/naming',
         ],
         excluded: new Set([
           'TAG_NAMES',
@@ -244,41 +244,44 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
           'expectedOf',
           'hasExcessCheck',
           'messageFor',
+          'singularPascalCase',
         ]),
       },
       {
         facade: 'zmdb/sql',
         owners: [
-          '@zmdb/query-compiler',
-          '@zmdb/query-compiler/fts',
-          '@zmdb/query-compiler/joins',
-          '@zmdb/query-compiler/aggregations',
-          '@zmdb/query-compiler/set-ops',
-          '@zmdb/query-compiler/schema-objects',
-          '@zmdb/query-compiler/naming',
+          '@zmdb/sql',
+          '@zmdb/sql/fts',
+          '@zmdb/sql/joins',
+          '@zmdb/sql/aggregations',
+          '@zmdb/sql/set-ops',
+          '@zmdb/sql/schema-objects',
+          '@zmdb/schema/naming',
         ],
-        excluded: new Set(['DIALECT_PARAM_LIMITS', 'chunkArray', 'sanitizeKeys']),
+        excluded: new Set([
+          'DIALECT_PARAM_LIMITS',
+          'chunkArray',
+          'sanitizeKeys',
+          'resolveNaming',
+          'snakeCase',
+          'snakeCasePlural',
+        ]),
       },
       {
         facade: 'zmdb/validator',
-        owners: [
-          '@zmdb/aot-validator',
-          '@zmdb/aot-validator/utilities',
-          '@zmdb/aot-validator/advanced',
-          '@zmdb/aot-validator/serialization',
-        ],
-        excluded: new Set(['validate']),
+        owners: ['@zmdb/validator', '@zmdb/validator', '@zmdb/validator/advanced', '@zmdb/validator/serialization'],
+        excluded: new Set(['validate', 'claimsValidationIssues', 'validationIssuesOf', 'validateRule']),
       },
       {
         facade: 'zmdb/orm',
         owners: [
-          '@zmdb/repository',
-          '@zmdb/repository/seeding',
-          '@zmdb/repository/outbox',
-          '@zmdb/repository/replicas',
-          '@zmdb/repository/integrations',
-          '@zmdb/repository/entity-modeling',
-          '@zmdb/query-compiler/outbox',
+          '@zmdb/orm',
+          '@zmdb/orm/seeding',
+          '@zmdb/orm/outbox',
+          '@zmdb/orm/replicas',
+          '@zmdb/web/integrations',
+          '@zmdb/orm/entity-modeling',
+          '@zmdb/orm/outbox',
         ],
         excluded: new Set<string>(),
       },
@@ -330,11 +333,29 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
       }
     }
 
+    for (const [facade, ownerSpecifier, names] of [
+      ['zmdb/schema', '@zmdb/validator', ['ValidationError', 'claimsValidationIssues', 'validationIssuesOf']],
+      ['zmdb/schema', '@zmdb/orm/dto', ['applyKeysetFilter', 'applyOrderBy', 'applyPagination', 'compileWhere']],
+      ['zmdb/schema', '@zmdb/orm/relations', ['aliasRow', 'attachPopulated', 'compilePopulate']],
+      ['zmdb/schema', '@zmdb/app', ['createStateUpdatePayload', 'defineEntityStateMachine', 'defineStateTransitions']],
+      [
+        'zmdb/orm',
+        '@zmdb/schema/entity-modeling',
+        ['discriminatorFor', 'flattenEmbeddable', 'liftEmbeddable', 'rowToSubtype'],
+      ],
+    ] as const) {
+      const product: Readonly<Record<string, unknown>> = await import(facade);
+      const owner: Readonly<Record<string, unknown>> = await import(ownerSpecifier);
+      for (const name of names) {
+        expect(product[name], `${facade} must preserve ${ownerSpecifier}#${name}`).toBe(owner[name]);
+      }
+    }
+
     const orm: Readonly<Record<string, unknown>> = await import('zmdb/orm');
     expect(orm).not.toHaveProperty('jobPendingIndexDdl');
 
     const validator: Readonly<Record<string, unknown>> = await import('zmdb/validator');
-    const utilities: Readonly<Record<string, unknown>> = await import('@zmdb/aot-validator/utilities');
+    const utilities: Readonly<Record<string, unknown>> = await import('@zmdb/validator');
     const compiler: Readonly<Record<string, unknown>> = await import('zmdb/compiler');
     const lint: Readonly<Record<string, unknown>> = await import('@zmdb/compiler/lint');
     const productCompiler: Readonly<Record<string, unknown>> = await import('@zmdb/compiler');
@@ -376,21 +397,21 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
 
   it('rejects a facade export whose owning package or visibility is absent from the catalog', () => {
     const surface = {
-      root: [{ name: 'schemaOf', owner: '@zmdb/schema-core' }],
+      root: [{ name: 'schemaOf', owner: '@zmdb/schema' }],
       subpaths: [],
     };
     expect(verifyFacadeOwnership([], surface)).toContain(
-      'facade root export schemaOf owner @zmdb/schema-core is absent from the catalog',
+      'facade root export schemaOf owner @zmdb/schema is absent from the catalog',
     );
 
     const hidden = [
       {
-        npmName: '@zmdb/schema-core',
+        npmName: '@zmdb/schema',
         facade: { root: [], subpaths: [] },
       },
     ];
     expect(verifyFacadeOwnership(hidden, surface)).toContain(
-      'facade root export schemaOf is absent from @zmdb/schema-core catalog visibility',
+      'facade root export schemaOf is absent from @zmdb/schema catalog visibility',
     );
   });
 
@@ -398,8 +419,8 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     const catalog = [
       {
         id: 'schema',
-        directory: 'packages/schema-core',
-        npmName: '@zmdb/schema-core',
+        directory: 'packages/schema',
+        npmName: '@zmdb/schema',
         role: 'schema',
         facade: { root: ['schemaOf'], subpaths: ['zmdb/schema'] },
         optionality: { kind: 'required' },
@@ -409,10 +430,10 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     ] as const;
     const manifests = new Map([
       [
-        'packages/schema-core',
+        'packages/schema',
         {
           manifest: {
-            name: '@zmdb/schema-core',
+            name: '@zmdb/schema',
             version: '1.0.0-alpha.4',
           },
         },
@@ -504,7 +525,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
   it('generates package-reference and support-matrix rows without a handwritten package list', async () => {
     const report = await catalogReport();
     expect(report.generatedProblems).toEqual([]);
-    expect(report.packageReferenceBytes).toContain('@zmdb/schema-core');
+    expect(report.packageReferenceBytes).toContain('@zmdb/schema');
     const jobsRow = report.packageReferenceBytes.split('\n').find(line => line.startsWith('| @zmdb/jobs '));
     expect(jobsRow).toContain('`npm add @zmdb/jobs@1.0.0-alpha.4`');
     expect(jobsRow).not.toContain('npm add zmdb');

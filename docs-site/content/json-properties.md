@@ -44,7 +44,7 @@ The DDL per dialect:
 validate at the boundary where data enters:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 
 const dto = assert<CreateDTO<User>>(ctx.body); // checks address.street, .city, .zip
 await repo.create(dto);
@@ -100,7 +100,7 @@ See [Raw SQL](./raw-sql.html). If you filter on a field often, that is a signal 
 Postgres and MySQL can both project a JSON field into a real, indexable column:
 
 ```ts
-import { generatedColumnDdl } from '@zmdb/query-compiler/schema-objects';
+import { generatedColumnDdl } from '@zmdb/sql/schema-objects';
 
 generatedColumnDdl(
   {

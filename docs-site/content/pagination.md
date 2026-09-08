@@ -1,5 +1,5 @@
-Pagination controls how many rows come back and in what order. zmdb supports offset and keyset (cursor) pagination through three composable helpers in `@zmdb/schema-core/dto`, and
-`BaseRepository.list()` wires all three together for you.
+Pagination controls how many rows come back and in what order. zmdb supports offset and keyset (cursor) pagination through three composable helpers in `@zmdb/schema/dto`, and `BaseRepository.list()`
+wires all three together for you.
 
 Most application code should call [`list()`](./repository.html) and read `page.items` / `page.cursor` / `page.hasMore` — see [Cursor Pagination](./guide-cursor-pagination.html). This page is the layer
 underneath, for when you are paginating a hand-built query.
@@ -18,7 +18,8 @@ is `applyKeysetFilter` **plus** `applyPagination`.
 ## Offset pagination
 
 ```ts
-import { applyOrderBy, applyPagination, buildListResult } from '@zmdb/schema-core/dto';
+import { applyOrderBy, applyPagination } from '@zmdb/orm/dto';
+import { buildListResult } from '@zmdb/schema/dto';
 
 let qb = compiler.selectFrom('users');
 qb = applyOrderBy(qb, [{ column: 'createdAt', dir: 'desc' }], 'id');
@@ -51,7 +52,8 @@ Fetch `limit + 1` and pass the real `limit` to `buildListResult`, which is how `
 ## Keyset pagination
 
 ```ts
-import { applyKeysetFilter, decodeCursor } from '@zmdb/schema-core/dto';
+import { applyKeysetFilter } from '@zmdb/orm/dto';
+import { decodeCursor } from '@zmdb/schema/dto';
 
 const order = [
   { column: 'createdAt', dir: 'desc' as const },
@@ -89,7 +91,7 @@ wild.
 ## Cursor encoding
 
 ```ts
-import { encodeCursor, decodeCursor } from '@zmdb/schema-core/dto';
+import { encodeCursor, decodeCursor } from '@zmdb/schema/dto';
 
 const cursor = encodeCursor({ createdAt: '2024-01-15T10:00:00Z', id: 123 });
 const values = decodeCursor(cursor); // throws on malformed input

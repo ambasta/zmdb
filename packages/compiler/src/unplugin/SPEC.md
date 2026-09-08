@@ -5,7 +5,7 @@
 ## Current package after #628
 
 The unplugin, Metro adapter, transform orchestration, and benchmark support live in `@zmdb/compiler`. TypeScript, Metro, and bundler-facing dependencies are tooling-only and cannot be reached from
-`@zmdb/aot-validator`.
+`@zmdb/validator`.
 
 ## 1. Plugin surface
 
@@ -217,7 +217,7 @@ and EAS Build all run the same Metro pipeline and need nothing further.
 ## 8. Package owner after tooling extraction (#626/#628)
 
 The unplugin implementation, inline benchmark and Metro adapter live in `@zmdb/compiler`. Canonical adapter entries are `@zmdb/compiler/unplugin` and `@zmdb/compiler/metro`. Metro is selected directly
-and is absent from `zmdb/compiler`. The old `@zmdb/aot-validator/plugin`, `/unplugin`, `/metro` and `zmdb/unplugin` entries are removed. The configured plugin is owned by the compiler root and exposed
+and is absent from `zmdb/compiler`. The old `@zmdb/validator/plugin`, `/unplugin`, `/metro` and `zmdb/unplugin` entries are removed. The configured plugin is owned by the compiler root and exposed
 through `zmdb/compiler`.
 
 Both adapters load project configuration from `@zmdb/compiler/config` and reuse `@zmdb/compiler/reflect`, `/emit` and `/transform`. The package move does not create an adapter-specific type walk or

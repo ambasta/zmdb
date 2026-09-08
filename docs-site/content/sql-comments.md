@@ -12,7 +12,7 @@ issued by the checkout handler is slow" — which is the whole question when the
 The driver sees every statement and is the right place to add request-scoped text without changing a reusable compiled query:
 
 ```ts
-import { withComments } from '@zmdb/query-compiler/comments';
+import { withComments } from '@zmdb/sql/comments';
 
 const driver = withComments(baseDriver, () => ({
   route: routePattern,

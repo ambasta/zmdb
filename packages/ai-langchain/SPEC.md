@@ -32,7 +32,7 @@ interface LangChainToolFields {
 function langchainTool<T, Output>(name: string, schema: ToolSchema, options: ToolAdapterOptions<T, Output>): LangChainToolFields;
 ```
 
-`ToolSchema` is the schema value accepted by `@zmdb/ai` and does not create a direct `@zmdb/schema-core` dependency in this package. The returned schema is byte-identical to
+`ToolSchema` is the schema value accepted by `@zmdb/ai` and does not create a direct `@zmdb/schema` dependency in this package. The returned schema is byte-identical to
 `toolFromSchema(name, schema).parameters`. Non-string handler results are serialized by the shared tool runtime.
 
 ## 3. Dependencies and peer
@@ -42,9 +42,9 @@ The final dependency boundary is:
 - Direct workspace dependency: `@zmdb/ai` at `workspace:^`.
 - Sole external peer: `@langchain/core` at `^1.2.9`.
 - Exact lower-bound/current fixture: `1.2.9`, which is the measured declared and resolved version.
-- No direct dependency on `@zmdb/schema-core`, Zod, `json-schema-to-zod`, a provider SDK or another integration package.
+- No direct dependency on `@zmdb/schema`, Zod, `json-schema-to-zod`, a provider SDK or another integration package.
 
-`@zmdb/schema-core` is a development-only dependency for the package's schema-backed tests; it is absent from runtime dependencies. `@langchain/core` is absent from both schema-core and `@zmdb/ai`
+`@zmdb/schema` is a development-only dependency for the package's schema-backed tests; it is absent from runtime dependencies. `@langchain/core` is absent from both schema-core and `@zmdb/ai`
 manifests.
 
 The implementation remains structurally typed and need not import LangChain at runtime. The peer is optional metadata because the shipped adapter does not import it; applications install

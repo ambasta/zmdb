@@ -1,6 +1,6 @@
-import { type Introspector, type SqlDialect } from '@zmdb/query-compiler';
+import { type Introspector, type SqlDialect } from '@zmdb/sql';
 
-export type { IntrospectionDriver, Introspector, IntrospectOptions } from '@zmdb/query-compiler';
+export { type IntrospectionDriver, type Introspector, type IntrospectOptions } from '@zmdb/sql';
 export { detectDrift, type DriftOptions, type DriftReport } from './drift.js';
 export {
   action,

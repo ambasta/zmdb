@@ -107,7 +107,7 @@ describe('the scanner', () => {
 
   it('returns the query compiler clauses unchanged without stalling on operator tokens', () => {
     const plugin = new URL('./unplugin/index.ts', import.meta.url);
-    const clauses = new URL('../../query-compiler/src/clauses.ts', import.meta.url);
+    const clauses = new URL('../../sql/src/clauses.ts', import.meta.url);
     const hook = fileURLToPath(new URL('../../../scripts/ts-specifier-hook.mjs', import.meta.url));
     const source = readFileSync(clauses, 'utf8');
     const probe = `
@@ -178,11 +178,11 @@ describe('CALLEES', () => {
   });
 
   it('names every transformed call, and every one of them is a function somebody can call', async () => {
-    const utilities = await import('@zmdb/aot-validator/utilities');
-    const validator = await import('@zmdb/aot-validator');
-    const core = await import('@zmdb/schema-core');
+    const utilities = await import('@zmdb/validator');
+    const validator = await import('@zmdb/validator');
+    const core = await import('@zmdb/schema');
     const ai = await import('@zmdb/ai');
-    const openapi = await import('@zmdb/schema-core/openapi');
+    const openapi = await import('@zmdb/schema/openapi');
     const protobuf = await import('@zmdb/protobuf');
     const surface: Record<string, unknown> = {
       ...openapi,

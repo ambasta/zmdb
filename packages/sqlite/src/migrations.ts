@@ -15,8 +15,8 @@ import {
   type MigrationPlan,
   type MigrationTableOptions,
   type SchemaObjectOperation,
-} from '@zmdb/query-compiler';
-import type { IndexColumn, IndexDef, RoutineDef } from '@zmdb/query-compiler/schema-objects';
+} from '@zmdb/sql';
+import { type IndexColumn, type IndexDef, type RoutineDef } from '@zmdb/sql/schema-objects';
 
 const SQLITE_TYPES = Object.freeze({
   serial: 'INTEGER',
@@ -443,7 +443,6 @@ function connection(
 
   const adapter: MigrationConnection<'sqlite'> = {
     name: 'sqlite',
-    dialect: 'sqlite',
     transactionalDdl: true,
     async exec(sql: string): Promise<void> {
       await execute(sql);

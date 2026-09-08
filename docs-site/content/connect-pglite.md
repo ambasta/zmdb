@@ -4,7 +4,7 @@ Dialect: `'postgres'`. PGlite is real Postgres compiled to WebAssembly — so yo
 
 ```ts
 import { PGlite } from '@electric-sql/pglite';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const pg = await PGlite.create(); // in-memory
 // or: await PGlite.create('./data/app')  — persisted to disk

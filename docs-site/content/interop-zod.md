@@ -48,7 +48,7 @@ that; so is [`evalRule`](./unions-refinements.html) for simple rules, or ajv ove
 If you have a declared table and want a Zod validator for it — say a route already validating with Zod — go through JSON Schema:
 
 ```ts
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema } from '@zmdb/schema/openapi';
 
 const jsonSchema = toJsonSchema(users, 'create');
 // then use a json-schema-to-zod converter, or ajv directly

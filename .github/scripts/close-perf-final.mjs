@@ -7,7 +7,7 @@ function gh(a, i) {
 
 const SUBS = {
   83: {
-    impl: 'packages/aot-validator/src/plugin/acceptance-gate.spec.ts',
+    impl: 'packages/validator/src/plugin/acceptance-gate.spec.ts',
     note: 'Gate (a): AOT >=5x runtime — asserted (~58x this run). Gate (b): honest encoded verdict vs typia/TypeBox — competitive on parseSafe/assertLoose, BEHIND on strict (~2-3x), recorded not overclaimed. Gate passes on (a); strict shortfall tracked.',
   },
   88: {

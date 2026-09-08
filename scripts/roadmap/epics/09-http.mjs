@@ -323,7 +323,7 @@ export interface UploadLimits {
     title: '[EPIC] OpenAPI security schemes and API versioning',
     labels: ['enhancement', 'area:web', 'parity:nestjs'],
     pages: ['web-openapi-security', 'web-versioning'],
-    packages: ['@zmdb/web', '@zmdb/schema-core'],
+    packages: ['@zmdb/web', '@zmdb/schema'],
     motivation: `
 "OpenApiOptions carries info + per-route schemas only; no securitySchemes or per-operation security" and
 "no built-in version negotiator; use controller/path prefixes today".

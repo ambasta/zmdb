@@ -1,4 +1,4 @@
-import type { Sql, Table, Unique } from '@zmdb/schema-core/tags';
+import { type Sql, type Table, type Unique } from '@zmdb/schema/tags';
 
 type Money = number & Sql<'numeric'>;
 

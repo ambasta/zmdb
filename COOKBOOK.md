@@ -25,10 +25,10 @@
 
 ## 1. Declaring a model
 
-A table **is** a TypeScript type. That declaration is the single source of truth; every derived type flows from it. Backed by `packages/schema-core/SPEC.md`.
+A table **is** a TypeScript type. That declaration is the single source of truth; every derived type flows from it. Backed by `packages/schema/SPEC.md`.
 
 ```ts
-import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { type HasDefault, type Min, type Pattern, type PrimaryKey, type References, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -47,7 +47,7 @@ export interface Order extends Table<'orders'> {
 
 - Each property is its **app type** intersected with **tags**: the app type is what your code sees, the tags say what TypeScript has no syntax for. `Table<Name>` on the `extends` clause carries the
   table name.
-- Tags are phantom `unique symbol` slots and `@zmdb/schema-core/tags` has no runtime exports, so the file above compiles to no JavaScript at all.
+- Tags are phantom `unique symbol` slots and `@zmdb/schema/tags` has no runtime exports. With `verbatimModuleSyntax`, the inline type-import clause above emits an empty import from that module.
 - `Sql<T>` is only needed where TypeScript is ambiguous. `string`, `boolean`, `bigint`, `Date` and a string-literal union are inferred; `number` is refused, because TypeScript spells both `integer`
   and `numeric` the same way.
 - Write `(T & Tags) | null` for a nullable column, never `(T | null) & Tags` — the intersection distributes over the union and `null & Unique` is `never`.
@@ -56,7 +56,7 @@ export interface Order extends Table<'orders'> {
 The value the query compiler and the repository read comes from `schemaOf<T>()`:
 
 ```ts
-import { schemaOf } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema';
 
 export const userSchema = schemaOf<User>();
 export const orderSchema = schemaOf<Order>();
@@ -72,7 +72,7 @@ build throws a message saying exactly that rather than handing back an empty sch
 No hand-written DTOs. Types are derived at compile time (schema-core §4).
 
 ```ts
-import type { CreateDTO, Entity, ReadDTO, UpdateDTO } from '@zmdb/schema-core/derive';
+import { type CreateDTO, type Entity, type ReadDTO, type UpdateDTO } from '@zmdb/schema/derive';
 
 type UserRow = Entity<User>;
 // { id: number; email: string; role: 'admin'|'user'|'guest'; createdAt: Date }
@@ -92,17 +92,17 @@ type PublicUser = ReadDTO<User>;
 
 Change the declaration (e.g. add a column) and all four types update automatically; any code that no longer satisfies them fails to compile — that is the anti-drift guarantee.
 
-> Every derivation takes the **declared type**, including the read surface in `./dto`. There used to be a second set on `@zmdb/schema-core`'s root that took the schema value instead; those are gone,
-> and the root re-exports these. `Entity<User>`, never `Entity<typeof UserSchema>`.
+> Every derivation takes the **declared type**, including the read surface in `./dto`. There used to be a second set on `@zmdb/schema`'s root that took the schema value instead; those are gone, and
+> the root re-exports these. `Entity<User>`, never `Entity<typeof UserSchema>`.
 
 ---
 
 ## 3. CRUD
 
-Backed by `packages/repository/SPEC.md`. A repository is just a schema binding — the entire required body is one line.
+Backed by `packages/orm/SPEC.md`. A repository is just a schema binding — the entire required body is one line.
 
 ```ts
-import { BaseRepository } from '@zmdb/repository';
+import { BaseRepository } from '@zmdb/orm';
 
 class UserRepository extends BaseRepository<User> {
   static readonly schema = userSchema;
@@ -164,10 +164,10 @@ Coming from a "load, mutate, flush" workflow, the translation is:
 
 ## 5. Transactions & grouped writes
 
-The legitimate job `flush()` does in other ORMs — atomically committing several writes — is handled by **explicit transactions**. Backed by `packages/repository/src/transactions/SPEC.md`.
+The legitimate job `flush()` does in other ORMs — atomically committing several writes — is handled by **explicit transactions**. Backed by `packages/orm/src/transactions/SPEC.md`.
 
 ```ts
-import { createTransactionalDb } from '@zmdb/repository/transactions';
+import { createTransactionalDb } from '@zmdb/orm/transactions';
 
 const db = createTransactionalDb(connection);
 
@@ -202,13 +202,13 @@ This keeps the core DB-agnostic; adapters wrap `pg`, `mysql2`, `better-sqlite3`,
 
 ## 6. Relations
 
-Declared on the type; resolved by **explicit** `populate` — no lazy proxy getters. Backed by `packages/schema-core/src/relations/SPEC.md`.
+Declared on the type; resolved by **explicit** `populate` — no lazy proxy getters. Backed by `packages/schema/src/relations/SPEC.md`.
 
 A relation is a property whose declared type says the cardinality and whose tag says where to join. Relation properties are optional, and they are excluded from `Entity<T>`, `CreateDTO<T>` and the
 DDL:
 
 ```ts
-import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { type ManyToOne, type OneToMany, type PrimaryKey, type References, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -245,11 +245,11 @@ The declaration above is the only place either fact is written. `defineRepositor
 
 ## 7. Validation at the boundary
 
-Validation is **AOT-compiled**: `validate(tags.X(...), value)` is replaced at build time with inline JavaScript (no Zod-style runtime parser). Backed by `packages/aot-validator/SPEC.md` and the
+Validation is **AOT-compiled**: `validate(tags.X(...), value)` is replaced at build time with inline JavaScript (no Zod-style runtime parser). Backed by `packages/validator/SPEC.md` and the
 advanced-validation spec.
 
 ```ts
-import { tags, validate } from '@zmdb/aot-validator';
+import { tags, validateRule as validate } from '@zmdb/validator';
 
 // authored:
 const ok = validate(tags.Min(0), input.totalPrice);
@@ -257,10 +257,10 @@ const ok = validate(tags.Min(0), input.totalPrice);
 // const ok = (typeof input.totalPrice === 'number' && input.totalPrice >= 0);
 ```
 
-Utility surface (typia-style), backed by the validator-utilities spec. Note the subpath — the eight type-argument calls live in `/utilities`, not on the root:
+Utility surface (typia-style), backed by the validator-utilities spec. The eight type-argument calls are exported from the `@zmdb/validator` root:
 
 ```ts
-import { assert, is, validate } from '@zmdb/aot-validator/utilities';
+import { assert, is, validate } from '@zmdb/validator';
 
 if (is<CreateUser>(payload)) {
   /* narrowed */
@@ -276,16 +276,16 @@ so the call **throws** rather than passing everything — a validator that fails
 
 The rule-first form is the one that needs no build step, because the constraint arrives as a value: `validate(tags.Min(0), price)` runs under `ts-node`, in a REPL, anywhere.
 
-Advanced constructs (refinements, transforms, unions, coercion, brands, object strictness) are covered by `packages/aot-validator/src/advanced/SPEC.md`.
+Advanced constructs (refinements, transforms, unions, coercion, brands, object strictness) are covered by `packages/validator/src/advanced/SPEC.md`.
 
 ---
 
 ## 8. Serialization / Deserialization
 
-AOT JSON serializer — straight-line concatenation, no reflection. Backed by `packages/aot-validator/src/serialization/SPEC.md`.
+AOT JSON serializer — straight-line concatenation, no reflection. Backed by `packages/validator/src/serialization/SPEC.md`.
 
 ```ts
-import { stringify, assertStringify, parse } from '@zmdb/aot-validator/serialization';
+import { stringify, assertStringify, parse } from '@zmdb/validator/serialization';
 
 // Ser: fast, byte-identical to JSON.stringify for supported values
 const body = stringify(user);
@@ -308,9 +308,9 @@ Frozen escaping rules (quotes, control chars, unicode); `undefined` object props
 Putting it together for a typical API handler (framework-agnostic):
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
-import { stringify } from '@zmdb/aot-validator/serialization';
-import type { CreateDTO, Entity } from '@zmdb/schema-core/derive';
+import { assert } from '@zmdb/validator';
+import { stringify } from '@zmdb/validator/serialization';
+import { type CreateDTO, type Entity } from '@zmdb/schema/derive';
 
 async function createUserHandler(req: Request): Promise<Response> {
   // 1. Validate the inbound payload against the derived Create DTO (AOT-inlined).
@@ -334,10 +334,10 @@ One declaration drives the request DTO, the DB write, and the response type. Cha
 ## 10. JSON Schema / OpenAPI
 
 Because the declaration already carries column types, nullability, defaults, and validation tags, a JSON Schema / OpenAPI document is generated **deterministically at build time** from the same source
-of truth. Backed by `packages/schema-core/src/openapi/SPEC.md` (epic #62; spec frozen in #63, implementation in #64–#67).
+of truth. Backed by `packages/schema/src/openapi/SPEC.md` (epic #62; spec frozen in #63, implementation in #64–#67).
 
 ```ts
-import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const userEntity = toJsonSchema<User>(); // response shape, straight from the type
 const userCreate = toJsonSchema(userSchema, 'create'); // request-body shape
@@ -408,10 +408,11 @@ const output = runCli('up', connection, migrations); // 'applied: 3'
 
 ## 13. Typed reads (Get / List / Search DTOs)
 
-The read side is fully typed via `@zmdb/schema-core/dto` — no more `Record<string, unknown>`.
+The read side is fully typed via `@zmdb/schema/dto` — no more `Record<string, unknown>`.
 
 ```ts
-import { compileWhere, applyOrderBy, applyPagination, project, buildListResult, type WhereDTO, type OrderByDTO, type ListResult } from '@zmdb/schema-core/dto';
+import { compileWhere, applyOrderBy, applyPagination } from '@zmdb/orm/dto';
+import { project, buildListResult, type WhereDTO, type OrderByDTO, type ListResult } from '@zmdb/schema/dto';
 
 // Typed filter (per-column value types + operator set):
 const where: WhereDTO<User> = {

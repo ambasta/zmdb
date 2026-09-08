@@ -61,7 +61,7 @@ await repo.find({ orgId: { eq: 1 } });
 `PrimaryKeyOf<T>` is a record when the key has two or more columns, so the key is an object and the three keyed methods take it directly:
 
 ```ts
-import type { PrimaryKeyOf } from '@zmdb/schema-core';
+import { type PrimaryKeyOf } from '@zmdb/schema';
 
 const key: PrimaryKeyOf<Membership> = { orgId: 1, userId: 7 };
 

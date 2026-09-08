@@ -48,7 +48,7 @@ Without them, the status codes a handler can produce are 200 (return), 400 (thro
 Signal a client error by throwing a validation-shaped error:
 
 ```ts
-import { ValidationError } from '@zmdb/schema-core';
+import { ValidationError } from '@zmdb/validator';
 
 @Get('/:id')
 async byId(ctx: Ctx<{ id: string }>) {

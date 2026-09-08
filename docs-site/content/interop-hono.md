@@ -7,8 +7,8 @@ The lightest combination, and a good default if you already like Hono:
 
 ```ts
 import { Hono } from 'hono';
-import { assert } from '@zmdb/aot-validator/utilities';
-import type { CreateDTO } from '@zmdb/repository';
+import { assert } from '@zmdb/validator';
+import { type CreateDTO } from '@zmdb/orm';
 
 const api = new Hono();
 

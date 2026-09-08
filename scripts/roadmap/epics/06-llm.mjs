@@ -8,10 +8,10 @@ export const LLM_EPICS = [
     title: '[EPIC] Tool specs that each provider actually accepts, and adapters for the two frameworks people use',
     labels: ['enhancement', 'area:llm'],
     pages: ['llm-strategy', 'llm-langchain', 'llm-vercel-ai-sdk'],
-    packages: ['@zmdb/schema-core'],
+    packages: ['@zmdb/schema'],
     motivation: `
 \`toolFromSchema(name, schema)\` returns \`{ name, description?, parameters }\` where \`parameters\` is
-whatever \`toJsonSchema\` produces (packages/schema-core/src/llm/index.ts:11). One shape, for every
+whatever \`toJsonSchema\` produces (packages/schema/src/llm/index.ts:11). One shape, for every
 provider. The page note is exact: "no per-provider dialect (OpenAI / Claude / Gemini) switch".
 
 That single shape is not portable, and the ways it fails are specific rather than cosmetic. OpenAI's
@@ -58,8 +58,8 @@ normally has: argument validation with no runtime schema library in the bundle.
         goal: 'Freeze the three provider dialects keyword by keyword, the exact rule for what each provider cannot express, and the shape of both framework adapters. No code.',
         why: 'The expressibility rules are the substance. "Emit JSON Schema per provider" is easy; knowing that OpenAI strict mode requires every property in `required` and expresses optionality as a nullable type, and that Gemini rejects `$ref`, is what makes the emitted spec actually work. Those rules have to be written down and cited, because they are the kind of thing that is otherwise rediscovered by a user hitting a 400.',
         files: [
-          '`packages/schema-core/src/llm/SPEC.md` — provider dialects and expressibility.',
-          '`packages/schema-core/src/llm/adapters/SPEC.md` (new) — the two adapters.',
+          '`packages/schema/src/llm/SPEC.md` — provider dialects and expressibility.',
+          '`packages/schema/src/llm/adapters/SPEC.md` (new) — the two adapters.',
         ],
         api: `
 export type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
@@ -102,9 +102,9 @@ export declare function toolFor<P extends ToolProvider>(
         goal: 'Land the failing tests: golden per-provider schemas for a shared set of types, refusal tests for the inexpressible ones, and adapter tests that run a real tool call end to end with a stubbed model.',
         why: 'The specs are just JSON, so golden tests are cheap and precise. The part worth designing carefully is the refusal coverage and the adapter round trip — proving a model-shaped argument object gets validated before a handler runs is the security-relevant assertion in this epic.',
         files: [
-          '`packages/schema-core/src/llm/providers.spec.ts` (new)',
-          '`packages/schema-core/src/llm/adapters/langchain.spec.ts`, `ai-sdk.spec.ts` (new)',
-          '`packages/schema-core/src/llm/llm.type-test.ts` (new) — `toolFor` return types.',
+          '`packages/schema/src/llm/providers.spec.ts` (new)',
+          '`packages/schema/src/llm/adapters/langchain.spec.ts`, `ai-sdk.spec.ts` (new)',
+          '`packages/schema/src/llm/llm.type-test.ts` (new) — `toolFor` return types.',
         ],
         tests: [
           '`emits an OpenAI strict schema with additionalProperties false at every level`.',
@@ -139,8 +139,8 @@ export declare function toolFor<P extends ToolProvider>(
         blockedBy: ['tests'],
         goal: 'Implement `toolFor` with per-provider emission and build-time refusals, computed at AOT time and inlined.',
         files: [
-          '`packages/schema-core/src/llm/providers.ts` (new)',
-          '`packages/schema-core/src/llm/index.ts` — export `toolFor`, keep `toolFromSchema` as the `json-schema` provider.',
+          '`packages/schema/src/llm/providers.ts` (new)',
+          '`packages/schema/src/llm/index.ts` — export `toolFor`, keep `toolFromSchema` as the `json-schema` provider.',
           '`packages/compiler/src/emit/` — the emission path for the inlined spec.',
         ],
         steps: [
@@ -170,8 +170,8 @@ export declare function toolFor<P extends ToolProvider>(
         goal: 'Ship both adapters as thin factories over an AOT-emitted validator, on their own subpaths, with the frameworks as peer dependencies.',
         why: 'The selling point is narrow and real: a structured tool whose argument validation is generated code rather than a runtime schema library. Keeping the adapters thin is what preserves that — the moment either grows its own agent concepts, the value is gone and the maintenance starts.',
         files: [
-          '`packages/schema-core/src/llm/adapters/langchain.ts`, `ai-sdk.ts` (new)',
-          '`packages/schema-core/package.json` — `./llm/langchain` and `./llm/ai-sdk` subpaths, peer deps, `peerDependenciesMeta.optional`.',
+          '`packages/schema/src/llm/adapters/langchain.ts`, `ai-sdk.ts` (new)',
+          '`packages/schema/package.json` — `./llm/langchain` and `./llm/ai-sdk` subpaths, peer deps, `peerDependenciesMeta.optional`.',
         ],
         api: `
 export declare function langchainTool<T>(
@@ -232,7 +232,7 @@ export declare function aiSdkTool<T>(
     title: '[EPIC] The agent runtime — a typed chat loop, MCP, and tools from an OpenAPI document',
     labels: ['enhancement', 'area:llm'],
     pages: ['llm-chat', 'llm-mcp', 'llm-http'],
-    packages: ['@zmdb/schema-core', '@zmdb/web'],
+    packages: ['@zmdb/schema', '@zmdb/web'],
     motivation: `
 Three page notes, one theme: "no chat loop, message types or agent driver", "no MCP server or client",
 "no generator that turns an OpenAPI document into callable tool specs". Tool specs describe what a
@@ -284,9 +284,9 @@ handler trusts its arguments is remotely exploitable by whatever drives the clie
         goal: 'Freeze the message model, the driver interface, every bound and approval point in the loop, both MCP directions, and the OpenAPI-to-tool-spec mapping. No code.',
         why: 'This is the epic where a design mistake has consequences beyond a wrong result: an unbounded loop over effectful tools, or an MCP server that trusts arguments. The bounds and the approval model have to be specified as required parameters with defaults, because anything optional here will be omitted by someone.',
         files: [
-          '`packages/schema-core/src/llm/chat/SPEC.md` (new)',
-          '`packages/schema-core/src/llm/mcp/SPEC.md` (new)',
-          '`packages/schema-core/src/llm/http/SPEC.md` (new)',
+          '`packages/schema/src/llm/chat/SPEC.md` (new)',
+          '`packages/schema/src/llm/mcp/SPEC.md` (new)',
+          '`packages/schema/src/llm/http/SPEC.md` (new)',
         ],
         api: `
 export type Message =
@@ -336,9 +336,9 @@ export declare function run(driver: ChatDriver, messages: readonly Message[], to
         goal: 'Land failing tests driven by a scripted fake driver, covering every bound and every refusal, plus MCP protocol conformance and the OpenAPI self-round-trip.',
         why: 'A fake driver that returns a scripted sequence of messages makes the loop fully testable with no network and no non-determinism — including the adversarial cases, which are the ones that matter: a driver that never stops, that calls an unregistered tool, that sends malformed arguments.',
         files: [
-          '`packages/schema-core/src/llm/chat/chat.spec.ts` (new)',
-          '`packages/schema-core/src/llm/mcp/mcp.spec.ts` (new)',
-          '`packages/schema-core/src/llm/http/openapi-tools.spec.ts` (new)',
+          '`packages/schema/src/llm/chat/chat.spec.ts` (new)',
+          '`packages/schema/src/llm/mcp/mcp.spec.ts` (new)',
+          '`packages/schema/src/llm/http/openapi-tools.spec.ts` (new)',
         ],
         tests: [
           '`stops when the driver returns no tool calls`.',
@@ -378,9 +378,9 @@ export declare function run(driver: ChatDriver, messages: readonly Message[], to
         blockedBy: ['tests'],
         goal: 'Implement the typed message model, the tool registry, the bounded loop with approval, and one real provider driver.',
         files: [
-          '`packages/schema-core/src/llm/chat/index.ts` (new)',
-          '`packages/schema-core/src/llm/chat/drivers/anthropic.ts` (new) — thin, over an optional peer dep.',
-          '`packages/schema-core/package.json` — the `./llm/chat` subpath.',
+          '`packages/schema/src/llm/chat/index.ts` (new)',
+          '`packages/schema/src/llm/chat/drivers/anthropic.ts` (new) — thin, over an optional peer dep.',
+          '`packages/schema/package.json` — the `./llm/chat` subpath.',
         ],
         steps: [
           'Implement the registry so a tool cannot be registered without a validator, and so `effectful` defaults to true. The default is the whole safety design: a caller who forgets the flag gets the cautious behaviour.',
@@ -409,7 +409,7 @@ export declare function run(driver: ChatDriver, messages: readonly Message[], to
         goal: "Expose a typed tool registry as an MCP server over stdio and authenticated HTTP, and consume a remote server's tools as validated calls.",
         why: "The server is where zmdb's validation story becomes a security property rather than a convenience: the tool boundary is remote, and generated validators mean the boundary is enforced by code that cannot drift from the types.",
         files: [
-          '`packages/schema-core/src/llm/mcp/server.ts`, `client.ts` (new)',
+          '`packages/schema/src/llm/mcp/server.ts`, `client.ts` (new)',
           '`packages/web/src/mcp/` (new, if an HTTP transport belongs with the web layer)',
         ],
         steps: [
@@ -438,7 +438,7 @@ export declare function run(driver: ChatDriver, messages: readonly Message[], to
         blockedBy: ['loop'],
         goal: "Generate tool specs and argument validators from an OpenAPI document at build time, and prove it on zmdb's own generated document.",
         files: [
-          '`packages/schema-core/src/llm/http/index.ts` (new)',
+          '`packages/schema/src/llm/http/index.ts` (new)',
           '`packages/zmdb/src/cli/commands/generate.ts` — a tools-from-document output, if the CLI is the entry point.',
         ],
         steps: [

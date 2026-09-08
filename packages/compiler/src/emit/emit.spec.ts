@@ -8,8 +8,8 @@
 // hoisted function shared by every call site that mentions it, and the failure path is not
 // paid for until it is taken (REQ-AV-7).
 
-import { equals, is, validate } from '@zmdb/aot-validator/utilities';
-import type { TypeIR } from '@zmdb/schema-core/ir';
+import { type TypeIR } from '@zmdb/schema/ir';
+import { equals, is, validate } from '@zmdb/validator';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { evaluate, FixtureProject } from './__testing__/project.js';
@@ -215,7 +215,7 @@ describe('shallow validation', () => {
         '(typeof input.n === "number" && !Number.isNaN(input.n)));',
     );
     expect(assertCode).toBe(
-      'import { AssertError as _zmdbAssertError } from "@zmdb/aot-validator/errors";\n' +
+      'import { AssertError as _zmdbAssertError } from "@zmdb/validator/errors";\n' +
         'function _zmdbIssues0(_v, _p, _o) { if (!(typeof _v === "object" && _v !== null && ' +
         '!Array.isArray(_v))) { _zmdbIssue(_o, _p, "object", _v); } else { if (!(typeof _v.n === ' +
         '"number" && !Number.isNaN(_v.n))) _zmdbIssue(_o, _p + ".n", "number", _v.n); } }\n' +
@@ -355,7 +355,7 @@ describe('the failure path', () => {
 
   it('throws the real AssertError, imported rather than redeclared', () => {
     const { code, check } = build('const check = (input) => assert<User>(input);');
-    expect(code).toContain('import { AssertError as _zmdbAssertError } from "@zmdb/aot-validator/errors";');
+    expect(code).toContain('import { AssertError as _zmdbAssertError } from "@zmdb/validator/errors";');
     expect(check({ id: 1, email: 'a@b' })).toEqual({ id: 1, email: 'a@b' });
     expect(() => check({ id: 1, email: 7 })).toThrow(/expected string/);
   });

@@ -29,7 +29,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
-import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
+import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema/naming';
 
 import { CALL_OWNERS, STRICT_OWNER_CALLEES } from '../reflect/callsites.js';
 import { ReflectSession, type SourceFileHandle } from '../reflect/session.js';
@@ -269,7 +269,7 @@ function run(session: ReflectSession, project: string, options: CodegenOptions):
       candidate.calleeSources.get('assert') ??
       candidate.calleeSources.get('assertShallow') ??
       candidate.calleeSources.get('assertEquals') ??
-      '@zmdb/aot-validator/utilities';
+      '@zmdb/validator';
     const transformed = transformFile(candidate.paths.witness, candidate.witness, {
       session,
       reflect,

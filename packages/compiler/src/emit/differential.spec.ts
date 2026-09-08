@@ -13,8 +13,8 @@
 // rejects the right things while blaming the wrong field has still changed behaviour when
 // a build turns the AOT path on.
 
-import { equals, is, isShallow, issuesFor, validateShallow, type ValidationIssue } from '@zmdb/aot-validator/utilities';
-import type { TypeIR } from '@zmdb/schema-core/ir';
+import { type TypeIR } from '@zmdb/schema/ir';
+import { equals, is, isShallow, issuesFor, validateShallow, type ValidationIssue } from '@zmdb/validator';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { FixtureProject } from './__testing__/project.js';

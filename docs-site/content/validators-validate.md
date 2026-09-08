@@ -17,7 +17,7 @@ interface ValidateResult<T> {
 The type argument is the schema. There is nothing to pass and nothing to keep in step:
 
 ```ts
-import { validate } from '@zmdb/aot-validator/utilities';
+import { validate } from '@zmdb/validator';
 import type { Min, Pattern } from 'zmdb/tags';
 
 interface Signup {
@@ -78,7 +78,7 @@ validate<Roster>({ users: [{ name: 'LongNameTooLong' }] });
 The DTO types are the useful arguments here — they are the shapes a client actually sends:
 
 ```ts
-import { validate } from '@zmdb/aot-validator/utilities';
+import { validate } from '@zmdb/validator';
 import type { CreateDTO, UpdateDTO } from 'zmdb/derive';
 import type { Min, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
@@ -106,7 +106,7 @@ await repo.create({ email: 'bad', age: 10 }); // throws ValidationError
 The thrown `ValidationError` carries `.issues`, the same `ValidationIssue[]` shape, so a handler can render a repository failure and a boundary failure the same way:
 
 ```ts
-import { validationIssuesOf } from '@zmdb/schema-core';
+import { validationIssuesOf } from '@zmdb/validator';
 
 try {
   await repo.create(payload);

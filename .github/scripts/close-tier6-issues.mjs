@@ -7,12 +7,12 @@ function gh(args, input) {
 }
 const MAP = {
   50: {
-    impl: 'packages/aot-validator/src/advanced/error-paths.spec.ts',
+    impl: 'packages/validator/src/advanced/error-paths.spec.ts',
     tests: '(3)',
     note: 'E2E: deeply-nested customer→orders[] reports every failure with an exact path (input.orders[1].totalPrice, input.orders[2].id); each issue carries expected/value/message. Backed by the path-aware collectIssues walker.',
   },
   61: {
-    impl: 'packages/aot-validator/src/utilities/index.ts',
+    impl: 'packages/validator/src/utilities/index.ts',
     tests: 'utilities.spec.ts > random<T>',
     note: 'random<T>(descriptor) generates a value satisfying the descriptor by construction (minimum/maxLength/pattern/enum); property test is(random(d),d)===true across many seeds.',
   },

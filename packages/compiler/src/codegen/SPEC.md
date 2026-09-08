@@ -99,7 +99,7 @@ build-time consumer it invokes; supplied sessions remain open. HTTP declarations
 
 ## Amendment: compiler extraction (#626/#628)
 
-The scanner, witness generator and project compilation operation live in `@zmdb/compiler`. The binary `zmdb-codegen` and `@zmdb/aot-validator/codegen` export are deleted.
+The scanner, witness generator and project compilation operation live in `@zmdb/compiler`. The binary `zmdb-codegen` and `@zmdb/validator/codegen` export are deleted.
 
 `@zmdb/cli` exposes these flags through the `zmdb` executable:
 

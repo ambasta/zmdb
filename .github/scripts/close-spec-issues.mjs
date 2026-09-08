@@ -9,33 +9,33 @@ function gh(args, input) {
 
 // issue -> { spec, tests: [file (count)], base }
 const MAP = {
-  11: { spec: 'packages/schema-core/SPEC.md', tests: 'packages/schema-core/src/schema-core.spec.ts (14)' },
-  16: { spec: 'packages/query-compiler/SPEC.md', tests: 'packages/query-compiler/src/query-compiler.spec.ts (8)' },
-  21: { spec: 'packages/aot-validator/SPEC.md', tests: 'packages/aot-validator/src/aot-validator.spec.ts (7)' },
-  25: { spec: 'packages/repository/SPEC.md', tests: 'packages/repository/src/repository.spec.ts (5)' },
+  11: { spec: 'packages/schema/SPEC.md', tests: 'packages/schema/src/schema-core.spec.ts (14)' },
+  16: { spec: 'packages/sql/SPEC.md', tests: 'packages/sql/src/query-compiler.spec.ts (8)' },
+  21: { spec: 'packages/validator/SPEC.md', tests: 'packages/validator/src/aot-validator.spec.ts (7)' },
+  25: { spec: 'packages/orm/SPEC.md', tests: 'packages/orm/src/repository.spec.ts (5)' },
   30: {
-    spec: 'packages/schema-core/src/relations/SPEC.md',
-    tests: 'packages/schema-core/src/relations/relations.spec.ts (4)',
+    spec: 'packages/schema/src/relations/SPEC.md',
+    tests: 'packages/schema/src/relations/relations.spec.ts (4)',
   },
   35: {
-    spec: 'packages/repository/src/transactions/SPEC.md',
-    tests: 'packages/repository/src/transactions/transactions.spec.ts (4)',
+    spec: 'packages/orm/src/transactions/SPEC.md',
+    tests: 'packages/orm/src/transactions/transactions.spec.ts (4)',
   },
   40: {
-    spec: 'packages/query-compiler/src/migrations/SPEC.md',
-    tests: 'packages/query-compiler/src/migrations/migrations.spec.ts (4)',
+    spec: 'packages/sql/src/migrations/SPEC.md',
+    tests: 'packages/sql/src/migrations/migrations.spec.ts (4)',
   },
   45: {
-    spec: 'packages/aot-validator/src/advanced/SPEC.md',
-    tests: 'packages/aot-validator/src/advanced/advanced.spec.ts (4)',
+    spec: 'packages/validator/src/advanced/SPEC.md',
+    tests: 'packages/validator/src/advanced/advanced.spec.ts (4)',
   },
   51: {
-    spec: 'packages/aot-validator/src/serialization/SPEC.md',
-    tests: 'packages/aot-validator/src/serialization/serialization.spec.ts (13)',
+    spec: 'packages/validator/src/serialization/SPEC.md',
+    tests: 'packages/validator/src/serialization/serialization.spec.ts (13)',
   },
   56: {
-    spec: 'packages/aot-validator/src/utilities/SPEC.md',
-    tests: 'packages/aot-validator/src/utilities/utilities.spec.ts (6)',
+    spec: 'packages/validator/src/utilities/SPEC.md',
+    tests: 'packages/validator/src/utilities/utilities.spec.ts (6)',
   },
 };
 

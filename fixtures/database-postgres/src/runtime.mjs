@@ -4,6 +4,7 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
 import { up } from '@zmdb/migrations';
+import { outboxCandidatesQuery } from '@zmdb/orm/outbox';
 import {
   postgres,
   postgresDriver,
@@ -11,9 +12,8 @@ import {
   postgresOutboxPendingIndexDdl,
   postgresOutboxTableDdl,
 } from '@zmdb/postgres';
-import { createQueryCompiler } from '@zmdb/query-compiler';
-import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { outboxCandidatesQuery } from '@zmdb/query-compiler/outbox';
+import { createQueryCompiler } from '@zmdb/sql';
+import { ftsSelectFrom } from '@zmdb/sql/fts';
 import { Pool } from 'pg';
 
 const connectionString = process.env.ZMDB_POSTGRES_URL;
@@ -252,13 +252,13 @@ try {
   await step('installs pg only because the packed consumer selected it', async () => {
     const fixture = JSON.parse(await readFile(join(process.cwd(), 'package.json'), 'utf8'));
     const postgresManifest = await manifest('@zmdb/postgres');
-    const repositoryManifest = await manifest('@zmdb/repository');
-    const compilerManifest = await manifest('@zmdb/query-compiler');
+    const repositoryManifest = await manifest('@zmdb/orm');
+    const compilerManifest = await manifest('@zmdb/sql');
     assert(fixture.dependencies?.pg === '8.23.0', 'consumer did not select pg');
     assert(postgresManifest.dependencies?.pg === undefined, '@zmdb/postgres made pg a dependency');
     assert(postgresManifest.peerDependenciesMeta?.pg?.optional === true, 'pg peer is not optional');
-    assert(repositoryManifest.dependencies?.pg === undefined, '@zmdb/repository depends on pg');
-    assert(compilerManifest.dependencies?.pg === undefined, '@zmdb/query-compiler depends on pg');
+    assert(repositoryManifest.dependencies?.pg === undefined, '@zmdb/orm depends on pg');
+    assert(compilerManifest.dependencies?.pg === undefined, '@zmdb/sql depends on pg');
   });
 } finally {
   await pool.query('DROP SCHEMA IF EXISTS "zmdb_issue_670" CASCADE').catch(() => {});

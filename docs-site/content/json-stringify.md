@@ -4,7 +4,7 @@ the engine's.
 ## Basic Usage
 
 ```ts
-import { stringify } from '@zmdb/aot-validator/serialization';
+import { stringify } from '@zmdb/validator/serialization';
 
 stringify({ name: 'alice', age: 30, active: true });
 // '{"name":"alice","age":30,"active":true}'
@@ -45,7 +45,7 @@ So the boundary encoder converts, and `stringify` throwing is the backstop for a
 `assertStringify(value, schema?)` validates before serializing:
 
 ```ts
-import { assertStringify } from '@zmdb/aot-validator/serialization';
+import { assertStringify } from '@zmdb/validator/serialization';
 
 const json = assertStringify(payload, ir); // throws AssertError if payload is wrong
 ```

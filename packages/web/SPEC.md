@@ -4,9 +4,9 @@
 
 ## Position in the architecture
 
-At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in the dependency DAG (ARCHITECTURE.md §3) and depended on `@zmdb/schema-core`, `@zmdb/aot-validator`,
-`@zmdb/query-compiler` and `@zmdb/repository`. The current package is the HTTP adapter over `@zmdb/app`; its direct runtime dependencies are exactly `@zmdb/app` and `@zmdb/schema-core`. It declares no
-third-party runtime dependency or runtime peer. `@zmdb/compiler` and TypeScript are optional build-time peers reached only by `./contract/compiler`.
+At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/orm` in the dependency DAG (ARCHITECTURE.md §3) and depended on `@zmdb/schema`, `@zmdb/validator`, `@zmdb/sql` and `@zmdb/orm`. The
+current package is the HTTP adapter over `@zmdb/app`; its direct runtime dependencies are exactly `@zmdb/app` and `@zmdb/schema`. It declares no third-party runtime dependency or runtime peer.
+`@zmdb/compiler` and TypeScript are optional build-time peers reached only by `./contract/compiler`.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -23,8 +23,8 @@ third-party runtime dependency or runtime peer. `@zmdb/compiler` and TypeScript 
 ### Package
 
 - New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
-- Original `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). Integration peers belonged to the former server subpaths. The
-  current HTTP-only manifest is defined in the issue #649 section below.
+- Original `dependencies`: `@zmdb/schema`, `@zmdb/validator`, `@zmdb/sql`, `@zmdb/orm` (all `workspace:^`). Integration peers belonged to the former server subpaths. The current HTTP-only manifest is
+  defined in the issue #649 section below.
 - `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish, exactly like the sibling packages).
 
 ### tsconfig
@@ -76,7 +76,7 @@ Direct runtime dependencies are exactly the following workspace packages:
 
 ```text
 @zmdb/app
-@zmdb/schema-core
+@zmdb/schema
 ```
 
 The package declares no third-party runtime dependency, optional dependency or runtime peer. Its only peers are optional `@zmdb/compiler` and `typescript@>=7`, reached exclusively from the build-time

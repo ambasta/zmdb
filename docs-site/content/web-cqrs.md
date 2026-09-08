@@ -7,7 +7,7 @@ A command bus is useful here only when the application routes each command throu
 string-keyed `dispatch(name, unknown)` API would give up the input and result types that justify the indirection, so the caller gets one method per command.
 
 ```ts
-import { createTransactionalDb } from '@zmdb/repository/transactions';
+import { createTransactionalDb } from '@zmdb/orm/transactions';
 import { createCommandBus, type CommandBus, type CommandHandlers } from '@zmdb/app/cqrs';
 import { createToken } from '@zmdb/app/di';
 
@@ -62,7 +62,7 @@ Validation and authorisation run before the optional transaction opens. A handle
 `BaseRepository` already separates `create/update/delete` from `find*/list/aggregate`, and the [replica helper](./read-replicas.html) routes reads and writes to different connections:
 
 ```ts
-import { withReplicas } from '@zmdb/repository/replicas';
+import { withReplicas } from '@zmdb/orm/replicas';
 
 const driver = withReplicas({ primary, replicas: [replicaA, replicaB] });
 ```
@@ -102,7 +102,7 @@ events.emit('post.published', { id });
 For anything that must survive a crash, cross through the shipped [transactional outbox](./transactional-outbox.html):
 
 ```ts
-import { outboxWriter } from '@zmdb/repository/outbox';
+import { outboxWriter } from '@zmdb/orm/outbox';
 
 await db.transaction(async tx => {
   await repo.withTransaction(tx).update(id, { published: true });

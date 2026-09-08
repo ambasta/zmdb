@@ -4,7 +4,7 @@ CockroachDB support for zmdb, implemented as a one-way child of the public `@zmd
 
 ```ts
 import { cockroach, cockroachDriver } from '@zmdb/cockroach';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { Pool } from 'pg';
 
 const pool = new Pool({ connectionString: process.env.COCKROACH_URL });

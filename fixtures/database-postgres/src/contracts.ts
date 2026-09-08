@@ -1,4 +1,5 @@
-import type { Migration } from '@zmdb/migrations';
+import { type Migration } from '@zmdb/migrations';
+import { type DatabaseVertical, type TransactionalDriver } from '@zmdb/orm';
 import {
   postgres,
   postgresDriver,
@@ -12,9 +13,8 @@ import {
   type PgQueryable,
   type PostgresCatalogOverrides,
 } from '@zmdb/postgres';
-import type { Introspector, MigrationDialect, SqlDialect } from '@zmdb/query-compiler';
-import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
-import type { Pool } from 'pg';
+import { type Introspector, type MigrationDialect, type SqlDialect } from '@zmdb/sql';
+import { type Pool } from 'pg';
 
 declare const pool: Pool;
 declare const queryable: PgQueryable;

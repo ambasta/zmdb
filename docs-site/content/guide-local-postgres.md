@@ -31,7 +31,7 @@ The healthcheck matters for CI: the container accepts connections briefly during
 
 ```ts
 import { Pool } from 'pg';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const pool = new Pool({ connectionString: 'postgres://postgres:dev@localhost:5432/app_dev', max: 5 });
 

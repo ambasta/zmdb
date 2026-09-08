@@ -1,5 +1,5 @@
-import type { ClientResponseError } from '@zmdb/client';
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type ClientResponseError } from '@zmdb/client';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 
 // Compile-only freeze for #680. #682 now supplies the real typed error surface;
 // the generated operation method remains transcribed until #684 emits it.

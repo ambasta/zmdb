@@ -12,8 +12,16 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Entity, TaggedSchema } from '@zmdb/schema-core';
-import type { Length, PrimaryKey, Sensitive, Serial, Sql, Table, Unique } from '@zmdb/schema-core/tags';
+import { type Entity, type TaggedSchema } from '@zmdb/schema';
+import {
+  type Length,
+  type PrimaryKey,
+  type Sensitive,
+  type Serial,
+  type Sql,
+  type Table,
+  type Unique,
+} from '@zmdb/schema/tags';
 import { afterAll, describe, expect, expectTypeOf, it } from 'vitest';
 
 import { schemaIrsFrom, schemasFrom } from './index.js';

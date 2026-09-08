@@ -3,85 +3,83 @@
 // arranges today's real public signatures into the exact future package/subpath DAG from
 // issue #635. Issues #638-#641 replace these source imports with the final package names.
 
-import type { decode, parse, stringify } from '@zmdb/aot-validator/serialization';
-import type {
-  assert,
-  assertEquals,
-  assertShallow,
-  equals,
-  is,
-  isShallow,
-  random,
-  validate,
-  validateShallow,
-  ValidateResult,
-} from '@zmdb/aot-validator/utilities';
-import type {
-  createQueryCompiler,
-  CompiledQuery,
-  QueryCompiler,
-  SelectBuilder,
-  SqlDialect,
-} from '@zmdb/query-compiler';
-import type { appendComment, serializeComment, withComments } from '@zmdb/query-compiler/comments';
-import type { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import type { joinableSelectFrom } from '@zmdb/query-compiler/joins';
-import type {
-  checkConstraintDdl,
-  createIndexDdl,
-  createViewDdl,
-  dropViewDdl,
-} from '@zmdb/query-compiler/schema-objects';
-import type { batch, setOperation } from '@zmdb/query-compiler/set-ops';
-import type {
-  BaseRepository,
-  defineRepository,
-  Driver,
-  ExecuteOptions,
-  IncompleteKeyError,
-  RepositoryOptions,
-  StreamOptions,
-  UpdatePatch,
-} from '@zmdb/repository';
-import type {
-  CoreSchema,
-  CreateDTO,
-  DeclaredTable,
-  Entity,
-  Equal,
-  Expect,
-  isRecord,
-  PrimaryKeyOf,
-  ReadDTO,
-  schemaOf,
-  TaggedSchema,
-  UpdateDTO,
-} from '@zmdb/schema-core';
-import type {
-  applyKeysetFilter,
-  applyOrderBy,
-  applyPagination,
-  buildListResult,
-  buildSearchResult,
-  compileWhere,
-  decodeCursor,
-  describeAggregate,
-  encodeCursor,
-  getResult,
-  project,
-} from '@zmdb/schema-core/dto';
-import type {
-  decodeDbValue,
-  decodeWire,
-  encodeWire,
-  jsonSchemaFromIR,
-  objectTypeFromIR,
-  schemaFromIR,
-  SchemaIR,
-  TypeIR,
-} from '@zmdb/schema-core/ir';
-import type { componentName, toJsonSchema, toOpenApiComponents } from '@zmdb/schema-core/openapi';
-import type { aliasRow, attachPopulated, compilePopulate, resolveRelation } from '@zmdb/schema-core/relations';
+import {
+  type BaseRepository,
+  type defineRepository,
+  type Driver,
+  type ExecuteOptions,
+  type IncompleteKeyError,
+  type RepositoryOptions,
+  type StreamOptions,
+  type UpdatePatch,
+} from '@zmdb/orm';
+import { type applyKeysetFilter, type applyOrderBy, type applyPagination, type compileWhere } from '@zmdb/orm/dto';
+import { type aliasRow, type attachPopulated, type compilePopulate } from '@zmdb/orm/relations';
+import {
+  type CoreSchema,
+  type CreateDTO,
+  type DeclaredTable,
+  type Entity,
+  type Equal,
+  type Expect,
+  type isRecord,
+  type PrimaryKeyOf,
+  type ReadDTO,
+  type schemaOf,
+  type TaggedSchema,
+  type UpdateDTO,
+} from '@zmdb/schema';
+import {
+  type buildListResult,
+  type buildSearchResult,
+  type decodeCursor,
+  type describeAggregate,
+  type encodeCursor,
+  type getResult,
+  type project,
+} from '@zmdb/schema/dto';
+import {
+  type decodeDbValue,
+  type decodeWire,
+  type encodeWire,
+  type jsonSchemaFromIR,
+  type objectTypeFromIR,
+  type schemaFromIR,
+  type SchemaIR,
+  type TypeIR,
+} from '@zmdb/schema/ir';
+import { type componentName, type toJsonSchema, type toOpenApiComponents } from '@zmdb/schema/openapi';
+import { type resolveRelation } from '@zmdb/schema/relations';
+import {
+  type createQueryCompiler,
+  type CompiledQuery,
+  type QueryCompiler,
+  type SelectBuilder,
+  type SqlDialect,
+} from '@zmdb/sql';
+import { type appendComment, type serializeComment, type withComments } from '@zmdb/sql/comments';
+import { type ftsSelectFrom } from '@zmdb/sql/fts';
+import { type joinableSelectFrom } from '@zmdb/sql/joins';
+import {
+  type checkConstraintDdl,
+  type createIndexDdl,
+  type createViewDdl,
+  type dropViewDdl,
+} from '@zmdb/sql/schema-objects';
+import { type batch, type setOperation } from '@zmdb/sql/set-ops';
+import {
+  type assert,
+  type assertEquals,
+  type assertShallow,
+  type equals,
+  type is,
+  type isShallow,
+  type random,
+  type validate,
+  type validateShallow,
+  type ValidateResult,
+} from '@zmdb/validator';
+import { type decode, type parse, type stringify } from '@zmdb/validator/serialization';
 
 type FoundationSubpaths = {
   readonly '@zmdb/schema':

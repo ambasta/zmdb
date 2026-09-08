@@ -43,7 +43,7 @@ N round trips, and no atomicity unless you wrap it.
 ## Workaround 1 — a transaction around the loop
 
 ```ts
-import { createTransactionalDb } from '@zmdb/repository/transactions';
+import { createTransactionalDb } from '@zmdb/orm/transactions';
 
 const db = createTransactionalDb(connection);
 

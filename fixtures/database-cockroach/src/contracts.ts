@@ -7,9 +7,9 @@ import {
   type PgOptions,
   type PgQueryable,
 } from '@zmdb/cockroach';
-import type { Introspector, MigrationDialect, SqlDialect } from '@zmdb/query-compiler';
-import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
-import type { Pool } from 'pg';
+import { type DatabaseVertical, type TransactionalDriver } from '@zmdb/orm';
+import { type Introspector, type MigrationDialect, type SqlDialect } from '@zmdb/sql';
+import { type Pool } from 'pg';
 
 declare const pool: Pool;
 declare const queryable: PgQueryable;

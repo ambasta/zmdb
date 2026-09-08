@@ -39,10 +39,10 @@ The package is ESM-only and publishes these concern entry points:
 Its direct runtime dependencies are exactly the workspace packages needed by the moved implementations:
 
 ```text
-@zmdb/aot-validator
-@zmdb/query-compiler
-@zmdb/repository
-@zmdb/schema-core
+@zmdb/validator
+@zmdb/sql
+@zmdb/orm
+@zmdb/schema
 ```
 
 It declares no third-party `dependencies`, `optionalDependencies` or `peerDependencies`. Node built-ins are allowed. It must not import `@zmdb/web`, `@zmdb/jobs`, an optional integration package,

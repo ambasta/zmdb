@@ -1,4 +1,4 @@
-import { validationIssuesOf, type ValidationIssue } from '@zmdb/schema-core';
+import { validationIssuesOf, type ValidationIssue } from '@zmdb/validator';
 
 export interface InvocableTool<T> {
   readonly validate: (args: unknown) => T;

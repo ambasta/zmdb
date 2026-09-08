@@ -2,10 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { type TxConnection } from '@zmdb/orm';
+import { createTransactionalDb } from '@zmdb/orm';
 import { postgres, type PgQueryable } from '@zmdb/postgres';
-import { createQueryCompiler, UnsupportedFeatureError, type IntrospectionDriver } from '@zmdb/query-compiler';
-import type { TxConnection } from '@zmdb/repository';
-import { createTransactionalDb } from '@zmdb/repository';
+import { createQueryCompiler, UnsupportedFeatureError, type IntrospectionDriver } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import { cockroach, cockroachDriver, cockroachIntrospector } from './index.js';

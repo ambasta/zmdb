@@ -1,6 +1,6 @@
 // Schema-side capability gaps: keys and indexes, physical naming, extensions, introspection,
 // stored routines. Every one of these is a claim about what a *declaration* can say, which is why
-// they belong to `@zmdb/schema-core` first and to the DDL emitter second.
+// they belong to `@zmdb/schema` first and to the DDL emitter second.
 
 export const SCHEMA_EPICS = [
   {
@@ -8,15 +8,15 @@ export const SCHEMA_EPICS = [
     title: '[EPIC] Composite primary keys and expression indexes',
     labels: ['enhancement', 'area:schema', 'parity:mikro-orm'],
     pages: ['composite-keys', 'guide-case-insensitive-unique'],
-    packages: ['@zmdb/schema-core', '@zmdb/query-compiler', '@zmdb/repository'],
+    packages: ['@zmdb/schema', '@zmdb/sql', '@zmdb/orm'],
     motivation: `
 A join table has two primary-key columns and a case-insensitive unique email needs an index on
 \`lower(email)\`. zmdb can express neither, and the composite half is worse than missing — it is
 wrong in a way that compiles.
 
 \`PrimaryKeyOf<T>\` already resolves a two-column key to \`{ orgId, userId }\`, and
-\`packages/repository/src/tagged-schema.type-test.ts:85-94\` asserts that \`findById\` accepts it.
-At runtime \`BaseRepository.pkColumn\` (packages/repository/src/index.ts:165) reads
+\`packages/orm/src/tagged-schema.type-test.ts:85-94\` asserts that \`findById\` accepts it.
+At runtime \`BaseRepository.pkColumn\` (packages/orm/src/index.ts:165) reads
 \`schema.primaryKey[0]\` and throws the rest away, so that call compiles into
 \`WHERE "org_id" = $1\` with an *object* as the parameter. The DDL side is no better: the emitter
 writes \`PRIMARY KEY\` inline per column, so a two-column key produces
@@ -25,10 +25,10 @@ writes \`PRIMARY KEY\` inline per column, so a two-column key produces
 
 which Postgres rejects outright ("multiple primary keys for table are not allowed") and which MySQL
 and SQLite mis-accept as something the declaration did not say. \`primaryKeyOf\` in
-\`packages/schema-core/src/relations/index.ts:97\` takes \`[0]\` as well, so a relation pointing at a
+\`packages/schema/src/relations/index.ts:97\` takes \`[0]\` as well, so a relation pointing at a
 composite parent silently joins on half a key.
 
-The index half is a smaller, self-contained gap: \`IndexDef\` (packages/query-compiler/src/schema-objects/index.ts:13)
+The index half is a smaller, self-contained gap: \`IndexDef\` (packages/sql/src/schema-objects/index.ts:13)
 takes \`columns: readonly string[]\` and quotes each one as an identifier, so no functional index can
 be emitted at all. Both halves are the same shape of problem — the key and index vocabulary assumes
 one bare column name where SQL allows a list and an expression.
@@ -68,11 +68,11 @@ is \`primaryKey[0]\`. Any implementation that starts before those are reconciled
 them agree with the fourth by accident.
 `,
         files: [
-          '`packages/schema-core/src/ir/SPEC.md` — a "Keys" section: `SchemaIR.primaryKey` is the ordered key list and the per-column `primaryKey` flag is derived from it, never the reverse.',
-          '`packages/query-compiler/src/migrations/SPEC.md` — table-level `PRIMARY KEY (...)` emission, and what `diff` produces when a key changes.',
-          '`packages/query-compiler/src/schema-objects/SPEC.md` — the `IndexDef` expression form and its quoting rules.',
-          '`packages/repository/SPEC.md` — `findById`/`update`/`delete` with a composite key, including the partial-key error text.',
-          '`packages/schema-core/src/relations/SPEC.md` — relations against a composite parent key.',
+          '`packages/schema/src/ir/SPEC.md` — a "Keys" section: `SchemaIR.primaryKey` is the ordered key list and the per-column `primaryKey` flag is derived from it, never the reverse.',
+          '`packages/sql/src/migrations/SPEC.md` — table-level `PRIMARY KEY (...)` emission, and what `diff` produces when a key changes.',
+          '`packages/sql/src/schema-objects/SPEC.md` — the `IndexDef` expression form and its quoting rules.',
+          '`packages/orm/SPEC.md` — `findById`/`update`/`delete` with a composite key, including the partial-key error text.',
+          '`packages/schema/src/relations/SPEC.md` — relations against a composite parent key.',
         ],
         api: `
 // The frozen vocabulary. Written here as the spec's normative form; no implementation yet.
@@ -108,7 +108,7 @@ interface IndexDef {
 declare function findById<T extends DeclaredTable>(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
 `,
         steps: [
-          'Write the "Keys" section of `packages/schema-core/src/ir/SPEC.md`: `primaryKey` is ordered, non-empty for a keyed table, and the single source; state explicitly that the per-column `primaryKey: boolean` in `ColumnIR` is a projection of it and that nothing may read the flag to reconstruct the list.',
+          'Write the "Keys" section of `packages/schema/src/ir/SPEC.md`: `primaryKey` is ordered, non-empty for a keyed table, and the single source; state explicitly that the per-column `primaryKey: boolean` in `ColumnIR` is a projection of it and that nothing may read the flag to reconstruct the list.',
           'Decide and record the DDL form per dialect: one-column keys keep the inline `PRIMARY KEY` they emit today (so no existing golden SQL changes), and two-or-more columns emit a trailing `PRIMARY KEY ("a", "b")` in declaration order. Write both golden statements into the spec verbatim.',
           'Record what `diff` emits when a key changes: Postgres and MySQL get `ALTER TABLE ... DROP CONSTRAINT` / `ADD PRIMARY KEY`, SQLite cannot alter a key at all and must produce a refusal the runner surfaces rather than a silently skipped op. Name the refusal message in the spec.',
           'Specify the partial-key error: which exception type, and the exact message shape (`memberships.findById requires every key column; missing: user_id`). It has to name the missing column, because the failure mode it replaces was a query on half a key.',
@@ -147,11 +147,11 @@ being wrong, because each was tested against its own single-column assumption. W
 first is what makes the existing green tests' blind spot visible.
 `,
         files: [
-          '`packages/query-compiler/src/migrations/migrations.spec.ts` — composite `CREATE TABLE`, key change diff, SQLite refusal.',
-          '`packages/query-compiler/src/schema-objects/schema-objects.spec.ts` — expression index DDL and quoting.',
-          '`packages/repository/src/repository.spec.ts` — composite `findById`/`update`/`delete` and the partial-key error.',
-          '`packages/schema-core/src/relations/populate.spec.ts` — multi-column join and the refusal diagnostic.',
-          '`packages/schema-core/src/ir/ir.type-test.ts` — `PrimaryKeyOf` for one, two and zero key columns.',
+          '`packages/sql/src/migrations/migrations.spec.ts` — composite `CREATE TABLE`, key change diff, SQLite refusal.',
+          '`packages/sql/src/schema-objects/schema-objects.spec.ts` — expression index DDL and quoting.',
+          '`packages/orm/src/repository.spec.ts` — composite `findById`/`update`/`delete` and the partial-key error.',
+          '`packages/schema/src/relations/populate.spec.ts` — multi-column join and the refusal diagnostic.',
+          '`packages/schema/src/ir/ir.type-test.ts` — `PrimaryKeyOf` for one, two and zero key columns.',
         ],
         api: `
 // Add only the types the tests need to compile. No behaviour.
@@ -208,9 +208,9 @@ also the only slice that changes \`SchemaSnapshot\`, so doing it first keeps the
 changing twice.
 `,
         files: [
-          '`packages/query-compiler/src/migrations/index.ts` — `SnapshotableSchema`, `snapshot()`, `TableSnapshot`, `diff()`, `emitUp()`, `emitDown()`, `columnDdl`.',
-          '`packages/query-compiler/src/migrations/runner.ts` — surface a refused op rather than skipping it.',
-          '`packages/schema-core/src/ir/index.ts` — `schemaFromIr` must pass the ordered key list into the snapshotable shape.',
+          '`packages/sql/src/migrations/index.ts` — `SnapshotableSchema`, `snapshot()`, `TableSnapshot`, `diff()`, `emitUp()`, `emitDown()`, `columnDdl`.',
+          '`packages/sql/src/migrations/runner.ts` — surface a refused op rather than skipping it.',
+          '`packages/schema/src/ir/index.ts` — `schemaFromIr` must pass the ordered key list into the snapshotable shape.',
         ],
         api: `
 export interface TableSnapshot {
@@ -261,15 +261,15 @@ composite \`findById\` the type-tests already bless does what it claims. A parti
 named error instead of a query with an object as a parameter.
 `,
         why: `
-\`pkColumn\` (packages/repository/src/index.ts:165) is read by \`findById\`, \`update\`, \`delete\`
+\`pkColumn\` (packages/orm/src/index.ts:165) is read by \`findById\`, \`update\`, \`delete\`
 and the populate path. Changing it in one place fixes all of them, and leaving it changes the others
 into the same bug in four spellings. The error case matters as much as the happy one: the current
 failure is silent, and silence is what let a blessed type-test coexist with a broken runtime.
 `,
         files: [
-          '`packages/repository/src/index.ts` — `pkColumn` → `primaryKeyColumns`, `findById`, `update`, `delete`, `upsert` conflict target defaults, the populate parent-key read.',
-          '`packages/repository/src/typed-methods/typed-writes.type-test.ts` — extend with a composite-key repository.',
-          '`packages/repository/SPEC.md` — the section frozen in the spec slice.',
+          '`packages/orm/src/index.ts` — `pkColumn` → `primaryKeyColumns`, `findById`, `update`, `delete`, `upsert` conflict target defaults, the populate parent-key read.',
+          '`packages/orm/src/typed-methods/typed-writes.type-test.ts` — extend with a composite-key repository.',
+          '`packages/orm/SPEC.md` — the section frozen in the spec slice.',
         ],
         api: `
 class BaseRepository<T extends DeclaredTable> {
@@ -291,9 +291,9 @@ export class IncompleteKeyError extends Error {
           'Write one private `keyWhere(id)` that returns the where object, and route `findById`, `update`, `delete` and the `upsert` default conflict target through it. Four call sites reading the key list directly is how this bug got four spellings.',
           'For a single-column key, accept the bare value exactly as today, and *also* accept the one-property object form if the spec said so — decide in the spec, do not leave it to the reader of the code.',
           'For a composite key, require every column: check with `Object.hasOwn` so an inherited property cannot satisfy a key column (this is the same hazard as issue #364, where `Object.prototype` keys reached an operator allowlist).',
-          'Throw `IncompleteKeyError` naming the table and every missing column. Export it from `@zmdb/repository` and re-export from `zmdb`, then add it to the umbrella `exports` list so `yarn verify:exports` sees it.',
-          'Audit the populate path: `packages/schema-core/src/relations/index.ts:97` is the relation side (next slice), but the repository also reads a parent key when attaching rows. Make it use the same resolved list.',
-          'Check the `update` DTO derivation: `packages/schema-core/src/ir/index.ts:652` filters key columns out of the update variant. With a composite key that filter must drop every key column, not just the first.',
+          'Throw `IncompleteKeyError` naming the table and every missing column. Export it from `@zmdb/orm` and re-export from `zmdb`, then add it to the umbrella `exports` list so `yarn verify:exports` sees it.',
+          'Audit the populate path: `packages/schema/src/relations/index.ts:97` is the relation side (next slice), but the repository also reads a parent key when attaching rows. Make it use the same resolved list.',
+          'Check the `update` DTO derivation: `packages/schema/src/ir/index.ts:652` filters key columns out of the update variant. With a composite key that filter must drop every key column, not just the first.',
         ],
         tests: [
           'Convert the `repository.spec.ts` composite tests to green.',
@@ -306,7 +306,7 @@ export class IncompleteKeyError extends Error {
         ],
         dod: [
           '`keyColumns` resolved once; no per-call list construction.',
-          'One `keyWhere` helper, four call sites, no direct `primaryKey[0]` reads left in the package (`grep -rn "primaryKey\\[0\\]" packages/repository/src` returns nothing).',
+          'One `keyWhere` helper, four call sites, no direct `primaryKey[0]` reads left in the package (`grep -rn "primaryKey\\[0\\]" packages/orm/src` returns nothing).',
           '`IncompleteKeyError` exported and reachable from `zmdb`; `yarn verify:exports` green.',
           '`npx vitest run` and `node scripts/typecheck.mjs` green.',
         ],
@@ -319,7 +319,7 @@ export class IncompleteKeyError extends Error {
         goal: `
 Make a relation whose parent key has more than one column either join on all of them or refuse with
 a diagnostic that names the key. Delete the \`primaryKey[0]\` read in
-\`packages/schema-core/src/relations/index.ts:97\`, which currently joins on half a key without
+\`packages/schema/src/relations/index.ts:97\`, which currently joins on half a key without
 saying so.
 `,
         why: `
@@ -329,9 +329,9 @@ test that was written against a single-column fixture. So the fix is paired with
 multi-column joining is not supported, the derivation says so out loud.
 `,
         files: [
-          '`packages/schema-core/src/relations/index.ts` — `primaryKeyOf`, `resolveRelation`, `compilePopulate`.',
-          '`packages/schema-core/src/relations/SPEC.md`',
-          '`packages/query-compiler/src/joins/index.ts` — multi-column `ON` support if the join builder cannot express it yet.',
+          '`packages/schema/src/relations/index.ts` — `primaryKeyOf`, `resolveRelation`, `compilePopulate`.',
+          '`packages/schema/src/relations/SPEC.md`',
+          '`packages/sql/src/joins/index.ts` — multi-column `ON` support if the join builder cannot express it yet.',
         ],
         api: `
 interface ResolvedRelation {
@@ -348,7 +348,7 @@ interface ResolvedRelation {
           'Where `via` names fewer columns than the parent key, refuse at derivation time with the spec diagnostic. Do not pad, do not guess an order.',
           'Teach the join compiler a multi-column `ON`: `ON "m"."org_id" = "o"."id" AND "m"."user_id" = "u"."id"`. If `joinableSelectFrom` cannot express it, extend it in this slice and add golden SQL for a two-column join.',
           'Audit `compilePopulate`: batching a to-many populate by parent key means an `IN` over tuples for a composite key. Postgres accepts `(a, b) IN ((1,2),(3,4))`; MySQL accepts it; SQLite does not. Emit per-dialect, or refuse for SQLite with the same explicitness as the DDL slice.',
-          'Re-check `RELATION_KINDS`: `manyToMany` already throws, and the new refusal must not accidentally change that message — `packages/schema-core/src/relations/populate.spec.ts` asserts it.',
+          'Re-check `RELATION_KINDS`: `manyToMany` already throws, and the new refusal must not accidentally change that message — `packages/schema/src/relations/populate.spec.ts` asserts it.',
         ],
         tests: [
           '`joins a relation on every column of a composite parent key` — golden `ON` clause.',
@@ -358,7 +358,7 @@ interface ResolvedRelation {
           '`still throws the many-to-many message` — the existing assertion, unchanged.',
         ],
         dod: [
-          'No `primaryKey[0]` read left in `@zmdb/schema-core` (`grep` clean).',
+          'No `primaryKey[0]` read left in `@zmdb/schema` (`grep` clean).',
           'Multi-column `ON` emitted and golden-tested; per-dialect populate behaviour implemented or explicitly refused.',
           '`npx vitest run` green.',
         ],
@@ -381,9 +381,9 @@ re-quoting identifiers inside the expression — would be a SQL parser in the mi
 first thing it would do is disagree with the database about something.
 `,
         files: [
-          '`packages/query-compiler/src/schema-objects/index.ts` — `IndexDef`, `createIndexDdl`.',
-          '`packages/query-compiler/src/migrations/index.ts` — index ops in the snapshot/diff, if indexes are snapshotted.',
-          '`packages/query-compiler/src/schema-objects/SPEC.md`',
+          '`packages/sql/src/schema-objects/index.ts` — `IndexDef`, `createIndexDdl`.',
+          '`packages/sql/src/migrations/index.ts` — index ops in the snapshot/diff, if indexes are snapshotted.',
+          '`packages/sql/src/schema-objects/SPEC.md`',
         ],
         api: `
 export type IndexColumn = string | { readonly expr: string };
@@ -410,7 +410,7 @@ export interface IndexDef {
           '`quotes a plain column name exactly as before` — regression guard for every existing index test.',
         ],
         dod: [
-          '`IndexColumn` exported from `@zmdb/query-compiler/schema-objects`.',
+          '`IndexColumn` exported from `@zmdb/sql/schema-objects`.',
           'Golden DDL for expression, mixed and plain indexes in all three dialects.',
           '`yarn verify:escape-hatches` green (and the trust boundary documented if a comment was added).',
         ],
@@ -466,7 +466,7 @@ chose not to do something we just did.
     title: '[EPIC] Naming strategy — physical names decided at build time',
     labels: ['enhancement', 'area:schema', 'parity:mikro-orm'],
     pages: ['naming-strategy'],
-    packages: ['@zmdb/schema-core', '@zmdb/compiler', '@zmdb/query-compiler'],
+    packages: ['@zmdb/schema', '@zmdb/compiler', '@zmdb/sql'],
     motivation: `
 Table and column names are used exactly as declared. A team whose database is \`user_accounts\` with
 \`created_at\` has to write those names in the TypeScript declaration, which means the property names
@@ -513,9 +513,9 @@ consequences the spec has to spell out — a snapshot, for instance, must record
 every migration diff after a strategy change will be a rename storm.
 `,
         files: [
-          '`packages/schema-core/src/ir/SPEC.md` — `ColumnIR.physicalName` / `SchemaIR.physicalTable` and the rule that SQL reads one, types read the other.',
+          '`packages/schema/src/ir/SPEC.md` — `ColumnIR.physicalName` / `SchemaIR.physicalTable` and the rule that SQL reads one, types read the other.',
           '`packages/compiler/src/reflect/SPEC.md` — where the strategy is applied during reflection.',
-          '`packages/query-compiler/src/migrations/SPEC.md` — snapshots record physical names.',
+          '`packages/sql/src/migrations/SPEC.md` — snapshots record physical names.',
         ],
         api: `
 // zmdb.config.ts (loaded by @zmdb/compiler/config, not at runtime)
@@ -564,8 +564,8 @@ interface ColumnIR {
         files: [
           '`packages/compiler/src/reflect/reflect.spec.ts` — reflection applies the strategy.',
           '`packages/compiler/src/reflect/__fixtures__/` — a fixture interface in camelCase.',
-          '`packages/query-compiler/src/migrations/migrations.spec.ts` — DDL and snapshot use physical names.',
-          '`packages/schema-core/src/ir/ir.type-test.ts` — derived types keep property names.',
+          '`packages/sql/src/migrations/migrations.spec.ts` — DDL and snapshot use physical names.',
+          '`packages/schema/src/ir/ir.type-test.ts` — derived types keep property names.',
         ],
         tests: [
           '`applies the column strategy once, into the IR` — `physicalName` is `created_at` while `name` stays `createdAt`.',
@@ -597,7 +597,7 @@ interface ColumnIR {
         goal: 'Add `physicalName`/`physicalTable` to the IR and populate them in the reflector, with collision detection as a build diagnostic. After this slice the IR is complete and no SQL has changed yet.',
         why: 'Splitting "the IR carries the name" from "SQL uses the name" keeps the risky half small. If the two land together, a bug in either shows up as wrong SQL and there is no way to tell which half produced it.',
         files: [
-          '`packages/schema-core/src/ir/index.ts` — `ColumnIR`, `SchemaIR`, the IR vocabulary tables and `vocabulary.type-test.ts`.',
+          '`packages/schema/src/ir/index.ts` — `ColumnIR`, `SchemaIR`, the IR vocabulary tables and `vocabulary.type-test.ts`.',
           '`packages/compiler/src/reflect/index.ts` — apply the strategy while building `schemaIrFromType`.',
           '`packages/compiler/src/reflect/index.ts` `#refuse` path — the collision diagnostic.',
         ],
@@ -635,10 +635,10 @@ export interface ReflectOptions {
         goal: 'Switch the DDL emitter, the query compiler boundary, the snapshot and the derived index/FK names over to `physicalName`, leaving derived TypeScript types on the property name.',
         why: 'This is the slice that makes the feature real, and it is where a missed call site produces a query that references a column the database does not have. `yarn verify:one-walker` exists precisely because column metadata reads spread; use it as the checklist of files to audit.',
         files: [
-          '`packages/schema-core/src/ir/index.ts` — `schemaFromIR`, which is what the DDL boundary consumes.',
-          '`packages/query-compiler/src/migrations/index.ts` — `snapshot`, `emitUp`, `columnDdl`.',
-          '`packages/query-compiler/src/schema-objects/index.ts` — generated index and constraint names.',
-          '`packages/repository/src/index.ts` — where a DTO property becomes a column in a compiled statement.',
+          '`packages/schema/src/ir/index.ts` — `schemaFromIR`, which is what the DDL boundary consumes.',
+          '`packages/sql/src/migrations/index.ts` — `snapshot`, `emitUp`, `columnDdl`.',
+          '`packages/sql/src/schema-objects/index.ts` — generated index and constraint names.',
+          '`packages/orm/src/index.ts` — where a DTO property becomes a column in a compiled statement.',
         ],
         steps: [
           'Run `yarn verify:one-walker` and read its exemption list: those files are the complete set that may read column metadata, which makes them the complete set to audit.',
@@ -670,8 +670,8 @@ export interface ReflectOptions {
         why: 'A `NamingStrategy` interface with no implementations is a hook, not a feature. The two built-ins are also the test cases that expose the collision and acronym problems every hand-rolled snake_case function gets wrong.',
         blockedByNote: 'Uses the canonical loader from `@zmdb/compiler/config`.',
         files: [
-          '`packages/schema-core/src/naming/index.ts` (new) + `SPEC.md`',
-          '`packages/schema-core/package.json` — a `./naming` subpath.',
+          '`packages/schema/src/naming/index.ts` (new) + `SPEC.md`',
+          '`packages/schema/package.json` — a `./naming` subpath.',
           '`packages/compiler/src/unplugin/index.ts` and `src/codegen/` — read `naming` from the loaded config.',
         ],
         api: `

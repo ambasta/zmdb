@@ -1,5 +1,5 @@
-import type { ClientResponseError } from '@zmdb/client';
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type ClientResponseError } from '@zmdb/client';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 
 import type { ApiClient, PatchAccountsAccountIdError } from '../__fixtures__/http-client.generated.js';
 

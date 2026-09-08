@@ -6,8 +6,8 @@ Embeddables let you compose complex value objects from multiple columns. Instead
 The embeddable is a plain interface. The table declares one column per field, and two helpers move between the two shapes.
 
 ```ts
-import { flattenEmbeddable, liftEmbeddable } from '@zmdb/repository/entity-modeling';
-import { assert } from '@zmdb/aot-validator/utilities';
+import { flattenEmbeddable, liftEmbeddable } from '@zmdb/schema/entity-modeling';
+import { assert } from '@zmdb/validator';
 import { schemaOf } from 'zmdb';
 import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
@@ -97,10 +97,10 @@ column type, rather than being reassembled from four columns whose names have to
 
 ## Validation Integration
 
-Embeddables integrate with `@zmdb/aot-validator`. There is no separate validator to construct — the embeddable's interface is the argument:
+Embeddables integrate with `@zmdb/validator`. There is no separate validator to construct — the embeddable's interface is the argument:
 
 ```ts
-import { validate } from '@zmdb/aot-validator/utilities';
+import { validate } from '@zmdb/validator';
 
 const result = validate<Address>(incomingAddress);
 if (!result.success) {

@@ -6,17 +6,17 @@ function gh(a, i) {
 }
 const MAP = {
   82: {
-    impl: 'packages/aot-validator/src/plugin/aot-build.spec.ts',
+    impl: 'packages/validator/src/plugin/aot-build.spec.ts',
     tests: '(2)',
     note: 'Ran the #81 unplugin transform over a fixture, executed the emitted output, and verified: behavior matches the runtime validator; the output is inlined (no runtime call, nested checks present); the AOT-built path is ~63x faster than runtime (241M vs 3.8M ops/s on this box). The AOT premise holds when actually built.',
   },
   87: {
-    impl: 'packages/repository/src/index.ts (findJoined)',
+    impl: 'packages/orm/src/index.ts (findJoined)',
     tests: 'join-e2e.spec.ts (2)',
     note: 'findJoined composes the JOIN builder + optional where, returns flat plain-object rows. E2E on REAL Postgres: product→supplier left join returns joined columns; LEFT JOIN retains the null-supplier orphan.',
   },
   92: {
-    impl: 'packages/repository/src/index.ts (aggregate)',
+    impl: 'packages/orm/src/index.ts (aggregate)',
     tests: 'aggregate-e2e.spec.ts (2)',
     note: 'aggregate(build) composes the aggregate builder, returns typed computed columns. E2E on REAL Postgres: grouped COUNT+SUM per region correct; HAVING filters groups.',
   },

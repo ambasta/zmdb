@@ -75,19 +75,6 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
-    id: 'aot-validator',
-    directory: 'packages/aot-validator',
-    npmName: '@zmdb/aot-validator',
-    role: 'validator',
-    facade: {
-      root: ['AssertError', 'ValidateResult', 'assert', 'is', 'validate'],
-      subpaths: ['zmdb/validator'],
-    },
-    optionality: { kind: 'required' },
-    docsOwner: 'aot-setup',
-    consumer: { reason: PUBLISH_VERIFIER_REASON },
-  }),
-  productPackage({
     id: 'app',
     directory: 'packages/app',
     npmName: '@zmdb/app',
@@ -281,6 +268,19 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/client-adapters/nuxt' },
   }),
   productPackage({
+    id: 'orm',
+    directory: 'packages/orm',
+    npmName: '@zmdb/orm',
+    role: 'orm',
+    facade: {
+      root: ['Driver', 'IncompleteKeyError', 'UpdatePatch', 'ValidationError', 'defineRepository'],
+      subpaths: ['zmdb/orm'],
+    },
+    optionality: { kind: 'required' },
+    docsOwner: 'repository',
+    consumer: { reason: PUBLISH_VERIFIER_REASON },
+  }),
+  productPackage({
     id: 'otel',
     directory: 'packages/otel',
     npmName: '@zmdb/otel',
@@ -311,16 +311,6 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { reason: PUBLISH_VERIFIER_REASON },
   }),
   productPackage({
-    id: 'query-compiler',
-    directory: 'packages/query-compiler',
-    npmName: '@zmdb/query-compiler',
-    role: 'sql',
-    facade: { root: [], subpaths: ['zmdb/sql'] },
-    optionality: { kind: 'required' },
-    docsOwner: 'raw-sql',
-    consumer: { reason: PUBLISH_VERIFIER_REASON },
-  }),
-  productPackage({
     id: 'react',
     directory: 'packages/react',
     npmName: '@zmdb/react',
@@ -341,22 +331,9 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
-    id: 'repository',
-    directory: 'packages/repository',
-    npmName: '@zmdb/repository',
-    role: 'orm',
-    facade: {
-      root: ['Driver', 'IncompleteKeyError', 'UpdatePatch', 'ValidationError', 'defineRepository'],
-      subpaths: ['zmdb/orm'],
-    },
-    optionality: { kind: 'required' },
-    docsOwner: 'repository',
-    consumer: { reason: PUBLISH_VERIFIER_REASON },
-  }),
-  productPackage({
-    id: 'schema-core',
-    directory: 'packages/schema-core',
-    npmName: '@zmdb/schema-core',
+    id: 'schema',
+    directory: 'packages/schema',
+    npmName: '@zmdb/schema',
     role: 'schema',
     facade: {
       root: [
@@ -379,7 +356,6 @@ export const PRODUCT_CATALOG = Object.freeze([
         'Table',
         'Unique',
         'UpdateDTO',
-        'ValidationIssue',
         'schemaOf',
       ],
       subpaths: ['zmdb/derive', 'zmdb/dto', 'zmdb/ir', 'zmdb/relations', 'zmdb/schema', 'zmdb/tags'],
@@ -407,6 +383,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     optionality: { kind: 'integration', technology: 'Solid client resources' },
     docsOwner: 'client-solid',
     consumer: { fixture: 'fixtures/client-adapters' },
+  }),
+  productPackage({
+    id: 'sql',
+    directory: 'packages/sql',
+    npmName: '@zmdb/sql',
+    role: 'sql',
+    facade: { root: [], subpaths: ['zmdb/sql'] },
+    optionality: { kind: 'required' },
+    docsOwner: 'raw-sql',
+    consumer: { reason: PUBLISH_VERIFIER_REASON },
   }),
   productPackage({
     id: 'sqlite',
@@ -477,6 +463,19 @@ export const PRODUCT_CATALOG = Object.freeze([
     optionality: { kind: 'integration', technology: 'Redis Pub/Sub' },
     docsOwner: 'web-microservices-transports',
     consumer: { fixture: 'fixtures/consumer-server-integrations' },
+  }),
+  productPackage({
+    id: 'validator',
+    directory: 'packages/validator',
+    npmName: '@zmdb/validator',
+    role: 'validator',
+    facade: {
+      root: ['AssertError', 'ValidateResult', 'ValidationIssue', 'assert', 'is', 'validate'],
+      subpaths: ['zmdb/validator'],
+    },
+    optionality: { kind: 'required' },
+    docsOwner: 'aot-setup',
+    consumer: { reason: PUBLISH_VERIFIER_REASON },
   }),
   productPackage({
     id: 'vue',

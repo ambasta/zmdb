@@ -1,4 +1,4 @@
-import type { SelectedDriver, TransactionalDriver } from '@zmdb/repository';
+import { type SelectedDriver, type TransactionalDriver } from '@zmdb/orm';
 
 import { sqlite } from './dialect.js';
 

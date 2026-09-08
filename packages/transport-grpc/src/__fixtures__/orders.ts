@@ -1,5 +1,5 @@
 import type { GrpcLoadedService } from '@zmdb/protobuf';
-import type { MinLength, Proto, ProtoField } from '@zmdb/schema-core/tags';
+import { type MinLength, type Proto, type ProtoField } from '@zmdb/schema/tags';
 
 import { zmdbLoadGrpcServiceOrdersOrdersOrders } from './orders.zmdb.generated.js';
 

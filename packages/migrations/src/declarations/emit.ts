@@ -1,5 +1,5 @@
-import type { ColumnSnapshot, SchemaSnapshot, SqlDialect, TableSnapshot } from '@zmdb/query-compiler';
-import { singularPascalCase } from '@zmdb/query-compiler/naming';
+import { singularPascalCase } from '@zmdb/schema/naming';
+import { type ColumnSnapshot, type SchemaSnapshot, type SqlDialect, type TableSnapshot } from '@zmdb/sql';
 import type { FormatConfig } from 'oxfmt';
 
 import { sortWarnings, type CatalogWarning, type ReferentialAction } from '../introspect/common.js';
@@ -480,7 +480,7 @@ function renderTableFile(
     .toSorted((left, right) => left.interfaceName.localeCompare(right.interfaceName));
 
   const lines = header(dialect, version);
-  lines.push(`import type { ${[...emission.tags].toSorted().join(', ')} } from '@zmdb/schema-core/tags';`);
+  lines.push(`import type { ${[...emission.tags].toSorted().join(', ')} } from '@zmdb/schema/tags';`);
   for (const target of importedTargets) {
     lines.push(`import type { ${target.interfaceName} } from './${escapeTypeString(target.fileStem)}.js';`);
   }

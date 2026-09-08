@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import type { ToolSchema } from '@zmdb/ai';
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type ToolSchema } from '@zmdb/ai';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import { langchainTool, type LangChainToolFields, type ToolAdapterOptions } from './index.js';
 

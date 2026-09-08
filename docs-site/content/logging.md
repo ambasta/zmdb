@@ -3,7 +3,7 @@ There is no logger in zmdb — no `logger` option, no log levels, no output. Wha
 ## Logging queries
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 export function withLogging(inner: Driver, log: (e: object) => void): Driver {
   return {

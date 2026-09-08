@@ -5,7 +5,7 @@
 // is declared now; this file is the document. It re-exports them so the split is invisible
 // to anything that imported a schema from here.
 
-import { toJsonSchema, toOpenApiComponents, toListSchema, toSearchSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema, toOpenApiComponents, toListSchema, toSearchSchema } from '@zmdb/schema/openapi';
 
 import { OrderSchema, ProductSchema, ProfileSchema, UserSchema } from './openapi-model.ts';
 

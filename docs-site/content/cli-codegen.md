@@ -86,7 +86,7 @@ The rewrite is destructive: after compilation, the original type argument no lon
 renamed or deleted type therefore becomes a build error instead of leaving behind an ungrounded validator.
 
 The emitted helpers are untyped JavaScript, so they live in `.js`; the adjacent `.d.ts` carries their signatures. Generated runtime JavaScript imports only runtime helpers such as
-`@zmdb/aot-validator/errors` and `@zmdb/protobuf/wire`. It never imports `@zmdb/compiler`.
+`@zmdb/validator/errors` and `@zmdb/protobuf/wire`. It never imports `@zmdb/compiler`.
 
 ## Selecting files
 

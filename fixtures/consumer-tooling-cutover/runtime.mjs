@@ -6,9 +6,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 const role = process.argv[2];
 const manifest = name => JSON.parse(readFileSync(join('node_modules', name, 'package.json'), 'utf8'));
-const refuse = async specifiers => {
+const refuse = async (specifiers, code = 'ERR_PACKAGE_PATH_NOT_EXPORTED') => {
   for (const specifier of specifiers) {
-    await assert.rejects(import(specifier), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' }, specifier);
+    await assert.rejects(import(specifier), { code }, specifier);
   }
 };
 const result = { role };
@@ -106,12 +106,15 @@ if (role === 'compiler') {
   } finally {
     database.close();
   }
-  await refuse([
-    '@zmdb/query-compiler/introspect',
-    '@zmdb/query-compiler/migrations',
-    '@zmdb/query-compiler/migrations/embedded',
-    '@zmdb/query-compiler/migrations/runner',
-  ]);
+  await refuse(
+    [
+      '@zmdb/query-compiler/introspect',
+      '@zmdb/query-compiler/migrations',
+      '@zmdb/query-compiler/migrations/embedded',
+      '@zmdb/query-compiler/migrations/runner',
+    ],
+    'ERR_MODULE_NOT_FOUND',
+  );
   assert.equal(manifest('@zmdb/migrations').bin, undefined);
   result.freshEmbeddedExecution = true;
 } else if (role === 'cli') {
@@ -164,10 +167,10 @@ if (role === 'compiler') {
     },
   });
   for (const specifier of [
-    '@zmdb/schema-core',
-    '@zmdb/query-compiler',
-    '@zmdb/aot-validator',
-    '@zmdb/repository',
+    '@zmdb/schema',
+    '@zmdb/sql',
+    '@zmdb/validator',
+    '@zmdb/orm',
     '@zmdb/web',
     'zmdb',
     'zmdb/schema',
@@ -221,15 +224,18 @@ if (role === 'compiler') {
   assert.equal(Object.hasOwn(migrationFacade, 'runCli'), false);
   const cli = await import('@zmdb/cli');
   assert.equal((await import('zmdb/cli')).runCli, cli.runCli);
-  await refuse([
-    'zmdb/unplugin',
-    ...['codegen', 'emit', 'lint', 'metro', 'plugin', 'reflect', 'testing', 'transformer', 'unplugin'].map(
-      name => `@zmdb/aot-validator/${name}`,
-    ),
-    ...['introspect', 'migrations', 'migrations/embedded', 'migrations/runner'].map(
-      name => `@zmdb/query-compiler/${name}`,
-    ),
-  ]);
+  await refuse(['zmdb/unplugin']);
+  await refuse(
+    [
+      ...['codegen', 'emit', 'lint', 'metro', 'plugin', 'reflect', 'testing', 'transformer', 'unplugin'].map(
+        name => `@zmdb/aot-validator/${name}`,
+      ),
+      ...['introspect', 'migrations', 'migrations/embedded', 'migrations/runner'].map(
+        name => `@zmdb/query-compiler/${name}`,
+      ),
+    ],
+    'ERR_MODULE_NOT_FOUND',
+  );
   assert.equal(manifest('zmdb').bin, undefined);
   assert.equal(existsSync('node_modules/.bin/zmdb-codegen'), false);
   result.runtimeAndFacadeBoundary = true;

@@ -1,6 +1,6 @@
 # `@zmdb/web` — zmdb data-layer integration SPEC
 
-> Wire controllers to `@zmdb/repository` + schema-derived DTO validation (epic #277). Frozen before code.
+> Wire controllers to `@zmdb/orm` + schema-derived DTO validation (epic #277). Frozen before code.
 
 ## Contract
 

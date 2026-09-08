@@ -149,17 +149,14 @@ describe('runtime foundation boundary verifier (#636)', () => {
     expect(problems).toEqual([]);
   });
 
-  it('matches the owned live-tree exception registry', () => {
-    const output = execFileSync(process.execPath, [SCRIPT], { cwd: ROOT, encoding: 'utf8' });
+  it('has no remaining runtime foundation exception debt', () => {
+    const output = execFileSync(process.execPath, [SCRIPT, '--strict'], { cwd: ROOT, encoding: 'utf8' });
     const report = inspectRuntimeFoundation(ROOT, { architecture: ARCHITECTURE });
-    expect(report.findings).toHaveLength(77);
-    expect(output).toContain('77 owned exception record(s)');
-    expect(output).toContain(
-      `${String(report.findings.reduce((total, finding) => total + finding.count, 0))} measured occurrence(s)`,
-    );
+    expect(report.findings).toHaveLength(0);
+    expect(output).toContain('strict four-package DAG and hard cutover verified');
   });
 
-  it.fails('loads no compiler, formatter, provider, concrete external driver or CLI from foundation roots', () => {
+  it('loads no compiler, formatter, provider, concrete external driver or CLI from foundation roots', () => {
     const result = spawnSync(process.execPath, [SCRIPT, '--strict'], { cwd: ROOT, encoding: 'utf8' });
     expect(result.status, result.stderr).toBe(0);
   });

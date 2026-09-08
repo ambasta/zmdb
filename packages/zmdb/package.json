@@ -93,14 +93,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
     "@zmdb/cli": "workspace:1.0.0-alpha.4",
     "@zmdb/compiler": "workspace:1.0.0-alpha.4",
     "@zmdb/migrations": "workspace:1.0.0-alpha.4",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^",
-    "@zmdb/schema-core": "workspace:^",
+    "@zmdb/orm": "workspace:^",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/sql": "workspace:^",
+    "@zmdb/validator": "workspace:^",
     "@zmdb/web": "workspace:^",
     "esbuild": "^0.28.2",
     "oxfmt": "0.66.0"

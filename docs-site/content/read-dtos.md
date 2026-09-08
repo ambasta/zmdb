@@ -6,7 +6,8 @@ eliminating drift between your API contracts and database queries.
 Filter rows with column-level operators. Types are inferred from your schema.
 
 ```ts
-import { compileWhere, type WhereDTO } from '@zmdb/schema-core/dto';
+import { compileWhere } from '@zmdb/orm/dto';
+import { type WhereDTO } from '@zmdb/schema/dto';
 
 const where: WhereDTO<User> = {
   role: 'admin', // eq shorthand
@@ -31,7 +32,8 @@ SELECT * FROM "users" WHERE
 Specify columns and direction with compile-time type checking.
 
 ```ts
-import { applyOrderBy, type OrderByDTO } from '@zmdb/schema-core/dto';
+import { applyOrderBy } from '@zmdb/orm/dto';
+import { type OrderByDTO } from '@zmdb/schema/dto';
 
 const orderBy: OrderByDTO<User> = [
   { column: 'createdAt', dir: 'desc' },
@@ -46,7 +48,8 @@ const orderBy: OrderByDTO<User> = [
 Both offset and cursor-based pagination are supported.
 
 ```ts
-import { applyPagination, type PaginationDTO } from '@zmdb/schema-core/dto';
+import { applyPagination } from '@zmdb/orm/dto';
+import { type PaginationDTO } from '@zmdb/schema/dto';
 
 // Offset pagination
 const offsetPage = { limit: 20, offset: 40 };
@@ -75,7 +78,7 @@ const opts: GetOptions<User> = {
 Full-featured list queries with filtering, sorting, pagination.
 
 ```ts
-import { buildListResult, type ListResult } from '@zmdb/schema-core/dto';
+import { buildListResult, type ListResult } from '@zmdb/schema/dto';
 
 const listDto: ListDTO<User> = {
   where: { role: 'admin' },
@@ -95,7 +98,7 @@ const result = buildListResult(rows, { limit: 20 });
 Full-text search with ranking scores.
 
 ```ts
-import { buildSearchResult, type SearchResult } from '@zmdb/schema-core/dto';
+import { buildSearchResult, type SearchResult } from '@zmdb/schema/dto';
 
 const searchDto: SearchDTO<User> = {
   query: 'john smith',
@@ -113,7 +116,7 @@ const searchResult: SearchResult<User> = buildSearchResult(rows, { limit: 10 });
 Use `project()` to narrow row types at runtime.
 
 ```ts
-import { project } from '@zmdb/schema-core/dto';
+import { project } from '@zmdb/schema/dto';
 
 const row = { id: 1, email: 'a@b.com', role: 'admin' };
 const narrow = project(row, ['email', 'role'] as const);

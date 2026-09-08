@@ -27,7 +27,7 @@ The app type is `bigint`, TypeScript's own arbitrary-precision integer, and that
 `Serial` on an `integer` column becomes `SERIAL`. So declare the sequence:
 
 ```ts
-import { createSequenceDdl } from '@zmdb/query-compiler/schema-objects';
+import { createSequenceDdl } from '@zmdb/sql/schema-objects';
 
 createSequenceDdl({ name: 'events_id_seq', start: 1 }, 'postgres');
 ```

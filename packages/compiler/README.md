@@ -18,8 +18,8 @@ npm add -D @zmdb/compiler@alpha typescript@^7.0.2
 `@zmdb/compiler`, `@zmdb/compiler/config`, `@zmdb/compiler/emit`, `@zmdb/compiler/errors`, `@zmdb/compiler/lint`, `@zmdb/compiler/metro`, `@zmdb/compiler/reflect`, `@zmdb/compiler/testing`,
 `@zmdb/compiler/transform`, `@zmdb/compiler/unplugin`
 
-The root exports `compileProject` and `writeCompileResult`. Generated application JavaScript imports runtime helpers from the source's published runtime owner, such as `zmdb`, `@zmdb/aot-validator`,
-or `@zmdb/protobuf`; it never imports this package.
+The root exports `compileProject` and `writeCompileResult`. Generated application JavaScript imports runtime helpers from the source's published runtime owner, such as `zmdb`, `@zmdb/validator`, or
+`@zmdb/protobuf`; it never imports this package.
 
 TypeScript is a required peer. Oxlint, Metro, and Metro's Babel transformer are optional peers used only by the matching explicit subpaths.
 

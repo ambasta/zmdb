@@ -257,8 +257,8 @@ Two things about emit are not obvious:
 ## Verify after publish
 
 ```bash
-npm view @zmdb/schema-core version
-npm view @zmdb/repository dependencies
+npm view @zmdb/schema version
+npm view @zmdb/orm dependencies
 # provenance badge should appear on the package page (public repo + public pkg)
 ```
 

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { stringify } from '@zmdb/aot-validator/serialization';
+import { stringify } from '@zmdb/validator/serialization';
 import { describe, expect, it } from 'vitest';
 
 import { FixtureProject } from './emit/__testing__/project.js';
@@ -137,7 +137,7 @@ describe('@zmdb/compiler extraction', () => {
       const model = join(directory, 'src', 'model.ts');
       writeFileSync(
         model,
-        `import { is } from '@zmdb/aot-validator/utilities';
+        `import { is } from '@zmdb/validator';
 
 export interface User {
   readonly id: number;

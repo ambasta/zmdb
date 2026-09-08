@@ -4,7 +4,7 @@ Dialect: `'postgres'`. Neon is serverless Postgres with two access paths, and wh
 
 ```ts
 import { neon } from '@neondatabase/serverless';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const sql = neon(requireEnv('DATABASE_URL'));
 

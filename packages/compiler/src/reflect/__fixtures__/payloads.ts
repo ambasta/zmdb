@@ -9,7 +9,7 @@
 // `payload` is a declaration, not a function. Nothing here runs; the spec reads the type
 // argument off the call site and never evaluates the file.
 
-import type { CreateDTO, Entity, UpdateDTO } from '@zmdb/schema-core/derive';
+import { type CreateDTO, type Entity, type UpdateDTO } from '@zmdb/schema/derive';
 
 import type { Membership, User } from './tables.js';
 

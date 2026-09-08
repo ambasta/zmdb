@@ -158,7 +158,7 @@ errors also explain the `.js`-specifier case.
 
 ## Validation
 
-Plain data is checked by a generated `@zmdb/aot-validator` validator. Errors name the field, including nested paths such as `introspect.include`.
+Plain data is checked by a generated `@zmdb/validator` validator. Errors name the field, including nested paths such as `introspect.include`.
 
 Functions and imported dialect objects cannot be validated as plain data. The loader separates those runtime boundaries and checks them explicitly:
 

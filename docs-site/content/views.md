@@ -6,10 +6,10 @@ complex joins, aggregations, or exposing a simplified API over normalized data.
 
 ## Creating a Simple View
 
-Use `createViewDdl` from `@zmdb/query-compiler/schema-objects` to generate the DDL for a view. The function accepts a `ViewDef` with the view name and SELECT query.
+Use `createViewDdl` from `@zmdb/sql/schema-objects` to generate the DDL for a view. The function accepts a `ViewDef` with the view name and SELECT query.
 
 ```ts
-import { createViewDdl } from '@zmdb/query-compiler/schema-objects';
+import { createViewDdl } from '@zmdb/sql/schema-objects';
 
 const viewDef = {
   name: 'user_with_post_count',
@@ -35,7 +35,7 @@ Materialized views store the result of the query physically on disk, making them
 supported dialect.
 
 ```ts
-import { createViewDdl, UnsupportedFeatureError } from '@zmdb/query-compiler/schema-objects';
+import { createViewDdl, UnsupportedFeatureError } from '@zmdb/sql/schema-objects';
 
 // Only works on PostgreSQL
 const materializedDef = {
@@ -64,7 +64,7 @@ CREATE MATERIALIZED VIEW "sales_summary" AS SELECT region, SUM(amount) AS total_
 When migrating, you may need to drop existing views before recreating them. Use `dropViewDdl` for this.
 
 ```ts
-import { dropViewDdl } from '@zmdb/query-compiler/schema-objects';
+import { dropViewDdl } from '@zmdb/sql/schema-objects';
 
 const dropDdl = dropViewDdl('user_with_post_count', 'postgres');
 console.log(dropDdl);
@@ -79,7 +79,7 @@ DROP VIEW IF EXISTS "user_with_post_count"
 Once a view exists in your database, you can query it like a regular table using zmdb's query compiler. The view's columns become available through standard SELECT operations.
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);

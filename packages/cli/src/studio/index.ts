@@ -1,10 +1,10 @@
-import { createQueryCompiler, type DialectTarget, type SelectBuilder } from '@zmdb/query-compiler';
-import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
-import type { Driver } from '@zmdb/repository';
-import { isRecord, type CoreSchema } from '@zmdb/schema-core';
-import type { ColumnIR } from '@zmdb/schema-core/ir';
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
-import { resolveRelation, type ResolvedRelation } from '@zmdb/schema-core/relations';
+import { type Driver } from '@zmdb/orm';
+import { isRecord, type CoreSchema } from '@zmdb/schema';
+import { type ColumnIR } from '@zmdb/schema/ir';
+import { toJsonSchema } from '@zmdb/schema/openapi';
+import { resolveRelation, type ResolvedRelation } from '@zmdb/schema/relations';
+import { createQueryCompiler, type DialectTarget, type SelectBuilder } from '@zmdb/sql';
+import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/sql/aggregations';
 import { Controller, createRouter, Get, respond, type Ctx, type QueryValues, type WebResponse } from '@zmdb/web';
 
 const DEFAULT_PAGE_SIZE = 25;

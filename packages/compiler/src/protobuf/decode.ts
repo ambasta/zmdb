@@ -4,7 +4,7 @@
 // switch directly on known field numbers. The runtime reader owns byte bounds and wire
 // primitives only; no descriptor or property table reaches the application.
 
-import type { ObjectIR, PropertyIR, ProtoScalar, ScalarIR, TypeIR } from '@zmdb/schema-core/ir';
+import { type ObjectIR, type PropertyIR, type ProtoScalar, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
 
 export interface ProtoDecodeDiagnostic {
   readonly path: string;

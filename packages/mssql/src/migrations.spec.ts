@@ -1,4 +1,4 @@
-import type { MigrationDriver } from '@zmdb/query-compiler';
+import { type MigrationDriver } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import { mssql } from './index.js';

@@ -79,7 +79,7 @@ fallback to `id` is not used to guess part of a composite key.
 `resolveRelation` is exported if you need the answer yourself:
 
 ```ts
-import { resolveRelation } from '@zmdb/schema-core/relations';
+import { resolveRelation } from '@zmdb/schema/relations';
 
 resolveRelation(PostSchema.ir, 'author');
 // { name: 'author', targetTable: 'users', parentKey: ['userId'], targetKey: ['id'], toMany: false }
@@ -92,7 +92,7 @@ An unknown name throws and lists the relations the type does declare.
 `compilePopulate` generates the SQL: a to-one is a JOIN, a to-many a batched scalar or tuple `IN ()` select.
 
 ```ts
-import { compilePopulate } from '@zmdb/schema-core/relations';
+import { compilePopulate } from '@zmdb/orm/relations';
 
 const query = compilePopulate(UserSchema.ir, 'posts', 'postgres', [1, 2, 3]);
 // query.kind: 'batched'
@@ -123,7 +123,7 @@ The repository builds the equivalent schema map once at construction and uses it
 `attachPopulated` merges related entities into the parent result. Non-mutating.
 
 ```ts
-import { attachPopulated } from '@zmdb/schema-core/relations';
+import { attachPopulated } from '@zmdb/orm/relations';
 
 const user = { id: 1, email: 'user@example.com' };
 const posts = [{ id: 1, userId: 1, title: 'First Post' }];
@@ -138,7 +138,7 @@ const userWithPosts = attachPopulated(user, 'posts', posts);
 `JoinRow` types handle inner vs left joins:
 
 ```ts
-import type { JoinRow } from '@zmdb/schema-core/relations';
+import { type JoinRow } from '@zmdb/orm/relations';
 
 type UserPostInner = JoinRow<Entity<User>, Entity<Post>, 'inner'>;
 // All columns present

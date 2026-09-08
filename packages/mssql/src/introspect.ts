@@ -11,7 +11,7 @@ import {
   type CatalogWarning,
   type ReferentialAction,
 } from '@zmdb/migrations/introspect/runtime';
-import type { CompiledQuery, IntrospectionDriver, Introspector, IntrospectOptions } from '@zmdb/query-compiler';
+import { type CompiledQuery, type IntrospectionDriver, type Introspector, type IntrospectOptions } from '@zmdb/sql';
 
 export interface MssqlIdentity {
   readonly seed: string;

@@ -1,6 +1,6 @@
+import { type DatabaseVertical, type TransactionalDriver } from '@zmdb/orm';
 import { postgres, postgresFamilyDriver, type PgConnection, type PgOptions, type PgQueryable } from '@zmdb/postgres';
-import { extendSqlDialect, UnsupportedFeatureError, type SqlDialect } from '@zmdb/query-compiler';
-import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
+import { extendSqlDialect, UnsupportedFeatureError, type SqlDialect } from '@zmdb/sql';
 
 import { cockroachIntrospector } from './introspect.js';
 import { COCKROACH_TYPE_OVERRIDES, cockroachMigrations } from './migrations.js';

@@ -1,4 +1,4 @@
-import type { SqlDialect } from '@zmdb/query-compiler';
+import { type SqlDialect } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import type { ColumnSnapshot, SchemaSnapshot, TableSnapshot } from '../index.js';
@@ -185,7 +185,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
     const document = result.files.find(file => file.path === 'documents.ts');
     if (!document) throw new Error('emitter produced no documents.ts');
 
-    expect(document.source).toContain("import type { Ext, Table } from '@zmdb/schema-core/tags';");
+    expect(document.source).toContain("import type { Ext, Table } from '@zmdb/schema/tags';");
     expect(document.source).toContain("embedding: readonly number[] & Ext<'vector', 'vector', [3]>;");
     expect(document.source).toContain("handle: (string & Ext<'citext', 'citext'>) | null;");
     expect(result.warnings).toEqual([]);

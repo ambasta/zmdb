@@ -96,7 +96,7 @@ describe('with a project', () => {
 
   it('inlines `assert<T>` to a throw against the real error class', () => {
     const code = apply(hook, 'const v = assert<User>(input);\n');
-    expect(code).toContain('from "@zmdb/aot-validator/errors"');
+    expect(code).toContain('from "@zmdb/validator/errors"');
     expect(code).toContain('throw new _zmdbAssertError(');
   });
 

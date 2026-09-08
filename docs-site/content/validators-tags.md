@@ -2,7 +2,7 @@ There are **two** things called tags, and this page is mostly about telling them
 
 - **Type tags** — `Min<N>`, `Max<N>`, `MinLength<N>`, `MaxLength<N>`, `Pattern<S>`, `Rule<'…'>` from `zmdb/tags`. These go on a column in a declaration. They are types; they erase. This is what you
   want almost always, and the [Tag Reference](./tags-reference.html) is their home.
-- **Rule values** — `tags.Min(18)` from `@zmdb/aot-validator`. Runtime objects for a one-off check against a bare value that is not part of any table.
+- **Rule values** — `tags.Min(18)` from `@zmdb/validator`. Runtime objects for a one-off check against a bare value that is not part of any table.
 
 They have the same names because they mean the same constraints. They are not interchangeable: one is a type argument, the other is a function call.
 
@@ -30,10 +30,10 @@ Note what `role` does _not_ have: there is no `Enum` type tag, because a literal
 
 ## Rule values, for a value with no table
 
-The `@zmdb/aot-validator` package exports a `tags` object of rule constructors:
+The `@zmdb/validator` package exports a `tags` object of rule constructors:
 
 ```ts
-import { tags } from '@zmdb/aot-validator';
+import { tags } from '@zmdb/validator';
 
 tags.Min(18); // number >= 18
 tags.Max(100); // number <= 100
@@ -47,15 +47,15 @@ tags.Enum('admin', 'user', 'guest'); // one of these values
 
 This is the one thing to get right about tags. The package exports **two** different `validate` functions from two entry points, and they take their arguments in opposite orders:
 
-| Import                          | Signature                                      | Returns                       |
-| ------------------------------- | ---------------------------------------------- | ----------------------------- |
-| `@zmdb/aot-validator`           | `validate(rule: Rule, value: unknown)`         | `boolean`                     |
-| `@zmdb/aot-validator/utilities` | `validate<T>(value: unknown, schema?: TypeIR)` | `{ success, data?, errors? }` |
+| Import            | Signature                                      | Returns                       |
+| ----------------- | ---------------------------------------------- | ----------------------------- |
+| `@zmdb/validator` | `validate(rule: Rule, value: unknown)`         | `boolean`                     |
+| `@zmdb/validator` | `validate<T>(value: unknown, schema?: TypeIR)` | `{ success, data?, errors? }` |
 
 **The root one is the tag evaluator** — it takes a single tag and a value, and it is the call the AOT transformer rewrites into an inline boolean:
 
 ```ts
-import { tags, validate } from '@zmdb/aot-validator';
+import { tags, validateRule as validate } from '@zmdb/validator';
 
 validate(tags.Min(18), 21); // true
 validate(tags.MaxLength(5), 'too long'); // false
@@ -68,7 +68,7 @@ no rule object at runtime. That rewrite is the reason the argument order is rule
 **The `utilities` one is the whole-value validator.** It takes a type argument, not tags, and gives you a result object instead of a boolean:
 
 ```ts
-import { validate } from '@zmdb/aot-validator/utilities';
+import { validate } from '@zmdb/validator';
 
 validate<Age>(25);
 validate<CreateDTO<User>>(body);

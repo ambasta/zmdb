@@ -4,8 +4,8 @@
 
 ## Issue #629 ownership extraction
 
-Snapshot/diff/DDL planning and execution now live in `@zmdb/migrations`, with stable `./embedded` and `./runner` subpaths. They are schema lifecycle, not hot-path SQL. `@zmdb/query-compiler` exposes
-only the SQL and dialect contracts migrations consumes and does not import back.
+Snapshot/diff/DDL planning and execution now live in `@zmdb/migrations`, with stable `./embedded` and `./runner` subpaths. They are schema lifecycle, not hot-path SQL. `@zmdb/sql` exposes only the SQL
+and dialect contracts migrations consumes and does not import back.
 
 ## 1. Snapshot format (deterministic)
 
@@ -532,7 +532,7 @@ export interface EmbeddedConnection {
 export declare function runEmbedded(conn: EmbeddedConnection, migrations: readonly EmbeddedMigration[]): Promise<readonly number[]>; // the versions applied, in order
 ```
 
-The issue proposes `runEmbedded(driver: Driver, …)`. `Driver` is declared in `@zmdb/repository`, which _depends on_ this package, so naming it here inverts a dependency edge — `MigrationDriver` in
+The issue proposes `runEmbedded(driver: Driver, …)`. `Driver` is declared in `@zmdb/orm`, which _depends on_ this package, so naming it here inverts a dependency edge — `MigrationDriver` in
 `runner.ts` exists for exactly that reason. But the embedded runner does not take that either, and the reason is §5.5: `MigrationDriver.execute` takes a `CompiledQuery`, which means a compiler, and
 the whole point of the embedded entry point is that it imports nothing.
 
@@ -781,7 +781,7 @@ Every generic schema-lifecycle cell in §7.2 is owned by `@zmdb/migrations`. Dat
 - ledger ordering, checksums, status and rollback live at `@zmdb/migrations/runner`;
 - embedded migration data and the generic application/checksum algorithm live at `@zmdb/migrations/embedded`;
 - database packages supply database-specific DDL and catalog behavior through public protocols, while `@zmdb/sqlite/embedded` delegates to the byte-compatible generic embedded leaf; and
-- schema-object migration operation types live with the migration plan, while ordinary query schema-object helpers stay in `@zmdb/query-compiler/schema-objects`.
+- schema-object migration operation types live with the migration plan, while ordinary query schema-object helpers stay in `@zmdb/sql/schema-objects`.
 
-The embedded entry remains filesystem-free and does not import another migrations barrel. The old `@zmdb/query-compiler/migrations`, `/runner` and `/embedded` subpaths do not resolve, and the
-query-compiler manifest has no `oxfmt` dependency.
+The embedded entry remains filesystem-free and does not import another migrations barrel. The old `@zmdb/sql/migrations`, `/runner` and `/embedded` subpaths do not resolve, and the query-compiler
+manifest has no `oxfmt` dependency.

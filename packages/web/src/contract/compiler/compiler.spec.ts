@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { apiInstanceCount, ReflectSession } from '@zmdb/compiler/reflect';
-import { jsonSchemaFromTypeIR } from '@zmdb/schema-core/ir';
+import { jsonSchemaFromTypeIR } from '@zmdb/schema/ir';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createRouter } from '../../pipeline/index.js';

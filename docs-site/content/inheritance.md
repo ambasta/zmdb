@@ -6,8 +6,8 @@ runtime.
 Store all subtypes in one table with a discriminator column. Each subtype has a subset of columns that apply to it.
 
 ```ts
-import { rowToSubtype, discriminatorFor } from '@zmdb/repository/entity-modeling';
-import { assert } from '@zmdb/aot-validator/utilities';
+import { rowToSubtype, discriminatorFor } from '@zmdb/schema/entity-modeling';
+import { assert } from '@zmdb/validator';
 import { schemaOf } from 'zmdb';
 import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
@@ -77,7 +77,7 @@ CREATE TABLE "events" (
 Use `discriminatorFor` to generate the correct discriminator value for a subtype.
 
 ```ts
-import { discriminatorFor } from '@zmdb/repository/entity-modeling';
+import { discriminatorFor } from '@zmdb/schema/entity-modeling';
 
 const disc = discriminatorFor(sti, 'concert');
 // disc => 'concert'
@@ -96,7 +96,7 @@ async function createConcert(data: Omit<Concert, 'type'>) {
 Query the base table and filter by discriminator to get specific subtypes.
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);

@@ -1,7 +1,7 @@
 // Compile-only contract for @zmdb/ai's root provider-document surface.
 
-import type { CoreSchema, Equal, Expect } from '@zmdb/schema-core';
-import type { JsonSchemaObject } from '@zmdb/schema-core/openapi';
+import { type CoreSchema, type Equal, type Expect } from '@zmdb/schema';
+import { type JsonSchemaObject } from '@zmdb/schema/openapi';
 
 import { toolFor, type ToolProvider, type ToolSpec, type ToolSpecFor } from './index.js';
 

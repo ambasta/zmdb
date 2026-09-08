@@ -13,10 +13,10 @@
 // one declaration, which is why it lives in the umbrella package — the one that depends on
 // all of them.
 
-import { issuesFor } from '@zmdb/aot-validator/utilities';
 import { schemaIrsFrom } from '@zmdb/compiler/testing';
 import { emitUp, snapshot, type ChangeOp } from '@zmdb/migrations';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
+import { issuesFor } from '@zmdb/validator';
 import { describe, expect, it } from 'vitest';
 
 import {

@@ -4,7 +4,7 @@
 does not install an SDK or make a network request.
 
 It is part of [zmdb](https://github.com/ambasta/zmdb). The root, chat, HTTP, compiler, and tool-runtime entry points are physically owned by this package. The dependency direction is `@zmdb/ai` →
-`@zmdb/schema-core`; schema-core never imports or re-exports this package.
+`@zmdb/schema`; schema-core never imports or re-exports this package.
 
 ## Install
 
@@ -22,7 +22,7 @@ npm add @zmdb/ai@alpha
 - OpenAPI-derived tools and allowlisted callers: `@zmdb/ai/http`
 - Shared invocation machinery for integrations: `@zmdb/ai/tool-runtime`
 
-The only runtime dependency is `@zmdb/schema-core`. This package has no external dependency or peer dependency, and does not export Anthropic, LangChain, Vercel AI SDK, or MCP integrations.
+The only runtime dependency is `@zmdb/schema`. This package has no external dependency or peer dependency, and does not export Anthropic, LangChain, Vercel AI SDK, or MCP integrations.
 
 ## Optional integrations
 
@@ -36,16 +36,16 @@ MCP SDK.
 
 ## Migrating from schema-core
 
-There are no compatibility aliases in `@zmdb/schema-core`. Replace every removed subpath from that package directly:
+There are no compatibility aliases in `@zmdb/schema`. Replace every removed subpath from that package directly:
 
-| Removed schema-core subpath | Final import                                                                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/llm`                      | `@zmdb/ai` for tool APIs; `@zmdb/schema-core/openapi` for `toJsonSchema`; use the explicit chat, HTTP, and MCP entries below for former star exports |
-| `/llm/chat`                 | `@zmdb/ai/chat`; `anthropicDriver` and its types move to `@zmdb/ai-anthropic`                                                                        |
-| `/llm/http`                 | `@zmdb/ai/http`                                                                                                                                      |
-| `/llm/langchain`            | `@zmdb/ai-langchain`                                                                                                                                 |
-| `/llm/ai-sdk`               | `@zmdb/ai-vercel`                                                                                                                                    |
-| `/llm/mcp`                  | `@zmdb/mcp`                                                                                                                                          |
+| Removed schema-core subpath | Final import                                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/llm`                      | `@zmdb/ai` for tool APIs; `@zmdb/schema/openapi` for `toJsonSchema`; use the explicit chat, HTTP, and MCP entries below for former star exports |
+| `/llm/chat`                 | `@zmdb/ai/chat`; `anthropicDriver` and its types move to `@zmdb/ai-anthropic`                                                                   |
+| `/llm/http`                 | `@zmdb/ai/http`                                                                                                                                 |
+| `/llm/langchain`            | `@zmdb/ai-langchain`                                                                                                                            |
+| `/llm/ai-sdk`               | `@zmdb/ai-vercel`                                                                                                                               |
+| `/llm/mcp`                  | `@zmdb/mcp`                                                                                                                                     |
 
 ## Documentation
 

@@ -1,4 +1,4 @@
-import type { CommentKey, CommentKeys, CommentPairs, QueryTelemetry } from '@zmdb/query-compiler';
+import { type CommentKey, type CommentKeys, type CommentPairs, type QueryTelemetry } from '@zmdb/sql';
 
 /** Scalar attributes accepted by the framework's telemetry ports. */
 export type Attributes = Readonly<Record<string, string | number | boolean>>;

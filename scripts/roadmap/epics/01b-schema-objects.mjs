@@ -7,10 +7,10 @@ export const SCHEMA_OBJECT_EPICS = [
     title: '[EPIC] Database extensions and extension-backed column types (vector, geometry, citext)',
     labels: ['enhancement', 'area:schema', 'area:dialects'],
     pages: ['db-extensions', 'guide-vector-search', 'guide-postgis'],
-    packages: ['@zmdb/schema-core', '@zmdb/query-compiler'],
+    packages: ['@zmdb/schema', '@zmdb/sql'],
     motivation: `
-\`SqlType\` is a closed union of eleven types (packages/schema-core/src/index.ts:21) and \`ddlType\`
-resolves a column through \`DDL_TYPES[dialect][col.type]\` (packages/query-compiler/src/migrations/index.ts:197).
+\`SqlType\` is a closed union of eleven types (packages/schema/src/index.ts:21) and \`ddlType\`
+resolves a column through \`DDL_TYPES[dialect][col.type]\` (packages/sql/src/migrations/index.ts:197).
 Both are the right design for a fixed vocabulary and both make \`vector(1536)\`, \`geometry(Point,4326)\`
 and \`citext\` unreachable: there is no name for them and no DDL mapping to give them.
 
@@ -22,7 +22,7 @@ for the most common thing people build in 2026.
 There are two halves and they are separable. The first is \`CREATE EXTENSION IF NOT EXISTS\` as a
 first-class migration object, ordered before anything that uses it. The second is a way for a column
 to have a type the core vocabulary does not enumerate — which is a decision about whether \`SqlType\`
-stays closed. \`packages/schema-core/src/custom-types\` already handles the *value* half of a custom
+stays closed. \`packages/schema/src/custom-types\` already handles the *value* half of a custom
 type (\`CustomType<Wire, TS, DB>\` with encode/decode), so the missing piece is specifically the DDL
 type and the operator surface, not serialisation.
 `,
@@ -64,9 +64,9 @@ takes two parameters of different kinds. Deciding this before implementation is 
 \`params: string[]\` field that becomes a dumping ground.
 `,
         files: [
-          '`packages/schema-core/src/ir/SPEC.md` — the extension-type vocabulary and its IR carriage.',
-          '`packages/query-compiler/src/schema-objects/SPEC.md` — extensions as objects, and their ordering.',
-          '`packages/query-compiler/src/SPEC.md` — the operator additions.',
+          '`packages/schema/src/ir/SPEC.md` — the extension-type vocabulary and its IR carriage.',
+          '`packages/sql/src/schema-objects/SPEC.md` — extensions as objects, and their ordering.',
+          '`packages/sql/src/SPEC.md` — the operator additions.',
         ],
         api: `
 /** An extension-backed column type, kept out of the closed \`SqlType\` union. */
@@ -110,10 +110,10 @@ export interface ExtensionDef {
         blockedBy: ['spec'],
         goal: 'Land failing tests for extension DDL and ordering, parameterised type rendering, distance operators in `orderBy` and projections, vector index DDL, the derived types, and every refusal.',
         files: [
-          '`packages/query-compiler/src/migrations/migrations.spec.ts`',
-          '`packages/query-compiler/src/schema-objects/schema-objects.spec.ts`',
-          '`packages/query-compiler/src/query-compiler.spec.ts` — operators.',
-          '`packages/schema-core/src/schema-core.spec.ts` and `json.type-test.ts` — derived types.',
+          '`packages/sql/src/migrations/migrations.spec.ts`',
+          '`packages/sql/src/schema-objects/schema-objects.spec.ts`',
+          '`packages/sql/src/query-compiler.spec.ts` — operators.',
+          '`packages/schema/src/schema-core.spec.ts` and `json.type-test.ts` — derived types.',
         ],
         tests: [
           '`emits CREATE EXTENSION IF NOT EXISTS before any table that uses it` — asserts the statement order, not just presence.',
@@ -144,9 +144,9 @@ export interface ExtensionDef {
         blockedBy: ['tests'],
         goal: 'Implement `ExtensionDef` as a schema object with ordered emission, and teach the type resolution path to render an `ExtensionType` with its parameters — keeping `DDL_TYPES` exhaustively checked for the closed union.',
         files: [
-          '`packages/query-compiler/src/schema-objects/index.ts` — `ExtensionDef`, `createExtensionDdl`.',
-          '`packages/query-compiler/src/migrations/index.ts` — `ColumnSnapshot.type` widening, `ddlType`, `emitUp` ordering, `diff`.',
-          '`packages/schema-core/src/ir/index.ts` and `src/tags/index.ts` — the `Ext` tag and its IR carriage.',
+          '`packages/sql/src/schema-objects/index.ts` — `ExtensionDef`, `createExtensionDdl`.',
+          '`packages/sql/src/migrations/index.ts` — `ColumnSnapshot.type` widening, `ddlType`, `emitUp` ordering, `diff`.',
+          '`packages/schema/src/ir/index.ts` and `src/tags/index.ts` — the `Ext` tag and its IR carriage.',
           '`packages/compiler/src/reflect/index.ts` — read the tag.',
         ],
         steps: [
@@ -177,9 +177,9 @@ export interface ExtensionDef {
         goal: 'Add the pgvector distance operators and the PostGIS predicates the guides need, as a closed enum reachable from `orderBy`, `where` and projections, with every operand parameterised.',
         why: 'This is the security-sensitive slice. The existing operator allowlist has already had a prototype-pollution-shaped bug (#364); adding operators to it, plus a function-call surface, is exactly where that class of bug returns.',
         files: [
-          '`packages/query-compiler/src/index.ts` — the where/orderBy/projection compilers.',
-          '`packages/query-compiler/src/operators/index.ts` (or wherever the allowlist lives).',
-          '`packages/query-compiler/src/functions/index.ts` (new, if spatial predicates need a function surface).',
+          '`packages/sql/src/index.ts` — the where/orderBy/projection compilers.',
+          '`packages/sql/src/operators/index.ts` (or wherever the allowlist lives).',
+          '`packages/sql/src/functions/index.ts` (new, if spatial predicates need a function surface).',
         ],
         api: `
 export type DistanceOp = 'l2' | 'cosine' | 'innerProduct';
@@ -237,7 +237,7 @@ export function stDWithin(column: string, point: GeoPoint, metres: number): Wher
     title: '[EPIC] Introspection — the DDL-to-declaration direction',
     labels: ['enhancement', 'area:schema', 'area:cli', 'parity:drizzle', 'parity:mikro-orm'],
     pages: ['schema-first'],
-    packages: ['@zmdb/query-compiler', '@zmdb/schema-core'],
+    packages: ['@zmdb/sql', '@zmdb/schema'],
     motivation: `
 zmdb only runs one way. A declaration becomes a snapshot, a snapshot becomes DDL, and there is no
 path back — the \`schema-first\` page says it outright: "schema objects are the only source of truth,
@@ -285,8 +285,8 @@ introspect the real database, compare it to the declarations, and fail on a diff
         goal: "Freeze what is read from each dialect's catalog, how each database type maps back to a `SqlType` and an app type, what the emitted declaration looks like, and what happens to anything unrepresentable. No code.",
         why: 'The reverse type mapping is not the forward one inverted. Forward, `Sql<\'text\'>` becomes `TEXT`; backward, Postgres reports `character varying`, `varchar`, `text`, `citext` and a dozen aliases, several of which map to the same `SqlType` and one of which (a domain type, or an enum) maps to none. A spec that says "map the type back" will produce an emitter that widens the awkward cases to `unknown` and calls it success.',
         files: [
-          '`packages/query-compiler/src/introspect/SPEC.md` (new)',
-          "`packages/schema-core/src/ir/SPEC.md` — the declaration emitter's output shape.",
+          '`packages/sql/src/introspect/SPEC.md` (new)',
+          "`packages/schema/src/ir/SPEC.md` — the declaration emitter's output shape.",
         ],
         api: `
 export interface Introspector {
@@ -332,10 +332,10 @@ export declare function emitDeclarations(snapshot: SchemaSnapshot, opts?: EmitOp
         goal: 'Land failing tests driven by real databases where possible: sqlite via `node:sqlite` in-process, Postgres against the benchmark harness container when available, and recorded catalog fixtures for MySQL.',
         why: 'Introspection is the one feature that cannot be honestly tested against a fake. A hand-written fixture of what we *think* `information_schema` returns tests our assumption, not the database. The repo already runs real sqlite E2E and a real Postgres benchmark, so real testing is established practice here.',
         files: [
-          '`packages/query-compiler/src/introspect/introspect.spec.ts` (new) — sqlite, real.',
-          '`packages/query-compiler/src/introspect/postgres.spec.ts` (new) — gated on a reachable server.',
-          '`packages/query-compiler/src/introspect/__fixtures__/` — recorded catalog rows for MySQL, captured from a real server and annotated with when and from what version.',
-          '`packages/query-compiler/src/introspect/emit.spec.ts` (new) — declaration emission snapshots.',
+          '`packages/sql/src/introspect/introspect.spec.ts` (new) — sqlite, real.',
+          '`packages/sql/src/introspect/postgres.spec.ts` (new) — gated on a reachable server.',
+          '`packages/sql/src/introspect/__fixtures__/` — recorded catalog rows for MySQL, captured from a real server and annotated with when and from what version.',
+          '`packages/sql/src/introspect/emit.spec.ts` (new) — declaration emission snapshots.',
         ],
         tests: [
           '`reads tables, columns, nullability and primary keys from a real sqlite database`.',
@@ -369,8 +369,8 @@ export declare function emitDeclarations(snapshot: SchemaSnapshot, opts?: EmitOp
         blockedBy: ['tests'],
         goal: 'Implement the three catalog readers, producing the same `SchemaSnapshot` the declaration path produces, with catalog rows validated rather than asserted.',
         files: [
-          '`packages/query-compiler/src/introspect/index.ts` (new) — the `Introspector` interface and dispatch.',
-          '`packages/query-compiler/src/introspect/postgres.ts`, `mysql.ts`, `sqlite.ts` (new)',
+          '`packages/sql/src/introspect/index.ts` (new) — the `Introspector` interface and dispatch.',
+          '`packages/sql/src/introspect/postgres.ts`, `mysql.ts`, `sqlite.ts` (new)',
         ],
         steps: [
           'Query the catalog through the ordinary compiled-query path with bound parameters. A catalog query built by string concatenation over a caller-supplied schema name is an injection in a tool people will point at production.',
@@ -399,8 +399,8 @@ export declare function emitDeclarations(snapshot: SchemaSnapshot, opts?: EmitOp
         goal: 'Turn a snapshot into declaration source: interfaces with tags, deterministic ordering, formatted output, and warnings for anything unrepresentable.',
         why: 'This is the artefact users actually want, and it is generated code humans will read and check in. Determinism and formatting are therefore functional requirements, not polish: a generator whose output reorders between runs makes every regeneration a review burden and eventually gets run once and hand-edited.',
         files: [
-          '`packages/query-compiler/src/introspect/emit.ts` (new)',
-          '`packages/schema-core/src/naming/index.ts` — the inverse naming (physical → property), if the naming epic has landed.',
+          '`packages/sql/src/introspect/emit.ts` (new)',
+          '`packages/schema/src/naming/index.ts` — the inverse naming (physical → property), if the naming epic has landed.',
         ],
         steps: [
           "Emit one interface per table extending `Table<'physical_name'>`, with the property name from the inverse naming strategy and the physical name preserved so the round trip holds.",
@@ -432,8 +432,8 @@ export declare function emitDeclarations(snapshot: SchemaSnapshot, opts?: EmitOp
         goal: 'Ship a comparison that reports differences in both directions between an introspected snapshot and the declared one, with an exit status suitable for CI.',
         why: 'This is the payoff that only zmdb can offer: because declarations are types and introspection produces the same snapshot format, drift is a diff rather than a research project. It also turns the adoption story from "generate once and hope" into "generate, then keep it honest".',
         files: [
-          '`packages/query-compiler/src/introspect/drift.ts` (new)',
-          '`packages/query-compiler/src/migrations/index.ts` — reuse `diff`, do not write a second comparator.',
+          '`packages/sql/src/introspect/drift.ts` (new)',
+          '`packages/sql/src/migrations/index.ts` — reuse `diff`, do not write a second comparator.',
         ],
         api: `
 export interface DriftReport {
@@ -490,7 +490,7 @@ export declare function detectDrift(live: SchemaSnapshot, declared: SchemaSnapsh
     title: '[EPIC] Stored procedures and functions — DDL and a typed call site',
     labels: ['enhancement', 'area:schema'],
     pages: ['stored-routines'],
-    packages: ['@zmdb/query-compiler', '@zmdb/repository'],
+    packages: ['@zmdb/sql', '@zmdb/orm'],
     motivation: `
 There is no procedure or function DDL emitter and no typed way to call one. For a team whose business
 logic already lives in the database — which is most teams with a database older than their current
@@ -531,10 +531,7 @@ on the first.
         labels: ['spec'],
         goal: 'Freeze the routine object, its per-dialect DDL including quoting and replace semantics, the diff behaviour for an opaque body, and the typed call surface. No code.',
         why: 'The dialects differ more here than anywhere else in the roadmap: Postgres has `CREATE OR REPLACE FUNCTION` with dollar-quoted bodies and a language clause; MySQL has no `OR REPLACE`, requires `DROP` first, and its client protocol needs `DELIMITER` handling for a body containing semicolons; SQLite has no stored routines at all. One emitter cannot be written from a description that glosses these.',
-        files: [
-          '`packages/query-compiler/src/schema-objects/SPEC.md` — routines.',
-          '`packages/repository/SPEC.md` — the call surface.',
-        ],
+        files: ['`packages/sql/src/schema-objects/SPEC.md` — routines.', '`packages/orm/SPEC.md` — the call surface.'],
         api: `
 export interface RoutineDef {
   readonly kind: 'function' | 'procedure';
@@ -574,9 +571,9 @@ export declare function callProcedure<Args extends readonly unknown[]>(name: str
         blockedBy: ['spec'],
         goal: 'Land failing tests for routine DDL in both supported dialects, the quoting edge cases, the body diff, the typed call SQL, argument validation and the SQLite refusal.',
         files: [
-          '`packages/query-compiler/src/schema-objects/schema-objects.spec.ts`',
-          '`packages/query-compiler/src/migrations/migrations.spec.ts` — body diff.',
-          '`packages/repository/src/repository.spec.ts` — the call surface.',
+          '`packages/sql/src/schema-objects/schema-objects.spec.ts`',
+          '`packages/sql/src/migrations/migrations.spec.ts` — body diff.',
+          '`packages/orm/src/repository.spec.ts` — the call surface.',
         ],
         tests: [
           '`emits CREATE OR REPLACE FUNCTION with a dollar-quoted body` — full statement.',
@@ -607,8 +604,8 @@ export declare function callProcedure<Args extends readonly unknown[]>(name: str
         blockedBy: ['tests'],
         goal: 'Emit routine DDL for Postgres and MySQL with correct quoting and replace semantics, snapshot routine definitions, diff bodies, and refuse on SQLite.',
         files: [
-          '`packages/query-compiler/src/schema-objects/index.ts` — `RoutineDef`, `createRoutineDdl`, `dropRoutineDdl`.',
-          '`packages/query-compiler/src/migrations/index.ts` — routine carriage in the snapshot, diff and emit ordering.',
+          '`packages/sql/src/schema-objects/index.ts` — `RoutineDef`, `createRoutineDdl`, `dropRoutineDdl`.',
+          '`packages/sql/src/migrations/index.ts` — routine carriage in the snapshot, diff and emit ordering.',
         ],
         steps: [
           'Choose the dollar-quote tag by scanning the body for candidate tags and picking one that does not occur. Do not assume `$$` is safe; the scan is five lines and prevents a class of deploy failure.',
@@ -635,8 +632,8 @@ export declare function callProcedure<Args extends readonly unknown[]>(name: str
         goal: 'Compile `callFunction`/`callProcedure` with bound, validated arguments and a result type taken from the declaration, including set-returning functions.',
         why: 'This is the half that delivers value without depending on managing bodies in migrations: a team whose routines already exist gets a typed, validated call path immediately.',
         files: [
-          '`packages/query-compiler/src/index.ts` — the call compilers.',
-          '`packages/repository/src/index.ts` — the repository-level surface and result validation.',
+          '`packages/sql/src/index.ts` — the call compilers.',
+          '`packages/orm/src/index.ts` — the repository-level surface and result validation.',
         ],
         steps: [
           'Compile to `SELECT "fn"($1, $2)` and `CALL "p"($1, $2)`, quoting the routine name and binding every argument. Never interpolate an argument, and never accept a routine name that is not a declared routine — a caller-supplied name is a call to anything the connection can reach.',

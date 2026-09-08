@@ -184,10 +184,10 @@ describe('core server package boundaries (#646)', () => {
         name: '@zmdb/app',
         dir: 'app',
         dependencies: {
-          '@zmdb/aot-validator': 'workspace:^',
-          '@zmdb/query-compiler': 'workspace:^',
-          '@zmdb/repository': 'workspace:^',
-          '@zmdb/schema-core': 'workspace:^',
+          '@zmdb/validator': 'workspace:^',
+          '@zmdb/sql': 'workspace:^',
+          '@zmdb/orm': 'workspace:^',
+          '@zmdb/schema': 'workspace:^',
         },
         exports: [
           '.',
@@ -211,7 +211,8 @@ describe('core server package boundaries (#646)', () => {
         dir: 'web',
         dependencies: {
           '@zmdb/app': 'workspace:^',
-          '@zmdb/schema-core': 'workspace:^',
+          '@zmdb/schema': 'workspace:^',
+          '@zmdb/validator': 'workspace:^',
         },
         buildTimePeers: {
           '@zmdb/compiler': '1.0.0-alpha.4',
@@ -230,6 +231,7 @@ describe('core server package boundaries (#646)', () => {
           './dto-pipes',
           './gateways',
           './health',
+          './integrations',
           './middleware',
           './openapi',
           './pipeline',

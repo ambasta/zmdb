@@ -12,7 +12,7 @@ creates the unique index explicitly.
 PostgreSQL, Cockroach and SQLite accept the tagged expression form:
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const ddl = createIndexDdl(
   {
@@ -53,7 +53,7 @@ MySQL, SingleStore and SQL Server throw `UnsupportedFeatureError` for the expres
 `generatedColumnDdl` emits a column fragment, and `createIndexDdl` emits the ordinary unique index over it:
 
 ```ts
-import { createIndexDdl, generatedColumnDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl, generatedColumnDdl } from '@zmdb/sql/schema-objects';
 
 const column = generatedColumnDdl(
   {

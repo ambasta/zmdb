@@ -6,7 +6,7 @@ projections to fetched rows.
 The repository's read methods accept a `select` option that narrows the returned row type. This is type-safe — only valid column keys from the schema are allowed.
 
 ```ts
-import type { Entity } from '@zmdb/schema-core';
+import { type Entity } from '@zmdb/schema';
 
 // Given `interface User` with columns: id, email, role, createdAt
 type UserRow = Entity<User>;
@@ -22,7 +22,7 @@ const minimal = await users.findById(1, { select: ['email', 'role'] as const });
 The `project()` function applies a column selection to a fetched row, returning a new object with only the specified keys.
 
 ```ts
-import { project } from '@zmdb/schema-core/dto';
+import { project } from '@zmdb/schema/dto';
 
 const row = { id: 1, email: 'a@b.com', role: 'admin', createdAt: new Date() };
 

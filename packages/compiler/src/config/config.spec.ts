@@ -551,7 +551,7 @@ process.stdout.write('bootstrapped');
       problems: [],
     });
 
-    const planted = join(ROOT, 'packages', 'schema-core', 'src', 'index.ts');
+    const planted = join(ROOT, 'packages', 'schema', 'src', 'index.ts');
     const source = readFileSync(planted, 'utf8');
     const report = inspectProjectConfig(
       new Map([
@@ -567,10 +567,10 @@ export async function loadConfig(): Promise<never> { throw new Error('planted');
       ]),
     );
     expect(report.problems).toEqual([
-      'packages/schema-core/src/index.ts declares exported ResolvedConfig; canonical owner is packages/compiler/src/config/index.ts',
-      'packages/schema-core/src/index.ts declares exported defineConfig; canonical owner is packages/compiler/src/config/contract.ts',
-      'packages/schema-core/src/index.ts declares exported loadConfig; canonical owner is packages/compiler/src/config/index.ts',
-      'packages/schema-core/src/index.ts declares private LoadConfigOptions; canonical owner is packages/compiler/src/config/index.ts',
+      'packages/schema/src/index.ts declares exported ResolvedConfig; canonical owner is packages/compiler/src/config/index.ts',
+      'packages/schema/src/index.ts declares exported defineConfig; canonical owner is packages/compiler/src/config/contract.ts',
+      'packages/schema/src/index.ts declares exported loadConfig; canonical owner is packages/compiler/src/config/index.ts',
+      'packages/schema/src/index.ts declares private LoadConfigOptions; canonical owner is packages/compiler/src/config/index.ts',
     ]);
 
     expect(
@@ -584,9 +584,7 @@ export { loadConfig } from '../../zmdb/src/config/index.js';
           ],
         ]),
       ).problems,
-    ).toContain(
-      'packages/schema-core/src/index.ts publishes loadConfig through @zmdb/schema-core instead of zmdb/config',
-    );
+    ).toContain('packages/schema/src/index.ts publishes loadConfig through @zmdb/schema instead of zmdb/config');
 
     const authoringOwner = join(ROOT, 'packages', 'compiler', 'src', 'config', 'contract.ts');
     const authoringSource = readFileSync(authoringOwner, 'utf8');

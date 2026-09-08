@@ -9,7 +9,7 @@ schema objects. zmdb provides declarative DDL functions to create and manage seq
 Use `createSequenceDdl` to generate the DDL for a sequence. You can specify optional `start` and `increment` values.
 
 ```ts
-import { createSequenceDdl } from '@zmdb/query-compiler/schema-objects';
+import { createSequenceDdl } from '@zmdb/sql/schema-objects';
 
 const seqDef = {
   name: 'order_number_seq',
@@ -62,7 +62,7 @@ To use a sequence in your application, call `nextval()` to retrieve the next val
 
 ```ts
 // Generating next sequence value via query compiler
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);

@@ -4,8 +4,8 @@
 // the caller's transaction and the repository outbox.
 
 import '../polyfill.js';
-import type { OutboxWriter } from '@zmdb/repository/outbox';
-import type { TransactionContext } from '@zmdb/repository/transactions';
+import { type OutboxWriter } from '@zmdb/orm/outbox';
+import { type TransactionContext } from '@zmdb/orm/transactions';
 
 /** An application-owned map from event names to payload types. */
 export interface EventMap {

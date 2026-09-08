@@ -4,7 +4,7 @@
 // Path-param derivation is a pure type-level feature, so the `expectTypeOf`
 // blocks that used to live in `context.spec.ts` checked nothing at all — vitest
 // only executes those files, where `expectTypeOf(...)` is a no-op.
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type { Ctx, HandlerFor, PathParams } from './index.js';
 

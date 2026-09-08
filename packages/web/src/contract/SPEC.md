@@ -12,7 +12,7 @@ The target below records a migration from this historical baseline. These bullet
 - A focused probe with `GET /users` and `POST /users` showed one `schemas['/users']` entry attaching the same request body and response schema to both operations.
 - The same probe showed both operations exposing only status `200`, a Fetch request for `/users?tag=a&tag=b` reaching its handler with `ctx.query === {}`, and no `signal` property on `Ctx`.
 - `toOpenApi` called `getRoutes`, `versionsOf`, `isPublic`, and guard resolution directly. OpenAPI was therefore a route collector rather than a pure emitter.
-- `@zmdb/aot-validator` recognised 17 generic callees. Its `ReflectSession` was the one compiler session and `TypeIR` was the serialisable schema representation.
+- `@zmdb/validator` recognised 17 generic callees. Its `ReflectSession` was the one compiler session and `TypeIR` was the serialisable schema representation.
 - The repository had six package directories and no `packages/client`, `@zmdb/client` manifest reference, or lockfile entry.
 
 These facts define the migration starting point. They are not retained as compatibility constraints.
@@ -36,7 +36,7 @@ The final ownership is:
 The dependency direction is acyclic:
 
 ```text
-@zmdb/schema-core/ir
+@zmdb/schema/ir
           │
           ├──────────────> @zmdb/compiler/{reflect,emit}
           │                                  │

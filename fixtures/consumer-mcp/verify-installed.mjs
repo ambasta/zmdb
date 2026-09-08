@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { command as runInstalledCommand, startRegistry } from '../consumer-cli/registry.mjs';
 
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(FIXTURE, '../..');
 const PACKAGES = join(ROOT, 'packages');
-const TSC = join(ROOT, 'node_modules', '.bin', 'tsc');
-const BUILD_ORDER = ['query-compiler', 'schema-core', 'ai', 'mcp'];
+const BUILD_ORDER = ['schema', 'validator', 'ai', 'mcp'];
 
 function run(command, arguments_, options = {}) {
   return spawnSync(command, arguments_, { encoding: 'utf8', ...options });
@@ -28,7 +28,14 @@ function packageName(directory) {
   return JSON.parse(readFileSync(join(PACKAGES, directory, 'package.json'), 'utf8')).name;
 }
 
+async function digest(bytes, algorithm = 'SHA-256', encoding = 'hex') {
+  const hash = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
+  return encoding === 'base64' ? hash.toBase64() : hash.toHex();
+}
+
 const temporary = mkdtempSync(join(tmpdir(), 'zmdb-mcp-consumer-'));
+let registry;
+let report;
 try {
   const tarballs = new Map();
   for (const directory of BUILD_ORDER) {
@@ -44,18 +51,27 @@ try {
       filter: path => !path.split(sep).includes('node_modules'),
     });
     const committed = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'));
-    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(committed), null, 2)}\n`);
+    const manifest = publishManifest(committed);
+    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
     const packed = run('npm', ['pack', '--json', '--pack-destination', temporary], {
       cwd: stage,
       env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },
     });
     requireSuccess(`${name} npm pack`, packed);
-    const report = JSON.parse(packed.stdout);
-    const entry = Array.isArray(report) ? report[0] : Object.values(report)[0];
+    const packedReport = JSON.parse(packed.stdout);
+    const entry = Array.isArray(packedReport) ? packedReport[0] : Object.values(packedReport)[0];
     if (entry === undefined || typeof entry.filename !== 'string') {
       throw new Error(`npm pack returned no filename for ${name}`);
     }
-    tarballs.set(name, join(temporary, entry.filename));
+    const file = join(temporary, entry.filename);
+    const bytes = readFileSync(file);
+    tarballs.set(name, {
+      file,
+      manifest,
+      sha256: await digest(bytes),
+      shasum: await digest(bytes, 'SHA-1'),
+      integrity: `sha512-${await digest(bytes, 'SHA-512', 'base64')}`,
+    });
   }
 
   const app = join(temporary, 'consumer');
@@ -65,21 +81,41 @@ try {
   cpSync(join(FIXTURE, 'contracts.ts'), join(app, 'contracts.ts'));
   cpSync(join(FIXTURE, 'tsconfig.consumer.json'), join(app, 'tsconfig.consumer.json'));
 
-  for (const [name, tarball] of tarballs) {
-    const installed = join(app, 'node_modules', ...name.split('/'));
-    mkdirSync(installed, { recursive: true });
-    requireSuccess(`${name} extraction`, run('tar', ['-xzf', tarball, '-C', installed, '--strip-components=1']));
-  }
-
-  const nodeModulesEntries = readdirSync(join(app, 'node_modules')).toSorted();
-  if (JSON.stringify(nodeModulesEntries) !== JSON.stringify(['@zmdb'])) {
-    throw new Error(`packed consumer installed an external SDK: ${nodeModulesEntries.join(', ')}`);
+  registry = await startRegistry(tarballs);
+  for (const operation of ['install', 'ci']) {
+    await runInstalledCommand(
+      'npm',
+      [operation, '--ignore-scripts', '--no-audit', '--no-fund', '--registry', registry.origin],
+      {
+        cwd: app,
+        expected: 0,
+      },
+    );
   }
 
   const scopeEntries = readdirSync(join(app, 'node_modules', '@zmdb')).toSorted();
-  const expected = ['ai', 'mcp', 'query-compiler', 'schema-core'];
+  const expected = ['ai', 'mcp', 'schema', 'validator'];
   if (JSON.stringify(scopeEntries) !== JSON.stringify(expected)) {
     throw new Error(`packed consumer installed unexpected @zmdb packages: ${scopeEntries.join(', ')}`);
+  }
+  const lock = JSON.parse(readFileSync(join(app, 'package-lock.json'), 'utf8'));
+  for (const [path, entry] of Object.entries(lock.packages)) {
+    if (path === '') continue;
+    const installedName = path.split('node_modules/').at(-1);
+    if (entry.dev !== true && !expected.some(name => installedName === `@zmdb/${name}`)) {
+      throw new Error(`packed consumer installed an external runtime SDK: ${path}`);
+    }
+  }
+  for (const [name, archive] of tarballs) {
+    const path = `node_modules/${name}`;
+    const entry = lock.packages[path];
+    if (
+      entry?.integrity !== archive.integrity ||
+      entry?.resolved !== `${registry.origin}/tarballs/${archive.sha256}.tgz`
+    ) {
+      throw new Error(`installed ${name} did not resolve its captured npm archive`);
+    }
+    if (lstatSync(join(app, path)).isSymbolicLink()) throw new Error(`installed ${name} is a workspace link`);
   }
 
   const mcpManifest = JSON.parse(readFileSync(join(app, 'node_modules', '@zmdb', 'mcp', 'package.json'), 'utf8'));
@@ -91,8 +127,29 @@ try {
     throw new Error(`packed @zmdb/mcp has peers: ${JSON.stringify(mcpManifest.peerDependencies)}`);
   }
   requireSuccess('packed MCP runtime', run(process.execPath, ['runtime.mjs'], { cwd: app }));
-  requireSuccess('packed MCP declarations', run(TSC, ['--noEmit', '-p', 'tsconfig.consumer.json'], { cwd: app }));
-  process.stdout.write('packed MCP consumer passed with only @zmdb/ai as its direct runtime dependency\n');
+  requireSuccess(
+    'packed MCP declarations',
+    run(join(app, 'node_modules', '.bin', 'tsc'), ['--noEmit', '-p', 'tsconfig.consumer.json'], { cwd: app }),
+  );
+  report = {
+    packages: expected,
+    archives: [...tarballs.values()].map(({ manifest, sha256, integrity }) => ({
+      name: manifest.name,
+      sha256,
+      integrity,
+    })),
+    lockSha256: await digest(readFileSync(join(app, 'package-lock.json'))),
+    install: 0,
+    ci: 0,
+    runtime: 0,
+    declarations: 0,
+  };
 } finally {
-  rmSync(temporary, { recursive: true, force: true });
+  try {
+    await registry?.close();
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
 }
+process.stdout.write(`${JSON.stringify({ ...report, cleaned: true })}\n`);
+process.stdout.write('packed MCP consumer passed with only @zmdb/ai as its direct runtime dependency\n');

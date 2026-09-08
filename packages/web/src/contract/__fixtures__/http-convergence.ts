@@ -1,4 +1,4 @@
-import type { TypeIR } from '@zmdb/schema-core/ir';
+import { type TypeIR } from '@zmdb/schema/ir';
 
 import { Controller, Get, Patch, Post, Public } from '../../routing/index.js';
 import { Version } from '../../versioning/index.js';

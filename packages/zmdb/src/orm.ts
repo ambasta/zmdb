@@ -11,74 +11,70 @@ export {
   defineRepository,
   markTransactionClosed,
   memoryStore,
-} from '@zmdb/repository';
-export type {
-  ActiveTransactionContext,
-  ArgsOf,
-  CacheInvalidationOptions,
-  CacheOptions,
-  CacheStore,
-  ClosedTransactionContext,
-  DatabaseVertical,
-  DefineRepositoryOptions,
-  Driver,
-  EntityLoader,
-  ExecuteOptions,
-  FilterDef,
-  FilterOverride,
-  FilterOverrides,
-  FilterParams,
-  FilterPredicate,
-  LoaderScope,
-  NumericColumnOf,
-  QueryMeta,
-  ReadOptions,
-  RelationLoader,
-  RelationValueOf,
-  RepositoryAggregateBuilder,
-  RepositoryOptions,
-  ResultOf,
-  StreamOptions,
-  TransactionContext,
-  TransactionOptions,
-  TransactionRetryPolicy,
-  TransactionState,
-  TransactionalDb,
-  TransactionalDriver,
-  TxConnection,
-  UpdatePatch,
-  UpsertOptions,
-  ValidationIssue,
-  WriteOptions,
-} from '@zmdb/repository';
-
-export { makeRng, seedRows } from '@zmdb/repository/seeding';
-export type { SeedOptions } from '@zmdb/repository/seeding';
-
-export { OutboxSchema, createOutboxDispatcher, outboxWriter } from '@zmdb/repository/outbox';
-export type {
-  DeadOutboxRow,
-  OutboxDispatcher,
-  OutboxDispatcherOptions,
-  OutboxRow,
-  OutboxStatus,
-  OutboxWriter,
-} from '@zmdb/repository/outbox';
-
-export { isWrite, withReplicas } from '@zmdb/repository/replicas';
-export type { ReplicaOptions } from '@zmdb/repository/replicas';
-
-export { makeEndpoint } from '@zmdb/repository/integrations';
-export type { EndpointResult, Handler } from '@zmdb/repository/integrations';
-
+} from '@zmdb/orm';
 export {
-  EventBus,
-  discriminatorFor,
-  flattenEmbeddable,
-  liftEmbeddable,
-  rowToSubtype,
-} from '@zmdb/repository/entity-modeling';
-export type { LifecycleEvent, SingleTableInheritance, Subscriber } from '@zmdb/repository/entity-modeling';
+  type ActiveTransactionContext,
+  type ArgsOf,
+  type CacheInvalidationOptions,
+  type CacheOptions,
+  type CacheStore,
+  type ClosedTransactionContext,
+  type DatabaseVertical,
+  type DefineRepositoryOptions,
+  type Driver,
+  type EntityLoader,
+  type ExecuteOptions,
+  type FilterDef,
+  type FilterOverride,
+  type FilterOverrides,
+  type FilterParams,
+  type FilterPredicate,
+  type LoaderScope,
+  type NumericColumnOf,
+  type QueryMeta,
+  type ReadOptions,
+  type RelationLoader,
+  type RelationValueOf,
+  type RepositoryAggregateBuilder,
+  type RepositoryOptions,
+  type ResultOf,
+  type StreamOptions,
+  type TransactionContext,
+  type TransactionOptions,
+  type TransactionRetryPolicy,
+  type TransactionState,
+  type TransactionalDb,
+  type TransactionalDriver,
+  type TxConnection,
+  type UpdatePatch,
+  type UpsertOptions,
+  type ValidationIssue,
+  type WriteOptions,
+} from '@zmdb/orm';
+
+export { makeRng, seedRows } from '@zmdb/orm/seeding';
+export { type SeedOptions } from '@zmdb/orm/seeding';
+
+export { OutboxSchema, createOutboxDispatcher, outboxWriter } from '@zmdb/orm/outbox';
+export {
+  type DeadOutboxRow,
+  type OutboxDispatcher,
+  type OutboxDispatcherOptions,
+  type OutboxRow,
+  type OutboxStatus,
+  type OutboxWriter,
+} from '@zmdb/orm/outbox';
+
+export { isWrite, withReplicas } from '@zmdb/orm/replicas';
+export { type ReplicaOptions } from '@zmdb/orm/replicas';
+
+export { makeEndpoint } from '@zmdb/web/integrations';
+export { type EndpointResult, type Handler } from '@zmdb/web/integrations';
+
+export { EventBus } from '@zmdb/orm/entity-modeling';
+export { discriminatorFor, flattenEmbeddable, liftEmbeddable, rowToSubtype } from '@zmdb/schema/entity-modeling';
+export { type LifecycleEvent, type Subscriber } from '@zmdb/orm/entity-modeling';
+export { type SingleTableInheritance } from '@zmdb/schema/entity-modeling';
 
 export {
   OUTBOX_TABLE,
@@ -91,4 +87,4 @@ export {
   outboxPendingIndexDdl,
   outboxReadBackQuery,
   outboxTableDdl,
-} from '@zmdb/query-compiler/outbox';
+} from '@zmdb/orm/outbox';

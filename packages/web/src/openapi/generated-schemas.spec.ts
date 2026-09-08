@@ -105,7 +105,7 @@ describe('toOpenApi fed from generated HttpContractIR schemas', () => {
     expect(generated().body).toBeDefined();
     expect(generated().response).toBeDefined();
     expect(code().filter(line => line.includes('toJsonSchema'))).toEqual([
-      "import { toJsonSchema, type JsonSchemaObject } from '@zmdb/schema-core/openapi';",
+      "import { toJsonSchema, type JsonSchemaObject } from '@zmdb/schema/openapi';",
     ]);
   });
 

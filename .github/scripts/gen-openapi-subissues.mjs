@@ -34,7 +34,7 @@ const subs = [
       'Failing golden tests: toJsonSchema output for a sample schema matches the frozen fixture; determinism (generate twice → identical).',
     ],
     accept: [
-      'Committed SPEC.md in packages/schema-core/src/openapi with mapping table + golden fixtures.',
+      'Committed SPEC.md in packages/schema/src/openapi with mapping table + golden fixtures.',
       'Test file compiles and all tests FAIL (no implementation yet).',
     ],
   },

@@ -26,12 +26,12 @@ describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
     const result = analyse();
     expect(result.problems).toEqual([]);
-    expect(result.inventory.actualCount).toBe(209);
+    expect(result.inventory.actualCount).toBe(210);
     expect(result.inventory.ownerCounts).toEqual({
       compiler: 34,
       migrations: 21,
       cli: 33,
-      runtime: 30,
+      runtime: 31,
       facade: 53,
       'optional-integration': 0,
       'test-only': 38,
@@ -68,13 +68,13 @@ describe('the tooling-boundary verifier', () => {
   });
 
   it('rejects a planted compiler import from a runtime root', () => {
-    const entry = join(ROOT, 'packages', 'schema-core', 'src', 'index.ts');
+    const entry = join(ROOT, 'packages', 'schema', 'src', 'index.ts');
     const overlays = new Map([[entry, `import 'typescript';\n${readFileSync(entry, 'utf8')}`]]);
     const result = analyse({ overlays });
     expect(result.problems).toContainEqual(
       expect.stringContaining(
         '[GOV_EXCEPTION_UNOWNED_FINDING] TOOLING_RUNTIME_REACHABILITY/entry/' +
-          'schema-core%3Apackages%2Fschema-core%2Fsrc%2Findex.ts%3Atypescript',
+          'schema%3Apackages%2Fschema%2Fsrc%2Findex.ts%3Atypescript',
       ),
     );
   });
@@ -166,9 +166,9 @@ runtime	packages/example/src/index.ts
       '@zmdb/compiler': {
         dependencies: ['@zmdb/ai'],
         peerDependencies: [
-          '@zmdb/aot-validator',
-          '@zmdb/query-compiler',
-          '@zmdb/schema-core',
+          '@zmdb/schema',
+          '@zmdb/sql',
+          '@zmdb/validator',
           'metro',
           'metro-babel-transformer',
           'oxlint',
@@ -178,28 +178,20 @@ runtime	packages/example/src/index.ts
       },
       '@zmdb/migrations': {
         dependencies: ['oxfmt'],
-        peerDependencies: ['@zmdb/query-compiler'],
+        peerDependencies: ['@zmdb/schema', '@zmdb/sql'],
         optionalPeers: [],
       },
       '@zmdb/cli': {
         dependencies: ['@zmdb/compiler', '@zmdb/migrations', 'oxfmt'],
-        peerDependencies: [
-          '@zmdb/app',
-          '@zmdb/query-compiler',
-          '@zmdb/repository',
-          '@zmdb/schema-core',
-          '@zmdb/web',
-          'esbuild',
-          'typescript',
-        ],
+        peerDependencies: ['@zmdb/app', '@zmdb/orm', '@zmdb/schema', '@zmdb/sql', '@zmdb/web', 'esbuild', 'typescript'],
         optionalPeers: ['@zmdb/app', '@zmdb/web', 'esbuild'],
       },
     });
     expect(
       findPackageCycle([
-        ['@zmdb/compiler', '@zmdb/aot-validator'],
-        ['@zmdb/aot-validator', '@zmdb/compiler'],
+        ['@zmdb/compiler', '@zmdb/validator'],
+        ['@zmdb/validator', '@zmdb/compiler'],
       ]),
-    ).toEqual(['@zmdb/compiler', '@zmdb/aot-validator', '@zmdb/compiler']);
+    ).toEqual(['@zmdb/compiler', '@zmdb/validator', '@zmdb/compiler']);
   });
 });

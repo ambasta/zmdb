@@ -10,7 +10,7 @@
 // The real surface is imported below. The registry uses an erased runtime entry while
 // `defineTools` applies a key-by-key linked constraint, so each handler is checked against
 // its own validator without making the registry uninhabitable.
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 
 import type { ToolSpec } from '../index.js';
 import {

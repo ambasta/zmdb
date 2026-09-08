@@ -15,8 +15,8 @@
 // primary key, so an empty one is a `DELETE FROM ledger` for a call that asked to remove one
 // row. It is a build error now rather than a constructor throw, which is strictly earlier.
 
-import { schemaOf } from '@zmdb/schema-core';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { schemaOf } from '@zmdb/schema';
+import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
 declare function schema(label: string, value: unknown): void;
 

@@ -1,5 +1,5 @@
-import type { TransactionContext } from '@zmdb/repository/transactions';
-import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
+import { type TransactionContext } from '@zmdb/orm/transactions';
+import { type Equal, type Expect, type Mutual } from '@zmdb/schema';
 
 import {
   createCommandBus,

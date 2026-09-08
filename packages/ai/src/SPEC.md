@@ -1,6 +1,6 @@
 # SPEC — provider-neutral AI tool documents (frozen)
 
-Part of `@zmdb/ai`. Turn a schema into an LLM tool/parameter schema and leniently parse model output. Schema declarations and JSON Schema conversion remain owned by `@zmdb/schema-core`. Epic #157.
+Part of `@zmdb/ai`. Turn a schema into an LLM tool/parameter schema and leniently parse model output. Schema declarations and JSON Schema conversion remain owned by `@zmdb/schema`. Epic #157.
 
 ## Issue #635 ownership exit
 

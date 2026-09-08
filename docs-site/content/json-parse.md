@@ -4,7 +4,7 @@ handler answer "that is not JSON" differently from "that is JSON, and `age` is m
 ## Basic Usage
 
 ```ts
-import { parse } from '@zmdb/aot-validator/serialization';
+import { parse } from '@zmdb/validator/serialization';
 
 const result = parse('{"name": "alice", "age": 30}');
 // { success: true, data: { name: 'alice', age: 30 } }
@@ -33,7 +33,7 @@ interface ParseResult<T> {
 > of it. Use it when you are about to check the value anyway; do not use it as the check.
 
 ```ts
-import { parse } from '@zmdb/aot-validator/serialization';
+import { parse } from '@zmdb/validator/serialization';
 
 interface User {
   name: string;
@@ -55,8 +55,8 @@ The pairing that does prove it is `parse` followed by [`validate<T>`](./validato
 their IR from the transformer:
 
 ```ts
-import { parse } from '@zmdb/aot-validator/serialization';
-import { validate } from '@zmdb/aot-validator/utilities';
+import { parse } from '@zmdb/validator/serialization';
+import { validate } from '@zmdb/validator';
 import type { Min, Pattern } from 'zmdb/tags';
 
 interface Signup {
@@ -81,7 +81,7 @@ Two steps and two status codes, which is the argument for writing it this way: a
 `decode` does both in one call, and takes the schema as a **runtime argument**:
 
 ```ts
-import { decode } from '@zmdb/aot-validator/serialization';
+import { decode } from '@zmdb/validator/serialization';
 
 const ok = decode('{"email": "test@example.com", "age": 25}', ir);
 // { success: true, data: … }

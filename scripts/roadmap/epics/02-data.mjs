@@ -9,9 +9,9 @@ export const DATA_EPICS = [
     title: '[EPIC] Expression-valued writes — SET col = col + 1 without a read',
     labels: ['enhancement', 'area:query', 'parity:drizzle', 'parity:kysely'],
     pages: ['guide-increment-decrement', 'guide-toggle-boolean', 'guide-bulk-update'],
-    packages: ['@zmdb/query-compiler', '@zmdb/repository'],
+    packages: ['@zmdb/sql', '@zmdb/orm'],
     motivation: `
-\`updateTable(...).set(row)\` (packages/query-compiler/src/index.ts:172) takes a row of *values*.
+\`updateTable(...).set(row)\` (packages/sql/src/index.ts:172) takes a row of *values*.
 Every value becomes a placeholder, which is right for \`SET "name" = $1\` and impossible for
 \`SET "views" = "views" + 1\`.
 
@@ -57,8 +57,8 @@ differences and its own escaping bugs, on the write path. The spec has to pick a
 makes something in or out.
 `,
         files: [
-          '`packages/query-compiler/src/SPEC.md` — a "Write expressions" section.',
-          '`packages/repository/SPEC.md` — the repository-level surface and the validation rule.',
+          '`packages/sql/src/SPEC.md` — a "Write expressions" section.',
+          '`packages/orm/SPEC.md` — the repository-level surface and the validation rule.',
         ],
         api: `
 /** A value or a computed expression, per column. Values stay parameterised exactly as today. */
@@ -101,10 +101,10 @@ export function proposed<T>(): ColumnExpr<T>;
         goal: 'Land the failing golden-SQL tests for all six variants across three dialects, the upsert `proposed` cases, the repository-level tests, and the type-level tests that pin what must *not* compile.',
         why: 'Expression emission is exactly the kind of code where a substring assertion passes while the statement is wrong. Every test here asserts the full statement text and the parameter array, because the parameter array is where a mis-ordered placeholder shows up.',
         files: [
-          '`packages/query-compiler/src/query-compiler.spec.ts` and/or a new `src/expressions/expressions.spec.ts`',
-          '`packages/repository/src/repository.spec.ts`',
-          '`packages/repository/src/typed-methods/typed-writes.type-test.ts`',
-          '`packages/repository/src/sqlite-e2e.spec.ts` — a real atomic increment against `node:sqlite`.',
+          '`packages/sql/src/query-compiler.spec.ts` and/or a new `src/expressions/expressions.spec.ts`',
+          '`packages/orm/src/repository.spec.ts`',
+          '`packages/orm/src/typed-methods/typed-writes.type-test.ts`',
+          '`packages/orm/src/sqlite-e2e.spec.ts` — a real atomic increment against `node:sqlite`.',
         ],
         tests: [
           '`increments a column without reading it first` — full `UPDATE ... SET "views" = "views" + $1 WHERE ...` plus `params`, three dialects.',
@@ -137,9 +137,9 @@ export function proposed<T>(): ColumnExpr<T>;
         blockedBy: ['tests'],
         goal: 'Implement the frozen vocabulary in `updateTable(...).set()` so all three dialects emit correct SQL with correctly ordered parameters, and `onConflict` can reference the proposed row.',
         files: [
-          "`packages/query-compiler/src/index.ts` — `set()`, the UPDATE emitter, `onConflict`'s update clause.",
-          '`packages/query-compiler/src/expressions/index.ts` (new) — the constructors and the per-dialect emitter.',
-          '`packages/query-compiler/src/quoting.ts` — reuse, do not reimplement, identifier quoting.',
+          "`packages/sql/src/index.ts` — `set()`, the UPDATE emitter, `onConflict`'s update clause.",
+          '`packages/sql/src/expressions/index.ts` (new) — the constructors and the per-dialect emitter.',
+          '`packages/sql/src/quoting.ts` — reuse, do not reimplement, identifier quoting.',
         ],
         api: `
 export function inc<T extends number>(by?: T): ColumnExpr<T>;
@@ -180,9 +180,9 @@ interface EmittedExpr { readonly sql: string; readonly params: readonly unknown[
         goal: 'Expose expression writes through `BaseRepository` so application code gets an atomic increment without dropping to the compiler, and make DTO validation treat expression operands correctly.',
         why: 'The repository is where validation lives, and validation is the part most likely to be quietly disabled by this feature: the obvious implementation validates the `set` object against `UpdateDTO`, sees an object where a number belongs, and either throws on a legal call or is loosened until it throws on nothing.',
         files: [
-          '`packages/repository/src/index.ts` — `update`, `updateMany`, `upsert`, and the validation call site.',
-          '`packages/repository/src/typed-methods/index.ts` — the typed write surface.',
-          '`packages/repository/SPEC.md`',
+          '`packages/orm/src/index.ts` — `update`, `updateMany`, `upsert`, and the validation call site.',
+          '`packages/orm/src/typed-methods/index.ts` — the typed write surface.',
+          '`packages/orm/SPEC.md`',
         ],
         api: `
 class BaseRepository<T extends DeclaredTable> {
@@ -247,7 +247,7 @@ type UpdatePatch<T> = { readonly [K in keyof UpdateDTO<T>]?: SetValue<UpdateDTO<
     title: '[EPIC] Entity filters and soft delete — a predicate the schema carries',
     labels: ['enhancement', 'area:query', 'parity:mikro-orm'],
     pages: ['entity-filters'],
-    packages: ['@zmdb/schema-core', '@zmdb/repository', '@zmdb/query-compiler'],
+    packages: ['@zmdb/schema', '@zmdb/orm', '@zmdb/sql'],
     motivation: `
 Soft delete and multi-tenancy are the same feature: every read of a table must carry a predicate the
 caller did not write. zmdb has no way to attach one, so \`deletedAt IS NULL\` has to be repeated at
@@ -291,9 +291,9 @@ soft delete leaks. Both answers are defensible and the spec must pick one, per r
 say what the alternative costs.
 `,
         files: [
-          '`packages/schema-core/src/ir/SPEC.md` — filters in the IR.',
-          '`packages/repository/SPEC.md` — the read/write application rules and the disabling API.',
-          '`packages/schema-core/src/relations/SPEC.md` — join and populate behaviour.',
+          '`packages/schema/src/ir/SPEC.md` — filters in the IR.',
+          '`packages/orm/SPEC.md` — the read/write application rules and the disabling API.',
+          '`packages/schema/src/relations/SPEC.md` — join and populate behaviour.',
         ],
         api: `
 export interface FilterDef<P = void> {
@@ -331,9 +331,9 @@ users.find({}, { filters: { tenant: { tenantId: ctx.tenantId } } });
         blockedBy: ['spec'],
         goal: 'Write the failing tests, ordering them so the leak cases come first: populate, join, count, aggregate, `updateMany`, `deleteMany`. The single-table `find` case is the easy one and proves the least.',
         files: [
-          '`packages/repository/src/filters/filters.spec.ts` (new)',
-          '`packages/schema-core/src/relations/populate.spec.ts`',
-          '`packages/repository/src/sqlite-e2e.spec.ts` — a real soft-delete round trip.',
+          '`packages/orm/src/filters/filters.spec.ts` (new)',
+          '`packages/schema/src/relations/populate.spec.ts`',
+          '`packages/orm/src/sqlite-e2e.spec.ts` — a real soft-delete round trip.',
         ],
         tests: [
           '`applies a declared filter to every single-table read` — find, findById, list, count, exists, each asserting compiled SQL.',
@@ -365,10 +365,10 @@ users.find({}, { filters: { tenant: { tenantId: ctx.tenantId } } });
         blockedBy: ['tests'],
         goal: 'Implement filter declaration, parameter resolution and application across `find`/`findById`/`list`/`count`/`exists`/aggregations/populate, with the join placement the spec chose.',
         files: [
-          '`packages/repository/src/filters/index.ts` (new) — resolution and combination.',
-          '`packages/repository/src/index.ts` — every read entry point.',
-          '`packages/schema-core/src/relations/index.ts` — populate and join.',
-          '`packages/schema-core/src/ir/index.ts` — carry filters declared on the table.',
+          '`packages/orm/src/filters/index.ts` (new) — resolution and combination.',
+          '`packages/orm/src/index.ts` — every read entry point.',
+          '`packages/schema/src/relations/index.ts` — populate and join.',
+          '`packages/schema/src/ir/index.ts` — carry filters declared on the table.',
         ],
         api: `
 interface RepositoryOptions {
@@ -404,9 +404,9 @@ interface ReadOptions<T> {
         goal: 'Apply filters to `update`/`updateMany`/`delete`/`deleteMany` per the spec, and ship soft delete as a built-in filter that redefines `delete` as an update.',
         why: 'The write half is the security half. An unfiltered `updateMany` under a tenant filter is a cross-tenant write, which is worse than the read leak it mirrors.',
         files: [
-          '`packages/repository/src/index.ts` — write entry points.',
-          '`packages/repository/src/filters/soft-delete.ts` (new)',
-          '`packages/schema-core/src/tags/index.ts` — a `SoftDelete` tag if the spec put the declaration on the type.',
+          '`packages/orm/src/index.ts` — write entry points.',
+          '`packages/orm/src/filters/soft-delete.ts` (new)',
+          '`packages/schema/src/tags/index.ts` — a `SoftDelete` tag if the spec put the declaration on the type.',
         ],
         api: `
 export const softDelete: (column: string) => FilterDef<void>;
@@ -469,7 +469,7 @@ class BaseRepository<T> {
     title: '[EPIC] Referential actions — ON DELETE / ON UPDATE in the DDL',
     labels: ['enhancement', 'area:schema', 'parity:mikro-orm', 'parity:drizzle'],
     pages: ['cascading'],
-    packages: ['@zmdb/schema-core', '@zmdb/query-compiler'],
+    packages: ['@zmdb/schema', '@zmdb/sql'],
     motivation: `
 A relation declares which columns join, and nothing about what happens when the parent row goes away.
 So the emitted DDL has no \`ON DELETE\` clause, which means every foreign key is \`NO ACTION\`, which
@@ -501,7 +501,7 @@ needs somewhere to say \`ON DELETE CASCADE\` and the migration diff needs to not
         labels: ['spec'],
         goal: 'Freeze how a referential action is declared, the exact DDL per dialect, the diff behaviour, and the refusals. Decide the composite-FK form. No code.',
         why: 'The dialects genuinely differ — SQLite enforces foreign keys only when `PRAGMA foreign_keys=ON` and cannot alter a constraint at all; MySQL requires an index on the referencing column and silently creates one; `SET DEFAULT` is not supported by InnoDB. A spec that says "emit ON DELETE CASCADE" and stops will produce three different behaviours from one declaration.',
-        files: ['`packages/schema-core/src/relations/SPEC.md`', '`packages/query-compiler/src/migrations/SPEC.md`'],
+        files: ['`packages/schema/src/relations/SPEC.md`', '`packages/sql/src/migrations/SPEC.md`'],
         api: `
 export type ReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
 
@@ -530,9 +530,9 @@ interface RelationDef {
         blockedBy: ['spec'],
         goal: 'Land failing golden-DDL tests for every action in every dialect, the diff pair, each refusal, and a real sqlite E2E proving a cascade actually cascades.',
         files: [
-          '`packages/query-compiler/src/migrations/migrations.spec.ts`',
-          '`packages/schema-core/src/relations/relations.spec.ts`',
-          '`packages/repository/src/sqlite-e2e.spec.ts`',
+          '`packages/sql/src/migrations/migrations.spec.ts`',
+          '`packages/schema/src/relations/relations.spec.ts`',
+          '`packages/orm/src/sqlite-e2e.spec.ts`',
         ],
         tests: [
           '`emits ON DELETE CASCADE on the foreign key` — three dialects, full statement.',
@@ -559,9 +559,9 @@ interface RelationDef {
         goal: 'Implement the FK clause with actions across the three dialects, deterministic constraint naming, the composite form, the diff pair and every refusal the spec named.',
         blockedByNote: 'Composite foreign keys need the ordered key list from the composite-key epic.',
         files: [
-          '`packages/query-compiler/src/migrations/index.ts` — `columnDdl`, `emitUp`, `emitDown`, `diff`, plus FK snapshot carriage.',
-          '`packages/query-compiler/src/schema-objects/index.ts` — constraint naming, and the MySQL supporting index.',
-          '`packages/schema-core/src/relations/index.ts` — carry `onDelete`/`onUpdate` from the declaration into the IR.',
+          '`packages/sql/src/migrations/index.ts` — `columnDdl`, `emitUp`, `emitDown`, `diff`, plus FK snapshot carriage.',
+          '`packages/sql/src/schema-objects/index.ts` — constraint naming, and the MySQL supporting index.',
+          '`packages/schema/src/relations/index.ts` — carry `onDelete`/`onUpdate` from the declaration into the IR.',
         ],
         api: `
 interface ForeignKeySnapshot {
@@ -622,9 +622,9 @@ interface ForeignKeySnapshot {
     title: '[EPIC] Streaming reads and query cancellation',
     labels: ['enhancement', 'area:query', 'parity:drizzle', 'parity:kysely'],
     pages: ['streaming', 'query-cancellation'],
-    packages: ['@zmdb/repository', '@zmdb/query-compiler'],
+    packages: ['@zmdb/orm', '@zmdb/sql'],
     motivation: `
-\`Driver.execute\` returns \`Promise<readonly Record<string, unknown>[]>\` (packages/repository/src/index.ts:51).
+\`Driver.execute\` returns \`Promise<readonly Record<string, unknown>[]>\` (packages/orm/src/index.ts:51).
 The whole result set is an array, in memory, before the caller sees the first row — and there is no
 way to say "stop".
 
@@ -659,8 +659,8 @@ that does not implement streaming still works.
         goal: 'Freeze the `Driver` extension, the iteration contract (backpressure, early exit, cleanup), the cancellation semantics per dialect, and the fallback for a driver that implements neither.',
         why: 'This is the only epic in the roadmap that changes a public interface third parties implement. Getting the shape wrong is not a refactor later — it is a breaking change to every driver. And the cleanup semantics (what happens when a consumer `break`s out of a `for await`) are where streaming implementations leak connections.',
         files: [
-          '`packages/repository/SPEC.md` — the `Driver` contract and `stream()`.',
-          '`packages/query-compiler/SPEC.md` — anything the compiler must emit differently for a cursor.',
+          '`packages/orm/SPEC.md` — the `Driver` contract and `stream()`.',
+          '`packages/sql/SPEC.md` — anything the compiler must emit differently for a cursor.',
         ],
         api: `
 export interface Driver {
@@ -697,9 +697,9 @@ export interface ExecuteOptions {
         goal: 'Land failing tests that would actually catch a fake implementation: bounded memory over a large result, cursor closed on early break, abort that stops the server-side work, and validation still running per row.',
         why: 'A streaming implementation that buffers internally passes every naive test. The tests here are chosen to fail against that implementation: memory measurement, round-trip counting, and a cleanup assertion on early exit.',
         files: [
-          '`packages/repository/src/streaming/streaming.spec.ts` (new)',
-          '`packages/repository/src/sqlite-e2e.spec.ts` — real streaming over real rows.',
-          '`packages/repository/src/fakes.ts` (or the existing fake driver) — a recording fake that counts round trips.',
+          '`packages/orm/src/streaming/streaming.spec.ts` (new)',
+          '`packages/orm/src/sqlite-e2e.spec.ts` — real streaming over real rows.',
+          '`packages/orm/src/fakes.ts` (or the existing fake driver) — a recording fake that counts round trips.',
         ],
         tests: [
           '`streams in batches rather than one round trip` — a recording fake asserting round-trip count for 1000 rows at `batchSize: 100`.',
@@ -727,9 +727,9 @@ export interface ExecuteOptions {
         blockedBy: ['tests'],
         goal: 'Add `ExecuteOptions` and the optional `stream` to `Driver`, implement `repository.stream()` with per-row validation and correct cleanup, and thread `signal` through every read method.',
         files: [
-          '`packages/repository/src/index.ts` — `Driver`, `ExecuteOptions`, `stream()`, every read signature.',
-          '`packages/repository/src/streaming/index.ts` (new) — the iteration wrapper and cleanup.',
-          '`packages/repository/SPEC.md`',
+          '`packages/orm/src/index.ts` — `Driver`, `ExecuteOptions`, `stream()`, every read signature.',
+          '`packages/orm/src/streaming/index.ts` (new) — the iteration wrapper and cleanup.',
+          '`packages/orm/SPEC.md`',
         ],
         api: `
 class BaseRepository<T> {
@@ -768,9 +768,9 @@ interface StreamOptions<T> extends ExecuteOptions {
         goal: 'Implement `stream` and cancellation in the bundled Postgres and sqlite drivers so the feature is real rather than an interface.',
         why: 'An optional method nothing implements is documentation. Postgres is where the value is (real cursors, real `pg_cancel_backend`) and sqlite is where the tests can be honest without a server.',
         files: [
-          '`packages/repository/src/drivers/postgres.ts`',
-          '`packages/repository/src/drivers/sqlite.ts`',
-          '`packages/repository/src/drivers/mysql.ts` if bundled.',
+          '`packages/orm/src/drivers/postgres.ts`',
+          '`packages/orm/src/drivers/sqlite.ts`',
+          '`packages/orm/src/drivers/mysql.ts` if bundled.',
         ],
         steps: [
           'Postgres: stream with a cursor, fetching `batchSize` rows per round trip, and release the client in `finally`. Do not hold a client across an abandoned iterator — that is the pool exhaustion this feature would otherwise introduce.',
@@ -819,7 +819,7 @@ interface StreamOptions<T> extends ExecuteOptions {
     title: '[EPIC] Dataloaders and the result cache',
     labels: ['enhancement', 'area:query', 'perf', 'parity:mikro-orm'],
     pages: ['dataloaders', 'caching'],
-    packages: ['@zmdb/repository', '@zmdb/schema-core'],
+    packages: ['@zmdb/orm', '@zmdb/schema'],
     motivation: `
 Populate already batches: a to-many relation is one second query, not one per parent. What is missing
 is batching across *call sites* — the N+1 that happens when a GraphQL resolver or a loop calls
@@ -857,7 +857,7 @@ would be back with worse ergonomics.
         goal: "Freeze the loader's batching window and scoping, the cache key, the invalidation rule, the store interface, and the explicit boundary that keeps this from becoming an identity map.",
         why: 'Every part of this feature has a convenient version that is wrong. A global loader is convenient and leaks across requests. Inferred invalidation is convenient and serves stale data. Caching entities by primary key with write-through is convenient and *is* an identity map. The spec exists to say no to each in writing, with the reason, so a later reader does not re-add them as improvements.',
         files: [
-          '`packages/repository/SPEC.md` — loaders and cache.',
+          '`packages/orm/SPEC.md` — loaders and cache.',
           '`docs-site/content/anti-patterns.md` — sharpen the identity-map entry to name the boundary this epic respects.',
         ],
         api: `
@@ -897,9 +897,9 @@ interface ReadOptions {
         blockedBy: ['spec'],
         goal: 'Land failing tests for coalescing, per-request isolation, error propagation, cache hits/misses, TTL expiry and tag invalidation — including the tests that would catch a cross-request leak.',
         files: [
-          '`packages/repository/src/loaders/loaders.spec.ts` (new)',
-          '`packages/repository/src/cache/cache.spec.ts` (new)',
-          '`packages/repository/src/sqlite-e2e.spec.ts`',
+          '`packages/orm/src/loaders/loaders.spec.ts` (new)',
+          '`packages/orm/src/cache/cache.spec.ts` (new)',
+          '`packages/orm/src/sqlite-e2e.spec.ts`',
         ],
         tests: [
           '`coalesces findById calls in one tick into a single IN query` — recording fake asserting one round trip for 100 ids.',
@@ -929,8 +929,8 @@ interface ReadOptions {
         blockedBy: ['tests'],
         goal: 'Implement the loader with a microtask batching window, per-scope maps, and correct error and duplicate semantics — plus a relation loader so a populate driven from many parents coalesces too.',
         files: [
-          '`packages/repository/src/loaders/index.ts` (new)',
-          '`packages/repository/src/index.ts` — a `findMany`-by-key path the loader uses.',
+          '`packages/orm/src/loaders/index.ts` (new)',
+          '`packages/orm/src/index.ts` — a `findMany`-by-key path the loader uses.',
           '`packages/web/src/state/index.ts` or the request-scope mechanism, if the web package should own the per-request scope.',
         ],
         api: `
@@ -968,9 +968,9 @@ export interface LoaderScope {
         blockedBy: ['tests'],
         goal: 'Implement the cache: explicit per-call opt-in, deterministic keys, TTL, tag invalidation on write, an in-memory default store and a documented interface for a shared one.',
         files: [
-          '`packages/repository/src/cache/index.ts` (new) — `CacheStore`, `memoryStore`, key construction.',
-          '`packages/repository/src/index.ts` — read/write integration.',
-          '`packages/repository/SPEC.md`',
+          '`packages/orm/src/cache/index.ts` (new) — `CacheStore`, `memoryStore`, key construction.',
+          '`packages/orm/src/index.ts` — read/write integration.',
+          '`packages/orm/SPEC.md`',
         ],
         api: `
 export interface CacheStore { /* as frozen in the spec */ }

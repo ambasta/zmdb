@@ -84,10 +84,10 @@ export const CORE_SERVER_PACKAGES = [
     name: '@zmdb/app',
     dir: 'app',
     dependencies: {
-      '@zmdb/aot-validator': 'workspace:^',
-      '@zmdb/query-compiler': 'workspace:^',
-      '@zmdb/repository': 'workspace:^',
-      '@zmdb/schema-core': 'workspace:^',
+      '@zmdb/validator': 'workspace:^',
+      '@zmdb/sql': 'workspace:^',
+      '@zmdb/orm': 'workspace:^',
+      '@zmdb/schema': 'workspace:^',
     },
     exports: [
       '.',
@@ -111,7 +111,8 @@ export const CORE_SERVER_PACKAGES = [
     dir: 'web',
     dependencies: {
       '@zmdb/app': 'workspace:^',
-      '@zmdb/schema-core': 'workspace:^',
+      '@zmdb/schema': 'workspace:^',
+      '@zmdb/validator': 'workspace:^',
     },
     buildTimePeers: {
       '@zmdb/compiler': '1.0.0-alpha.4',
@@ -130,6 +131,7 @@ export const CORE_SERVER_PACKAGES = [
       './dto-pipes',
       './gateways',
       './health',
+      './integrations',
       './middleware',
       './openapi',
       './pipeline',
@@ -236,9 +238,9 @@ const APP_KERNEL_MOVES = [
 
 const SERVER_PEERS = new Set(SERVER_PACKAGES.flatMap(pkg => (pkg.peer === undefined ? [] : [pkg.peer.name])));
 const OPTIONAL_PACKAGES = new Set(SERVER_PACKAGES.map(pkg => pkg.name));
-const CORE_PACKAGES = ['@zmdb/aot-validator', '@zmdb/app', '@zmdb/jobs', '@zmdb/web', 'zmdb'];
+const CORE_PACKAGES = ['@zmdb/validator', '@zmdb/app', '@zmdb/jobs', '@zmdb/web', 'zmdb'];
 const FORBIDDEN_OLD_EXPORTS = new Map([
-  ['@zmdb/aot-validator', ['./protobuf/wire']],
+  ['@zmdb/validator', ['./protobuf/wire']],
   [
     '@zmdb/web',
     [

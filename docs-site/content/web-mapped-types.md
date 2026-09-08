@@ -4,7 +4,7 @@ metadata, so deriving one DTO from another needs a function that copies that met
 ## The built-in derivations
 
 ```ts
-import type { Entity, CreateDTO, UpdateDTO, ListDTO, GetOptions } from '@zmdb/repository';
+import { type Entity, type CreateDTO, type UpdateDTO, type ListDTO, type GetOptions } from '@zmdb/orm';
 
 type PostRow = Entity<Post>; // every column, as stored
 type NewPost = CreateDTO<Post>; // no serial columns; defaults optional

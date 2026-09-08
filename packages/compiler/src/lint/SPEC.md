@@ -36,7 +36,7 @@ build here.
 The issue proposing this asks for `export const rules: Record<string, Rule>`. `Rule` is spoken for:
 
 - `../index.ts` — `export interface Rule { kind: string; args: readonly unknown[] }`, the argument of `validate(r: Rule, expr)`.
-- `@zmdb/schema-core`'s `src/tags/index.ts` — `export type Rule<Name extends string>`, a tag.
+- `@zmdb/schema`'s `src/tags/index.ts` — `export type Rule<Name extends string>`, a tag.
 
 A third `Rule` in the same package would make `import { Rule }` ambiguous by reading order for anyone who touches both surfaces, and the two that exist are both older and both load-bearing. The
 exported type is `LintRule`.
@@ -91,8 +91,8 @@ The fix is safe, and the reason is worth writing down rather than assuming: ever
 stops tagging is uninhabitable before the fix, so no code can depend on it.
 
 That reasoning is also the fix's precondition — it fires only when the union has exactly one `null`/`undefined` arm _and_ every other intersection member is a local binding for a known declaration-tag
-export from `@zmdb/schema-core/tags` or `zmdb/tags`. Those modules also export non-tag helpers such as `Nullable`, `NonNull`, `ColumnSqlType` and `RelationKind`; importing one of those does not
-satisfy the precondition.
+export from `@zmdb/schema/tags` or `zmdb/tags`. Those modules also export non-tag helpers such as `Nullable`, `NonNull`, `ColumnSqlType` and `RelationKind`; importing one of those does not satisfy the
+precondition.
 
 Import tracking, not type resolution; `(A | B) & C` for arbitrary `A`, `B`, `C` is a real semantic change and the rule leaves it alone.
 
@@ -136,7 +136,7 @@ flag every `if (x)` in a file that also builds a `where`, or nothing.
 **`no-select-star-with-sensitive`** has to resolve a declared type to see a tag. §1.
 
 **`no-find-by-id-without-key`** has to do the same, and more importantly it is a lint rule patching a hole in a type this project owns. `PrimaryKeyOf<T>` is `unknown` when the type declares no primary
-key (`@zmdb/schema-core`'s `src/derive/index.ts`), so `findById(anything)` type-checks and then throws `schema … has no primary key` at runtime from `@zmdb/repository`.
+key (`@zmdb/schema`'s `src/derive/index.ts`), so `findById(anything)` type-checks and then throws `schema … has no primary key` at runtime from `@zmdb/orm`.
 
 The fix belongs in the alias: that branch should yield a string literal naming the problem, so the compiler's own "Argument of type 'number' is not assignable to parameter of type '…'" reads as the
 diagnostic. Its test is a `*.type-test.ts` and its owner is the repository, not this plugin. The `[PrimaryKeyKeys<T>] extends [never]` guard the shipped alias already uses is the right shape — only
@@ -146,9 +146,9 @@ the branch's value changes.
 
 ## 4. `no-empty-patch`: the behaviour the rule was specified against does not exist
 
-The issue withholds the autofix because deleting the call "changes behaviour if the call was awaited for its error". There is no error. `@zmdb/repository`'s `update` validates the patch, fires
-`preUpdate`, and builds the keyed `where`; on an empty patch it **returns `this.firstMatching(where)`** — the same single-row `SELECT` body `findById` uses after key validation. A write silently
-degrades to a read.
+The issue withholds the autofix because deleting the call "changes behaviour if the call was awaited for its error". There is no error. `@zmdb/orm`'s `update` validates the patch, fires `preUpdate`,
+and builds the keyed `where`; on an empty patch it **returns `this.firstMatching(where)`** — the same single-row `SELECT` body `findById` uses after key validation. A write silently degrades to a
+read.
 
 Three things follow.
 
@@ -261,4 +261,4 @@ that sub-issue still owns the complete setup and rule reference, including these
 The earlier rejection of a separate lint package remains valid; the changed boundary is the broader compiler package. The rules, host types and fixtures live together in `@zmdb/compiler/lint`.
 
 This is not `@zmdb/eslint-plugin`, and it does not add a second rule implementation. Oxlint remains the first host and ESLint-shaped configs remain adapters over the same rules. The old
-`@zmdb/aot-validator/lint` subpath has been removed rather than forwarded.
+`@zmdb/validator/lint` subpath has been removed rather than forwarded.

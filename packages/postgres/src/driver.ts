@@ -1,5 +1,5 @@
-import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
-import type { ExecuteOptions, SelectedDriver, TransactionalDriver } from '@zmdb/repository';
+import { type ExecuteOptions, type SelectedDriver, type TransactionalDriver } from '@zmdb/orm';
+import { type CompiledQuery, type SqlDialect } from '@zmdb/sql';
 
 export interface PgQueryable {
   query(text: string, params?: readonly unknown[]): Promise<{ rows: Record<string, unknown>[] }>;

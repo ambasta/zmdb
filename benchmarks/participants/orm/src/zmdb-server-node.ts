@@ -19,16 +19,16 @@ import 'dotenv/config';
 // 200; there are none left, and the compiled SQL for each route is asserted by
 // benchmarks/harness/orm's tests.
 import { serve } from '@hono/node-server';
+import { createQueryCompiler } from '@zmdb/sql';
+import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
+import { ftsSelectFrom } from '@zmdb/sql/fts';
+import { joinableSelectFrom } from '@zmdb/sql/joins';
 import { Hono } from 'hono';
 // Upstream writes `import pg from 'pg'` and `new pg.Pool(...)`; this is the same
 // constructor reached by its named export, which is what this repository's lint
 // rules ask for. Nothing about the pool differs.
 import { Pool } from 'pg';
 
-import { aggregateSelectFrom } from '../../../../packages/query-compiler/src/aggregations/index.js';
-import { ftsSelectFrom } from '../../../../packages/query-compiler/src/fts/index.js';
-import { createQueryCompiler } from '../../../../packages/query-compiler/src/index.js';
-import { joinableSelectFrom } from '../../../../packages/query-compiler/src/joins/index.js';
 import cpuUsage from './cpu-usage';
 
 const numCPUs = os.cpus().length;

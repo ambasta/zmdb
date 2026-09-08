@@ -6,7 +6,7 @@ to [D1](./connect-cloudflare-d1.html).
 The storage API is synchronous inside the object, so the driver is trivial:
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 import { sqlite } from '@zmdb/sqlite';
 
 export function doDriver(sql: SqlStorage): Driver {

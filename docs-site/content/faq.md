@@ -34,7 +34,7 @@ site where you know whether absence is an error.
 Yes, and without a database:
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const q = createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@example.com').compile();

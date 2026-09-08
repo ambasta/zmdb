@@ -43,7 +43,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/cli',
     zone: 'tooling',
     ring: 4,
-    allowedWorkspaceDependencies: ['compiler', 'migrations', 'query-compiler', 'repository', 'schema-core'],
+    allowedWorkspaceDependencies: ['compiler', 'migrations', 'sql', 'orm', 'schema'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@zmdb/app': ['.', 'bin:zmdb'],
@@ -121,8 +121,8 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
-  'query-compiler': packagePolicy({
-    directory: 'packages/query-compiler',
+  sql: packagePolicy({
+    directory: 'packages/sql',
     zone: 'foundation',
     ring: 0,
     allowedWorkspaceDependencies: [],
@@ -134,7 +134,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/migrations',
     zone: 'foundation',
     ring: 1,
-    allowedWorkspaceDependencies: ['query-compiler'],
+    allowedWorkspaceDependencies: ['sql', 'schema'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [
@@ -146,11 +146,11 @@ export const PACKAGE_POLICY = Object.freeze({
       './testing',
     ],
   }),
-  'schema-core': packagePolicy({
-    directory: 'packages/schema-core',
+  schema: packagePolicy({
+    directory: 'packages/schema',
     zone: 'foundation',
-    ring: 1,
-    allowedWorkspaceDependencies: ['query-compiler'],
+    ring: 0,
+    allowedWorkspaceDependencies: [],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -186,7 +186,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/ai',
     zone: 'runtime',
     ring: 2,
-    allowedWorkspaceDependencies: ['schema-core'],
+    allowedWorkspaceDependencies: ['schema', 'validator'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [
@@ -239,8 +239,8 @@ export const PACKAGE_POLICY = Object.freeze({
   mssql: packagePolicy({
     directory: 'packages/mssql',
     zone: 'integration',
-    ring: 4,
-    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
+    ring: 3,
+    allowedWorkspaceDependencies: ['migrations', 'sql', 'orm'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       mssql: ['.'],
@@ -250,7 +250,7 @@ export const PACKAGE_POLICY = Object.freeze({
   otel: packagePolicy({
     directory: 'packages/otel',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -265,11 +265,11 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
-  'aot-validator': packagePolicy({
-    directory: 'packages/aot-validator',
+  validator: packagePolicy({
+    directory: 'packages/validator',
     zone: 'runtime',
-    ring: 2,
-    allowedWorkspaceDependencies: ['schema-core'],
+    ring: 1,
+    allowedWorkspaceDependencies: ['schema'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -278,7 +278,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/compiler',
     zone: 'tooling',
     ring: 3,
-    allowedWorkspaceDependencies: ['ai', 'aot-validator', 'query-compiler', 'schema-core'],
+    allowedWorkspaceDependencies: ['ai', 'validator', 'sql', 'schema'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       metro: ['./metro'],
@@ -308,11 +308,11 @@ export const PACKAGE_POLICY = Object.freeze({
       './unplugin',
     ],
   }),
-  repository: packagePolicy({
-    directory: 'packages/repository',
+  orm: packagePolicy({
+    directory: 'packages/orm',
     zone: 'runtime',
-    ring: 3,
-    allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'schema-core'],
+    ring: 2,
+    allowedWorkspaceDependencies: ['validator', 'sql', 'schema'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -320,8 +320,8 @@ export const PACKAGE_POLICY = Object.freeze({
   postgres: packagePolicy({
     directory: 'packages/postgres',
     zone: 'runtime',
-    ring: 4,
-    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
+    ring: 3,
+    allowedWorkspaceDependencies: ['migrations', 'sql', 'orm'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       pg: ['.'],
@@ -331,8 +331,8 @@ export const PACKAGE_POLICY = Object.freeze({
   cockroach: packagePolicy({
     directory: 'packages/cockroach',
     zone: 'runtime',
-    ring: 5,
-    allowedWorkspaceDependencies: ['migrations', 'postgres', 'query-compiler', 'repository'],
+    ring: 4,
+    allowedWorkspaceDependencies: ['migrations', 'postgres', 'sql', 'orm'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -340,8 +340,8 @@ export const PACKAGE_POLICY = Object.freeze({
   singlestore: packagePolicy({
     directory: 'packages/singlestore',
     zone: 'integration',
-    ring: 5,
-    allowedWorkspaceDependencies: ['migrations', 'mysql', 'query-compiler', 'repository'],
+    ring: 4,
+    allowedWorkspaceDependencies: ['migrations', 'mysql', 'sql', 'orm'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       mysql2: ['.'],
@@ -351,8 +351,8 @@ export const PACKAGE_POLICY = Object.freeze({
   sqlite: packagePolicy({
     directory: 'packages/sqlite',
     zone: 'runtime',
-    ring: 4,
-    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
+    ring: 3,
+    allowedWorkspaceDependencies: ['migrations', 'sql', 'orm'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -360,8 +360,8 @@ export const PACKAGE_POLICY = Object.freeze({
   mysql: packagePolicy({
     directory: 'packages/mysql',
     zone: 'integration',
-    ring: 4,
-    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
+    ring: 3,
+    allowedWorkspaceDependencies: ['migrations', 'sql', 'orm'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       mysql2: ['.'],
@@ -371,8 +371,8 @@ export const PACKAGE_POLICY = Object.freeze({
   app: packagePolicy({
     directory: 'packages/app',
     zone: 'application',
-    ring: 4,
-    allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'repository', 'schema-core'],
+    ring: 3,
+    allowedWorkspaceDependencies: ['validator', 'sql', 'orm', 'schema'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -380,7 +380,7 @@ export const PACKAGE_POLICY = Object.freeze({
   jobs: packagePolicy({
     directory: 'packages/jobs',
     zone: 'application',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -389,7 +389,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'transport-grpc': packagePolicy({
     directory: 'packages/transport-grpc',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['app', 'protobuf'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -398,7 +398,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'transport-nats': packagePolicy({
     directory: 'packages/transport-nats',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -407,7 +407,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'transport-rabbitmq': packagePolicy({
     directory: 'packages/transport-rabbitmq',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -416,7 +416,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'transport-redis': packagePolicy({
     directory: 'packages/transport-redis',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -425,7 +425,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'jobs-postgres': packagePolicy({
     directory: 'packages/jobs-postgres',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['jobs', 'postgres'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -434,7 +434,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'jobs-sqlite': packagePolicy({
     directory: 'packages/jobs-sqlite',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['jobs', 'sqlite'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -443,8 +443,8 @@ export const PACKAGE_POLICY = Object.freeze({
   web: packagePolicy({
     directory: 'packages/web',
     zone: 'application',
-    ring: 5,
-    allowedWorkspaceDependencies: ['app', 'schema-core'],
+    ring: 4,
+    allowedWorkspaceDependencies: ['app', 'schema', 'validator'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@zmdb/compiler': ['./contract/compiler'],
@@ -462,18 +462,8 @@ export const PACKAGE_POLICY = Object.freeze({
   zmdb: packagePolicy({
     directory: 'packages/zmdb',
     zone: 'facade',
-    ring: 6,
-    allowedWorkspaceDependencies: [
-      'app',
-      'aot-validator',
-      'cli',
-      'compiler',
-      'migrations',
-      'query-compiler',
-      'repository',
-      'schema-core',
-      'web',
-    ],
+    ring: 5,
+    allowedWorkspaceDependencies: ['app', 'validator', 'cli', 'compiler', 'migrations', 'sql', 'orm', 'schema', 'web'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@zmdb/cockroach': ['./cockroach'],

@@ -1,4 +1,4 @@
-import { ValidationError, validationIssuesOf } from '@zmdb/schema-core';
+import { ValidationError, validationIssuesOf } from '@zmdb/validator';
 // Tests for the chat loop, the tool registry and every bound frozen in ./SPEC.md
 // (#532, epic #530). The driver is scripted, so there is no network and no non-determinism.
 //

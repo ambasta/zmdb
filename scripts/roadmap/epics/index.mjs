@@ -7,7 +7,7 @@
 // sub-issues. GraphQL is out of scope and they are closed as wontfix, so the data is gone rather than
 // commented out: `file-issues.mjs` is idempotent by title and would re-file whatever is still in this
 // list. What was decided survives in the frozen specs (`packages/web/src/graphql/**/SPEC.md`,
-// `packages/schema-core/src/sdl/SPEC.md`) and in the twelve docs pages, now marked `wontfix`.
+// `packages/schema/src/sdl/SPEC.md`) and in the twelve docs pages, now marked `wontfix`.
 
 import { SCHEMA_EPICS } from './01-schema.mjs';
 import { SCHEMA_OBJECT_EPICS } from './01b-schema-objects.mjs';

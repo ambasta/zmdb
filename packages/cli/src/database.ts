@@ -1,4 +1,4 @@
-import { type DialectTarget, type Introspector } from '@zmdb/query-compiler';
+import { type DialectTarget, type Introspector } from '@zmdb/sql';
 
 export function configuredDialect(dialect: DialectTarget): DialectTarget {
   return dialect;

@@ -1,5 +1,5 @@
 import { postgres } from '@zmdb/postgres';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { Kysely, DummyDriver, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 import { describe, it, expect } from 'vitest';
 

@@ -26,26 +26,15 @@ const PACKAGES = join(ROOT, 'packages');
 const FIXTURES = join(ROOT, 'fixtures');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const TSC = join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
-const CURRENT_OWNER_DIRECTORIES = [
-  'ai',
-  'query-compiler',
-  'schema-core',
-  'aot-validator',
-  'repository',
-  'mssql',
-  'sqlite',
-  'app',
-  'web',
-  'zmdb',
-];
+const CURRENT_OWNER_DIRECTORIES = ['ai', 'sql', 'schema', 'validator', 'orm', 'mssql', 'sqlite', 'app', 'web', 'zmdb'];
 const TARGET_DIRECTORIES = {
   '@zmdb/compiler': 'compiler',
   '@zmdb/migrations': 'migrations',
   '@zmdb/cli': 'cli',
 } as const;
 const BASELINE_TARGET_OWNER = {
-  '@zmdb/compiler': 'aot-validator',
-  '@zmdb/migrations': 'query-compiler',
+  '@zmdb/compiler': 'validator',
+  '@zmdb/migrations': 'sql',
 } as const;
 const OWNER_DIRECTORIES = [
   ...CURRENT_OWNER_DIRECTORIES,
@@ -241,9 +230,9 @@ function packWorkspace(): PackedFixture {
   const compilerApp = createPackedApp(directory, 'compiler-app', packed, [
     { packageName: '@zmdb/compiler', owner: targetOwnerDirectory(packed, '@zmdb/compiler'), copy: true },
     { packageName: '@zmdb/ai', owner: 'ai' },
-    { packageName: '@zmdb/aot-validator', owner: 'aot-validator' },
-    { packageName: '@zmdb/query-compiler', owner: 'query-compiler' },
-    { packageName: '@zmdb/schema-core', owner: 'schema-core' },
+    { packageName: '@zmdb/validator', owner: 'validator' },
+    { packageName: '@zmdb/sql', owner: 'sql' },
+    { packageName: '@zmdb/schema', owner: 'schema' },
   ]);
   const migrationsApp = createPackedApp(
     directory,
@@ -255,7 +244,8 @@ function packWorkspace(): PackedFixture {
         owner: targetOwnerDirectory(packed, '@zmdb/migrations'),
         copy: true,
       },
-      { packageName: '@zmdb/query-compiler', owner: 'query-compiler' },
+      { packageName: '@zmdb/sql', owner: 'sql' },
+      { packageName: '@zmdb/schema', owner: 'schema' },
     ],
     new Set(['esbuild', 'metro', 'metro-babel-transformer', 'oxlint', 'typescript']),
   );
@@ -550,7 +540,7 @@ process.stdout.write(JSON.stringify({
       Object.keys(
         readJson<PackageManifest>(join(FIXTURES, 'consumer-compiler', 'package.json')).dependencies ?? {},
       ).toSorted(),
-    ).toEqual(['@zmdb/aot-validator', '@zmdb/compiler', '@zmdb/schema-core', 'typescript']);
+    ).toEqual(['@zmdb/compiler', '@zmdb/schema', '@zmdb/validator', 'typescript']);
     expect(
       Object.keys(
         readJson<PackageManifest>(join(FIXTURES, 'consumer-migrations', 'package.json')).dependencies ?? {},
@@ -657,15 +647,13 @@ describe('tooling isolation and removal boundaries (#627)', () => {
       const source = readFileSync(join(ROOT, path), 'utf8');
       return [...source.matchAll(/(?:from\s+|import\s*\(\s*)['"]([^'"]+)['"]/g)].map(match => match[1] ?? '');
     });
-    expect
-      .soft(runtimeImports.some(specifier => /^@zmdb\/(?:aot-validator|protobuf)(?:\/|$)/.test(specifier)))
-      .toBe(true);
+    expect.soft(runtimeImports.some(specifier => /^@zmdb\/(?:validator|protobuf)(?:\/|$)/.test(specifier))).toBe(true);
     expect.soft(runtimeImports.some(specifier => /^@zmdb\/compiler(?:\/|$)/.test(specifier))).toBe(false);
 
-    const aot = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
+    const aot = readJson<PackageManifest>(join(PACKAGES, 'validator', 'package.json'));
     expect(normalizeBins(aot)).toEqual({});
     for (const subpath of RETIRED_AOT_TOOLING_EXPORTS) {
-      expect.soft(aot.exports, `@zmdb/aot-validator ${subpath}`).not.toHaveProperty(subpath);
+      expect.soft(aot.exports, `@zmdb/validator ${subpath}`).not.toHaveProperty(subpath);
     }
   });
 
@@ -674,7 +662,7 @@ describe('tooling isolation and removal boundaries (#627)', () => {
   });
 
   it('moves the remaining migration and CLI surfaces to their target owners', () => {
-    const query = readJson<PackageManifest>(join(PACKAGES, 'query-compiler', 'package.json'));
+    const query = readJson<PackageManifest>(join(PACKAGES, 'sql', 'package.json'));
     const product = readJson<PackageManifest>(join(PACKAGES, 'zmdb', 'package.json'));
     const cliDirectory = join(PACKAGES, 'cli', 'package.json');
     const cli = existsSync(cliDirectory) ? readJson<PackageManifest>(cliDirectory) : undefined;
@@ -690,7 +678,7 @@ describe('tooling isolation and removal boundaries (#627)', () => {
     }
 
     for (const subpath of ['./introspect', './migrations', './migrations/embedded', './migrations/runner']) {
-      expect.soft(query.exports, `@zmdb/query-compiler ${subpath}`).not.toHaveProperty(subpath);
+      expect.soft(query.exports, `@zmdb/sql ${subpath}`).not.toHaveProperty(subpath);
     }
   });
 });

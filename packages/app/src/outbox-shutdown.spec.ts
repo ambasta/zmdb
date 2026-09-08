@@ -1,6 +1,6 @@
 import { createToken } from '@zmdb/app/di';
 import { Module } from '@zmdb/app/modules';
-// Application-level coverage for packages/query-compiler/src/outbox/SPEC.md §5: a dispatcher
+// Application-level coverage for packages/sql/src/outbox/SPEC.md §5: a dispatcher
 // registered as a provider participates in startup and graceful shutdown.
 //
 // §5 promises `onShutdown()` "stops claiming, waits for the in-flight batch, and does not wait for

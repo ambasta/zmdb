@@ -281,8 +281,8 @@ it('the transformer is running', () => {
 });
 ```
 
-Worth being precise about what that canary catches, since the docs are not. Untransformed, `is<T>(value)` does not quietly return `true`: `@zmdb/aot-validator`'s fallback `is` requires a runtime
-witness and throws `runtime type witness required in test/fallback mode` without one.
+Worth being precise about what that canary catches, since the docs are not. Untransformed, `is<T>(value)` does not quietly return `true`: `@zmdb/validator`'s fallback `is` requires a runtime witness
+and throws `runtime type witness required in test/fallback mode` without one.
 
 So the canary fails either way, and the un-transformed build fails loudly rather than silently — which is the direction to want, and the opposite of what `docs-site/content/web-cli-apps.md` currently
 claims (it says an `assert<T>()` in a stripped script "is permissive"). §15 records the correction for the docs sub-issue.

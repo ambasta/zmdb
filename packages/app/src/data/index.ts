@@ -1,5 +1,5 @@
-import type { BaseRepository } from '@zmdb/repository';
-import type { DeclaredTable } from '@zmdb/schema-core';
+import { type BaseRepository } from '@zmdb/orm';
+import { type DeclaredTable } from '@zmdb/schema';
 
 import { createToken, type Token } from '../di/index.js';
 

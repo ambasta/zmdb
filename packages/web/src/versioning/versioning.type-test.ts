@@ -1,4 +1,4 @@
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 
 import type { createRouter, Router, RouterOptions } from '../pipeline/index.js';
 import { Version, VersionNeutral, type versionsOf, type VersionStrategy } from './index.js';

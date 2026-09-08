@@ -9,7 +9,7 @@ import {
   type MigrationPlan,
   type MigrationTableOptions,
   type SchemaObjectOperation,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
 
 export const SINGLESTORE_TYPE_OVERRIDES = Object.freeze({
   serial: 'BIGINT AUTO_INCREMENT',

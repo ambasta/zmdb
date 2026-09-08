@@ -1,6 +1,6 @@
 // The key on the snapshot, as a type. These assertions pin the frozen contract from
 // `./SPEC.md` §1.1 and §1.3.
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type { ChangeOp, ColumnSnapshot, SnapshotableSchema, TableSnapshot } from './index.js';
 

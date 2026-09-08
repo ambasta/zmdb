@@ -77,8 +77,8 @@ manifest-backed package exactly once. Publication derives its dependency-first s
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------------------- |
 | `packages/client`             | `@zmdb/client`             | `client`            | None; generated clients import it directly                                 |
 | `packages/angular`            | `@zmdb/angular`            | `angular`           | None; selected Angular generated-client lifecycle integration              |
-| `packages/schema-core`        | `@zmdb/schema-core`        | `schema`            | Root schema defaults; `schema`, `tags`, `derive`, `dto`, `relations`, `ir` |
-| `packages/query-compiler`     | `@zmdb/query-compiler`     | `sql`               | Root SQL defaults and `zmdb/sql`                                           |
+| `packages/schema`             | `@zmdb/schema`             | `schema`            | Root schema defaults; `schema`, `tags`, `derive`, `dto`, `relations`, `ir` |
+| `packages/sql`                | `@zmdb/sql`                | `sql`               | Root SQL defaults and `zmdb/sql`                                           |
 | `packages/migrations`         | `@zmdb/migrations`         | `migrations`        | `zmdb/migrations`                                                          |
 | `packages/react`              | `@zmdb/react`              | `react`             | None; selected React generated-client lifecycle integration                |
 | `packages/react-native`       | `@zmdb/react-native`       | `react-native`      | None; selected native generated-client lifecycle integration               |
@@ -94,9 +94,9 @@ manifest-backed package exactly once. Publication derives its dependency-first s
 | `packages/ai-vercel`          | `@zmdb/ai-vercel`          | `vercel-ai`         | None; selected integration with no facade export                           |
 | `packages/mcp`                | `@zmdb/mcp`                | `mcp`               | None; selected protocol integration with no facade export                  |
 | `packages/protobuf`           | `@zmdb/protobuf`           | `protobuf`          | None; installed and imported independently                                 |
-| `packages/aot-validator`      | `@zmdb/aot-validator`      | `validator`         | Root validator defaults and `zmdb/validator`                               |
+| `packages/validator`          | `@zmdb/validator`          | `validator`         | Root validator defaults and `zmdb/validator`                               |
 | `packages/compiler`           | `@zmdb/compiler`           | `compiler`          | Root config authoring names; `compiler`, `config`, `testing`               |
-| `packages/repository`         | `@zmdb/repository`         | `orm`               | Root repository defaults and `zmdb/orm`                                    |
+| `packages/orm`                | `@zmdb/orm`                | `orm`               | Root repository defaults and `zmdb/orm`                                    |
 | `packages/mssql`              | `@zmdb/mssql`              | `mssql`             | `zmdb/mssql`                                                               |
 | `packages/postgres`           | `@zmdb/postgres`           | `postgres`          | `zmdb/postgres`                                                            |
 | `packages/cockroach`          | `@zmdb/cockroach`          | `cockroach`         | `zmdb/cockroach`                                                           |

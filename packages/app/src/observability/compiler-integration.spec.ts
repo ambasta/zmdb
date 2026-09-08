@@ -1,6 +1,6 @@
 import { tracedDriver, type Span, type SpanContext, type Tracer } from '@zmdb/app/observability';
 import { postgres } from '@zmdb/postgres';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 const context: SpanContext = {

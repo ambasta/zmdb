@@ -7,7 +7,7 @@ bridge out of zmdb's type system.
 ## Basic use
 
 ```ts
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema } from '@zmdb/schema/openapi';
 import { userSchema } from './schema.js';
 
 const schema = toJsonSchema(userSchema, 'entity');
@@ -76,7 +76,7 @@ it safe to hand a derived schema to a model or publish it in a document. Note th
 ## Relations
 
 ```ts
-import { toJsonSchemaWithRelations } from '@zmdb/schema-core/openapi';
+import { toJsonSchemaWithRelations } from '@zmdb/schema/openapi';
 
 toJsonSchemaWithRelations(userSchema, 'entity');
 ```
@@ -87,7 +87,7 @@ the document matches the response. Relations reach the `entity` variant only: a 
 ## Every schema at once
 
 ```ts
-import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const components = toOpenApiComponents([userSchema, postSchema, commentSchema]);
 ```

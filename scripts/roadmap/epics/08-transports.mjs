@@ -14,7 +14,7 @@ export const TRANSPORT_EPICS = [
       'web-microservices-custom-transport',
       'web-hybrid-application',
     ],
-    packages: ['@zmdb/web', '@zmdb/schema-core'],
+    packages: ['@zmdb/web', '@zmdb/schema'],
     motivation: `
 Five notes describing one missing layer: "no transport-strategy layer shipped; adapters are the seam",
 "no Redis / MQTT / NATS / RabbitMQ / Kafka transport strategies", "no proto loader, no service binding,

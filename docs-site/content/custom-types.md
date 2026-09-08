@@ -8,7 +8,7 @@ A column has **three** types, and a custom type is where they visibly differ: wh
 `defineType` takes those three as type parameters and one function per crossing. The result is immutable and frozen — safe to share across your application.
 
 ```ts
-import { defineType, encodeValue, decodeValue } from '@zmdb/schema-core/custom-types';
+import { defineType, encodeValue, decodeValue } from '@zmdb/schema/custom-types';
 
 interface Money {
   amount: number;
@@ -77,7 +77,7 @@ CREATE TABLE "orders" (
 The tag names a codec; the application supplies it. One registry, keyed by the same name:
 
 ```ts
-import { wireCodec } from '@zmdb/schema-core/custom-types';
+import { wireCodec } from '@zmdb/schema/custom-types';
 import { wireDecoder, wireEncoder } from '@zmdb/web/data';
 
 const codecs = { Money: wireCodec(MoneyType) };
@@ -140,7 +140,7 @@ const encoded = encodeValue(MoneyType, { amount: 50, currency: 'EUR' });
 // decodeValue(MoneyType, 42); // Type error
 ```
 
-> [!IMPORTANT] Custom types do NOT add runtime validation. If the database returns malformed data, `fromDb` will throw — or worse, succeed with nonsense. Pair them with `@zmdb/aot-validator`, as
+> [!IMPORTANT] Custom types do NOT add runtime validation. If the database returns malformed data, `fromDb` will throw — or worse, succeed with nonsense. Pair them with `@zmdb/validator`, as
 > `PriorityType.fromDb` does above.
 
 ## Extension-backed storage types

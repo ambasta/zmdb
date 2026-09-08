@@ -3,7 +3,7 @@ application-selected; the package does not open, close or configure the pool.
 
 ```ts
 import sql from 'mssql';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { mssql, mssqlDriver } from '@zmdb/mssql';
 
 const pool = await sql.connect(process.env.DATABASE_URL!);

@@ -11,7 +11,7 @@
 // ahead of the early return, which is why `emit.spec.ts` also asserts that the generated
 // text does not contain one.
 
-import { assert, assertEquals, equals, is, validate } from '@zmdb/aot-validator/utilities';
+import { assert, assertEquals, equals, is, validate } from '@zmdb/validator';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { FixtureProject } from './__testing__/project.js';

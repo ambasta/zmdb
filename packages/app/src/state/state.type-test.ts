@@ -4,7 +4,7 @@
 // "Illegal transitions fail to compile" is a claim only the compiler can check,
 // so the `expectTypeOf` blocks in `state.spec.ts` were decoration — vitest runs
 // that file, and `expectTypeOf(...)` is a runtime no-op.
-import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
+import { type Equal, type Expect, type ExpectNot, type Extends } from '@zmdb/schema';
 
 // pay: Draft -> Paid, ship: Paid -> Shipped. There is no Draft -> Shipped edge.
 import { Draft, pay, ship, type Order } from './fixtures.js';

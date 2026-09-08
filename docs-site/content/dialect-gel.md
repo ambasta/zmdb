@@ -7,7 +7,7 @@ Gel exposes a PostgreSQL-wire SQL endpoint. It supports queries and standard DML
 reporting, analytics and SQL operations the endpoint supports:
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 

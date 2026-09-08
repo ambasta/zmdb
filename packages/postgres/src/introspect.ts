@@ -12,7 +12,7 @@ import type {
   IntrospectOptions,
   ReferentialAction,
 } from '@zmdb/migrations/introspect/runtime';
-import type { CompiledQuery } from '@zmdb/query-compiler';
+import { type CompiledQuery } from '@zmdb/sql';
 
 export interface PostgresCatalogOverrides {
   readonly snapshot?: (

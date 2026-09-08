@@ -7,10 +7,10 @@ function gh(args, input) {
   return execFileSync('gh', args, { encoding: 'utf8', input, maxBuffer: 16 * 1024 * 1024 }).trim();
 }
 const EPICS = {
-  1: '@zmdb/schema-core (DSL + type derivation)',
-  2: '@zmdb/query-compiler (SELECT/INSERT/UPDATE/DELETE + dialects)',
-  3: '@zmdb/aot-validator (transformer + primitive inlining)',
-  4: '@zmdb/repository (auto-validating CRUD + hooks)',
+  1: '@zmdb/schema (DSL + type derivation)',
+  2: '@zmdb/sql (SELECT/INSERT/UPDATE/DELETE + dialects)',
+  3: '@zmdb/validator (transformer + primitive inlining)',
+  4: '@zmdb/orm (auto-validating CRUD + hooks)',
   5: 'Entity Relations (compile-time derived)',
   6: 'Transactions & Unit of Work',
   7: 'Migrations & Schema Diffing',

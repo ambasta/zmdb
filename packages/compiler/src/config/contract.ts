@@ -1,8 +1,8 @@
-import type { CompiledQuery, IntrospectOptions, SqlDialect } from '@zmdb/query-compiler';
-import type { NamingStrategy } from '@zmdb/schema-core/naming';
+import type { NamingStrategy } from '@zmdb/schema/naming';
+import type { CompiledQuery, IntrospectOptions, SqlDialect } from '@zmdb/sql';
 
-export type { IntrospectOptions } from '@zmdb/query-compiler';
-export type { NamingStrategy } from '@zmdb/schema-core/naming';
+export type { IntrospectOptions } from '@zmdb/sql';
+export type { NamingStrategy } from '@zmdb/schema/naming';
 
 export interface HttpGenerationConfig {
   readonly contracts: string | readonly string[];

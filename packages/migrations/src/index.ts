@@ -16,21 +16,21 @@ import {
   type SqlDialect,
   type TableOptions,
   type TableSnapshot,
-} from '@zmdb/query-compiler';
-import { ddlType, type DdlSqlType } from '@zmdb/query-compiler/schema-objects';
+} from '@zmdb/sql';
+import { ddlType, type DdlSqlType } from '@zmdb/sql/schema-objects';
 
-export type {
-  ChangeOp,
-  ColumnSnapshot,
-  ExtensionSnapshot,
-  ExtensionType,
-  ForeignKeySnapshot,
-  ReferentialAction,
-  SchemaSnapshot,
-  TableOptions,
-  TableSnapshot,
-} from '@zmdb/query-compiler';
-export type { MigrationDialect, SchemaObjectOperation } from '@zmdb/query-compiler';
+export {
+  type ChangeOp,
+  type ColumnSnapshot,
+  type ExtensionSnapshot,
+  type ExtensionType,
+  type ForeignKeySnapshot,
+  type ReferentialAction,
+  type SchemaSnapshot,
+  type TableOptions,
+  type TableSnapshot,
+} from '@zmdb/sql';
+export { type MigrationDialect, type SchemaObjectOperation } from '@zmdb/sql';
 export { ddlType };
 export type { DdlSqlType };
 export { down, downTo, driverMigrationConnection, ensureVersionTable, rollbackTo, status, up } from './runner.js';
@@ -59,11 +59,9 @@ export function emitSchemaObject(
 /**
  * The slice of a schema a snapshot reads.
  *
- * Declared structurally rather than importing `CoreSchema`: this package sits
- * *below* `@zmdb/schema-core` in the dependency DAG, and a `CoreSchema` satisfies
- * this shape by construction. It replaces a `schemas: readonly unknown[]`
- * parameter whose body immediately asserted this very type — i.e. an escape hatch
- * that moved the requirement out of the signature and into a comment.
+ * Declared structurally so callers can supply the required snapshot data.
+ * `CoreSchema` satisfies this shape. Migrations also depends on
+ * `@zmdb/schema/naming` for canonical names.
  */
 export interface SnapshotableSchema {
   readonly table: string;

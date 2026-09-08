@@ -71,16 +71,16 @@ const DELETED = new Set([
 ]);
 
 // `validate` is deliberately not in the list above. It was a column modifier
-// (`text().validate(rule)`) *and* it is the name of `@zmdb/aot-validator`'s live entry point,
+// (`text().validate(rule)`) *and* it is the name of `@zmdb/validator`'s live entry point,
 // re-exported by the umbrella. Check 1 would flag the second for being the first.
 
 /** The subpaths a schema used to be built from. Every one is imported and its names read. */
 const SURFACES = [
-  '@zmdb/schema-core',
-  '@zmdb/schema-core/ir',
-  '@zmdb/schema-core/openapi',
-  '@zmdb/schema-core/derive',
-  '@zmdb/schema-core/tags',
+  '@zmdb/schema',
+  '@zmdb/schema/ir',
+  '@zmdb/schema/openapi',
+  '@zmdb/schema/derive',
+  '@zmdb/schema/tags',
   'zmdb',
   'zmdb/ir',
 ];

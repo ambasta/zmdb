@@ -165,7 +165,7 @@ An untransformed generic call has no runtime access to its type argument. `is<Us
 The utilities accept an explicit `TypeIR` witness for tests and generated fallback modules:
 
 ```ts
-import { is } from '@zmdb/aot-validator/utilities';
+import { is } from '@zmdb/validator';
 
 const ok = is(payload, userTypeIr);
 ```

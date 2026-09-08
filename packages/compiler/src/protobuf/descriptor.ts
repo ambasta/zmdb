@@ -4,7 +4,7 @@
 // `protoDescriptor<T>()`, and the emitted application receives one string literal.
 // No descriptor, parser or field table is walked at runtime.
 
-import type { ObjectIR, PropertyIR, ProtoScalar, ScalarIR, TypeIR } from '@zmdb/schema-core/ir';
+import { type ObjectIR, type PropertyIR, type ProtoScalar, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
 
 import type { GrpcServiceIR } from './grpc-ir.js';
 

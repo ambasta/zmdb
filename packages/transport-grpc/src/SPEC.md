@@ -323,7 +323,7 @@ application rules are part of the service contract.
 
 `#557` step 9 asked for this boundary. The implemented split separates public runtime ownership from compiler ownership:
 
-| Compiler (`@zmdb/compiler`, `@zmdb/schema-core`)       | Artifact runtime (`@zmdb/protobuf`)              | Adapter (`@zmdb/transport-grpc`)                     |
+| Compiler (`@zmdb/compiler`, `@zmdb/schema`)            | Artifact runtime (`@zmdb/protobuf`)              | Adapter (`@zmdb/transport-grpc`)                     |
 | ------------------------------------------------------ | ------------------------------------------------ | ---------------------------------------------------- |
 | one reflection session and protobuf/service-IR walk    | `ProtoField`-derived calls and `Grpc*Def` types  | `bindGrpcService`, `GrpcHandlers`, `grpcExtension`   |
 | descriptor, validator and straight-line codec emission | generated service artifacts and wire primitives  | deadlines, cancellation, metadata and status mapping |

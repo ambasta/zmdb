@@ -6,7 +6,7 @@ Reach for it where a failure means something upstream is broken. Where a failure
 ## Basic Usage
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 import type { MaxLength, Min } from 'zmdb/tags';
 
 interface Player {
@@ -78,7 +78,7 @@ app.post('/users', async (req, reply) => {
 `assertEquals<T>()` is the strict form: it additionally rejects properties `T` does not declare.
 
 ```ts
-import { assertEquals } from '@zmdb/aot-validator/utilities';
+import { assertEquals } from '@zmdb/validator';
 
 interface Item {
   id: number;

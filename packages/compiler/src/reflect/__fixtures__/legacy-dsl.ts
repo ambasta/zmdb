@@ -1,6 +1,6 @@
 // The builder DSL the codemod migrates away from, as declarations only.
 //
-// `defineSchema` and its column builders were deleted from `@zmdb/schema-core` when the last
+// `defineSchema` and its column builders were deleted from `@zmdb/schema` when the last
 // caller in this repository became a tagged interface. The codemod that carried them across
 // outlives them — a consumer upgrading has a codebase full of the old spelling, and the tool
 // that reads it has to keep working long after the library stopped exporting it. Which leaves

@@ -32,7 +32,7 @@
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
-import type { SchemaIR } from '@zmdb/schema-core/ir';
+import { type SchemaIR } from '@zmdb/schema/ir';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -164,7 +164,7 @@ describe('the codemod reads every schema in the corpus (REQ-TF-4)', () => {
     // The corpus's header text mentions `json` and `defaultTo`; an earlier prune matched on
     // a text search and kept the import alive because of the prose. This is that bug's test.
     expect(corpus.rewritten).not.toContain("from './legacy-dsl.js'");
-    expect(corpus.rewritten).toContain("from '@zmdb/schema-core/tags'");
+    expect(corpus.rewritten).toContain("from '@zmdb/schema/tags'");
     // `Attachment` is not part of the DSL and is still referenced, so it stays.
     expect(corpus.rewritten).toContain('export interface Attachment');
   });

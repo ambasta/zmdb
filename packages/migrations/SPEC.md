@@ -16,16 +16,16 @@
 
 The measured ownership map assigns 21 shipped/build-input paths to this package and is frozen in
 [`../../.github/scripts/verify-tooling-ownership.SPEC.md`](../../.github/scripts/verify-tooling-ownership.SPEC.md). Hot-path SELECT/INSERT/UPDATE/DELETE compilation, quoting protocols, query
-expressions and schema-object protocols remain in `@zmdb/query-compiler`.
+expressions and schema-object protocols remain in `@zmdb/sql`.
 
 ## 2. Dependency boundary
 
 ```text
-zmdb CLI adapters ──> @zmdb/migrations/files ──> @zmdb/migrations ──> @zmdb/query-compiler
+zmdb CLI adapters ──> @zmdb/migrations/files ──> @zmdb/migrations ──> @zmdb/sql
 ```
 
-`@zmdb/migrations` has a required dependency on `@zmdb/query-compiler` and on the pinned `oxfmt` version used only by generated declarations. It has no dependency on `@zmdb/compiler`, `@zmdb/cli`,
-`@zmdb/repository`, `@zmdb/web` or `zmdb`.
+`@zmdb/migrations` has a required dependency on `@zmdb/sql` and on the pinned `oxfmt` version used only by generated declarations. It has no dependency on `@zmdb/compiler`, `@zmdb/cli`, `@zmdb/orm`,
+`@zmdb/web` or `zmdb`.
 
 Schema and driver inputs are structural. The CLI may obtain schema values from `@zmdb/compiler/testing` and pass them in, but the migrations package never opens a TypeScript project. Database-specific
 DDL, catalog queries and connection adapters arrive through the explicit database/migration protocols; no mutable dialect registry or import-for-side-effect mechanism is permitted.
@@ -49,7 +49,7 @@ The package exports exactly:
 | `@zmdb/migrations/testing`            | in-memory protocols, golden helpers and conformance suites                  |
 
 `zmdb/migrations` is the stable product facade over the root lifecycle, runner and file-backed project APIs. Advanced consumers use the explicit package subpaths. There are no compatibility entries
-under `@zmdb/query-compiler`. The root, runner and product facade have no `runCli`; command dispatch belongs only to `@zmdb/cli`, while the engine retains `up`, `down` and `status`.
+under `@zmdb/sql`. The root, runner and product facade have no `runCli`; command dispatch belongs only to `@zmdb/cli`, while the engine retains `up`, `down` and `status`.
 
 ### 3.1 Root API
 
@@ -87,7 +87,7 @@ things and nothing in this table must spawn the executable.
 Catalog protocols, parsers, drift normalization and selection rules live under `@zmdb/migrations/introspect`. Database packages that need only the shared row helpers and drift normalization import
 `@zmdb/migrations/introspect/runtime`, which reaches no concrete catalog reader. `emitDeclarations` lives under `@zmdb/migrations/declarations`; this is the sole path that imports `oxfmt`.
 
-The root, runner and embedded subpaths must not reach `oxfmt`. Moving the formatter edge out of `@zmdb/query-compiler` restores a dependency-free SQL hot path.
+The root, runner and embedded subpaths must not reach `oxfmt`. Moving the formatter edge out of `@zmdb/sql` restores a dependency-free SQL hot path.
 
 ### 3.4 Embedded runner
 
@@ -105,10 +105,10 @@ connection adapters or compatibility re-exports; `@zmdb/sqlite/embedded` current
 
 The implementation removed:
 
-- `@zmdb/query-compiler/introspect`
-- `@zmdb/query-compiler/migrations`
-- `@zmdb/query-compiler/migrations/runner`
-- `@zmdb/query-compiler/migrations/embedded`
+- `@zmdb/sql/introspect`
+- `@zmdb/sql/migrations`
+- `@zmdb/sql/migrations/runner`
+- `@zmdb/sql/migrations/embedded`
 - the `migrations` namespace export from the `zmdb` root
 
 No implementation-owner forwarding subpath remains. Product imports use `zmdb/migrations`; advanced imports use `@zmdb/migrations` and its explicit subpaths. The old query-compiler paths do not

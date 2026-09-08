@@ -6,7 +6,7 @@ Image.
 
 ```ts
 import { singlestore, singlestoreDriver } from '@zmdb/singlestore';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import mysql2 from 'mysql2/promise';
 
 const pool = mysql2.createPool(process.env.SINGLESTORE_URL!);

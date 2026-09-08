@@ -48,7 +48,7 @@ still unusable by the extension operators it was declared for.
 `IndexDef` supports PostgreSQL access methods, operator classes and method-specific options:
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const sql = createIndexDdl(
   {

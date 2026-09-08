@@ -15,6 +15,7 @@
     "./dto-pipes": "./src/index.ts",
     "./gateways": "./src/index.ts",
     "./health": "./src/index.ts",
+    "./integrations": "./src/index.ts",
     "./middleware": "./src/index.ts",
     "./openapi": "./src/index.ts",
     "./pipeline": "./src/index.ts",
@@ -26,7 +27,8 @@
   },
   "dependencies": {
     "@zmdb/app": "workspace:^",
-    "@zmdb/schema-core": "workspace:^"
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/validator": "workspace:^"
   },
   "peerDependencies": {
     "@zmdb/compiler": "workspace:^",

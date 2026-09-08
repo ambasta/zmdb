@@ -3,7 +3,7 @@ Turning rows into JSON, and JSON into rows, with the type doing the work in both
 ## Out: `stringify`
 
 ```ts
-import { stringify } from '@zmdb/aot-validator/serialization';
+import { stringify } from '@zmdb/validator/serialization';
 
 const json = stringify(row);
 ```
@@ -27,7 +27,7 @@ const json = stringify(visible satisfies ReadDTO<User>);
 ## Out, with checking: `assertStringify`
 
 ```ts
-import { assertStringify } from '@zmdb/aot-validator/serialization';
+import { assertStringify } from '@zmdb/validator/serialization';
 
 const json = assertStringify(row, ir); // throws AssertError if row is wrong
 ```
@@ -43,7 +43,7 @@ Use it on anything assembled by hand or arriving from raw SQL. Use plain `string
 ## In: `parse`
 
 ```ts
-import { parse } from '@zmdb/aot-validator/serialization';
+import { parse } from '@zmdb/validator/serialization';
 
 const result = parse(text);
 if (!result.success) throw new ValidationError('invalid payload', result.issues ?? []);

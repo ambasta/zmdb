@@ -1,4 +1,4 @@
-import type { CoreSchema } from '@zmdb/schema-core';
+import { type CoreSchema } from '@zmdb/schema';
 
 import { toolFor, type ToolOptions, type ToolSpec } from './providers.js';
 

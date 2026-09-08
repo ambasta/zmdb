@@ -7,7 +7,7 @@ export const VALIDATOR_EPICS = [
     title: '[EPIC] Shallow validation — a depth-limited validator variant',
     labels: ['enhancement', 'area:validator', 'perf', 'parity:typia'],
     pages: ['validators-shallow'],
-    packages: ['@zmdb/compiler', '@zmdb/aot-validator', '@zmdb/schema-core'],
+    packages: ['@zmdb/compiler', '@zmdb/validator', '@zmdb/schema'],
     motivation: `
 \`is()\` and \`assert()\` walk the whole tree. That is the right default — a validator that checks the
 top level and trusts the rest is a validator that lets a malformed nested object through — but it is
@@ -55,7 +55,7 @@ it comes with a promise.
 `,
         files: [
           '`packages/compiler/src/emit/SPEC.md` — a "Depth" section.',
-          '`packages/schema-core/SPEC.md` — the public API surface if the entry points live there.',
+          '`packages/schema/SPEC.md` — the public API surface if the entry points live there.',
         ],
         api: `
 /** Depth 1 checks the top level only: property presence and primitive types. */
@@ -88,7 +88,7 @@ export declare function validateShallow<T>(value: unknown, depth?: number): Vali
           '`packages/compiler/src/emit/emit.spec.ts`',
           '`packages/compiler/src/transform-code.spec.ts` — `CALLEES` must learn the new names.',
           '`packages/compiler/src/aot-validator.spec.ts` — behaviour.',
-          '`packages/schema-core/src/schema-core.spec.ts` — the public entry points.',
+          '`packages/schema/src/schema-core.spec.ts` — the public entry points.',
         ],
         tests: [
           '`emits no branch for a nested object beyond the depth limit` — assert the emitted string does not contain the nested property name.',
@@ -119,7 +119,7 @@ export declare function validateShallow<T>(value: unknown, depth?: number): Vali
         goal: 'Implement depth in the emitter: a limit threads through emission and truncates the tree, producing smaller code. No runtime counter anywhere.',
         files: [
           '`packages/compiler/src/emit/index.ts` — the emission walk.',
-          '`packages/schema-core/src/ir/validation-shape.ts` — shared shape decisions at the truncation point.',
+          '`packages/schema/src/ir/validation-shape.ts` — shared shape decisions at the truncation point.',
           '`packages/compiler/src/transform/index.ts` — `CALLEES` and the call-site rewrite that reads the literal `depth`.',
         ],
         api: `
@@ -153,11 +153,11 @@ interface EmitOptions {
         title: 'Public shallow entry points, exported and benchmarked',
         labels: ['enhancement'],
         blockedBy: ['emit'],
-        goal: 'Export `isShallow`/`assertShallow`/`validateShallow` from `@zmdb/schema-core` and `zmdb`, wire them into the untransformed-build error path, and measure the win.',
+        goal: 'Export `isShallow`/`assertShallow`/`validateShallow` from `@zmdb/schema` and `zmdb`, wire them into the untransformed-build error path, and measure the win.',
         why: 'A performance feature without a number is a guess. The repo already runs the validation benchmark suite, so the measurement is cheap and the claim becomes checkable.',
         files: [
-          '`packages/schema-core/src/index.ts`, `packages/zmdb/src/index.ts` — exports.',
-          '`packages/aot-validator/src/utilities/index.ts` — the untransformed-build throw must name the new functions too.',
+          '`packages/schema/src/index.ts`, `packages/zmdb/src/index.ts` — exports.',
+          '`packages/validator/src/utilities/index.ts` — the untransformed-build throw must name the new functions too.',
           '`benchmarks/` — a case for a populated row.',
           "`tests/api-coverage/mapping.mjs` — Typia's shallow suites.",
         ],
@@ -208,7 +208,7 @@ interface EmitOptions {
     title: '[EPIC] Protobuf — descriptors, encoder and decoder from the same IR',
     labels: ['enhancement', 'area:validator', 'parity:typia'],
     pages: ['protobuf-message', 'protobuf-encode', 'protobuf-decode'],
-    packages: ['@zmdb/compiler', '@zmdb/protobuf', '@zmdb/aot-validator', '@zmdb/schema-core'],
+    packages: ['@zmdb/compiler', '@zmdb/protobuf', '@zmdb/validator', '@zmdb/schema'],
     motivation: `
 zmdb derives JSON validators, JSON Schema, OpenAPI and SQL from one declaration. Protobuf is the
 obvious missing member of that list, and the one with the strongest argument: a wire format whose
@@ -267,7 +267,7 @@ an absent one unless the field is \`optional\`; that interacts with TypeScript's
 will produce a subtle bug if it is not written down first.
 `,
         files: [
-          '`packages/schema-core/src/ir/SPEC.md` — the proto tag vocabulary and IR carriage.',
+          '`packages/schema/src/ir/SPEC.md` — the proto tag vocabulary and IR carriage.',
           '`packages/compiler/src/emit/SPEC.md` — descriptor, encoder and decoder emission.',
         ],
         api: `
@@ -355,8 +355,8 @@ export declare function protoDecode<T>(bytes: Uint8Array): T;
         goal: 'Add the `Field<N>`/`Proto<K>` tags, validate numbering in the reflection, carry both into the IR, and emit a valid `.proto` descriptor. No wire codec yet.',
         why: 'The descriptor is the readable half: a wrong descriptor is visible, and a reference parser can check it. Getting it right first gives the codec slices a checked description of what they must produce.',
         files: [
-          '`packages/schema-core/src/tags/index.ts` — the two tags.',
-          '`packages/schema-core/src/ir/index.ts` — `ColumnIR`/`TypeIR` carriage, and `vocabulary.type-test.ts`.',
+          '`packages/schema/src/tags/index.ts` — the two tags.',
+          '`packages/schema/src/ir/index.ts` — `ColumnIR`/`TypeIR` carriage, and `vocabulary.type-test.ts`.',
           '`packages/compiler/src/reflect/index.ts` — read the tags, validate numbering.',
           '`packages/compiler/src/protobuf/descriptor.ts` (new) — `.proto` text emission.',
         ],

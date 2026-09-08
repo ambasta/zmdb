@@ -3,7 +3,7 @@
 // The root has exactly three populated relation objects and one 100-element list in the
 // benchmark data. Both functions are transformed from these public calls; the generated
 // module is what the benchmark imports, so neither row is a hand-written approximation.
-import { is, isShallow } from '../../../packages/aot-validator/src/utilities/index.js';
+import { is, isShallow } from '@zmdb/validator';
 
 export interface CustomerRow {
   readonly id: string;

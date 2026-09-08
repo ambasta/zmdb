@@ -1,4 +1,4 @@
-import { ValidationError } from '@zmdb/schema-core';
+import { ValidationError } from '@zmdb/validator';
 import { describe, expect, it } from 'vitest';
 
 import { executeToolAdapter } from './tool-runtime.js';

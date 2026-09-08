@@ -2,8 +2,8 @@
 // named re-exports: implementations remain in their owning packages, while
 // advanced surfaces live under concern-based `zmdb/*` entry points.
 
-export { AssertError, assert, is, validate } from '@zmdb/aot-validator/utilities';
-export type { ValidateResult } from '@zmdb/aot-validator/utilities';
+export { AssertError, assert, is, validate } from '@zmdb/validator';
+export { type ValidateResult } from '@zmdb/validator';
 
 export { Container, Inject, Module, createApplication, createToken } from '@zmdb/app';
 export type {
@@ -22,27 +22,28 @@ export { EventPattern, MessagePattern } from '@zmdb/app/messaging';
 export type { TransportStrategy } from '@zmdb/app/messaging';
 export type { Observability } from '@zmdb/app/observability';
 
-export { defineRepository, IncompleteKeyError, ValidationError } from '@zmdb/repository';
-export type { Driver, UpdatePatch } from '@zmdb/repository';
+export { defineRepository, IncompleteKeyError, ValidationError } from '@zmdb/orm';
+export { type Driver, type UpdatePatch } from '@zmdb/orm';
 
-export { schemaOf } from '@zmdb/schema-core';
-export type { CreateDTO, Entity, PrimaryKeyOf, ReadDTO, UpdateDTO, ValidationIssue } from '@zmdb/schema-core';
-export type {
-  HasDefault,
-  Max,
-  MaxLength,
-  Min,
-  MinLength,
-  Pattern,
-  Physical,
-  PrimaryKey,
-  References,
-  Sensitive,
-  Serial,
-  Sql,
-  Table,
-  Unique,
-} from '@zmdb/schema-core/tags';
+export { schemaOf } from '@zmdb/schema';
+export { type CreateDTO, type Entity, type PrimaryKeyOf, type ReadDTO, type UpdateDTO } from '@zmdb/schema';
+export { type ValidationIssue } from '@zmdb/validator';
+export {
+  type HasDefault,
+  type Max,
+  type MaxLength,
+  type Min,
+  type MinLength,
+  type Pattern,
+  type Physical,
+  type PrimaryKey,
+  type References,
+  type Sensitive,
+  type Serial,
+  type Sql,
+  type Table,
+  type Unique,
+} from '@zmdb/schema/tags';
 
 export { createApp } from '@zmdb/web/app';
 export type { WebApplication, WebApplicationOptions } from '@zmdb/web/app';

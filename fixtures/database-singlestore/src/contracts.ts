@@ -1,5 +1,4 @@
-import type { Introspector, MigrationDialect, SqlDialect } from '@zmdb/query-compiler';
-import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
+import { type DatabaseVertical, type TransactionalDriver } from '@zmdb/orm';
 import {
   singlestore,
   singlestoreDriver,
@@ -9,7 +8,8 @@ import {
   type MysqlOptions,
   type MysqlQueryable,
 } from '@zmdb/singlestore';
-import type { Pool } from 'mysql2/promise';
+import { type Introspector, type MigrationDialect, type SqlDialect } from '@zmdb/sql';
+import { type Pool } from 'mysql2/promise';
 
 declare const pool: Pool;
 declare const queryable: MysqlQueryable;

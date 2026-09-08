@@ -35,65 +35,65 @@ export {
   stContains,
   stDWithin,
   withComments,
-} from '@zmdb/query-compiler';
-export type {
-  AliasedColumn,
-  AliasedDistanceExpression,
-  ColumnExpr,
-  CommentKey,
-  CommentKeys,
-  CommentPairs,
-  ComparisonPredicate,
-  CompiledQuery,
-  DatabaseCapabilities,
-  DeleteBuilder,
-  DialectFeature,
-  DialectSqlType,
-  DialectTarget,
-  DialectTypeMap,
-  Direction,
-  DistanceExpression,
-  DistanceOp,
-  ExtensionColumnOf,
-  GeoJsonGeometry,
-  GeometryColumnOf,
-  GeometryValueOf,
-  InsertBuilder,
-  OnConflictBuilder,
-  Operator,
-  PaginationTail,
-  PlaceholderStyle,
-  Predicate,
-  PredicateGroup,
-  QueryCompiler,
-  QueryCompilerOptions,
-  QueryTelemetry,
-  ResolvedDialectTraits,
-  ReturningCapability,
-  ReturningStatement,
-  ReturningStyle,
-  SchemaObjectOperation,
-  SelectBuilder,
-  SetValue,
-  SpatialPredicate,
-  SqlDialect,
-  SqlDialectDefinition,
-  SqlDialectExtension,
-  UpdateBuilder,
-  VectorColumnOf,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
+export {
+  type AliasedColumn,
+  type AliasedDistanceExpression,
+  type ColumnExpr,
+  type CommentKey,
+  type CommentKeys,
+  type CommentPairs,
+  type ComparisonPredicate,
+  type CompiledQuery,
+  type DatabaseCapabilities,
+  type DeleteBuilder,
+  type DialectFeature,
+  type DialectSqlType,
+  type DialectTarget,
+  type DialectTypeMap,
+  type Direction,
+  type DistanceExpression,
+  type DistanceOp,
+  type ExtensionColumnOf,
+  type GeoJsonGeometry,
+  type GeometryColumnOf,
+  type GeometryValueOf,
+  type InsertBuilder,
+  type OnConflictBuilder,
+  type Operator,
+  type PaginationTail,
+  type PlaceholderStyle,
+  type Predicate,
+  type PredicateGroup,
+  type QueryCompiler,
+  type QueryCompilerOptions,
+  type QueryTelemetry,
+  type ResolvedDialectTraits,
+  type ReturningCapability,
+  type ReturningStatement,
+  type ReturningStyle,
+  type SchemaObjectOperation,
+  type SelectBuilder,
+  type SetValue,
+  type SpatialPredicate,
+  type SqlDialect,
+  type SqlDialectDefinition,
+  type SqlDialectExtension,
+  type UpdateBuilder,
+  type VectorColumnOf,
+} from '@zmdb/sql';
 
-export { escapeFts5Term, ftsSelectFrom } from '@zmdb/query-compiler/fts';
-export type { FtsOptions, FtsSelect, FtsTableOptions } from '@zmdb/query-compiler/fts';
+export { escapeFts5Term, ftsSelectFrom } from '@zmdb/sql/fts';
+export { type FtsOptions, type FtsSelect, type FtsTableOptions } from '@zmdb/sql/fts';
 
-export { joinableSelectFrom } from '@zmdb/query-compiler/joins';
-export type { JoinCondition, JoinKind, JoinableSelect } from '@zmdb/query-compiler/joins';
+export { joinableSelectFrom } from '@zmdb/sql/joins';
+export { type JoinCondition, type JoinKind, type JoinableSelect } from '@zmdb/sql/joins';
 
-export { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
-export type { AggregateSelect } from '@zmdb/query-compiler/aggregations';
+export { aggregateSelectFrom } from '@zmdb/sql/aggregations';
+export { type AggregateSelect } from '@zmdb/sql/aggregations';
 
-export { SET_KEYWORD, batch, setOperation } from '@zmdb/query-compiler/set-ops';
-export type { BatchHandle, SetOp } from '@zmdb/query-compiler/set-ops';
+export { SET_KEYWORD, batch, setOperation } from '@zmdb/sql/set-ops';
+export { type BatchHandle, type SetOp } from '@zmdb/sql/set-ops';
 
 export {
   checkConstraintDdl,
@@ -113,18 +113,18 @@ export {
   quoteId,
   replaceRoutineStatements,
   routineFingerprint,
-} from '@zmdb/query-compiler/schema-objects';
-export type {
-  ExtensionDef,
-  GeneratedColumn,
-  IndexColumn,
-  IndexDef,
-  IndexMethod,
-  RlsPolicy,
-  RoutineDef,
-  RoutineSqlType,
-  SequenceDef,
-  ViewDef,
-} from '@zmdb/query-compiler/schema-objects';
+} from '@zmdb/sql/schema-objects';
+export {
+  type ExtensionDef,
+  type GeneratedColumn,
+  type IndexColumn,
+  type IndexDef,
+  type IndexMethod,
+  type RlsPolicy,
+  type RoutineDef,
+  type RoutineSqlType,
+  type SequenceDef,
+  type ViewDef,
+} from '@zmdb/sql/schema-objects';
 
-export { singularPascalCase } from '@zmdb/query-compiler/naming';
+export { singularPascalCase } from '@zmdb/schema/naming';

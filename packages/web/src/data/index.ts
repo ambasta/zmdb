@@ -6,12 +6,12 @@
 // types JSON cannot carry (a `timestamp`, a `bigint`) into the values the app layer holds,
 // and it accepts and rejects nothing. Validation remains the consumer's AOT `assert`.
 
-import type { CoreSchema } from '@zmdb/schema-core';
-import { decodeWire, encodeWire, type CodecRegistry, type Variant } from '@zmdb/schema-core/ir';
+import { type CoreSchema } from '@zmdb/schema';
+import { decodeWire, encodeWire, type CodecRegistry, type Variant } from '@zmdb/schema/ir';
 
 /**
  * Adapt a validator into a pipeline `validateBody` hook. Pass any function that
- * returns the validated value or throws — e.g. `@zmdb/aot-validator`'s
+ * returns the validated value or throws — e.g. `@zmdb/validator`'s
  * `assert<CreateDTO<T>>`. The framework embeds no parser of its own.
  */
 export function validateWith<T>(validator: (raw: unknown) => T): (raw: unknown) => T {

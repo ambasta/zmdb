@@ -125,7 +125,7 @@ converts first — and the framework cannot know which fields are numbers withou
 returns `{ type: 'object', properties, required }`. From that one value the framework derives all three of the things a decorator-based runner normally needs separate metadata for:
 
 1. **The `parseArgs` options object** — one entry per property, `type: 'boolean'` for a boolean and `type: 'string'` for everything else, `multiple: true` for an array property.
-2. **The coercion map** — which properties to run through `Number` before validating. `@zmdb/aot-validator`'s `coerce.number` from `./advanced` is that conversion and already throws a `TypeError` on
+2. **The coercion map** — which properties to run through `Number` before validating. `@zmdb/validator`'s `coerce.number` from `./advanced` is that conversion and already throws a `TypeError` on
    `NaN`.
 3. **`--help`** — the property names, and `required` to mark which are mandatory.
 
@@ -225,7 +225,7 @@ exiting. That is the single most common way a script like this is broken, and it
 ## 8. The AOT transform is not optional here, and the failure is loud
 
 A command application validates argv, which is external input, so its `assert` has to be real. Run under Node's type stripping the transform does not run, `assert<A>` is called with no witness, and
-the fallback in `@zmdb/aot-validator`'s `./utilities` throws `runtime type witness required in test/fallback mode`.
+the fallback in `@zmdb/validator`'s `./utilities` throws `runtime type witness required in test/fallback mode`.
 
 The runtime must reject this input. This corrects `docs-site/content/web-cli-apps.md:127`, which says that "any `assert<T>()` in a script is permissive … otherwise your validation is decoration." The
 assertion is not permissive. The page's advice to build the script instead of running it through type stripping remains correct. The generated `.spec.ts` includes a transformer canary so the failure

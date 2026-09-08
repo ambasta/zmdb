@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 
 import { createToken, Inject, type Container } from '@zmdb/app/di';
 import { compileModule, Module, type ModuleClass } from '@zmdb/app/modules';
-import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
+import { type JsonSchemaObject } from '@zmdb/schema/ir';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Command, createCommandApp, type CommandApp } from './index.js';

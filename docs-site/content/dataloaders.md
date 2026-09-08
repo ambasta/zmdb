@@ -2,8 +2,8 @@
 through the request context.
 
 ```ts
-import type { Entity } from '@zmdb/schema-core';
-import { createLoaderScope, type LoaderScope } from '@zmdb/repository';
+import { type Entity } from '@zmdb/schema';
+import { createLoaderScope, type LoaderScope } from '@zmdb/orm';
 
 interface RequestContext {
   readonly loaders: LoaderScope;

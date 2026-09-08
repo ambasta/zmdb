@@ -1,11 +1,11 @@
-import type { CoreSchema } from '@zmdb/schema-core';
+import { type CoreSchema } from '@zmdb/schema';
 import {
   jsonSchemaForColumn,
   jsonSchemaFromShape,
   shapeOfVariant,
   type JsonSchemaObject,
   type ShapeIR,
-} from '@zmdb/schema-core/ir';
+} from '@zmdb/schema/ir';
 
 import { ToolSpecRefusalError, type ToolProvider, type ToolSpecRefusal } from './http/types.js';
 

@@ -278,4 +278,4 @@ import { defineConfig } from 'zmdb/config';
 
 Advanced tooling imports `@zmdb/compiler/config`. The current `zmdb` CLI uses that subpath directly; the future `@zmdb/cli` extraction must keep the same dependency and must not publish another config
 API. The `zmdb` root may re-export only the dependency-free authoring contract described in §0; it must not reach the compiler loader. The config's driver contract is structural, avoiding a compiler
-dependency on `@zmdb/repository`; application runtimes still never evaluate the config.
+dependency on `@zmdb/orm`; application runtimes still never evaluate the config.

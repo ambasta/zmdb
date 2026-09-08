@@ -6,7 +6,7 @@ operations that benefit from a single network call.
 Create a batch handle from compiled statements:
 
 ```ts
-import { batch, createQueryCompiler } from '@zmdb/query-compiler';
+import { batch, createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);

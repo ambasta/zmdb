@@ -7,7 +7,7 @@ inlined.
 
 ```ts
 import { toolFor } from '@zmdb/ai';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -40,7 +40,7 @@ Read [Provider Schema Strategies](./llm-strategy.html) before choosing a target.
 `toolFromSchema` remains the right API when a framework or protocol wants a plain JSON Schema tool record:
 
 ```ts
-import { schemaOf } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema';
 import { toolFromSchema, type ToolSpec } from '@zmdb/ai';
 
 const users = schemaOf<User>();
@@ -58,8 +58,8 @@ deliberately start from this provider-neutral document because those frameworks 
 A model response is still untrusted. Validate the returned arguments before a repository or handler sees them:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
-import type { CreateDTO } from '@zmdb/schema-core';
+import { assert } from '@zmdb/validator';
+import { type CreateDTO } from '@zmdb/schema';
 
 const dto = assert<CreateDTO<User>>(toolCall.input);
 await userRepo.create(dto);

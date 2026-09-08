@@ -9,7 +9,7 @@ import type { FileHandle } from 'node:fs/promises';
 import type { Constructor } from '@zmdb/app/di';
 import { fromTraceContext } from '@zmdb/app/observability';
 import type { Observability, Span, Tracer } from '@zmdb/app/observability';
-import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/schema-core';
+import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/validator';
 
 import {
   compilePattern,

@@ -3,7 +3,7 @@ export { sqliteDriver, type SqliteDatabase, type SqliteOptions, type SqliteState
 export { sqliteIntrospector } from './introspector.js';
 export { sqliteMigrations } from './migrations.js';
 
-import type { DatabaseVertical } from '@zmdb/repository';
+import { type DatabaseVertical } from '@zmdb/orm';
 
 import { sqlite } from './dialect.js';
 import { sqliteDriver, type SqliteDatabase, type SqliteOptions } from './driver.js';

@@ -1,58 +1,61 @@
 // The one-product import statement, compiled exactly as an application writes
 // it. Each identity assertion below is against the real owning package.
 
-import type {
-  AssertError as OwnerAssertError,
-  assert as ownerAssert,
-  is as ownerIs,
-  validate as ownerValidate,
-  ValidateResult as OwnerValidateResult,
-} from '@zmdb/aot-validator/utilities';
-import type { Module as OwnerModule, ModuleClass as OwnerModuleClass } from '@zmdb/app';
-import type { defineConfig as ownerDefineConfig, ZmdbConfig as OwnerZmdbConfig } from '@zmdb/compiler/config/contract';
-import type {
-  defineRepository as ownerDefineRepository,
-  IncompleteKeyError as OwnerIncompleteKeyError,
-  ValidationError as OwnerValidationError,
-  Driver as OwnerDriver,
-  UpdatePatch as OwnerUpdatePatch,
-} from '@zmdb/repository';
-import type {
-  schemaOf as ownerSchemaOf,
-  CreateDTO as OwnerCreateDTO,
-  Entity as OwnerEntity,
-  PrimaryKeyOf as OwnerPrimaryKeyOf,
-  ReadDTO as OwnerReadDTO,
-  UpdateDTO as OwnerUpdateDTO,
-  ValidationIssue as OwnerValidationIssue,
-} from '@zmdb/schema-core';
-import type {
-  HasDefault as OwnerHasDefault,
-  Max as OwnerMax,
-  MaxLength as OwnerMaxLength,
-  Min as OwnerMin,
-  MinLength as OwnerMinLength,
-  Pattern as OwnerPattern,
-  Physical as OwnerPhysical,
-  PrimaryKey as OwnerPrimaryKey,
-  References as OwnerReferences,
-  Sensitive as OwnerSensitive,
-  Serial as OwnerSerial,
-  Sql as OwnerSql,
-  Table as OwnerTable,
-  Unique as OwnerUnique,
-} from '@zmdb/schema-core/tags';
-import type {
-  Controller as OwnerController,
-  Delete as OwnerDelete,
-  Get as OwnerGet,
-  Patch as OwnerPatch,
-  Post as OwnerPost,
-  Public as OwnerPublic,
-  Put as OwnerPut,
-  createApp as ownerCreateApp,
-  WebApplication as OwnerWebApplication,
-  Ctx as OwnerCtx,
+import { type Module as OwnerModule, type ModuleClass as OwnerModuleClass } from '@zmdb/app';
+import {
+  type defineConfig as ownerDefineConfig,
+  type ZmdbConfig as OwnerZmdbConfig,
+} from '@zmdb/compiler/config/contract';
+import {
+  type defineRepository as ownerDefineRepository,
+  type IncompleteKeyError as OwnerIncompleteKeyError,
+  type ValidationError as OwnerValidationError,
+  type Driver as OwnerDriver,
+  type UpdatePatch as OwnerUpdatePatch,
+} from '@zmdb/orm';
+import {
+  type schemaOf as ownerSchemaOf,
+  type CreateDTO as OwnerCreateDTO,
+  type Entity as OwnerEntity,
+  type PrimaryKeyOf as OwnerPrimaryKeyOf,
+  type ReadDTO as OwnerReadDTO,
+  type UpdateDTO as OwnerUpdateDTO,
+} from '@zmdb/schema';
+import {
+  type HasDefault as OwnerHasDefault,
+  type Max as OwnerMax,
+  type MaxLength as OwnerMaxLength,
+  type Min as OwnerMin,
+  type MinLength as OwnerMinLength,
+  type Pattern as OwnerPattern,
+  type Physical as OwnerPhysical,
+  type PrimaryKey as OwnerPrimaryKey,
+  type References as OwnerReferences,
+  type Sensitive as OwnerSensitive,
+  type Serial as OwnerSerial,
+  type Sql as OwnerSql,
+  type Table as OwnerTable,
+  type Unique as OwnerUnique,
+} from '@zmdb/schema/tags';
+import {
+  type AssertError as OwnerAssertError,
+  type assert as ownerAssert,
+  type is as ownerIs,
+  type validate as ownerValidate,
+  type ValidateResult as OwnerValidateResult,
+  type ValidationIssue as OwnerValidationIssue,
+} from '@zmdb/validator';
+import {
+  type Controller as OwnerController,
+  type Delete as OwnerDelete,
+  type Get as OwnerGet,
+  type Patch as OwnerPatch,
+  type Post as OwnerPost,
+  type Public as OwnerPublic,
+  type Put as OwnerPut,
+  type createApp as ownerCreateApp,
+  type WebApplication as OwnerWebApplication,
+  type Ctx as OwnerCtx,
 } from '@zmdb/web';
 import {
   AssertError,

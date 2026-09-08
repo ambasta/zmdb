@@ -5,8 +5,8 @@ validation is your [AOT `assert`](./aot-setup.html), so there is no Zod-style pa
 
 ```ts
 import { validationPipe, runChain } from '@zmdb/web';
-import { assert } from '@zmdb/aot-validator/utilities';
-import type { CreateDTO } from '@zmdb/schema-core';
+import { assert } from '@zmdb/validator';
+import { type CreateDTO } from '@zmdb/schema';
 
 // The pipe's Out type is the DTO, so the handler body is typed — no 'as'.
 const pipe = validationPipe(raw => assert<CreateDTO<User>>(raw));

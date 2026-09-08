@@ -2,12 +2,12 @@
 literal unions — are honoured because the value is assembled _from_ them rather than checked against them afterwards.
 
 > [!NOTE] `is<T>(random<T>()) === true` is the property the generator holds, and there is a test that says so. The values are not deterministic: the transformer inlines the call, and the inlined
-> expression draws from `Math.random`. Where you need reproducibility, `seedRows` in [`@zmdb/repository/seeding`](./seeding.html) drives the same sampler from a seed.
+> expression draws from `Math.random`. Where you need reproducibility, `seedRows` in [`@zmdb/orm/seeding`](./seeding.html) drives the same sampler from a seed.
 
 ## Basic Usage
 
 ```ts
-import { random, is } from '@zmdb/aot-validator/utilities';
+import { random, is } from '@zmdb/validator';
 
 interface Account {
   name: string;
@@ -102,7 +102,7 @@ Only a reference with no non-recursive arm beside it is refused.
 `random<T>()` takes the type, so a table's own declaration is the fixture generator:
 
 ```ts
-import { random } from '@zmdb/aot-validator/utilities';
+import { random } from '@zmdb/validator';
 import type { CreateDTO } from 'zmdb/derive';
 import type { Max, MaxLength, Min, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
@@ -125,7 +125,7 @@ Either keep the pattern and use the `Omit` form above, or keep it off the column
 ## Integration with Testing
 
 ```ts
-import { random, is, assertEquals } from '@zmdb/aot-validator/utilities';
+import { random, is, assertEquals } from '@zmdb/validator';
 
 describe('UserRepository', () => {
   it('creates valid users', async () => {
@@ -169,7 +169,7 @@ describe('UserRepository', () => {
 ## Random for fuzzing
 
 ```ts
-import { random, validate } from '@zmdb/aot-validator/utilities';
+import { random, validate } from '@zmdb/validator';
 
 for (let i = 0; i < 1000; i++) {
   const input = random<CreateDTO<User>>();

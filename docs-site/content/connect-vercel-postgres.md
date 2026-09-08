@@ -5,7 +5,7 @@ applies.
 
 ```ts
 import { sql } from '@vercel/postgres';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 export const driver: Driver = {
   async execute(query) {

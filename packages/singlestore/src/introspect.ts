@@ -13,7 +13,7 @@ import {
   type IntrospectionDriver,
   type Introspector,
   type IntrospectOptions,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
 
 interface StorageRow {
   readonly schema: string;

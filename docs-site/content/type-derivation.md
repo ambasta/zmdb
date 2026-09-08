@@ -1,7 +1,7 @@
 No hand-written DTOs. Every DTO derives from the interface you declared the table as:
 
 ```ts
-import type { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import { type Entity, type CreateDTO, type UpdateDTO } from '@zmdb/schema';
 
 // interface User extends Table<'users'> { … } — see Schema Declaration.
 

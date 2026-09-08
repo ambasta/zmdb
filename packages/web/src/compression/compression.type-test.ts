@@ -9,7 +9,7 @@
 // selected would pass every test in `./compression.spec.ts`, because no client in that file asks
 // for a coding the platform cannot produce and gets one anyway.
 //
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type { AnyCtx, CompressionOptions, ContentCoding, Ctx, QueryValues, WebResponse } from '../index.js';
 

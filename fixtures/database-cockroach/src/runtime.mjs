@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { cockroach, cockroachDriver, cockroachIntrospector, cockroachMigrations } from '@zmdb/cockroach';
 import { up } from '@zmdb/migrations';
 import { detectDrift } from '@zmdb/migrations/introspect';
-import { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/query-compiler';
-import { createTransactionalDb } from '@zmdb/repository';
+import { createTransactionalDb } from '@zmdb/orm';
+import { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/sql';
 import { Pool } from 'pg';
 
 const connectionString = process.env.ZMDB_COCKROACH_URL;

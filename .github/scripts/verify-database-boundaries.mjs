@@ -22,7 +22,7 @@ import {
   OFFICIAL_DATABASES,
   SQL_TYPE_KEYS,
   VERTICAL_CONTRACT_KEYS,
-} from '../../packages/query-compiler/src/testing/capability-matrix.ts';
+} from '../../packages/sql/src/testing/capability-matrix.ts';
 import {
   databaseBoundaryFinding,
   governanceExceptionsForSource,
@@ -31,7 +31,7 @@ import {
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-const GENERIC_PACKAGES = ['query-compiler', 'schema-core', 'repository'];
+const GENERIC_PACKAGES = ['sql', 'schema', 'orm'];
 const GENERIC_PACKAGE_NAMES = GENERIC_PACKAGES.map(name => `@zmdb/${name}`);
 const DATABASE_CLIENTS = [
   'pg',
@@ -80,7 +80,7 @@ const MUTATING_METHODS = new Set([
   'unshift',
 ]);
 const FIXTURE_DIR = join(ROOT, '.github', 'scripts', '__fixtures__', 'database-boundaries');
-const MSSQL_COMPATIBILITY_PATHS = new Set(['packages/query-compiler/src/dialects/index.ts']);
+const MSSQL_COMPATIBILITY_PATHS = new Set(['packages/sql/src/dialects/index.ts']);
 const MSSQL_IMPLEMENTATION_MARKERS = [
   ['output-clause', /\bOUTPUT\b/g],
   ['merge-statement', /\bMERGE\b/g],
@@ -652,30 +652,26 @@ export async function runDatabaseBoundaryFixtureProofs() {
   const sourceCase = (name, logicalPath) => analyzeFixtureFile(sources, name, logicalPath);
 
   expectFixture(
-    sourceCase('positive-generic.ts', 'packages/query-compiler/src/generic.ts').length === 0,
+    sourceCase('positive-generic.ts', 'packages/sql/src/generic.ts').length === 0,
     'positive generic source produced a finding',
     failures,
   );
   expectFixture(
-    sourceCase('excluded-test.ts', 'packages/query-compiler/src/excluded.spec.ts').length === 0,
+    sourceCase('excluded-test.ts', 'packages/sql/src/excluded.spec.ts').length === 0,
     'spec source was treated as shipped source',
     failures,
   );
   expectFixture(
-    sourceCase('__fixtures__/excluded.ts', 'packages/query-compiler/src/__fixtures__/excluded.ts').length === 0,
+    sourceCase('__fixtures__/excluded.ts', 'packages/sql/src/__fixtures__/excluded.ts').length === 0,
     'fixture source was treated as shipped source',
     failures,
   );
 
   for (const [name, logicalPath, kind] of [
-    ['negative-official-name.ts', 'packages/query-compiler/src/official-name.ts', 'official-name'],
-    ['negative-official-import.ts', 'packages/query-compiler/src/official-import.ts', 'official-package-import'],
-    ['negative-client-import.ts', 'packages/query-compiler/src/client-import.ts', 'database-client-import'],
-    [
-      'negative-mssql-implementation.ts',
-      'packages/query-compiler/src/mssql-implementation.ts',
-      'sql-server-implementation',
-    ],
+    ['negative-official-name.ts', 'packages/sql/src/official-name.ts', 'official-name'],
+    ['negative-official-import.ts', 'packages/sql/src/official-import.ts', 'official-package-import'],
+    ['negative-client-import.ts', 'packages/sql/src/client-import.ts', 'database-client-import'],
+    ['negative-mssql-implementation.ts', 'packages/sql/src/mssql-implementation.ts', 'sql-server-implementation'],
   ]) {
     const findings = sourceCase(name, logicalPath);
     expectFixture(
@@ -707,7 +703,7 @@ export async function runDatabaseBoundaryFixtureProofs() {
   );
 
   const clientDependency = positiveModel();
-  clientDependency.manifests.get('@zmdb/repository').manifest.dependencies.pg = '^8.0.0';
+  clientDependency.manifests.get('@zmdb/orm').manifest.dependencies.pg = '^8.0.0';
   expectFixture(
     modelFindings(clientDependency).some(finding => finding.kind === 'generic-client-dependency'),
     'generic client dependency fixture was not rejected',

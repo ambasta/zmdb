@@ -92,8 +92,8 @@ Schema-first GraphQL and database introspection are the same shape of problem �
 
 ## What it would have taken
 
-The direction is frozen, in `packages/schema-core/src/sdl/SPEC.md` §11: an SDL **emitter**, and no SDL consumer. Neither half is being built — the emitter went out of scope with the rest of GraphQL —
-but the asymmetry is the part worth keeping, because it is why `db pull` above is a different question with a different answer.
+The direction is frozen, in `packages/schema/src/sdl/SPEC.md` §11: an SDL **emitter**, and no SDL consumer. Neither half is being built — the emitter went out of scope with the rest of GraphQL — but
+the asymmetry is the part worth keeping, because it is why `db pull` above is a different question with a different answer.
 
 The emitter is what the section above describes — `sdlOf` and `sdlFields` over the shared IR, a committed `schema.graphql`, and `git diff --exit-code` in CI. Nothing here parses GraphQL, so `graphql`
 is not a dependency, not a peer, and not an optional peer.

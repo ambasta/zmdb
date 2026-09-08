@@ -8,8 +8,8 @@ The question to ask first is whether the event may be lost. That answer picks th
 **If the event must not be lost, use the [transactional outbox](./transactional-outbox.html).** It is the shipped answer for anything that triggers work elsewhere.
 
 ```ts
-import { createTransactionalDb } from '@zmdb/repository/transactions';
-import { outboxWriter } from '@zmdb/repository/outbox';
+import { createTransactionalDb } from '@zmdb/orm/transactions';
+import { outboxWriter } from '@zmdb/orm/outbox';
 import { createToken } from '@zmdb/app/di';
 import { createEvents, OnEvent, type Events } from '@zmdb/app/events';
 
@@ -116,8 +116,8 @@ handler failures are data, not control flow. Neither call gives handlers an orde
 
 ## Application events are not repository lifecycle events
 
-`EventBus` from `@zmdb/repository/entity-modeling` is a different boundary with deliberately opposite failure semantics. It runs matching lifecycle subscribers sequentially, stops on the first
-failure, and lets that failure reject the explicit repository override that emitted it. Use it for a `beforeCreate` veto or another hook that is part of the write itself.
+`EventBus` from `@zmdb/orm/entity-modeling` is a different boundary with deliberately opposite failure semantics. It runs matching lifecycle subscribers sequentially, stops on the first failure, and
+lets that failure reject the explicit repository override that emitted it. Use it for a `beforeCreate` veto or another hook that is part of the write itself.
 
 Use `Events<M>` for application facts whose independent handlers must all get a chance to run. Its handlers run concurrently and one failure is reported without stopping the others. If the fact must
 survive a rollback, process exit, or another replica, write it through `emitInTransaction` and the outbox instead. The [lifecycle hooks page](./lifecycle-hooks.html) shows the explicit repository

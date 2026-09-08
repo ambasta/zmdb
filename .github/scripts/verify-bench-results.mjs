@@ -62,10 +62,10 @@ const OBSERVABILITY_INPUTS = [
   'package.json',
   'yarn.lock',
   'scripts/ts-specifier-hook.mjs',
-  'packages/query-compiler/package.json',
-  'packages/query-compiler/src/index.ts',
-  'packages/repository/package.json',
-  'packages/repository/src/index.ts',
+  'packages/sql/package.json',
+  'packages/sql/src/index.ts',
+  'packages/orm/package.json',
+  'packages/orm/src/index.ts',
   'packages/app/package.json',
   'packages/app/src/index.ts',
   'packages/app/src/application.ts',
@@ -618,7 +618,7 @@ async function verifyShallowValidationResult(path) {
   }
 
   if (data.schemaVersion !== 1) fail(`${rel} schemaVersion must be 1`);
-  if (data.suite !== '@zmdb/aot-validator populated-row shallow validation') {
+  if (data.suite !== '@zmdb/validator populated-row shallow validation') {
     fail(`${rel} has the wrong suite label`);
   }
   if (data.publicationStatus !== 'final') fail(`${rel} must have publicationStatus "final"`);

@@ -5,5 +5,8 @@
   "dependencies": {
     "@zmdb/ai": "1.0.0-alpha.4",
     "@zmdb/mcp": "1.0.0-alpha.4"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
   }
 }

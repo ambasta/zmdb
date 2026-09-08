@@ -9,7 +9,7 @@ applications to use the same database without naming collisions.
 Use `createSchemaDdl` to generate the DDL for creating a new schema (namespace).
 
 ```ts
-import { createSchemaDdl } from '@zmdb/query-compiler/schema-objects';
+import { createSchemaDdl } from '@zmdb/sql/schema-objects';
 
 const ddl = createSchemaDdl('analytics', 'postgres');
 console.log(ddl);
@@ -24,7 +24,7 @@ CREATE SCHEMA "analytics"
 When working with multiple schemas, you need to reference objects using fully-qualified names. The `qualify` function generates properly quoted identifiers.
 
 ```ts
-import { qualify } from '@zmdb/query-compiler/schema-objects';
+import { qualify } from '@zmdb/sql/schema-objects';
 
 // Fully qualify a table name
 const tableRef = qualify('analytics', 'events', 'postgres');
@@ -40,7 +40,7 @@ console.log(tableRef);
 Use the qualified table name when compiling queries that span schemas.
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);

@@ -1,5 +1,5 @@
-import { is } from '@zmdb/aot-validator/utilities';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
+import { is } from '@zmdb/validator';
 
 export interface CompilerFixtureUser extends Table<'compiler_fixture_users'> {
   readonly id: number & Sql<'integer'> & Serial & PrimaryKey;

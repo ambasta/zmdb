@@ -1,10 +1,10 @@
-The rest of `@zmdb/aot-validator/utilities`. Each takes its shape from its type argument, which `@zmdb/compiler` replaces with emitted code at build time; an untransformed call has nothing to work
-from and throws. See [AOT Setup](./aot-setup.html).
+The rest of `@zmdb/validator`. Each takes its shape from its type argument, which `@zmdb/compiler` replaces with emitted code at build time; an untransformed call has nothing to work from and throws.
+See [AOT Setup](./aot-setup.html).
 
 ## `equals` / `assertEquals` — reject unknown keys
 
 ```ts
-import { equals, assertEquals } from '@zmdb/aot-validator/utilities';
+import { equals, assertEquals } from '@zmdb/validator';
 
 interface Config {
   host: string;
@@ -22,7 +22,7 @@ an internal message, a payload whose sender you own. The typo case is the strong
 ## `random` — a value that satisfies a type
 
 ```ts
-import { random } from '@zmdb/aot-validator/utilities';
+import { random } from '@zmdb/validator';
 
 const user = random<User>();
 const body = random<CreateUserRequest>();
@@ -42,12 +42,12 @@ it('serialization round-trips', () => {
 The values satisfy the type and any recognised `validate()` rules. They are not realistic — see [Seed Functions](./seed-functions.html) if you want data that looks like data.
 
 > [!NOTE] `random<T>()` is not seeded — the transformer inlines it over `Math.random`, so two calls give two values and a failing generated case is not reproducible from the test output. Log the value
-> on failure, or use `seedRows` / `makeRng` from [`@zmdb/repository/seeding`](./seeding.html), which drive the same sampler from a seed.
+> on failure, or use `seedRows` / `makeRng` from [`@zmdb/orm/seeding`](./seeding.html), which drive the same sampler from a seed.
 
 ## `validate` — errors without an exception
 
 ```ts
-import { validate } from '@zmdb/aot-validator/utilities';
+import { validate } from '@zmdb/validator';
 
 const result = validate<CreateUserRequest>(ctx.body);
 if (!result.success) {

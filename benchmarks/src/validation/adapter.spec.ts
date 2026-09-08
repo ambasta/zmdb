@@ -1,6 +1,6 @@
 import { schemaIrsFrom } from '@zmdb/compiler/testing';
-import { objectTypeFromIR } from '@zmdb/schema-core/ir';
-import type { Min, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { objectTypeFromIR } from '@zmdb/schema/ir';
+import { type Min, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 import { describe, it, expect } from 'vitest';
 
 import { validateResult, validateCoverage, type BenchResult } from '../results.js';

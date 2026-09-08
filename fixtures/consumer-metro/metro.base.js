@@ -8,14 +8,14 @@ async function metroBase() {
   const dependencyRoot = dirname(dirname(require.resolve('metro/package.json')));
   const workspacePackages = {
     zmdb: resolve(repoRoot, 'packages/zmdb'),
-    '@zmdb/aot-validator': resolve(repoRoot, 'packages/aot-validator'),
+    '@zmdb/validator': resolve(repoRoot, 'packages/validator'),
     '@zmdb/client': resolve(repoRoot, 'packages/client'),
     '@zmdb/compiler': resolve(repoRoot, 'packages/compiler'),
-    '@zmdb/query-compiler': resolve(repoRoot, 'packages/query-compiler'),
+    '@zmdb/sql': resolve(repoRoot, 'packages/sql'),
     '@zmdb/react': resolve(repoRoot, 'packages/react'),
     '@zmdb/react-native': resolve(repoRoot, 'packages/react-native'),
-    '@zmdb/repository': resolve(repoRoot, 'packages/repository'),
-    '@zmdb/schema-core': resolve(repoRoot, 'packages/schema-core'),
+    '@zmdb/orm': resolve(repoRoot, 'packages/orm'),
+    '@zmdb/schema': resolve(repoRoot, 'packages/schema'),
     '@zmdb/web': resolve(repoRoot, 'packages/web'),
     react: dirname(require.resolve('react/package.json')),
     'react-native': dirname(require.resolve('react-native/package.json')),

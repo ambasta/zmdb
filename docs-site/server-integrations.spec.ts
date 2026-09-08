@@ -69,7 +69,7 @@ const REMOVED_SUBPATHS = [
 
 const OWNER_READMES = [
   'README.md',
-  'packages/aot-validator/README.md',
+  'packages/validator/README.md',
   'packages/app/README.md',
   'packages/jobs/README.md',
   'packages/web/README.md',

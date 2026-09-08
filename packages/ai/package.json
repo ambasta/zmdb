@@ -45,14 +45,15 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/compiler": "workspace:^",
-    "@zmdb/schema-core": "workspace:^",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/validator": "workspace:^",
     "oxfmt": "0.66.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/schema-core": "1.0.0-alpha.4"
+    "@zmdb/schema": "1.0.0-alpha.4",
+    "@zmdb/validator": "1.0.0-alpha.4"
   },
   "engines": {
     "node": ">=26"

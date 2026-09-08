@@ -21,7 +21,7 @@ At the measured baseline:
 - all six manifests carried `1.0.0-alpha.4`;
 - their manifests contain 14 directed workspace dependency entries;
 - the six manifests declare 11 optional peers in total;
-- `@zmdb/query-compiler` declares `oxfmt`, while `zmdb` declares `esbuild` and `oxfmt`; measured source paths reach those third-party dependencies only from the tooling entries frozen below;
+- `@zmdb/sql` declares `oxfmt`, while `zmdb` declares `esbuild` and `oxfmt`; measured source paths reach those third-party dependencies only from the tooling entries frozen below;
 - `.github/scripts/lib/publish-manifest.mjs`, `.github/scripts/prepare-publish.mjs` and `.github/workflows/publish.yml` each repeat package membership, while `.github/scripts/set-latest-tag.mjs`
   carries a stale four-package subset;
 - no root `CHANGELOG.md`, `scripts/release/plan.mjs` or `scripts/release/bump.mjs` exists; and
@@ -131,11 +131,11 @@ An inflated ring is invalid even if every edge still points down. The verifier d
 `allowedWorkspaceDependencies` must equal the manifest's direct non-dev catalog edges. A manifest edge absent from policy, a policy edge absent from the manifest, an imported edge absent from both,
 and an allowed edge unused by production source are four distinct violations. Policy never silently expands itself from observed imports.
 
-## 4. Complete policy rows for the current catalog
+## 4. Recorded policy and the foundation cutover
 
-The following object is normative for the current thirty-eight catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or renaming
-a catalog member requires the catalog and policy key sets to change atomically. For the #752 split, §17 supersedes only the `jobs`, `jobs-postgres`, future `jobs-sqlite`, and jobs-related `zmdb` edges
-when #755/#756 land; issue #674 otherwise changes this object only by adding the SingleStore package row.
+The following object preserves the policy text recorded before #638; it is a historical snapshot, not the current catalog. The final foundation ids and dependency DAG supersede its old owner rows:
+`schema` and `sql` have no dependencies, `validator` depends only on `schema`, and `orm` depends exactly on `schema`, `sql`, and `validator`. The complete current rows are owned by
+`scripts/architecture/policy.mjs` and `scripts/product/catalog.mjs`. Adding, removing or renaming a catalog member requires those catalog and policy key sets to change atomically.
 
 ```ts
 export const PACKAGE_POLICY = {

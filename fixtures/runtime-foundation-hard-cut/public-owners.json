@@ -1,0 +1,4509 @@
+{
+  "base": "5c61a26e6fc6e6ceeb1375afaa7ebf09c5515cf7",
+  "authority": ".github/scripts/verify-runtime-foundation.SPEC.md sections 3-8, clarified by issue #638",
+  "bindings": [
+    {
+      "from": "@zmdb/schema-core",
+      "name": "aliasRow",
+      "to": "@zmdb/orm/relations",
+      "export": "aliasRow",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "AllowedTargetStates",
+      "to": "@zmdb/app",
+      "export": "AllowedTargetStates",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "applyOrderBy",
+      "to": "@zmdb/orm/dto",
+      "export": "applyOrderBy",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "applyPagination",
+      "to": "@zmdb/orm/dto",
+      "export": "applyPagination",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "attachPopulated",
+      "to": "@zmdb/orm/relations",
+      "export": "attachPopulated",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "buildListResult",
+      "to": "@zmdb/schema",
+      "export": "buildListResult",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "claimsValidationIssues",
+      "to": "@zmdb/validator",
+      "export": "claimsValidationIssues",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ColumnFlags",
+      "to": "@zmdb/schema",
+      "export": "ColumnFlags",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ColumnMeta",
+      "to": "@zmdb/schema",
+      "export": "ColumnMeta",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ColumnsMap",
+      "to": "@zmdb/schema",
+      "export": "ColumnsMap",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "compilePopulate",
+      "to": "@zmdb/orm/relations",
+      "export": "compilePopulate",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "compileWhere",
+      "to": "@zmdb/orm/dto",
+      "export": "compileWhere",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "CoreSchema",
+      "to": "@zmdb/schema",
+      "export": "CoreSchema",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "CreateDTO",
+      "to": "@zmdb/schema",
+      "export": "CreateDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "createStateUpdatePayload",
+      "to": "@zmdb/app",
+      "export": "createStateUpdatePayload",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "DeclaredTable",
+      "to": "@zmdb/schema",
+      "export": "DeclaredTable",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "defineEntityStateMachine",
+      "to": "@zmdb/app",
+      "export": "defineEntityStateMachine",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "defineStateTransitions",
+      "to": "@zmdb/app",
+      "export": "defineStateTransitions",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "Entity",
+      "to": "@zmdb/schema",
+      "export": "Entity",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "EntityStateMachine",
+      "to": "@zmdb/app",
+      "export": "EntityStateMachine",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "EntityStateMachineOptions",
+      "to": "@zmdb/app",
+      "export": "EntityStateMachineOptions",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "Equal",
+      "to": "@zmdb/schema",
+      "export": "Equal",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "Expect",
+      "to": "@zmdb/schema",
+      "export": "Expect",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ExpectNot",
+      "to": "@zmdb/schema",
+      "export": "ExpectNot",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "Extends",
+      "to": "@zmdb/schema",
+      "export": "Extends",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "isRecord",
+      "to": "@zmdb/schema",
+      "export": "isRecord",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "JoinRow",
+      "to": "@zmdb/orm/relations",
+      "export": "JoinRow",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ListDTO",
+      "to": "@zmdb/schema",
+      "export": "ListDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ListResult",
+      "to": "@zmdb/schema",
+      "export": "ListResult",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "Mutual",
+      "to": "@zmdb/schema",
+      "export": "Mutual",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "OrderByDTO",
+      "to": "@zmdb/schema",
+      "export": "OrderByDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "OrderTarget",
+      "to": "@zmdb/orm/dto",
+      "export": "OrderTarget",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "PaginationDTO",
+      "to": "@zmdb/schema",
+      "export": "PaginationDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "Populated",
+      "to": "@zmdb/schema",
+      "export": "Populated",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/query.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "PopulatedEntity",
+      "to": "@zmdb/schema",
+      "export": "PopulatedEntity",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/query.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "PopulateDialect",
+      "to": "@zmdb/orm/relations",
+      "export": "PopulateDialect",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "PopulateQuery",
+      "to": "@zmdb/orm/relations",
+      "export": "PopulateQuery",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "PrimaryKeyOf",
+      "to": "@zmdb/schema",
+      "export": "PrimaryKeyOf",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ReadDTO",
+      "to": "@zmdb/schema",
+      "export": "ReadDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ResolvedRelation",
+      "to": "@zmdb/schema",
+      "export": "ResolvedRelation",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "resolveRelation",
+      "to": "@zmdb/schema",
+      "export": "resolveRelation",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "schemaOf",
+      "to": "@zmdb/schema",
+      "export": "schemaOf",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "SqlType",
+      "to": "@zmdb/schema",
+      "export": "SqlType",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "StateTransitions",
+      "to": "@zmdb/app",
+      "export": "StateTransitions",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "StateUpdateDTO",
+      "to": "@zmdb/app",
+      "export": "StateUpdateDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "TaggedSchema",
+      "to": "@zmdb/schema",
+      "export": "TaggedSchema",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "UpdateDTO",
+      "to": "@zmdb/schema",
+      "export": "UpdateDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ValidationError",
+      "to": "@zmdb/validator",
+      "export": "ValidationError",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ValidationIssue",
+      "to": "@zmdb/validator",
+      "export": "ValidationIssue",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "validationIssuesOf",
+      "to": "@zmdb/validator",
+      "export": "validationIssuesOf",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "ValidationRule",
+      "to": "@zmdb/schema",
+      "export": "ValidationRule",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core",
+      "name": "WhereDTO",
+      "to": "@zmdb/schema",
+      "export": "WhereDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "AnyRelation",
+      "to": "@zmdb/schema/tags",
+      "export": "AnyRelation",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Codec",
+      "to": "@zmdb/schema/tags",
+      "export": "Codec",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "ColumnSqlType",
+      "to": "@zmdb/schema/tags",
+      "export": "ColumnSqlType",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Ext",
+      "to": "@zmdb/schema/tags",
+      "export": "Ext",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "ForeignKey",
+      "to": "@zmdb/schema/tags",
+      "export": "ForeignKey",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Fts",
+      "to": "@zmdb/schema/tags",
+      "export": "Fts",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "HasDefault",
+      "to": "@zmdb/schema/tags",
+      "export": "HasDefault",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Length",
+      "to": "@zmdb/schema/tags",
+      "export": "Length",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "ManyToMany",
+      "to": "@zmdb/schema/tags",
+      "export": "ManyToMany",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "ManyToOne",
+      "to": "@zmdb/schema/tags",
+      "export": "ManyToOne",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Max",
+      "to": "@zmdb/schema/tags",
+      "export": "Max",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "MaxLength",
+      "to": "@zmdb/schema/tags",
+      "export": "MaxLength",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Min",
+      "to": "@zmdb/schema/tags",
+      "export": "Min",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "MinLength",
+      "to": "@zmdb/schema/tags",
+      "export": "MinLength",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "NonNull",
+      "to": "@zmdb/schema/tags",
+      "export": "NonNull",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Nullable",
+      "to": "@zmdb/schema/tags",
+      "export": "Nullable",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Numeric",
+      "to": "@zmdb/schema/tags",
+      "export": "Numeric",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "OnDelete",
+      "to": "@zmdb/schema/tags",
+      "export": "OnDelete",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "OneToMany",
+      "to": "@zmdb/schema/tags",
+      "export": "OneToMany",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "OneToOne",
+      "to": "@zmdb/schema/tags",
+      "export": "OneToOne",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "OnUpdate",
+      "to": "@zmdb/schema/tags",
+      "export": "OnUpdate",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Pattern",
+      "to": "@zmdb/schema/tags",
+      "export": "Pattern",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Physical",
+      "to": "@zmdb/schema/tags",
+      "export": "Physical",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "PrimaryKey",
+      "to": "@zmdb/schema/tags",
+      "export": "PrimaryKey",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Proto",
+      "to": "@zmdb/schema/tags",
+      "export": "Proto",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "ProtoField",
+      "to": "@zmdb/schema/tags",
+      "export": "ProtoField",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "References",
+      "to": "@zmdb/schema/tags",
+      "export": "References",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "ReferentialAction",
+      "to": "@zmdb/schema/tags",
+      "export": "ReferentialAction",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "RelationKind",
+      "to": "@zmdb/schema/tags",
+      "export": "RelationKind",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Rowstore",
+      "to": "@zmdb/schema/tags",
+      "export": "Rowstore",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Rule",
+      "to": "@zmdb/schema/tags",
+      "export": "Rule",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Sensitive",
+      "to": "@zmdb/schema/tags",
+      "export": "Sensitive",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Serial",
+      "to": "@zmdb/schema/tags",
+      "export": "Serial",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "ShardKey",
+      "to": "@zmdb/schema/tags",
+      "export": "ShardKey",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "SoftDelete",
+      "to": "@zmdb/schema/tags",
+      "export": "SoftDelete",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "SortKey",
+      "to": "@zmdb/schema/tags",
+      "export": "SortKey",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Sql",
+      "to": "@zmdb/schema/tags",
+      "export": "Sql",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Table",
+      "to": "@zmdb/schema/tags",
+      "export": "Table",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "Unique",
+      "to": "@zmdb/schema/tags",
+      "export": "Unique",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/tags",
+      "name": "WireAs",
+      "to": "@zmdb/schema/tags",
+      "export": "WireAs",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/tags/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "appTypeOf",
+      "to": "@zmdb/schema/ir",
+      "export": "appTypeOf",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ArrayIR",
+      "to": "@zmdb/schema/ir",
+      "export": "ArrayIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "Codec",
+      "to": "@zmdb/schema/ir",
+      "export": "Codec",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "CodecRegistry",
+      "to": "@zmdb/schema/ir",
+      "export": "CodecRegistry",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ColumnIR",
+      "to": "@zmdb/schema/ir",
+      "export": "ColumnIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ConstraintKeyword",
+      "to": "@zmdb/schema/ir",
+      "export": "ConstraintKeyword",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ConstraintKind",
+      "to": "@zmdb/schema/ir",
+      "export": "ConstraintKind",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/vocabulary.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "Constraints",
+      "to": "@zmdb/schema/ir",
+      "export": "Constraints",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "dbDecodedColumns",
+      "to": "@zmdb/schema/ir",
+      "export": "dbDecodedColumns",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "decodeDbValue",
+      "to": "@zmdb/schema/ir",
+      "export": "decodeDbValue",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "decodeWire",
+      "to": "@zmdb/schema/ir",
+      "export": "decodeWire",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "decodeWireValue",
+      "to": "@zmdb/schema/ir",
+      "export": "decodeWireValue",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "Discriminant",
+      "to": "@zmdb/schema/ir",
+      "export": "Discriminant",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "DiscriminantArm",
+      "to": "@zmdb/schema/ir",
+      "export": "DiscriminantArm",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "discriminantOf",
+      "to": "@zmdb/schema/ir",
+      "export": "discriminantOf",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "encodeWire",
+      "to": "@zmdb/schema/ir",
+      "export": "encodeWire",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "encodeWireValue",
+      "to": "@zmdb/schema/ir",
+      "export": "encodeWireValue",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "expectedForConstraint",
+      "to": "@zmdb/schema/ir",
+      "export": "expectedForConstraint",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "expectedForDiscriminant",
+      "to": "@zmdb/schema/ir",
+      "export": "expectedForDiscriminant",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "expectedOf",
+      "to": "@zmdb/schema/ir",
+      "export": "expectedOf",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ExtensionType",
+      "to": "@zmdb/schema/ir",
+      "export": "ExtensionType",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ForeignKeyIR",
+      "to": "@zmdb/schema/ir",
+      "export": "ForeignKeyIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "hasExcessCheck",
+      "to": "@zmdb/schema/ir",
+      "export": "hasExcessCheck",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "jsonSchemaForColumn",
+      "to": "@zmdb/schema/ir",
+      "export": "jsonSchemaForColumn",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "jsonSchemaFromIR",
+      "to": "@zmdb/schema/ir",
+      "export": "jsonSchemaFromIR",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "jsonSchemaFromShape",
+      "to": "@zmdb/schema/ir",
+      "export": "jsonSchemaFromShape",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "jsonSchemaFromTypeIR",
+      "to": "@zmdb/schema/ir",
+      "export": "jsonSchemaFromTypeIR",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "JsonSchemaObject",
+      "to": "@zmdb/schema/ir",
+      "export": "JsonSchemaObject",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "JsonValue",
+      "to": "@zmdb/schema/ir",
+      "export": "JsonValue",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "KNOWN_CONSTRAINT_KINDS",
+      "to": "@zmdb/schema/ir",
+      "export": "KNOWN_CONSTRAINT_KINDS",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/vocabulary.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "Layer",
+      "to": "@zmdb/schema/ir",
+      "export": "Layer",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "LiteralIR",
+      "to": "@zmdb/schema/ir",
+      "export": "LiteralIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "messageFor",
+      "to": "@zmdb/schema/ir",
+      "export": "messageFor",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/validation-shape.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "NullIR",
+      "to": "@zmdb/schema/ir",
+      "export": "NullIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ObjectIR",
+      "to": "@zmdb/schema/ir",
+      "export": "ObjectIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "objectTypeFromIR",
+      "to": "@zmdb/schema/ir",
+      "export": "objectTypeFromIR",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "objectTypeFromShape",
+      "to": "@zmdb/schema/ir",
+      "export": "objectTypeFromShape",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "PropertyIR",
+      "to": "@zmdb/schema/ir",
+      "export": "PropertyIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "PROTO_SCALARS",
+      "to": "@zmdb/schema/ir",
+      "export": "PROTO_SCALARS",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ProtoScalar",
+      "to": "@zmdb/schema/ir",
+      "export": "ProtoScalar",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ReferentialAction",
+      "to": "@zmdb/schema/ir",
+      "export": "ReferentialAction",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "RefIR",
+      "to": "@zmdb/schema/ir",
+      "export": "RefIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "RELATION_KINDS",
+      "to": "@zmdb/schema/ir",
+      "export": "RELATION_KINDS",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "RelationIR",
+      "to": "@zmdb/schema/ir",
+      "export": "RelationIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "RelationKind",
+      "to": "@zmdb/schema/ir",
+      "export": "RelationKind",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ScalarIR",
+      "to": "@zmdb/schema/ir",
+      "export": "ScalarIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ScalarKind",
+      "to": "@zmdb/schema/ir",
+      "export": "ScalarKind",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "schemaFromIR",
+      "to": "@zmdb/schema/ir",
+      "export": "schemaFromIR",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "SchemaIR",
+      "to": "@zmdb/schema/ir",
+      "export": "SchemaIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ShapeColumnIR",
+      "to": "@zmdb/schema/ir",
+      "export": "ShapeColumnIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "ShapeIR",
+      "to": "@zmdb/schema/ir",
+      "export": "ShapeIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "shapeOfVariant",
+      "to": "@zmdb/schema/ir",
+      "export": "shapeOfVariant",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "SQL_TYPES",
+      "to": "@zmdb/schema/ir",
+      "export": "SQL_TYPES",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "TableOptions",
+      "to": "@zmdb/schema/ir",
+      "export": "TableOptions",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "TAG_NAMES",
+      "to": "@zmdb/schema/ir",
+      "export": "TAG_NAMES",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/vocabulary.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "TagField",
+      "to": "@zmdb/schema/ir",
+      "export": "TagField",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/vocabulary.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "TupleIR",
+      "to": "@zmdb/schema/ir",
+      "export": "TupleIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "TypeIR",
+      "to": "@zmdb/schema/ir",
+      "export": "TypeIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "UndefinedIR",
+      "to": "@zmdb/schema/ir",
+      "export": "UndefinedIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "UnionIR",
+      "to": "@zmdb/schema/ir",
+      "export": "UnionIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "UnknownIR",
+      "to": "@zmdb/schema/ir",
+      "export": "UnknownIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "UnsupportedIR",
+      "to": "@zmdb/schema/ir",
+      "export": "UnsupportedIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "Variant",
+      "to": "@zmdb/schema/ir",
+      "export": "Variant",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/ir",
+      "name": "wireTypeOf",
+      "to": "@zmdb/schema/ir",
+      "export": "wireTypeOf",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "ColumnKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "ColumnKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "CreateDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "CreateDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "DeclaredTable",
+      "to": "@zmdb/schema/derive",
+      "export": "DeclaredTable",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "DefaultKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "DefaultKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "Entity",
+      "to": "@zmdb/schema/derive",
+      "export": "Entity",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "GetDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "GetDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "GetOptions",
+      "to": "@zmdb/schema/derive",
+      "export": "GetOptions",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "JoinRow",
+      "to": "@zmdb/schema/derive",
+      "export": "JoinRow",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/query.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "KeysCarrying",
+      "to": "@zmdb/schema/derive",
+      "export": "KeysCarrying",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "ListDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "ListDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "ListResult",
+      "to": "@zmdb/schema/derive",
+      "export": "ListResult",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "NullableKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "NullableKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "OrderByDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "OrderByDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "PaginationDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "PaginationDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "Populated",
+      "to": "@zmdb/schema/derive",
+      "export": "Populated",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/query.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "PopulatedEntity",
+      "to": "@zmdb/schema/derive",
+      "export": "PopulatedEntity",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/query.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "PrimaryKeyKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "PrimaryKeyKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "PrimaryKeyOf",
+      "to": "@zmdb/schema/derive",
+      "export": "PrimaryKeyOf",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "Projection",
+      "to": "@zmdb/schema/derive",
+      "export": "Projection",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "ReadDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "ReadDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "RelationKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "RelationKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "SensitiveKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "SensitiveKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "SerialKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "SerialKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "SoftDeleteKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "SoftDeleteKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "UniqueKeys",
+      "to": "@zmdb/schema/derive",
+      "export": "UniqueKeys",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "UpdateDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "UpdateDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "WhereDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "WhereDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "Wire",
+      "to": "@zmdb/schema/derive",
+      "export": "Wire",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/derive",
+      "name": "WireCreateDTO",
+      "to": "@zmdb/schema/derive",
+      "export": "WireCreateDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/derive/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "AggFn",
+      "to": "@zmdb/schema/dto",
+      "export": "AggFn",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "AggregateColumn",
+      "to": "@zmdb/schema/dto",
+      "export": "AggregateColumn",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "AggregateResult",
+      "to": "@zmdb/schema/dto",
+      "export": "AggregateResult",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "AggregateSpec",
+      "to": "@zmdb/schema/dto",
+      "export": "AggregateSpec",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "applyKeysetFilter",
+      "to": "@zmdb/orm/dto",
+      "export": "applyKeysetFilter",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "applyOrderBy",
+      "to": "@zmdb/orm/dto",
+      "export": "applyOrderBy",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "applyPagination",
+      "to": "@zmdb/orm/dto",
+      "export": "applyPagination",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "buildListResult",
+      "to": "@zmdb/schema/dto",
+      "export": "buildListResult",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "buildSearchResult",
+      "to": "@zmdb/schema/dto",
+      "export": "buildSearchResult",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "compileWhere",
+      "to": "@zmdb/orm/dto",
+      "export": "compileWhere",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "ComputedSpec",
+      "to": "@zmdb/schema/dto",
+      "export": "ComputedSpec",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "decodeCursor",
+      "to": "@zmdb/schema/dto",
+      "export": "decodeCursor",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "describeAggregate",
+      "to": "@zmdb/schema/dto",
+      "export": "describeAggregate",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "encodeCursor",
+      "to": "@zmdb/schema/dto",
+      "export": "encodeCursor",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "FieldOps",
+      "to": "@zmdb/schema/dto",
+      "export": "FieldOps",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "GetDTO",
+      "to": "@zmdb/schema/dto",
+      "export": "GetDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "GetOptions",
+      "to": "@zmdb/schema/dto",
+      "export": "GetOptions",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "getResult",
+      "to": "@zmdb/schema/dto",
+      "export": "getResult",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "ListDTO",
+      "to": "@zmdb/schema/dto",
+      "export": "ListDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "ListResult",
+      "to": "@zmdb/schema/dto",
+      "export": "ListResult",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "OffsetPage",
+      "to": "@zmdb/schema/dto",
+      "export": "OffsetPage",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "OrderByDTO",
+      "to": "@zmdb/schema/dto",
+      "export": "OrderByDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "OrderBySpec",
+      "to": "@zmdb/schema/dto",
+      "export": "OrderBySpec",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "OrderDir",
+      "to": "@zmdb/schema/dto",
+      "export": "OrderDir",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "OrderTarget",
+      "to": "@zmdb/orm/dto",
+      "export": "OrderTarget",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "PaginationDTO",
+      "to": "@zmdb/schema/dto",
+      "export": "PaginationDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "PaginationSpec",
+      "to": "@zmdb/schema/dto",
+      "export": "PaginationSpec",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "project",
+      "to": "@zmdb/schema/dto",
+      "export": "project",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "Projection",
+      "to": "@zmdb/schema/dto",
+      "export": "Projection",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "SearchDTO",
+      "to": "@zmdb/schema/dto",
+      "export": "SearchDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "SearchHit",
+      "to": "@zmdb/schema/dto",
+      "export": "SearchHit",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "SearchResult",
+      "to": "@zmdb/schema/dto",
+      "export": "SearchResult",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "SubqueryTarget",
+      "to": "@zmdb/schema/dto",
+      "export": "SubqueryTarget",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "UnknownRow",
+      "to": "@zmdb/schema/dto",
+      "export": "UnknownRow",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "WhereDTO",
+      "to": "@zmdb/schema/dto",
+      "export": "WhereDTO",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/dto",
+      "name": "WhereTarget",
+      "to": "@zmdb/orm/dto",
+      "export": "WhereTarget",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/dto/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/naming",
+      "name": "NamingStrategy",
+      "to": "@zmdb/schema/naming",
+      "export": "NamingStrategy",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/naming/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/naming",
+      "name": "NamingStrategyConfig",
+      "to": "@zmdb/schema/naming",
+      "export": "NamingStrategyConfig",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/naming/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/naming",
+      "name": "NamingStrategyName",
+      "to": "@zmdb/schema/naming",
+      "export": "NamingStrategyName",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/naming/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/naming",
+      "name": "resolveNaming",
+      "to": "@zmdb/schema/naming",
+      "export": "resolveNaming",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/naming/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/naming",
+      "name": "snakeCase",
+      "to": "@zmdb/schema/naming",
+      "export": "snakeCase",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/naming/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/naming",
+      "name": "snakeCasePlural",
+      "to": "@zmdb/schema/naming",
+      "export": "snakeCasePlural",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/naming/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/relations",
+      "name": "aliasRow",
+      "to": "@zmdb/orm/relations",
+      "export": "aliasRow",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/relations",
+      "name": "attachPopulated",
+      "to": "@zmdb/orm/relations",
+      "export": "attachPopulated",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/relations",
+      "name": "compilePopulate",
+      "to": "@zmdb/orm/relations",
+      "export": "compilePopulate",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/relations",
+      "name": "JoinRow",
+      "to": "@zmdb/orm/relations",
+      "export": "JoinRow",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/relations",
+      "name": "PopulateDialect",
+      "to": "@zmdb/orm/relations",
+      "export": "PopulateDialect",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/relations",
+      "name": "PopulateQuery",
+      "to": "@zmdb/orm/relations",
+      "export": "PopulateQuery",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/relations",
+      "name": "ResolvedRelation",
+      "to": "@zmdb/schema/relations",
+      "export": "ResolvedRelation",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/relations",
+      "name": "resolveRelation",
+      "to": "@zmdb/schema/relations",
+      "export": "resolveRelation",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/relations/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "componentName",
+      "to": "@zmdb/schema/openapi",
+      "export": "componentName",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/openapi/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "EnvelopeSchema",
+      "to": "@zmdb/schema/openapi",
+      "export": "EnvelopeSchema",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/openapi/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "JsonSchemaObject",
+      "to": "@zmdb/schema/openapi",
+      "export": "JsonSchemaObject",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "toJsonSchema",
+      "to": "@zmdb/schema/openapi",
+      "export": "toJsonSchema",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/openapi/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "toJsonSchemaWithRelations",
+      "to": "@zmdb/schema/openapi",
+      "export": "toJsonSchemaWithRelations",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/openapi/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "toListSchema",
+      "to": "@zmdb/schema/openapi",
+      "export": "toListSchema",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/openapi/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "toOpenApiComponents",
+      "to": "@zmdb/schema/openapi",
+      "export": "toOpenApiComponents",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/openapi/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "toSearchSchema",
+      "to": "@zmdb/schema/openapi",
+      "export": "toSearchSchema",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/openapi/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/openapi",
+      "name": "Variant",
+      "to": "@zmdb/schema/openapi",
+      "export": "Variant",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/custom-types",
+      "name": "CustomType",
+      "to": "@zmdb/schema/custom-types",
+      "export": "CustomType",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/custom-types/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/custom-types",
+      "name": "decodeValue",
+      "to": "@zmdb/schema/custom-types",
+      "export": "decodeValue",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/custom-types/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/custom-types",
+      "name": "defineType",
+      "to": "@zmdb/schema/custom-types",
+      "export": "defineType",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/custom-types/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/custom-types",
+      "name": "encodeValue",
+      "to": "@zmdb/schema/custom-types",
+      "export": "encodeValue",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/custom-types/index.ts"
+    },
+    {
+      "from": "@zmdb/schema-core/custom-types",
+      "name": "wireCodec",
+      "to": "@zmdb/schema/custom-types",
+      "export": "wireCodec",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/custom-types/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "AliasedColumn",
+      "to": "@zmdb/sql",
+      "export": "AliasedColumn",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "AliasedDistanceExpression",
+      "to": "@zmdb/sql",
+      "export": "AliasedDistanceExpression",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "appendComment",
+      "to": "@zmdb/sql",
+      "export": "appendComment",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "AppliedMigration",
+      "to": "@zmdb/sql",
+      "export": "AppliedMigration",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CatalogColumnSnapshot",
+      "to": "@zmdb/sql",
+      "export": "CatalogColumnSnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/introspect/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CatalogForeignKeySnapshot",
+      "to": "@zmdb/sql",
+      "export": "CatalogForeignKeySnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/introspect/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CatalogIndexColumn",
+      "to": "@zmdb/sql",
+      "export": "CatalogIndexColumn",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/introspect/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CatalogIndexSnapshot",
+      "to": "@zmdb/sql",
+      "export": "CatalogIndexSnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/introspect/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CatalogSchemaSnapshot",
+      "to": "@zmdb/sql",
+      "export": "CatalogSchemaSnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/introspect/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CatalogSelection",
+      "to": "@zmdb/sql",
+      "export": "CatalogSelection",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/introspect/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CatalogTableSnapshot",
+      "to": "@zmdb/sql",
+      "export": "CatalogTableSnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/introspect/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CatalogWarning",
+      "to": "@zmdb/sql",
+      "export": "CatalogWarning",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/introspect/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ChangeOp",
+      "to": "@zmdb/sql",
+      "export": "ChangeOp",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "chunkArray",
+      "to": "@zmdb/sql",
+      "export": "chunkArray",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "coalesce",
+      "to": "@zmdb/sql",
+      "export": "coalesce",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ColumnExpr",
+      "to": "@zmdb/sql",
+      "export": "ColumnExpr",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ColumnSnapshot",
+      "to": "@zmdb/sql",
+      "export": "ColumnSnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CommentKey",
+      "to": "@zmdb/sql",
+      "export": "CommentKey",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CommentKeys",
+      "to": "@zmdb/sql",
+      "export": "CommentKeys",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CommentPairs",
+      "to": "@zmdb/sql",
+      "export": "CommentPairs",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ComparisonPredicate",
+      "to": "@zmdb/sql",
+      "export": "ComparisonPredicate",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "CompiledQuery",
+      "to": "@zmdb/sql",
+      "export": "CompiledQuery",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/compiled-query.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "concat",
+      "to": "@zmdb/sql",
+      "export": "concat",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "createQueryCompiler",
+      "to": "@zmdb/sql",
+      "export": "createQueryCompiler",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DatabaseCapabilities",
+      "to": "@zmdb/sql",
+      "export": "DatabaseCapabilities",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "dec",
+      "to": "@zmdb/sql",
+      "export": "dec",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "defineSqlDialect",
+      "to": "@zmdb/sql",
+      "export": "defineSqlDialect",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DeleteBuilder",
+      "to": "@zmdb/sql",
+      "export": "DeleteBuilder",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "dialectCapabilities",
+      "to": "@zmdb/sql",
+      "export": "dialectCapabilities",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/dialects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectCompiler",
+      "to": "@zmdb/sql",
+      "export": "DialectCompiler",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "dialectFamily",
+      "to": "@zmdb/sql",
+      "export": "dialectFamily",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/dialects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectFeature",
+      "to": "@zmdb/sql",
+      "export": "DialectFeature",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "dialectName",
+      "to": "@zmdb/sql",
+      "export": "dialectName",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/dialects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectOutbox",
+      "to": "@zmdb/sql",
+      "export": "DialectOutbox",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectReturningColumn",
+      "to": "@zmdb/sql",
+      "export": "DialectReturningColumn",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectReturningContext",
+      "to": "@zmdb/sql",
+      "export": "DialectReturningContext",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectReturningSql",
+      "to": "@zmdb/sql",
+      "export": "DialectReturningSql",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectSqlType",
+      "to": "@zmdb/sql",
+      "export": "DialectSqlType",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "dialectSupportsReturning",
+      "to": "@zmdb/sql",
+      "export": "dialectSupportsReturning",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/dialects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectTarget",
+      "to": "@zmdb/sql",
+      "export": "DialectTarget",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "dialectTraits",
+      "to": "@zmdb/sql",
+      "export": "dialectTraits",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/dialects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectTypeMap",
+      "to": "@zmdb/sql",
+      "export": "DialectTypeMap",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectUpsertConflict",
+      "to": "@zmdb/sql",
+      "export": "DialectUpsertConflict",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectUpsertContext",
+      "to": "@zmdb/sql",
+      "export": "DialectUpsertContext",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DialectUpsertReferences",
+      "to": "@zmdb/sql",
+      "export": "DialectUpsertReferences",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "Direction",
+      "to": "@zmdb/sql",
+      "export": "Direction",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "distance",
+      "to": "@zmdb/sql",
+      "export": "distance",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DISTANCE_OPERATORS",
+      "to": "@zmdb/sql",
+      "export": "DISTANCE_OPERATORS",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DistanceExpression",
+      "to": "@zmdb/sql",
+      "export": "DistanceExpression",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "DistanceOp",
+      "to": "@zmdb/sql",
+      "export": "DistanceOp",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "EXPR",
+      "to": "@zmdb/sql",
+      "export": "EXPR",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "extendSqlDialect",
+      "to": "@zmdb/sql",
+      "export": "extendSqlDialect",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ExtensionColumnOf",
+      "to": "@zmdb/sql",
+      "export": "ExtensionColumnOf",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ExtensionSnapshot",
+      "to": "@zmdb/sql",
+      "export": "ExtensionSnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ExtensionType",
+      "to": "@zmdb/sql",
+      "export": "ExtensionType",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ForeignKeySnapshot",
+      "to": "@zmdb/sql",
+      "export": "ForeignKeySnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "formatPlaceholder",
+      "to": "@zmdb/sql",
+      "export": "formatPlaceholder",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/quoting.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "GeoJsonGeometry",
+      "to": "@zmdb/sql",
+      "export": "GeoJsonGeometry",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "GeometryColumnOf",
+      "to": "@zmdb/sql",
+      "export": "GeometryColumnOf",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "GeometryValueOf",
+      "to": "@zmdb/sql",
+      "export": "GeometryValueOf",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "inc",
+      "to": "@zmdb/sql",
+      "export": "inc",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "InsertBuilder",
+      "to": "@zmdb/sql",
+      "export": "InsertBuilder",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "IntrospectionDriver",
+      "to": "@zmdb/sql",
+      "export": "IntrospectionDriver",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "IntrospectOptions",
+      "to": "@zmdb/sql",
+      "export": "IntrospectOptions",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "Introspector",
+      "to": "@zmdb/sql",
+      "export": "Introspector",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "isSqlDialect",
+      "to": "@zmdb/sql",
+      "export": "isSqlDialect",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "MigrationConnection",
+      "to": "@zmdb/sql",
+      "export": "MigrationConnection",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "MigrationDialect",
+      "to": "@zmdb/sql",
+      "export": "MigrationDialect",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "MigrationDriver",
+      "to": "@zmdb/sql",
+      "export": "MigrationDriver",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "MigrationPlan",
+      "to": "@zmdb/sql",
+      "export": "MigrationPlan",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "MigrationTableOptions",
+      "to": "@zmdb/sql",
+      "export": "MigrationTableOptions",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "mul",
+      "to": "@zmdb/sql",
+      "export": "mul",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "not",
+      "to": "@zmdb/sql",
+      "export": "not",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "OnConflictBuilder",
+      "to": "@zmdb/sql",
+      "export": "OnConflictBuilder",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "OP_MAP",
+      "to": "@zmdb/sql",
+      "export": "OP_MAP",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "Operator",
+      "to": "@zmdb/sql",
+      "export": "Operator",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "PaginationTail",
+      "to": "@zmdb/sql",
+      "export": "PaginationTail",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "PlaceholderStyle",
+      "to": "@zmdb/sql",
+      "export": "PlaceholderStyle",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "Predicate",
+      "to": "@zmdb/sql",
+      "export": "Predicate",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "PredicateGroup",
+      "to": "@zmdb/sql",
+      "export": "PredicateGroup",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "proposed",
+      "to": "@zmdb/sql",
+      "export": "proposed",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "QueryCompiler",
+      "to": "@zmdb/sql",
+      "export": "QueryCompiler",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "QueryCompilerError",
+      "to": "@zmdb/sql",
+      "export": "QueryCompilerError",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "QueryCompilerOptions",
+      "to": "@zmdb/sql",
+      "export": "QueryCompilerOptions",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "QueryTelemetry",
+      "to": "@zmdb/sql",
+      "export": "QueryTelemetry",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/compiled-query.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "quoteColumn",
+      "to": "@zmdb/sql",
+      "export": "quoteColumn",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/quoting.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "quoteIdentifier",
+      "to": "@zmdb/sql",
+      "export": "quoteIdentifier",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/quoting.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "quoteTable",
+      "to": "@zmdb/sql",
+      "export": "quoteTable",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/quoting.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ReferentialAction",
+      "to": "@zmdb/sql",
+      "export": "ReferentialAction",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "renderPredicate",
+      "to": "@zmdb/sql",
+      "export": "renderPredicate",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "renumberPlaceholders",
+      "to": "@zmdb/sql",
+      "export": "renumberPlaceholders",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/quoting.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ResolvedDialectTraits",
+      "to": "@zmdb/sql",
+      "export": "ResolvedDialectTraits",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ReturningCapability",
+      "to": "@zmdb/sql",
+      "export": "ReturningCapability",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ReturningStatement",
+      "to": "@zmdb/sql",
+      "export": "ReturningStatement",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "ReturningStyle",
+      "to": "@zmdb/sql",
+      "export": "ReturningStyle",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "sanitizeKeys",
+      "to": "@zmdb/sql",
+      "export": "sanitizeKeys",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "SchemaObjectOperation",
+      "to": "@zmdb/sql",
+      "export": "SchemaObjectOperation",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "SchemaSnapshot",
+      "to": "@zmdb/sql",
+      "export": "SchemaSnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "SelectBuilder",
+      "to": "@zmdb/sql",
+      "export": "SelectBuilder",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "serializeComment",
+      "to": "@zmdb/sql",
+      "export": "serializeComment",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "SetValue",
+      "to": "@zmdb/sql",
+      "export": "SetValue",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/expressions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "SpatialPredicate",
+      "to": "@zmdb/sql",
+      "export": "SpatialPredicate",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "SqlDialect",
+      "to": "@zmdb/sql",
+      "export": "SqlDialect",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "SqlDialectDefinition",
+      "to": "@zmdb/sql",
+      "export": "SqlDialectDefinition",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "SqlDialectExtension",
+      "to": "@zmdb/sql",
+      "export": "SqlDialectExtension",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/dialects/protocol.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "stContains",
+      "to": "@zmdb/sql",
+      "export": "stContains",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "stDWithin",
+      "to": "@zmdb/sql",
+      "export": "stDWithin",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "TableOptions",
+      "to": "@zmdb/sql",
+      "export": "TableOptions",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "TableSnapshot",
+      "to": "@zmdb/sql",
+      "export": "TableSnapshot",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/migrations/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "UnsupportedFeatureError",
+      "to": "@zmdb/sql",
+      "export": "UnsupportedFeatureError",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "UpdateBuilder",
+      "to": "@zmdb/sql",
+      "export": "UpdateBuilder",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "VectorColumnOf",
+      "to": "@zmdb/sql",
+      "export": "VectorColumnOf",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/extensions/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler",
+      "name": "withComments",
+      "to": "@zmdb/sql",
+      "export": "withComments",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/comments",
+      "name": "appendComment",
+      "to": "@zmdb/sql/comments",
+      "export": "appendComment",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/comments",
+      "name": "CommentKey",
+      "to": "@zmdb/sql/comments",
+      "export": "CommentKey",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/comments",
+      "name": "CommentKeys",
+      "to": "@zmdb/sql/comments",
+      "export": "CommentKeys",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/comments",
+      "name": "CommentPairs",
+      "to": "@zmdb/sql/comments",
+      "export": "CommentPairs",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/comments",
+      "name": "serializeComment",
+      "to": "@zmdb/sql/comments",
+      "export": "serializeComment",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/comments",
+      "name": "withComments",
+      "to": "@zmdb/sql/comments",
+      "export": "withComments",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/comments/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/fts",
+      "name": "escapeFts5Term",
+      "to": "@zmdb/sql/fts",
+      "export": "escapeFts5Term",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/fts/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/fts",
+      "name": "FtsOptions",
+      "to": "@zmdb/sql/fts",
+      "export": "FtsOptions",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/fts/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/fts",
+      "name": "FtsSelect",
+      "to": "@zmdb/sql/fts",
+      "export": "FtsSelect",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/fts/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/fts",
+      "name": "ftsSelectFrom",
+      "to": "@zmdb/sql/fts",
+      "export": "ftsSelectFrom",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/fts/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/fts",
+      "name": "FtsTableOptions",
+      "to": "@zmdb/sql/fts",
+      "export": "FtsTableOptions",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/fts/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/fts",
+      "name": "UnsupportedFeatureError",
+      "to": "@zmdb/sql/fts",
+      "export": "UnsupportedFeatureError",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/joins",
+      "name": "JoinableSelect",
+      "to": "@zmdb/sql/joins",
+      "export": "JoinableSelect",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/joins/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/joins",
+      "name": "joinableSelectFrom",
+      "to": "@zmdb/sql/joins",
+      "export": "joinableSelectFrom",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/joins/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/joins",
+      "name": "JoinCondition",
+      "to": "@zmdb/sql/joins",
+      "export": "JoinCondition",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/joins",
+      "name": "JoinKind",
+      "to": "@zmdb/sql/joins",
+      "export": "JoinKind",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/aggregations",
+      "name": "AggregateSelect",
+      "to": "@zmdb/sql/aggregations",
+      "export": "AggregateSelect",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/aggregations/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/aggregations",
+      "name": "aggregateSelectFrom",
+      "to": "@zmdb/sql/aggregations",
+      "export": "aggregateSelectFrom",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/aggregations/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/aggregations",
+      "name": "JoinCondition",
+      "to": "@zmdb/sql/aggregations",
+      "export": "JoinCondition",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/aggregations",
+      "name": "JoinKind",
+      "to": "@zmdb/sql/aggregations",
+      "export": "JoinKind",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/clauses.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/naming",
+      "name": "singularPascalCase",
+      "to": "@zmdb/schema/naming",
+      "export": "singularPascalCase",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/naming/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "OUTBOX_TABLE",
+      "to": "@zmdb/orm/outbox",
+      "export": "OUTBOX_TABLE",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxCandidatesQuery",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxCandidatesQuery",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxClaimQuery",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxClaimQuery",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxMarkDeadQuery",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxMarkDeadQuery",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxMarkDeliveredQuery",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxMarkDeliveredQuery",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxMarkRetryQuery",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxMarkRetryQuery",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxMigration",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxMigration",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "OutboxMigration",
+      "to": "@zmdb/orm/outbox",
+      "export": "OutboxMigration",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxPendingIndexDdl",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxPendingIndexDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxReadBackQuery",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxReadBackQuery",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "OutboxStatus",
+      "to": "@zmdb/orm/outbox",
+      "export": "OutboxStatus",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/outbox",
+      "name": "outboxTableDdl",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxTableDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/set-ops",
+      "name": "batch",
+      "to": "@zmdb/sql/set-ops",
+      "export": "batch",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/set-ops/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/set-ops",
+      "name": "BatchHandle",
+      "to": "@zmdb/sql/set-ops",
+      "export": "BatchHandle",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/set-ops/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/set-ops",
+      "name": "SET_KEYWORD",
+      "to": "@zmdb/sql/set-ops",
+      "export": "SET_KEYWORD",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/set-ops/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/set-ops",
+      "name": "SetOp",
+      "to": "@zmdb/sql/set-ops",
+      "export": "SetOp",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/set-ops/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/set-ops",
+      "name": "setOperation",
+      "to": "@zmdb/sql/set-ops",
+      "export": "setOperation",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/set-ops/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "checkConstraintDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "checkConstraintDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "createExtensionDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "createExtensionDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/extensions.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "createIndexDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "createIndexDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "createPolicyDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "createPolicyDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "createRoutineDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "createRoutineDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "createSchemaDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "createSchemaDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "createSequenceDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "createSequenceDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "createViewDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "createViewDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "DdlSqlType",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "DdlSqlType",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "ddlType",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "ddlType",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "dropRoutineDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "dropRoutineDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "dropViewDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "dropViewDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "enableRlsDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "enableRlsDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "ExtensionDef",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "ExtensionDef",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "GeneratedColumn",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "GeneratedColumn",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "generatedColumnDdl",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "generatedColumnDdl",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "IndexColumn",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "IndexColumn",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "IndexDef",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "IndexDef",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "IndexMethod",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "IndexMethod",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "qualify",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "qualify",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "quoteId",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "quoteId",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "replaceRoutineStatements",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "replaceRoutineStatements",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "RlsPolicy",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "RlsPolicy",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "RoutineDef",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "RoutineDef",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "routineFingerprint",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "routineFingerprint",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/schema-objects/index.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "RoutineSqlType",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "RoutineSqlType",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "SequenceDef",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "SequenceDef",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "UnsupportedFeatureError",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "UnsupportedFeatureError",
+      "value": true,
+      "declarationSource": "packages/query-compiler/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/query-compiler/schema-objects",
+      "name": "ViewDef",
+      "to": "@zmdb/sql/schema-objects",
+      "export": "ViewDef",
+      "value": false,
+      "declarationSource": "packages/query-compiler/src/schema-objects/types.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "AssertError",
+      "to": "@zmdb/validator",
+      "export": "AssertError",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "failWith",
+      "to": "@zmdb/validator",
+      "export": "failWith",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "getCachedRegExp",
+      "to": "@zmdb/validator",
+      "export": "getCachedRegExp",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/regex-complexity.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "getEnumSet",
+      "to": "@zmdb/validator",
+      "export": "getEnumSet",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "getRegExp",
+      "to": "@zmdb/validator",
+      "export": "getRegExp",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "MAX_REGEX_CACHE_SIZE",
+      "to": "@zmdb/validator",
+      "export": "MAX_REGEX_CACHE_SIZE",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/regex-complexity.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "Rule",
+      "to": "@zmdb/validator",
+      "export": "Rule",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "tags",
+      "to": "@zmdb/validator",
+      "export": "tags",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "validate",
+      "to": "@zmdb/validator",
+      "export": "validateRule",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "validatePatternComplexity",
+      "to": "@zmdb/validator",
+      "export": "validatePatternComplexity",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/regex-complexity.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator",
+      "name": "ValidationError",
+      "to": "@zmdb/validator",
+      "export": "ValidationError",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "Brand",
+      "to": "@zmdb/validator/advanced",
+      "export": "Brand",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "coerce",
+      "to": "@zmdb/validator/advanced",
+      "export": "coerce",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "discriminated",
+      "to": "@zmdb/validator/advanced",
+      "export": "discriminated",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "DiscriminatedRule",
+      "to": "@zmdb/validator/advanced",
+      "export": "DiscriminatedRule",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "evalRule",
+      "to": "@zmdb/validator/advanced",
+      "export": "evalRule",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "ObjectMode",
+      "to": "@zmdb/validator/advanced",
+      "export": "ObjectMode",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "refine",
+      "to": "@zmdb/validator/advanced",
+      "export": "refine",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "RefinePredicate",
+      "to": "@zmdb/validator/advanced",
+      "export": "RefinePredicate",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "RefineRule",
+      "to": "@zmdb/validator/advanced",
+      "export": "RefineRule",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "transform",
+      "to": "@zmdb/validator/advanced",
+      "export": "transform",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "TransformFn",
+      "to": "@zmdb/validator/advanced",
+      "export": "TransformFn",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "TransformRule",
+      "to": "@zmdb/validator/advanced",
+      "export": "TransformRule",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "union",
+      "to": "@zmdb/validator/advanced",
+      "export": "union",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "UnionRule",
+      "to": "@zmdb/validator/advanced",
+      "export": "UnionRule",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "validateObject",
+      "to": "@zmdb/validator/advanced",
+      "export": "validateObject",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/advanced/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/advanced",
+      "name": "ValidationIssue",
+      "to": "@zmdb/validator/advanced",
+      "export": "ValidationIssue",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/errors",
+      "name": "AssertError",
+      "to": "@zmdb/validator/errors",
+      "export": "AssertError",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/errors",
+      "name": "failWith",
+      "to": "@zmdb/validator/errors",
+      "export": "failWith",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/serialization",
+      "name": "assertStringify",
+      "to": "@zmdb/validator/serialization",
+      "export": "assertStringify",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/serialization/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/serialization",
+      "name": "decode",
+      "to": "@zmdb/validator/serialization",
+      "export": "decode",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/serialization/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/serialization",
+      "name": "parse",
+      "to": "@zmdb/validator/serialization",
+      "export": "parse",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/serialization/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/serialization",
+      "name": "ParseResult",
+      "to": "@zmdb/validator/serialization",
+      "export": "ParseResult",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/serialization/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/serialization",
+      "name": "stringify",
+      "to": "@zmdb/validator/serialization",
+      "export": "stringify",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/serialization/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "assert",
+      "to": "@zmdb/validator",
+      "export": "assert",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "assertEquals",
+      "to": "@zmdb/validator",
+      "export": "assertEquals",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "AssertError",
+      "to": "@zmdb/validator",
+      "export": "AssertError",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "assertShallow",
+      "to": "@zmdb/validator",
+      "export": "assertShallow",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "equals",
+      "to": "@zmdb/validator",
+      "export": "equals",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "failWith",
+      "to": "@zmdb/validator",
+      "export": "failWith",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/errors.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "is",
+      "to": "@zmdb/validator",
+      "export": "is",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "isShallow",
+      "to": "@zmdb/validator",
+      "export": "isShallow",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "issuesFor",
+      "to": "@zmdb/validator",
+      "export": "issuesFor",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "random",
+      "to": "@zmdb/validator",
+      "export": "random",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "TypeIR",
+      "to": "@zmdb/validator",
+      "export": "TypeIR",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/ir/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "validate",
+      "to": "@zmdb/validator",
+      "export": "validate",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "ValidateResult",
+      "to": "@zmdb/validator",
+      "export": "ValidateResult",
+      "value": false,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "validateShallow",
+      "to": "@zmdb/validator",
+      "export": "validateShallow",
+      "value": true,
+      "declarationSource": "packages/aot-validator/src/utilities/index.ts"
+    },
+    {
+      "from": "@zmdb/aot-validator/utilities",
+      "name": "ValidationIssue",
+      "to": "@zmdb/validator",
+      "export": "ValidationIssue",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "ActiveTransactionContext",
+      "to": "@zmdb/orm",
+      "export": "ActiveTransactionContext",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "ArgsOf",
+      "to": "@zmdb/orm",
+      "export": "ArgsOf",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "BaseRepository",
+      "to": "@zmdb/orm",
+      "export": "BaseRepository",
+      "value": true,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "batch",
+      "to": "@zmdb/orm",
+      "export": "batch",
+      "value": true,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "CacheInvalidationOptions",
+      "to": "@zmdb/orm",
+      "export": "CacheInvalidationOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/cache/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "CacheOptions",
+      "to": "@zmdb/orm",
+      "export": "CacheOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/cache/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "CacheStore",
+      "to": "@zmdb/orm",
+      "export": "CacheStore",
+      "value": false,
+      "declarationSource": "packages/repository/src/cache/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "ClosedTransactionContext",
+      "to": "@zmdb/orm",
+      "export": "ClosedTransactionContext",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "createLoaderScope",
+      "to": "@zmdb/orm",
+      "export": "createLoaderScope",
+      "value": true,
+      "declarationSource": "packages/repository/src/loaders/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "createTransactionalDb",
+      "to": "@zmdb/orm",
+      "export": "createTransactionalDb",
+      "value": true,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "DatabaseVertical",
+      "to": "@zmdb/orm",
+      "export": "DatabaseVertical",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "defineRepository",
+      "to": "@zmdb/orm",
+      "export": "defineRepository",
+      "value": true,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "DefineRepositoryOptions",
+      "to": "@zmdb/orm",
+      "export": "DefineRepositoryOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "Driver",
+      "to": "@zmdb/orm",
+      "export": "Driver",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "EntityLoader",
+      "to": "@zmdb/orm",
+      "export": "EntityLoader",
+      "value": false,
+      "declarationSource": "packages/repository/src/loaders/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "ExecuteOptions",
+      "to": "@zmdb/orm",
+      "export": "ExecuteOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "FilterDef",
+      "to": "@zmdb/orm",
+      "export": "FilterDef",
+      "value": false,
+      "declarationSource": "packages/repository/src/filters/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "FilterOverride",
+      "to": "@zmdb/orm",
+      "export": "FilterOverride",
+      "value": false,
+      "declarationSource": "packages/repository/src/filters/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "FilterOverrides",
+      "to": "@zmdb/orm",
+      "export": "FilterOverrides",
+      "value": false,
+      "declarationSource": "packages/repository/src/filters/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "FilterParams",
+      "to": "@zmdb/orm",
+      "export": "FilterParams",
+      "value": false,
+      "declarationSource": "packages/repository/src/filters/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "FilterPredicate",
+      "to": "@zmdb/orm",
+      "export": "FilterPredicate",
+      "value": false,
+      "declarationSource": "packages/repository/src/filters/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "IncompleteKeyError",
+      "to": "@zmdb/orm",
+      "export": "IncompleteKeyError",
+      "value": true,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "LoaderScope",
+      "to": "@zmdb/orm",
+      "export": "LoaderScope",
+      "value": false,
+      "declarationSource": "packages/repository/src/loaders/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "markTransactionClosed",
+      "to": "@zmdb/orm",
+      "export": "markTransactionClosed",
+      "value": true,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "memoryStore",
+      "to": "@zmdb/orm",
+      "export": "memoryStore",
+      "value": true,
+      "declarationSource": "packages/repository/src/cache/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "NumericColumnOf",
+      "to": "@zmdb/orm",
+      "export": "NumericColumnOf",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "QueryMeta",
+      "to": "@zmdb/orm",
+      "export": "QueryMeta",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "ReadOptions",
+      "to": "@zmdb/orm",
+      "export": "ReadOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "RelationLoader",
+      "to": "@zmdb/orm",
+      "export": "RelationLoader",
+      "value": false,
+      "declarationSource": "packages/repository/src/loaders/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "RelationValueOf",
+      "to": "@zmdb/orm",
+      "export": "RelationValueOf",
+      "value": false,
+      "declarationSource": "packages/repository/src/loaders/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "RepositoryAggregateBuilder",
+      "to": "@zmdb/orm",
+      "export": "RepositoryAggregateBuilder",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "RepositoryOptions",
+      "to": "@zmdb/orm",
+      "export": "RepositoryOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "ResultOf",
+      "to": "@zmdb/orm",
+      "export": "ResultOf",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "SelectedDriver",
+      "to": "@zmdb/orm",
+      "export": "SelectedDriver",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "StreamOptions",
+      "to": "@zmdb/orm",
+      "export": "StreamOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "TransactionalDb",
+      "to": "@zmdb/orm",
+      "export": "TransactionalDb",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "TransactionalDriver",
+      "to": "@zmdb/orm",
+      "export": "TransactionalDriver",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "TransactionContext",
+      "to": "@zmdb/orm",
+      "export": "TransactionContext",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "TransactionOptions",
+      "to": "@zmdb/orm",
+      "export": "TransactionOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "TransactionRetryPolicy",
+      "to": "@zmdb/orm",
+      "export": "TransactionRetryPolicy",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "TransactionState",
+      "to": "@zmdb/orm",
+      "export": "TransactionState",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "TxConnection",
+      "to": "@zmdb/orm",
+      "export": "TxConnection",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "UpdatePatch",
+      "to": "@zmdb/orm",
+      "export": "UpdatePatch",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "UpsertOptions",
+      "to": "@zmdb/orm",
+      "export": "UpsertOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "ValidationError",
+      "to": "@zmdb/orm",
+      "export": "ValidationError",
+      "value": true,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "ValidationIssue",
+      "to": "@zmdb/orm",
+      "export": "ValidationIssue",
+      "value": false,
+      "declarationSource": "packages/schema-core/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository",
+      "name": "WriteOptions",
+      "to": "@zmdb/orm",
+      "export": "WriteOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/seeding",
+      "name": "makeRng",
+      "to": "@zmdb/orm/seeding",
+      "export": "makeRng",
+      "value": true,
+      "declarationSource": "packages/repository/src/seeding/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/seeding",
+      "name": "SeedOptions",
+      "to": "@zmdb/orm/seeding",
+      "export": "SeedOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/seeding/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/seeding",
+      "name": "seedRows",
+      "to": "@zmdb/orm/seeding",
+      "export": "seedRows",
+      "value": true,
+      "declarationSource": "packages/repository/src/seeding/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "ActiveTransactionContext",
+      "to": "@zmdb/orm/transactions",
+      "export": "ActiveTransactionContext",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "batch",
+      "to": "@zmdb/orm/transactions",
+      "export": "batch",
+      "value": true,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "ClosedTransactionContext",
+      "to": "@zmdb/orm/transactions",
+      "export": "ClosedTransactionContext",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "createTransactionalDb",
+      "to": "@zmdb/orm/transactions",
+      "export": "createTransactionalDb",
+      "value": true,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "markTransactionClosed",
+      "to": "@zmdb/orm/transactions",
+      "export": "markTransactionClosed",
+      "value": true,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "TransactionalDb",
+      "to": "@zmdb/orm/transactions",
+      "export": "TransactionalDb",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "TransactionContext",
+      "to": "@zmdb/orm/transactions",
+      "export": "TransactionContext",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "TransactionOptions",
+      "to": "@zmdb/orm/transactions",
+      "export": "TransactionOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "TransactionRetryPolicy",
+      "to": "@zmdb/orm/transactions",
+      "export": "TransactionRetryPolicy",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "TransactionState",
+      "to": "@zmdb/orm/transactions",
+      "export": "TransactionState",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/transactions",
+      "name": "TxConnection",
+      "to": "@zmdb/orm/transactions",
+      "export": "TxConnection",
+      "value": false,
+      "declarationSource": "packages/repository/src/transactions/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "createOutboxDispatcher",
+      "to": "@zmdb/orm/outbox",
+      "export": "createOutboxDispatcher",
+      "value": true,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "DeadOutboxRow",
+      "to": "@zmdb/orm/outbox",
+      "export": "DeadOutboxRow",
+      "value": false,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "OutboxDispatcher",
+      "to": "@zmdb/orm/outbox",
+      "export": "OutboxDispatcher",
+      "value": false,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "OutboxDispatcherOptions",
+      "to": "@zmdb/orm/outbox",
+      "export": "OutboxDispatcherOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "OutboxRow",
+      "to": "@zmdb/orm/outbox",
+      "export": "OutboxRow",
+      "value": false,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "OutboxSchema",
+      "to": "@zmdb/orm/outbox",
+      "export": "OutboxSchema",
+      "value": true,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "OutboxStatus",
+      "to": "@zmdb/orm/outbox",
+      "export": "OutboxStatus",
+      "value": false,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "outboxWriter",
+      "to": "@zmdb/orm/outbox",
+      "export": "outboxWriter",
+      "value": true,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/outbox",
+      "name": "OutboxWriter",
+      "to": "@zmdb/orm/outbox",
+      "export": "OutboxWriter",
+      "value": false,
+      "declarationSource": "packages/repository/src/outbox/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/replicas",
+      "name": "isWrite",
+      "to": "@zmdb/orm/replicas",
+      "export": "isWrite",
+      "value": true,
+      "declarationSource": "packages/repository/src/replicas/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/replicas",
+      "name": "ReplicaOptions",
+      "to": "@zmdb/orm/replicas",
+      "export": "ReplicaOptions",
+      "value": false,
+      "declarationSource": "packages/repository/src/replicas/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/replicas",
+      "name": "withReplicas",
+      "to": "@zmdb/orm/replicas",
+      "export": "withReplicas",
+      "value": true,
+      "declarationSource": "packages/repository/src/replicas/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/integrations",
+      "name": "EndpointResult",
+      "to": "@zmdb/web/integrations",
+      "export": "EndpointResult",
+      "value": false,
+      "declarationSource": "packages/repository/src/integrations/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/integrations",
+      "name": "Handler",
+      "to": "@zmdb/web/integrations",
+      "export": "Handler",
+      "value": false,
+      "declarationSource": "packages/repository/src/integrations/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/integrations",
+      "name": "makeEndpoint",
+      "to": "@zmdb/web/integrations",
+      "export": "makeEndpoint",
+      "value": true,
+      "declarationSource": "packages/repository/src/integrations/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/entity-modeling",
+      "name": "discriminatorFor",
+      "to": "@zmdb/schema/entity-modeling",
+      "export": "discriminatorFor",
+      "value": true,
+      "declarationSource": "packages/repository/src/entity-modeling/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/entity-modeling",
+      "name": "EventBus",
+      "to": "@zmdb/orm/entity-modeling",
+      "export": "EventBus",
+      "value": true,
+      "declarationSource": "packages/repository/src/entity-modeling/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/entity-modeling",
+      "name": "flattenEmbeddable",
+      "to": "@zmdb/schema/entity-modeling",
+      "export": "flattenEmbeddable",
+      "value": true,
+      "declarationSource": "packages/repository/src/entity-modeling/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/entity-modeling",
+      "name": "LifecycleEvent",
+      "to": "@zmdb/orm/entity-modeling",
+      "export": "LifecycleEvent",
+      "value": false,
+      "declarationSource": "packages/repository/src/entity-modeling/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/entity-modeling",
+      "name": "liftEmbeddable",
+      "to": "@zmdb/schema/entity-modeling",
+      "export": "liftEmbeddable",
+      "value": true,
+      "declarationSource": "packages/repository/src/entity-modeling/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/entity-modeling",
+      "name": "rowToSubtype",
+      "to": "@zmdb/schema/entity-modeling",
+      "export": "rowToSubtype",
+      "value": true,
+      "declarationSource": "packages/repository/src/entity-modeling/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/entity-modeling",
+      "name": "SingleTableInheritance",
+      "to": "@zmdb/schema/entity-modeling",
+      "export": "SingleTableInheritance",
+      "value": false,
+      "declarationSource": "packages/repository/src/entity-modeling/index.ts"
+    },
+    {
+      "from": "@zmdb/repository/entity-modeling",
+      "name": "Subscriber",
+      "to": "@zmdb/orm/entity-modeling",
+      "export": "Subscriber",
+      "value": false,
+      "declarationSource": "packages/repository/src/entity-modeling/index.ts"
+    }
+  ],
+  "signatureChanges": {
+    "@zmdb/schema/dto:SubqueryTarget": "Structural compile result preserving text, readonly parameters, optional QueryTelemetry structural fields, and phantom _type; existing declarative table/select/where alternative remains. No schema import from SQL.",
+    "@zmdb/validator:validateRule": "Only the current Rule operation is renamed. Its Rule, unknown -> boolean signature and behavior remain unchanged.",
+    "@zmdb/orm/outbox:OutboxStatus": "One canonical pending | delivered | dead declaration replaces the two identical declarations.",
+    "@zmdb/sql:Introspector": "Preserve the injected name/snapshot/normalizeForDrift protocol; delete only the explicitly deprecated optional dialect alias.",
+    "@zmdb/sql:MigrationConnection": "Preserve the injected name and execution/transaction protocol; delete only the explicitly deprecated optional dialect alias."
+  }
+}

@@ -14,7 +14,7 @@ application may trust.
 ## Declare once
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 import { toolFromSchema } from '@zmdb/ai';
 import { defineTools } from '@zmdb/ai/chat';
 import { createMcpServer } from '@zmdb/mcp';

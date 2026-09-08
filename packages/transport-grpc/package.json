@@ -44,9 +44,9 @@
   },
   "devDependencies": {
     "@grpc/grpc-js": "1.14.4",
-    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
-    "@zmdb/schema-core": "workspace:^",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/validator": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {

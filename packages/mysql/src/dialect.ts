@@ -3,7 +3,7 @@ import {
   type DatabaseCapabilities,
   type PaginationTail,
   type ResolvedDialectTraits,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
 
 import { mysqlIntrospector } from './introspect.js';
 import { createMysqlMigrations } from './migrations.js';

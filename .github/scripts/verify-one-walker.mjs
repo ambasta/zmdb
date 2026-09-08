@@ -8,7 +8,7 @@
 // accepted a `Date` in one, a `Date | string` in another, and an ISO string in the third, so
 // which answer you got depended on which layer asked.
 //
-// They are one walk now, in `packages/schema-core/src/ir/`, and every back-end reads the
+// They are one walk now, in `packages/schema/src/ir/`, and every back-end reads the
 // `TypeIR` it produces. That is a property of the code as it stands rather than of the
 // language, and it decays in the ordinary way: a back-end needs one more fact about a column,
 // the IR does not carry it yet, and reading `schema.columns[name].type` right there is two lines
@@ -70,15 +70,15 @@ const MEANING = /\.flags\.|\.validation\b|(?:===|!==|case)\s*'(?:serial|varchar|
  * The walker's own home. A prefix rather than a file list: `ir/` is the one place allowed to
  * hold all of this, and splitting it across more files there is a refactor, not a regression.
  */
-const WALKER = 'packages/schema-core/src/ir/';
+const WALKER = 'packages/schema/src/ir/';
 const HTTP_COMPILER = 'packages/web/src/contract/compiler/index.ts';
 
 /** Check 2's exemptions: every library source outside `ir/` that may name the vocabulary. */
 const MAY_NAME = new Map([
   [SELF, 'the gate'],
-  ['packages/schema-core/src/index.ts', 'declares all three. The data model is not a reader of itself.'],
+  ['packages/schema/src/index.ts', 'declares all three. The data model is not a reader of itself.'],
   [
-    'packages/schema-core/src/tags/index.ts',
+    'packages/schema/src/tags/index.ts',
     "`ColumnSqlType = Exclude<SqlType, 'serial'>` — the tag vocabulary, at the type level only. " +
       "`Sql<'serial'>` is refused because `Serial` is the tag that means it.",
   ],
@@ -154,7 +154,7 @@ const MAY_READ = new Map([
       'legacy builder codemod. It creates declaration source before reflection can produce a TypeIR.',
   ],
   [
-    'packages/repository/src/index.ts',
+    'packages/orm/src/index.ts',
     'one flag, `autoIncrement`, for the refusal when a payload supplies a column the database ' +
       'generates. That is a fact about who writes the column, not about what values it admits.',
   ],
@@ -324,7 +324,7 @@ if (problems.length > 0) {
   console.error(`\n${problems.length} problem(s):\n`);
   for (const problem of problems) console.error(`  ${problem}\n`);
   console.error('There is one walk from a column to what a value of it looks like, in');
-  console.error('`packages/schema-core/src/ir/`, and every back-end reads its `TypeIR`. Four');
+  console.error('`packages/schema/src/ir/`, and every back-end reads its `TypeIR`. Four');
   console.error('private walks over the same metadata gave four answers for a `timestamp`, and the');
   console.error('one you got depended on which layer happened to ask.');
   process.exit(1);

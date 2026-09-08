@@ -20,7 +20,7 @@ code imports the wire runtime from this package.
 
 ```ts
 import { protoDescriptor, protoEncode } from '@zmdb/protobuf';
-import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
 interface OrderMessage {
   readonly id: string & ProtoField<1>;

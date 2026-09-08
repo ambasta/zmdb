@@ -1,12 +1,12 @@
 # Emission: IR → JavaScript — Spec (PRD §6.7 REQ-TF-8 … REQ-TF-11, §6.3 REQ-AV-4 … REQ-AV-7)
 
-> Part of `@zmdb/compiler`, exported as `./emit`. Shared validation-shape decisions live in `@zmdb/schema-core/ir`; the runtime validator reaches those helpers without reaching this emitter. Design:
+> Part of `@zmdb/compiler`, exported as `./emit`. Shared validation-shape decisions live in `@zmdb/schema/ir`; the runtime validator reaches those helpers without reaching this emitter. Design:
 > `DESIGN-type-first.md` §6, `PLAN-type-first.md` Phase 5.
 
 ## Current compiler/runtime boundary
 
-This emitter lives in `@zmdb/compiler/emit`; emitted validation code currently imports `@zmdb/aot-validator/errors`, while emitted protobuf code imports `@zmdb/protobuf/wire`. Issue #640 will rename
-the validator runtime. Neither generated path may import `@zmdb/compiler`, and no validator export may reach this module.
+This emitter lives in `@zmdb/compiler/emit`; emitted validation code currently imports `@zmdb/validator/errors`, while emitted protobuf code imports `@zmdb/protobuf/wire`. Issue #640 will rename the
+validator runtime. Neither generated path may import `@zmdb/compiler`, and no validator export may reach this module.
 
 ## 1. Why it exists
 
@@ -23,14 +23,14 @@ becomes
 const ok = typeof input === "object" && input !== null && !Array.isArray(input) && typeof input.n === "number" && !Number.isNaN(input.n);
 ```
 
-with no call, no closure and no allocation. `@zmdb/aot-validator`'s `src/utilities/index.ts` walks the same IR at runtime for the un-built case, and the whole point of §3 is that the two answer alike.
+with no call, no closure and no allocation. `@zmdb/validator`'s `src/utilities/index.ts` walks the same IR at runtime for the un-built case, and the whole point of §3 is that the two answer alike.
 
 Two files, and the split is the REQ-AV-4 mechanism rather than tidiness:
 
-| File                                         | Responsibility                                                             |
-| -------------------------------------------- | -------------------------------------------------------------------------- |
-| `@zmdb/schema-core/ir` `validation-shape.ts` | Every decision both walks make: issue text, discriminants, excess-ability. |
-| `@zmdb/compiler/emit` `index.ts`             | `Emitter` — the four emission targets, naming, hoisting, budget.           |
+| File                                    | Responsibility                                                             |
+| --------------------------------------- | -------------------------------------------------------------------------- |
+| `@zmdb/schema/ir` `validation-shape.ts` | Every decision both walks make: issue text, discriminants, excess-ability. |
+| `@zmdb/compiler/emit` `index.ts`        | `Emitter` — the four emission targets, naming, hoisting, budget.           |
 
 ## 2. Four targets, one context
 
@@ -49,7 +49,7 @@ it survives two call sites that never mention each other.
 The requirement is stronger than "both return a boolean": identical accept/reject sets **and** identical issue paths, over discriminated and undiscriminated unions alike (REQ-AV-5). Two independent
 walks cannot be argued into that, so:
 
-1. **Anything both decide lives in `@zmdb/schema-core/ir`'s `validation-shape.ts`.** `expectedOf`, `expectedForConstraint`, `messageFor`, `discriminantOf`, `expectedForDiscriminant`, `hasExcessCheck`.
+1. **Anything both decide lives in `@zmdb/schema/ir`'s `validation-shape.ts`.** `expectedOf`, `expectedForConstraint`, `messageFor`, `discriminantOf`, `expectedForDiscriminant`, `hasExcessCheck`.
    Neither walk has its own copy of an issue string or its own idea of what a discriminant is.
 2. **`differential.spec.ts` measures it.** Both sides are handed the same `TypeIR` — the fixture harness routes a real call site through the same `Reflector` the transformer uses, so there is no
    second hand-written description to drift — and every case is run against its own corpus plus a 22-value wild corpus (`NaN`, `Infinity`, `[]`, `{}`, `new Date(0)`, a function, …). Four assertions
@@ -227,8 +227,8 @@ string arguments must be literals, so the generated method paths and artifact id
 
 `Uint8Array` and not `Buffer`: `.oxlintrc.json` bans `Buffer` and `node:buffer` with "Use Uint8Array and ArrayBuffer for binary data", and this is the one target where that rule earns its keep.
 
-The vocabulary these read — `ProtoField<N>` and `Proto<K>` — is frozen in `@zmdb/schema-core`'s `src/ir/SPEC.md` §4.5, including why the field number is mandatory. This section is about what the
-emitter does with it.
+The vocabulary these read — `ProtoField<N>` and `Proto<K>` — is frozen in `@zmdb/schema`'s `src/ir/SPEC.md` §4.5, including why the field number is mandatory. This section is about what the emitter
+does with it.
 
 ### The width of a `number` is not inferable, so it is not inferred
 
@@ -347,10 +347,10 @@ All wire and descriptor semantics above remain unchanged, but their public runti
 - application source imports `protoEncode`, `protoDecode`, `protoDescriptor`, `grpcDescriptor` and `loadGrpcService` from `@zmdb/protobuf`;
 - emitted JavaScript imports `ProtoReader` and `ProtoWriter` from `@zmdb/protobuf/wire`;
 - witness and declaration artifacts import gRPC service-artifact calls/types from `@zmdb/protobuf`; and
-- `@zmdb/compiler` owns this emitter, the reflector and diagnostics; `@zmdb/aot-validator` owns only the runtime validation ABI.
+- `@zmdb/compiler` owns this emitter, the reflector and diagnostics; `@zmdb/validator` owns only the runtime validation ABI.
 
 Recognition is by resolved binding, not bare identifier text. The plugin and codegen routes must agree on direct imports, aliases, namespace properties, local shadows and same-named foreign functions.
-Generated output containing `@zmdb/aot-validator/protobuf/wire` or importing a public protobuf artifact type from `@zmdb/aot-validator` is stale and fails the package-isolation evidence.
+Generated output containing `@zmdb/validator/protobuf/wire` or importing a public protobuf artifact type from `@zmdb/validator` is stale and fails the package-isolation evidence.
 
 ## 8. Refusals
 
@@ -376,7 +376,7 @@ An unparseable `pattern` is refused at emit time rather than trusted, because th
 - [x] An invalid input produces exactly one issue, not a list of everything that was checked.
 - [x] The text before `return input;` in the emitted `assert` contains no `[]`, no `Issue` and no `new `.
 - [x] `validate<User>` blames `input.id` with `expected: 'minimum 1'`; `validate<Shape>` blames `input.kind` with `expected: '"circle" | "square"'`.
-- [x] The emitted prelude imports `AssertError` from `@zmdb/aot-validator/errors`, and that subpath is published (`packaging.spec.ts`).
+- [x] The emitted prelude imports `AssertError` from `@zmdb/validator/errors`, and that subpath is published (`packaging.spec.ts`).
 - [x] A file whose every call site was refused gets no prelude, so a helper reserved on the way to a refusal does not become dead code.
 
 ## 10. Non-goals (rejected)
@@ -394,8 +394,8 @@ An unparseable `pattern` is refused at emit time rather than trusted, because th
 
 ## 11. Package owner and generated ABI after tooling extraction (#626/#628)
 
-`index.ts` and the compiler project helper now live in `@zmdb/compiler/emit`; shared validation-shape helpers live in `@zmdb/schema-core/ir`. The emitted algorithm and differential contract stayed
-unchanged. `@zmdb/aot-validator/emit` was removed rather than forwarded.
+`index.ts` and the compiler project helper now live in `@zmdb/compiler/emit`; shared validation-shape helpers live in `@zmdb/schema/ir`. The emitted algorithm and differential contract stayed
+unchanged. `@zmdb/validator/emit` was removed rather than forwarded.
 
-The package move does not move the runtime error class: emitted application JavaScript continues to import `AssertError` from `@zmdb/aot-validator/errors`. No generated JavaScript, declaration or
-witness imports `@zmdb/compiler`; the compiler is the producer, never part of the produced runtime graph.
+The package move does not move the runtime error class: emitted application JavaScript continues to import `AssertError` from `@zmdb/validator/errors`. No generated JavaScript, declaration or witness
+imports `@zmdb/compiler`; the compiler is the producer, never part of the produced runtime graph.

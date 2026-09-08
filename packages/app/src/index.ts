@@ -57,3 +57,12 @@ export {
   type ApplicationOptions,
 } from './application.js';
 export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from './lifecycle.js';
+
+export { defineStateTransitions, createStateUpdatePayload, defineEntityStateMachine } from './state-transitions.js';
+export type {
+  StateTransitions,
+  AllowedTargetStates,
+  StateUpdateDTO,
+  EntityStateMachineOptions,
+  EntityStateMachine,
+} from './state-transitions.js';

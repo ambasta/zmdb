@@ -16,9 +16,9 @@
 ```ts
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { langchainTool } from '@zmdb/ai-langchain';
-import { assert } from '@zmdb/aot-validator/utilities';
-import { schemaOf, type CreateDTO } from '@zmdb/schema-core';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { assert } from '@zmdb/validator';
+import { schemaOf, type CreateDTO } from '@zmdb/schema';
+import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

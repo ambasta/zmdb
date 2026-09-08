@@ -7,7 +7,7 @@ Install the dependency-free call and wire runtime with `npm add @zmdb/protobuf@a
 
 ```ts
 import { protoDecode } from '@zmdb/protobuf';
-import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
 interface UserMessage {
   id: number & Proto<'int32'> & ProtoField<1>;

@@ -8,9 +8,9 @@ export const DIALECT_EPICS = [
     title: '[EPIC] The SQL dialect matrix — SQL Server, CockroachDB and SingleStore',
     labels: ['enhancement', 'area:dialects'],
     pages: ['dialect-mssql', 'dialect-cockroach', 'dialect-singlestore'],
-    packages: ['@zmdb/query-compiler', '@zmdb/repository'],
+    packages: ['@zmdb/sql', '@zmdb/orm'],
     motivation: `
-\`Dialect\` is \`'postgres' | 'mysql' | 'sqlite'\` (packages/query-compiler/src/index.ts:11). Three
+\`Dialect\` is \`'postgres' | 'mysql' | 'sqlite'\` (packages/sql/src/index.ts:11). Three
 docs pages describe databases outside that union, and they describe two different kinds of gap.
 
 SQL Server is a genuine third dialect: \`@p1\` placeholders instead of \`$1\` or \`?\`, \`[brackets]\`
@@ -51,8 +51,8 @@ makes the next dialect cheap. That decision, not the SQL trivia, is what makes t
         goal: 'Decide whether dialects gain inheritance, and freeze the complete divergence list for SQL Server, CockroachDB and SingleStore — construct by construct, with the SQL written out. No code.',
         why: 'The mechanism decision is architectural and hard to reverse: it touches every `switch (dialect)` in the compiler. The divergence lists are the other half, and they need to be exhaustive before implementation, because the way this feature fails is by covering the common constructs and leaving the fifth one to be discovered by a user.',
         files: [
-          '`packages/query-compiler/src/SPEC.md` — the dialect mechanism.',
-          '`packages/query-compiler/src/dialects/SPEC.md` (new) — one section per dialect with its divergences.',
+          '`packages/sql/src/SPEC.md` — the dialect mechanism.',
+          '`packages/sql/src/dialects/SPEC.md` (new) — one section per dialect with its divergences.',
         ],
         api: `
 export type Dialect = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore';
@@ -94,9 +94,9 @@ export interface DialectTraits {
         goal: "Restructure the golden-SQL tests into a matrix over dialects and land the new dialects' expectations as failures, so an unimplemented construct is a red test rather than a gap.",
         why: 'This is the slice that makes the epic honest. Adding a dialect and testing the five constructs someone remembered is how partial support ships. A matrix that requires an expectation or an explicit refusal for every construct in every dialect makes the missing ones visible.',
         files: [
-          '`packages/query-compiler/src/dialects/matrix.spec.ts` (new) — the matrix.',
-          '`packages/query-compiler/src/query-compiler.spec.ts` — existing tests, refactored or referenced.',
-          '`packages/query-compiler/src/migrations/migrations.spec.ts`',
+          '`packages/sql/src/dialects/matrix.spec.ts` (new) — the matrix.',
+          '`packages/sql/src/query-compiler.spec.ts` — existing tests, refactored or referenced.',
+          '`packages/sql/src/migrations/migrations.spec.ts`',
         ],
         tests: [
           '`covers every construct for every dialect` — a meta-test asserting the matrix has an entry (expectation or refusal) for each construct × dialect pair, which fails when a dialect is added without filling it in.',
@@ -131,10 +131,10 @@ export interface DialectTraits {
         goal: 'Implement the mechanism the spec chose, refactoring the existing three dialects onto it with byte-identical output, before any new dialect is added.',
         why: 'Refactoring first, with the existing dialects\' output proven unchanged, separates "the mechanism works" from "the new dialect is right". Doing both at once means any difference in Postgres output is ambiguous between a refactor bug and an intended change.',
         files: [
-          '`packages/query-compiler/src/dialects/index.ts` (new) — traits, resolution, the registry.',
-          '`packages/query-compiler/src/index.ts` — every `switch (dialect)`.',
-          '`packages/query-compiler/src/migrations/index.ts` — `DDL_TYPES`, `ddlType`.',
-          '`packages/query-compiler/src/quoting.ts`',
+          '`packages/sql/src/dialects/index.ts` (new) — traits, resolution, the registry.',
+          '`packages/sql/src/index.ts` — every `switch (dialect)`.',
+          '`packages/sql/src/migrations/index.ts` — `DDL_TYPES`, `ddlType`.',
+          '`packages/sql/src/quoting.ts`',
         ],
         steps: [
           'Define the traits record and resolve parent merging once, at construction, so no per-statement lookup is introduced. Assert that in a test if the compiler has a construction step; if it does not, this is the moment to add one rather than resolving traits per call.',
@@ -161,9 +161,9 @@ export interface DialectTraits {
         blockedBy: ['mechanism'],
         goal: 'Implement the mssql dialect completely: placeholders, quoting, pagination, types, `OUTPUT`, `MERGE`, DDL and migrations, filling every matrix cell.',
         files: [
-          '`packages/query-compiler/src/dialects/mssql.ts` (new)',
-          '`packages/query-compiler/src/migrations/index.ts` — mssql DDL branches.',
-          '`packages/repository/src/drivers/mssql.ts` (new, if a bundled driver is in scope).',
+          '`packages/sql/src/dialects/mssql.ts` (new)',
+          '`packages/sql/src/migrations/index.ts` — mssql DDL branches.',
+          '`packages/orm/src/drivers/mssql.ts` (new, if a bundled driver is in scope).',
         ],
         steps: [
           'Implement placeholders as `@p1`-style named parameters, and make sure the parameter *array* the driver receives matches the naming convention the driver expects — this differs from positional drivers and is the most likely integration bug.',
@@ -196,8 +196,8 @@ export interface DialectTraits {
         goal: "Add both as dialects inheriting from Postgres and MySQL respectively, implementing only their real divergences — including the new declaration vocabulary SingleStore's shard key needs.",
         why: 'These two are the test of whether the mechanism earned its refactor. If either requires more than a short traits override plus a DDL branch, the mechanism is wrong and that is worth knowing now.',
         files: [
-          '`packages/query-compiler/src/dialects/cockroach.ts`, `singlestore.ts` (new)',
-          '`packages/schema-core/src/tags/index.ts` — a shard-key tag, if that is the chosen form.',
+          '`packages/sql/src/dialects/cockroach.ts`, `singlestore.ts` (new)',
+          '`packages/schema/src/tags/index.ts` — a shard-key tag, if that is the chosen form.',
         ],
         steps: [
           'Cockroach: override the serial strategy per the spec (UUID default preferred), the index syntax where it differs, and mark the Postgres constructs Cockroach refuses as unsupported rather than emitting them.',
@@ -250,7 +250,7 @@ export interface DialectTraits {
     title: '[EPIC] Non-SQL targets — MongoDB and Gel',
     labels: ['enhancement', 'area:dialects'],
     pages: ['dialect-mongodb', 'dialect-gel'],
-    packages: ['@zmdb/query-compiler', '@zmdb/repository'],
+    packages: ['@zmdb/sql', '@zmdb/orm'],
     motivation: `
 Both page notes say the same thing in different words: "the compiler emits SQL text; a document store
 needs a separate compiler target", and "EdgeQL is not SQL, so it needs a second compiler target".
@@ -303,8 +303,8 @@ not a data layer; it is a subset that will be reported as broken. Knowing that b
 worth more than a partial implementation.
 `,
         files: [
-          '`packages/query-compiler/SPEC.md` — the seam.',
-          '`packages/query-compiler/src/targets/SPEC.md` (new) — per-target support matrices.',
+          '`packages/sql/SPEC.md` — the seam.',
+          '`packages/sql/src/targets/SPEC.md` (new) — per-target support matrices.',
         ],
         api: `
 /** The generalised seam, if feasible: a target produces whatever its driver executes. */
@@ -342,8 +342,8 @@ export interface Target<Q> {
         goal: 'Land the tests that pin the seam: the SQL path unchanged byte for byte, a target contract suite any target must satisfy, and the per-method refusals for whatever the proceeding targets cannot do.',
         why: 'The most important test in this epic is that nothing about the SQL path changed. The second most important is a reusable contract suite, so a target is either provably conformant or provably partial — with the partial parts enumerated rather than discovered.',
         files: [
-          '`packages/query-compiler/src/targets/contract.spec.ts` (new) — the shared suite.',
-          '`packages/query-compiler/src/targets/mongodb.spec.ts`, `gel.spec.ts` (new, per the decision).',
+          '`packages/sql/src/targets/contract.spec.ts` (new) — the shared suite.',
+          '`packages/sql/src/targets/mongodb.spec.ts`, `gel.spec.ts` (new, per the decision).',
         ],
         tests: [
           '`emits identical SQL for every existing construct after the seam moves` — the whole existing golden suite, unchanged.',
@@ -374,9 +374,9 @@ export interface Target<Q> {
         blockedBy: ['tests'],
         goal: 'Move the boundary from "compiler produces SQL" to "target produces a query object", with the SQL targets emitting exactly what they emit today.',
         files: [
-          '`packages/query-compiler/src/targets/index.ts` (new) — `Target`, the plan shapes.',
-          '`packages/query-compiler/src/index.ts` — the SQL target implemented against the seam.',
-          '`packages/repository/src/index.ts` — the driver boundary made generic in its query type.',
+          '`packages/sql/src/targets/index.ts` (new) — `Target`, the plan shapes.',
+          '`packages/sql/src/index.ts` — the SQL target implemented against the seam.',
+          '`packages/orm/src/index.ts` — the driver boundary made generic in its query type.',
         ],
         steps: [
           'Introduce the plan shapes and implement the SQL target against them, keeping the existing exported functions as they are so no consumer changes. The seam is internal until a second target needs it public.',
@@ -401,10 +401,7 @@ export interface Target<Q> {
         labels: ['enhancement'],
         blockedBy: ['seam'],
         goal: 'Implement the document target for every method the spec said it can serve, with explicit refusals for the rest and validation on the way in and out.',
-        files: [
-          '`packages/query-compiler/src/targets/mongodb.ts` (new)',
-          '`packages/repository/src/drivers/mongodb.ts` (new)',
-        ],
+        files: ['`packages/sql/src/targets/mongodb.ts` (new)', '`packages/orm/src/drivers/mongodb.ts` (new)'],
         steps: [
           'Translate `WhereDTO` operators to Mongo query operators through a closed map, with the same two-step allowlist discipline the SQL operator surface uses — a user-controlled key reaching a `$`-prefixed operator is a Mongo injection, and the class of bug is identical to #364.',
           "Reject any field name beginning with `$` or containing `.` unless it is a declared column path; both are Mongo's own injection vectors.",
@@ -434,7 +431,7 @@ export interface Target<Q> {
         blockedBy: ['seam'],
         goal: "Implement the EdgeQL target for the approved methods, deferring schema definition to Gel's own tooling per the spec, with refusals elsewhere.",
         why: 'Gel is the harder of the two because its schema model is not DDL: it has its own SDL and migration system. So the honest scope is the query half, with a documented boundary at schema management — and that boundary has to be explicit, or users will expect `zmdb generate` to work.',
-        files: ['`packages/query-compiler/src/targets/gel.ts` (new)', '`packages/repository/src/drivers/gel.ts` (new)'],
+        files: ['`packages/sql/src/targets/gel.ts` (new)', '`packages/orm/src/drivers/gel.ts` (new)'],
         steps: [
           "Translate the plan shapes into EdgeQL for select/insert/update/delete, with parameters bound using EdgeQL's parameter syntax rather than interpolation.",
           "Map links to relations, and decide what `populate` means in EdgeQL — where Gel's shapes are strictly more expressive than a join, that is a place to refuse cleanly rather than approximate.",
@@ -484,7 +481,7 @@ export interface Target<Q> {
     title: '[EPIC] React Native — the Metro build path and embedded migrations',
     labels: ['enhancement', 'area:dialects', 'area:cli'],
     pages: ['connect-react-native', 'migrations-web-mobile'],
-    packages: ['@zmdb/compiler', '@zmdb/query-compiler'],
+    packages: ['@zmdb/compiler', '@zmdb/sql'],
     motivation: `
 zmdb's AOT transform runs as a build plugin or through the project compiler. React Native does not use those
 build pipelines — it uses Metro, with its own transformer interface — so \`schemaOf<T>()\` in an RN bundle
@@ -525,7 +522,7 @@ what a phone wants. The gap is entirely in the build integration.
         why: "Metro's transformer interface is a different shape from a bundler plugin — it transforms per file with its own caching, and a project can only have one custom transformer, so composing with an existing one (Expo's, or Reanimated's) is the real constraint. Getting that wrong produces an integration that works alone and breaks in every real app.",
         files: [
           '`packages/compiler/src/unplugin/SPEC.md` — the Metro entry.',
-          '`packages/query-compiler/src/migrations/SPEC.md` — the embedded format and runner.',
+          '`packages/sql/src/migrations/SPEC.md` — the embedded format and runner.',
         ],
         api: `
 // metro.config.js
@@ -567,7 +564,7 @@ export declare function runEmbedded(driver: Driver, migrations: readonly Embedde
         files: [
           '`packages/compiler/src/metro/metro.spec.ts`',
           '`fixtures/consumer-metro/` (new) — a minimal RN-shaped app.',
-          '`packages/query-compiler/src/migrations/embedded.spec.ts` (new)',
+          '`packages/sql/src/migrations/embedded.spec.ts` (new)',
         ],
         tests: [
           '`bundles a fixture app with Metro and inlines the schema` — assert the bundle text contains the inlined schema literal and no `schemaOf` runtime call.',
@@ -628,8 +625,8 @@ export declare function runEmbedded(driver: Driver, migrations: readonly Embedde
         blockedBy: ['tests'],
         goal: 'Ship the generation of an embedded migration module and a runner that applies it with no filesystem, small enough to put in a mobile bundle, working for browser SQLite too.',
         files: [
-          '`packages/query-compiler/src/migrations/embedded.ts` (new) — the runner.',
-          '`packages/query-compiler/package.json` — an `./migrations/embedded` subpath.',
+          '`packages/sql/src/migrations/embedded.ts` (new) — the runner.',
+          '`packages/sql/package.json` — an `./migrations/embedded` subpath.',
           '`packages/zmdb/src/cli/commands/generate.ts` — the `--embed` output.',
         ],
         steps: [

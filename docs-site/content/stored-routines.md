@@ -6,8 +6,8 @@ manage explicitly.
 Declare the signature once, then expose the protected repository call through an application-named method:
 
 ```ts
-import type { RoutineDef } from '@zmdb/query-compiler/schema-objects';
-import { BaseRepository, type ArgsOf, type ResultOf } from '@zmdb/repository';
+import { type RoutineDef } from '@zmdb/sql/schema-objects';
+import { BaseRepository, type ArgsOf, type ResultOf } from '@zmdb/orm';
 
 const archiveOldOrders = {
   kind: 'function',
@@ -42,7 +42,7 @@ transaction-controlling procedures outside an outer transaction.
 The lower SQL layer is available when validation is deliberately owned elsewhere:
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const calls = createQueryCompiler(postgres);
@@ -67,7 +67,7 @@ choose which privileged program to run, which is why the typed path takes a decl
 Use the same declaration from the call site when emitting an explicit migration:
 
 ```ts
-import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '@zmdb/query-compiler/schema-objects';
+import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '@zmdb/sql/schema-objects';
 import type { MigrationConnection } from 'zmdb/migrations';
 
 export async function applyArchiveOldOrders(migrationConnection: MigrationConnection, previous: RoutineDef | undefined): Promise<void> {

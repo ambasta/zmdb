@@ -4,7 +4,7 @@ Lifecycle hooks let you react to entity events — `beforeCreate`, `afterCreate`
 ## What is built
 
 ```ts
-import { EventBus, type LifecycleEvent, type Subscriber } from '@zmdb/repository/entity-modeling';
+import { EventBus, type LifecycleEvent, type Subscriber } from '@zmdb/orm/entity-modeling';
 ```
 
 ```ts
@@ -21,7 +21,7 @@ class EventBus {
 }
 ```
 
-That is the whole surface. Note the sub-path import — `EventBus` is not re-exported from the `@zmdb/repository` root.
+That is the whole surface. Note the sub-path import — `EventBus` is not re-exported from the `@zmdb/orm` root.
 
 ```ts
 const bus = new EventBus();
@@ -47,9 +47,9 @@ the transactional outbox.
 There is no `@BeforeCreate` decorator and no implicit dispatch. Emitting is an override you write:
 
 ```ts
-import { BaseRepository, type UpdatePatch } from '@zmdb/repository';
-import { EventBus } from '@zmdb/repository/entity-modeling';
-import type { CreateDTO, Entity, PrimaryKeyOf } from '@zmdb/schema-core';
+import { BaseRepository, type UpdatePatch } from '@zmdb/orm';
+import { EventBus } from '@zmdb/orm/entity-modeling';
+import { type CreateDTO, type Entity, type PrimaryKeyOf } from '@zmdb/schema';
 
 const bus = new EventBus();
 
@@ -107,7 +107,7 @@ uses the repository's internal keyed update path, so it fires `preUpdate` but no
 inside instead:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 
 bus.subscribe({
   on: 'afterCreate',

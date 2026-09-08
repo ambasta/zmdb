@@ -5,7 +5,7 @@
 // The witness is a `TypeIR`, which is what a generated one is: this file used to take a
 // `TypeDescriptor`, and every caller therefore had to hand-write the shape it was already
 // declaring in TypeScript (REQ-TF-9).
-import { equals, is, validate, type TypeIR } from '@zmdb/aot-validator/utilities';
+import { equals, is, validate, type TypeIR } from '@zmdb/validator';
 
 import type { BenchResult } from '../results.js';
 

@@ -1,75 +1,78 @@
 // Compile-only contract for the real @zmdb/ai package boundary and the remaining
 // integration-package target surfaces frozen by issue #703.
 
-import type {
-  lenientParse,
-  ParseResult,
-  toolFor,
-  toolFromSchema,
-  ToolOptions,
-  ToolProvider,
-  ToolSchema,
-  ToolSpec,
-  ToolSpecFor,
+import {
+  type lenientParse,
+  type ParseResult,
+  type toolFor,
+  type toolFromSchema,
+  type ToolOptions,
+  type ToolProvider,
+  type ToolSchema,
+  type ToolSpec,
+  type ToolSpecFor,
 } from '@zmdb/ai';
-import type { anthropicDriver, AnthropicDriverOptions, AnthropicMessagesClient } from '@zmdb/ai-anthropic';
-import type {
-  langchainTool,
-  LangChainToolFields,
-  ToolAdapterOptions as LangChainToolAdapterOptions,
+import { type anthropicDriver, type AnthropicDriverOptions, type AnthropicMessagesClient } from '@zmdb/ai-anthropic';
+import {
+  type langchainTool,
+  type LangChainToolFields,
+  type ToolAdapterOptions as LangChainToolAdapterOptions,
 } from '@zmdb/ai-langchain';
-import type {
-  aiSdkTool,
-  AiSdkToolFields,
-  AiSdkToolOptions,
-  ToolAdapterOptions as AiSdkToolAdapterOptions,
+import {
+  type aiSdkTool,
+  type AiSdkToolFields,
+  type AiSdkToolOptions,
+  type ToolAdapterOptions as AiSdkToolAdapterOptions,
 } from '@zmdb/ai-vercel';
-import type {
-  defineTools,
-  ChatDriver,
-  ChatMessage,
-  run,
-  RunOptions,
-  RunResult,
-  ToolCall,
-  ToolRegistry,
+import {
+  type defineTools,
+  type ChatDriver,
+  type ChatMessage,
+  type run,
+  type RunOptions,
+  type RunResult,
+  type ToolCall,
+  type ToolRegistry,
 } from '@zmdb/ai/chat';
-import type { toolSchemaForProvider, ToolSpecRefusalError as CompilerToolSpecRefusalError } from '@zmdb/ai/compiler';
-import type {
-  bindOpenApiTool,
-  BoundOpenApiTool,
-  generateOpenApiToolsModule,
-  OpenApiCallerOptions,
-  OpenApiGeneratedTool,
-  OpenApiHttpError,
-  OpenApiOperationIdentity,
-  OpenApiToolRequest,
-  OpenApiToolsOptions,
-  ToolSpecRefusal,
-  ToolSpecRefusalError,
-  toolsFromOpenApi,
+import {
+  type toolSchemaForProvider,
+  type ToolSpecRefusalError as CompilerToolSpecRefusalError,
+} from '@zmdb/ai/compiler';
+import {
+  type bindOpenApiTool,
+  type BoundOpenApiTool,
+  type generateOpenApiToolsModule,
+  type OpenApiCallerOptions,
+  type OpenApiGeneratedTool,
+  type OpenApiHttpError,
+  type OpenApiOperationIdentity,
+  type OpenApiToolRequest,
+  type OpenApiToolsOptions,
+  type ToolSpecRefusal,
+  type ToolSpecRefusalError,
+  type toolsFromOpenApi,
 } from '@zmdb/ai/http';
-import type {
-  executeToolAdapter,
-  InvocableTool,
-  invokeTool,
-  serialiseToolResult,
-  ToolAdapterOptions,
-  ToolInvocation,
+import {
+  type executeToolAdapter,
+  type InvocableTool,
+  type invokeTool,
+  type serialiseToolResult,
+  type ToolAdapterOptions,
+  type ToolInvocation,
 } from '@zmdb/ai/tool-runtime';
-import type {
-  createMcpClient,
-  createMcpServer,
-  MCP_PROTOCOL_VERSION,
-  McpClient,
-  McpClientOptions,
-  McpProtocolError,
-  McpServer,
-  McpServerOptions,
-  RemoteTool,
-  RemoteToolResult,
+import {
+  type createMcpClient,
+  type createMcpServer,
+  type MCP_PROTOCOL_VERSION,
+  type McpClient,
+  type McpClientOptions,
+  type McpProtocolError,
+  type McpServer,
+  type McpServerOptions,
+  type RemoteTool,
+  type RemoteToolResult,
 } from '@zmdb/mcp';
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 type ExportSet<Values extends string, Types extends string> = {
   readonly values: Values;
@@ -153,23 +156,23 @@ type McpValues = {
 };
 
 type FinalDependencies = {
-  readonly '@zmdb/schema-core': never;
-  readonly '@zmdb/ai': '@zmdb/schema-core';
+  readonly '@zmdb/schema': never;
+  readonly '@zmdb/ai': '@zmdb/schema';
   readonly '@zmdb/ai-anthropic': '@zmdb/ai';
   readonly '@zmdb/ai-langchain': '@zmdb/ai';
   readonly '@zmdb/ai-vercel': '@zmdb/ai';
   readonly '@zmdb/mcp': '@zmdb/ai';
-  readonly '@zmdb/aot-validator': '@zmdb/ai' | '@zmdb/schema-core';
+  readonly '@zmdb/validator': '@zmdb/ai' | '@zmdb/schema';
 };
 
 type FinalPeers = {
-  readonly '@zmdb/schema-core': never;
+  readonly '@zmdb/schema': never;
   readonly '@zmdb/ai': never;
   readonly '@zmdb/ai-anthropic': '@anthropic-ai/sdk@0.124.0';
   readonly '@zmdb/ai-langchain': '@langchain/core@^1.2.9';
   readonly '@zmdb/ai-vercel': 'ai@^7.0.93';
   readonly '@zmdb/mcp': never;
-  readonly '@zmdb/aot-validator': never;
+  readonly '@zmdb/validator': never;
 };
 
 export type _AiSubpathsAreExact = Expect<
@@ -219,11 +222,9 @@ export type _VercelRootIsExact = Expect<Equal<keyof VercelValues, 'aiSdkTool'>>;
 export type _McpRootIsExact = Expect<
   Equal<keyof McpValues, 'MCP_PROTOCOL_VERSION' | 'McpProtocolError' | 'createMcpClient' | 'createMcpServer'>
 >;
-export type _SchemaCoreHasNoAiDependency = Expect<Equal<FinalDependencies['@zmdb/schema-core'], never>>;
+export type _SchemaCoreHasNoAiDependency = Expect<Equal<FinalDependencies['@zmdb/schema'], never>>;
 export type _McpDependsOnlyOnAi = Expect<Equal<FinalDependencies['@zmdb/mcp'], '@zmdb/ai'>>;
-export type _AotDependsOnSchemaAndAi = Expect<
-  Equal<FinalDependencies['@zmdb/aot-validator'], '@zmdb/ai' | '@zmdb/schema-core'>
->;
+export type _AotDependsOnSchemaAndAi = Expect<Equal<FinalDependencies['@zmdb/validator'], '@zmdb/ai' | '@zmdb/schema'>>;
 export type _OnlyIntegrationPackagesOwnSdkPeers = Expect<
   Equal<
     {
@@ -239,7 +240,7 @@ export type _OnlyIntegrationPackagesOwnSdkPeers = Expect<
   >
 >;
 export type _ProviderNeutralPackagesHaveNoSdkPeer = Expect<
-  Equal<FinalPeers['@zmdb/schema-core'] | FinalPeers['@zmdb/ai'] | FinalPeers['@zmdb/mcp'], never>
+  Equal<FinalPeers['@zmdb/schema'] | FinalPeers['@zmdb/ai'] | FinalPeers['@zmdb/mcp'], never>
 >;
 
 // Keeping these aliases referenced makes the compile-only contract cover every named public type,

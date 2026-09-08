@@ -9,7 +9,7 @@ import { publishCatalog, publishManifest, readManifest } from '../../.github/scr
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(FIXTURE, '../..');
 const PUBLISH_PACKAGES = await publishCatalog(ROOT);
-const PACKAGE_DIRS = ['query-compiler', 'schema-core', 'ai', 'aot-validator', 'repository', 'mysql'];
+const PACKAGE_DIRS = ['sql', 'schema', 'ai', 'validator', 'orm', 'mysql'];
 
 function run(command, argumentsList, options = {}) {
   const result = spawnSync(command, argumentsList, {
@@ -77,12 +77,12 @@ try {
         type: 'module',
         dependencies: {
           '@types/node': '^26.4.1',
-          '@zmdb/aot-validator': `file:${tarballs['@zmdb/aot-validator']}`,
+          '@zmdb/validator': `file:${tarballs['@zmdb/validator']}`,
           '@zmdb/ai': `file:${tarballs['@zmdb/ai']}`,
           '@zmdb/mysql': `file:${tarballs['@zmdb/mysql']}`,
-          '@zmdb/query-compiler': `file:${tarballs['@zmdb/query-compiler']}`,
-          '@zmdb/repository': `file:${tarballs['@zmdb/repository']}`,
-          '@zmdb/schema-core': `file:${tarballs['@zmdb/schema-core']}`,
+          '@zmdb/sql': `file:${tarballs['@zmdb/sql']}`,
+          '@zmdb/orm': `file:${tarballs['@zmdb/orm']}`,
+          '@zmdb/schema': `file:${tarballs['@zmdb/schema']}`,
           mysql2: '3.24.3',
           typescript: '7.0.2',
         },
@@ -107,7 +107,7 @@ try {
   if (mysqlManifest.peerDependenciesMeta?.mysql2?.optional !== true) {
     throw new Error('@zmdb/mysql did not publish mysql2 as an optional peer');
   }
-  for (const name of ['query-compiler', 'repository']) {
+  for (const name of ['sql', 'orm']) {
     const manifest = JSON.parse(readFileSync(join(app, 'node_modules', '@zmdb', name, 'package.json'), 'utf8'));
     for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
       if (manifest[field]?.mysql2 !== undefined) {

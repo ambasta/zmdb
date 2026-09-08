@@ -36,12 +36,12 @@ Install `pg`, set `DATABASE_URL` to an empty database, and use a PostgreSQL serv
 ```ts
 import { Pool } from 'pg';
 
-import { assert } from '@zmdb/aot-validator/utilities';
-import { createQueryCompiler, distance } from '@zmdb/query-compiler';
+import { assert } from '@zmdb/validator';
+import { createQueryCompiler, distance } from '@zmdb/sql';
 import { diff, snapshot, type SchemaSnapshot } from '@zmdb/migrations';
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 import { postgres, postgresDriver } from '@zmdb/postgres';
-import { schemaOf } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema';
 
 function vector1536(value: unknown): readonly number[] {
   const valid = Array.isArray(value) && value.length === 1536 && value.every((component): component is number => typeof component === 'number' && Number.isFinite(component));

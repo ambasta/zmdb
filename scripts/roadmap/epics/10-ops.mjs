@@ -9,7 +9,7 @@ export const OPS_EPICS = [
       '[EPIC] Operability — health checks, OpenTelemetry, trace propagation, and queries tagged for the database log',
     labels: ['enhancement', 'area:ops', 'area:web', 'parity:nestjs'],
     pages: ['web-health-checks', 'web-observability', 'web-tracing', 'sql-comments'],
-    packages: ['@zmdb/web', '@zmdb/query-compiler', '@zmdb/repository'],
+    packages: ['@zmdb/web', '@zmdb/sql', '@zmdb/orm'],
     motivation: `
 Four notes: "no readiness/liveness aggregation module", "no OpenTelemetry instrumentation of the router,
 pipeline or driver", "no span propagation across the request pipeline", and "the compiler emits no comment
@@ -65,7 +65,7 @@ distinction structural rather than a naming convention, and the docs have to say
         files: [
           '`packages/web/src/health/SPEC.md` (new)',
           '`packages/web/src/observability/SPEC.md` (new)',
-          '`packages/query-compiler/src/comments/SPEC.md` (new)',
+          '`packages/sql/src/comments/SPEC.md` (new)',
         ],
         api: `
 export interface HealthCheck {
@@ -116,7 +116,7 @@ export type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'fr
         files: [
           '`packages/web/src/health/health.spec.ts` (new)',
           '`packages/web/src/observability/observability.spec.ts` (new)',
-          '`packages/query-compiler/src/comments/comments.spec.ts` (new)',
+          '`packages/sql/src/comments/comments.spec.ts` (new)',
           '`benchmarks/` — tracing on/off.',
         ],
         tests: [
@@ -186,8 +186,8 @@ export type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'fr
           '`packages/web/src/observability/index.ts` (new)',
           '`packages/web/src/pipeline/index.ts` — server and routing spans.',
           '`packages/web/src/middleware/index.ts` — chain spans.',
-          '`packages/repository/src/index.ts` — query spans at the driver boundary.',
-          '`packages/query-compiler/src/index.ts` — compile-time span attributes on the compiled query.',
+          '`packages/orm/src/index.ts` — query spans at the driver boundary.',
+          '`packages/sql/src/index.ts` — compile-time span attributes on the compiled query.',
         ],
         steps: [
           'Attach the compile-time attribute set to the compiled query when it is compiled, so the driver has them ready. This is the design that makes query spans cheap and it is easy to get wrong by computing them at execution.',
@@ -218,9 +218,9 @@ export type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'fr
         goal: 'Emit an optional trailing comment carrying trace and route context, from a closed key set with encoded values, off by default and byte-identical to today when off.',
         why: 'Small, and the piece that makes the tracing work useful: it is what joins a database slow-query log to an application trace. It goes last because it needs the trace ids the previous slice produces.',
         files: [
-          '`packages/query-compiler/src/comments/index.ts` (new)',
-          '`packages/query-compiler/src/index.ts` — comment emission at the end of a statement.',
-          '`packages/repository/src/index.ts` — supplying the runtime context.',
+          '`packages/sql/src/comments/index.ts` (new)',
+          '`packages/sql/src/index.ts` — comment emission at the end of a statement.',
+          '`packages/orm/src/index.ts` — supplying the runtime context.',
         ],
         steps: [
           'Build the comment from the closed key set only, looking keys up through a map with no prototype chain (an `Object.create(null)` map or a `Map`), and refuse anything else — the same allowlist discipline as the operator surface after #364.',

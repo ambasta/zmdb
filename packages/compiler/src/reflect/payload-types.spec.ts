@@ -24,7 +24,7 @@
 // one so an emitter can hoist a shared helper, and a shape assembled from columns has no
 // type name to give. It changes what the emitted code looks like, not what it accepts.
 
-import { objectTypeFromIR, type SchemaIR, type TypeIR, type Variant } from '@zmdb/schema-core/ir';
+import { objectTypeFromIR, type SchemaIR, type TypeIR, type Variant } from '@zmdb/schema/ir';
 import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

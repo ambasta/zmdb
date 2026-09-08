@@ -13,8 +13,8 @@
 - discovery, validation and resolution of `zmdb.config.*`.
 
 The exact current-file move map is frozen in [`../../.github/scripts/verify-tooling-ownership.SPEC.md`](../../.github/scripts/verify-tooling-ownership.SPEC.md). Thirty-four shipped/build-input files
-have this owner. Runtime validation and serialization remain in `@zmdb/aot-validator`; they are not compiler responsibilities. Protobuf reflection and emission remain compiler work, while #656 moved
-the public calls, artifact types, and wire runtime to `@zmdb/protobuf`.
+have this owner. Runtime validation and serialization remain in `@zmdb/validator`; they are not compiler responsibilities. Protobuf reflection and emission remain compiler work, while #656 moved the
+public calls, artifact types, and wire runtime to `@zmdb/protobuf`.
 
 ## 2. Package DAG
 
@@ -22,16 +22,16 @@ Required package edges are one-way:
 
 ```text
 @zmdb/ai ─────────────┐
-@zmdb/query-compiler ─┐
-@zmdb/schema-core ────┼──> @zmdb/compiler
-@zmdb/aot-validator ──┘
+@zmdb/sql ─┐
+@zmdb/schema ────┼──> @zmdb/compiler
+@zmdb/validator ──┘
 ```
 
 `typescript >=7.0.2 <8` is a peer dependency and exact `7.0.2` is the development and packed-consumer version. `oxlint`, `metro` and `metro-babel-transformer` are optional peers reached only by their
 explicit integration subpaths. The package has no dependency on `@zmdb/migrations`, `@zmdb/cli`, `@zmdb/web` or `zmdb`. No runtime foundation package imports `@zmdb/compiler`.
 
-The `@zmdb/ai` edge supplies provider-neutral tool-document emission. The `@zmdb/query-compiler` edge exists for the config's dialect and structural query/driver protocols. It does not let compiler
-code emit SQL. The `@zmdb/aot-validator` edge is the runtime ABI that generated validators call; it never points back to this package.
+The `@zmdb/ai` edge supplies provider-neutral tool-document emission. The `@zmdb/sql` edge exists for the config's dialect and structural query/driver protocols. It does not let compiler code emit
+SQL. The `@zmdb/validator` edge is the runtime ABI that generated validators call; it never points back to this package.
 
 ## 3. Public surface
 
@@ -129,7 +129,7 @@ One ordinary build opens one TypeScript session. Metro opens one per worker proc
 `loadConfig` and `resolveConfig` identities exposed by the product facade. The behavioral contract currently frozen in [`../zmdb/src/config/SPEC.md`](../zmdb/src/config/SPEC.md) moves here without a
 second discovery, validation or path-resolution implementation.
 
-The config's driver is structural, so the compiler does not depend on `@zmdb/repository`:
+The config's driver is structural, so the compiler does not depend on `@zmdb/orm`:
 
 ```ts
 export interface ToolingDriver {
@@ -152,7 +152,7 @@ implementation; the exact shared contract owner is resolved with #621 without cr
 Generated application JavaScript may import runtime values only. The low-level emitter defaults its assertion-error import to:
 
 ```ts
-import { AssertError } from '@zmdb/aot-validator/errors';
+import { AssertError } from '@zmdb/validator/errors';
 ```
 
 Project compilation preserves the source call's public runtime module when it must keep the consumer dependency-complete: a source importing validator calls from `zmdb` produces generated JavaScript
@@ -174,15 +174,15 @@ coordinated release.
 
 Implementation removed these old public entries after their new entries worked:
 
-- `@zmdb/aot-validator/emit`
-- `@zmdb/aot-validator/lint`
-- `@zmdb/aot-validator/metro`
-- `@zmdb/aot-validator/plugin`
-- `@zmdb/aot-validator/reflect`
-- `@zmdb/aot-validator/testing`
-- `@zmdb/aot-validator/codegen`
-- `@zmdb/aot-validator/transformer`
-- `@zmdb/aot-validator/unplugin`
+- `@zmdb/validator/emit`
+- `@zmdb/validator/lint`
+- `@zmdb/validator/metro`
+- `@zmdb/validator/plugin`
+- `@zmdb/validator/reflect`
+- `@zmdb/validator/testing`
+- `@zmdb/validator/codegen`
+- `@zmdb/validator/transformer`
+- `@zmdb/validator/unplugin`
 
 The package has no permanent implementation-package forwarding files. The standalone `zmdb-codegen` executable is removed; #630 adds the replacement command to the sole unified CLI. The old
 `zmdb/unplugin` product spelling may remain only for the compatibility interval selected by #721/#728. This spec does not choose a deprecation or removal release.

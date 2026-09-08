@@ -1,43 +1,25 @@
 #!/usr/bin/env node
-// Freeze the hard runtime-foundation cutover from issues #635 and #636.
-//
-// Default mode is a ratchet over today's tree. It accepts only exact owned
-// exception records: a newly introduced inversion fails, and a retired finding
-// also fails until the implementation issue deletes its record deliberately.
-// `--strict` is the final state and succeeds only when the old packages and
-// every recorded reachability gap are gone.
+// Enforce the final four-package runtime DAG and the hard removal of old owners.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
-  governanceExceptionsForSource,
   runtimeFoundationOptionalFinding,
   runtimeFoundationProblemFinding,
-  verifyGovernanceSnapshotExceptionSource,
 } from '../../scripts/architecture/exceptions.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-const STRUCTURED_EXCEPTIONS = join(ROOT, 'scripts', 'architecture', 'exceptions.mjs');
 const OWNERSHIP_SPEC = '.github/scripts/verify-runtime-foundation.SPEC.md';
 const CONSUMER_ROOT = 'fixtures/consumer-runtime-foundation';
 const OLD_PACKAGES = ['@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/repository', '@zmdb/schema-core'];
 const OPTIONAL_TARGETS = ['@zmdb/ai', '@zmdb/mssql', '@zmdb/postgres', '@zmdb/sqlite'];
-const TRANSITIONAL_OPTIONAL_EDGES = new Map([
-  // #672 implements the SQL Server vertical against the current generic seams;
-  // #629 moves its migration strategy and catalog normalizer to migrations.
-  ['@zmdb/mssql', new Set(['@zmdb/migrations', '@zmdb/query-compiler', '@zmdb/repository'])],
-  // #670 implements the PostgreSQL vertical against the current generic seams.
-  // #634 owns the hard cutover to @zmdb/sql and @zmdb/orm. Keep this exact
-  // old-package closure visible to oldPackageProblems (and therefore strict
-  // mode) while refusing any unrelated workspace edge here. #629 adds only the
-  // extracted migration/introspection owner.
-  ['@zmdb/postgres', new Set([...OLD_PACKAGES, '@zmdb/migrations'])],
-  // #669 owns the SQLite vertical; #629 extracts its generic migration
-  // lifecycle while keeping the database-specific strategy in this package.
+const DATABASE_LIFECYCLE_EDGES = new Map([
+  ['@zmdb/mssql', new Set(['@zmdb/migrations'])],
+  ['@zmdb/postgres', new Set(['@zmdb/migrations'])],
   ['@zmdb/sqlite', new Set(['@zmdb/migrations'])],
 ]);
 const FORBIDDEN_RUNTIME_PACKAGES = new Set([
@@ -271,14 +253,12 @@ function ownershipProblems(root) {
   if (!existsSync(specPath)) return [`missing ownership contract: ${OWNERSHIP_SPEC}`];
   const catalog = readFileSync(specPath, 'utf8')
     .split('\n')
-    .filter(line =>
-      /^packages\/(?:schema-core|query-compiler|aot-validator|repository)\/src\/.*\.ts$/.test(line.trim()),
-    )
+    .filter(line => /^packages\/(?:schema|sql|validator|orm)\/src\/.*\.ts$/.test(line.trim()))
     .map(line => line.trim())
     .toSorted();
   const duplicateCatalog = catalog.filter((path, index) => path === catalog[index - 1]);
 
-  const current = ['schema-core', 'query-compiler', 'aot-validator', 'repository']
+  const current = FOUNDATION_PACKAGES.map(target => target.dir)
     .flatMap(name =>
       sourceFiles(join(root, 'packages', name, 'src'))
         .filter(path => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.endsWith('.type-test.ts'))
@@ -322,7 +302,7 @@ function oldPackageProblems(root, architecture) {
     // when the same fixture also contains a refusal probe for that specifier.
     if (logical.startsWith(`fixtures${sep}`) && /^import assert from ['"]node:assert\/strict['"];$/m.test(source)) {
       source = source.replace(
-        /^await assert\.rejects\(import\((['"])[^'"\n]+\1\), \{ code: (['"])ERR_PACKAGE_PATH_NOT_EXPORTED\2 \}\);$/gm,
+        /^await assert\.rejects\(import\((['"])[^'"\n]+\1\), \{ code: (['"])ERR_(?:MODULE_NOT_FOUND|PACKAGE_PATH_NOT_EXPORTED)\2 \}\);$/gm,
         '',
       );
     }
@@ -330,6 +310,13 @@ function oldPackageProblems(root, architecture) {
       source = source.replace(
         /^[ \t]*\/\/[ \t]*@ts-expect-error[ \t]+\S[^\r\n]*\r?\n[ \t]*import[ \t]+type[ \t]+\{[^}]+\}[ \t]+from[ \t]+(['"])[^'"\r\n]+\1;[ \t]*$/gm,
         '',
+      );
+      source = source.replace(
+        /^[ \t]*\/\/[ \t]*@ts-expect-error[ \t]+\S[^\r\n]*\r?\n[ \t]*import[ \t]+\{(?<members>[^}]+)\}[ \t]+from[ \t]+(['"])[^'"\r\n]+\2;[ \t]*$/gm,
+        (statement, members) => {
+          const bindings = members.split(',').filter(member => member.trim() !== '');
+          return bindings.length > 0 && bindings.every(member => /^type\s+\S/.test(member.trim())) ? '' : statement;
+        },
       );
     }
     for (const specifier of moduleSpecifiers(source)) {
@@ -351,7 +338,7 @@ function optionalDirectionFindings(root, graph) {
   for (const target of OPTIONAL_TARGETS) {
     const pkg = graph.packages.get(target);
     if (pkg === undefined) continue;
-    const currentDependencies = TRANSITIONAL_OPTIONAL_EDGES.get(target) ?? new Set();
+    const currentDependencies = DATABASE_LIFECYCLE_EDGES.get(target) ?? new Set();
     const references = reachableImports(graph, packageEntryFiles(pkg), currentDependencies);
     for (const imported of references) {
       const reached = packageRoot(imported.specifier);
@@ -465,55 +452,30 @@ export function analyzeRuntimeFoundation(root = ROOT, options = {}) {
 
 function parseArgs(argv) {
   let root = ROOT;
-  let strict = false;
-  let requireAll = true;
   for (let index = 0; index < argv.length; index++) {
     const argument = argv[index];
-    if (argument === '--strict') strict = true;
-    else if (argument === '--partial') requireAll = false;
-    else if (argument === '--root') root = resolve(argv[++index] ?? '');
-    else if (argument === '--baseline') {
-      const supplied = resolve(argv[++index] ?? '');
-      if (supplied !== STRUCTURED_EXCEPTIONS) {
-        throw new Error(`--baseline now accepts only the structured registry ${STRUCTURED_EXCEPTIONS}`);
-      }
+    if (argument === '--strict') continue;
+    if (argument === '--root') {
+      const value = argv[++index];
+      if (value === undefined) throw new Error('--root requires a path');
+      root = resolve(value);
     } else throw new Error(`unknown argument: ${argument}`);
   }
-  return { root, strict, requireAll };
+  return { root };
 }
 
 async function runCli() {
-  const { root, strict, requireAll } = parseArgs(process.argv.slice(2));
+  const { root } = parseArgs(process.argv.slice(2));
   const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
   const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
   if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
-  const report = inspectRuntimeFoundation(root, { architecture: snapshot.architecture, requireAll });
-  const exceptionReport = strict
-    ? { diagnostics: [], findings: report.findings }
-    : verifyGovernanceSnapshotExceptionSource({
-        snapshot,
-        source: 'runtime-foundation',
-        rawFindings: report.findings,
-        requireOwnerStates: false,
-      });
-
-  if ((strict && report.findings.length > 0) || exceptionReport.diagnostics.length > 0) {
+  const report = inspectRuntimeFoundation(root, { architecture: snapshot.architecture, requireAll: true });
+  if (report.findings.length > 0) {
     console.error(`runtime foundation verification failed: ${String(report.findings.length)} current finding(s)`);
     for (const problem of report.problems) console.error(`  FINDING: ${problem}`);
-    for (const diagnostic of exceptionReport.diagnostics) console.error(`  ${diagnostic.message}`);
     process.exit(1);
   }
-
-  if (strict) {
-    console.log('runtime foundation: strict four-package DAG and hard cutover verified.');
-  } else {
-    const exceptions = governanceExceptionsForSource('runtime-foundation', snapshot.exceptions);
-    console.log(
-      `runtime foundation: ${String(exceptions.length)} owned exception record(s) exactly classify ` +
-        `${String(report.findings.reduce((total, finding) => total + finding.count, 0))} measured occurrence(s); ` +
-        'strict target remains red.',
-    );
-  }
+  console.log('runtime foundation: strict four-package DAG and hard cutover verified.');
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

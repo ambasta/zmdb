@@ -1,4 +1,3 @@
-import { assert as ownerAssert } from '@zmdb/aot-validator/utilities';
 import { Module as ownerModule } from '@zmdb/app/modules';
 import {
   driverMigrationConnection as srcDMC,
@@ -6,8 +5,9 @@ import {
   down as srcDown,
   status as srcStatus,
 } from '@zmdb/migrations';
-import { defineRepository as ownerDefineRepository } from '@zmdb/repository';
-import { schemaOf as ownerSchemaOf } from '@zmdb/schema-core';
+import { defineRepository as ownerDefineRepository } from '@zmdb/orm';
+import { schemaOf as ownerSchemaOf } from '@zmdb/schema';
+import { assert as ownerAssert } from '@zmdb/validator';
 import { createApp as ownerCreateApp } from '@zmdb/web/app';
 import { Controller as ownerController } from '@zmdb/web/routing';
 import { describe, expect, it } from 'vitest';
@@ -43,9 +43,9 @@ describe('zmdb product re-exports (#227, #620)', () => {
   it('moves complete schema identities to zmdb/schema', async () => {
     const [facade, schema, ir, openapi] = await Promise.all([
       import('./schema.js'),
-      import('@zmdb/schema-core'),
-      import('@zmdb/schema-core/ir'),
-      import('@zmdb/schema-core/openapi'),
+      import('@zmdb/schema'),
+      import('@zmdb/schema/ir'),
+      import('@zmdb/schema/openapi'),
     ]);
     expect(facade.schemaOf).toBe(schema.schemaOf);
     expect(facade.schemaFromIR).toBe(ir.schemaFromIR);
@@ -56,8 +56,8 @@ describe('zmdb product re-exports (#227, #620)', () => {
   it('moves SQL builders and DDL to zmdb/sql without internal helpers', async () => {
     const [facade, sql, schemaObjects] = await Promise.all([
       import('./sql.js'),
-      import('@zmdb/query-compiler'),
-      import('@zmdb/query-compiler/schema-objects'),
+      import('@zmdb/sql'),
+      import('@zmdb/sql/schema-objects'),
     ]);
     expect(facade.createQueryCompiler).toBe(sql.createQueryCompiler);
     expect(facade.createIndexDdl).toBe(schemaObjects.createIndexDdl);
@@ -68,8 +68,8 @@ describe('zmdb product re-exports (#227, #620)', () => {
   it('moves advanced validators and serialization to zmdb/validator', async () => {
     const [facade, utilities, serialization] = await Promise.all([
       import('./validator.js'),
-      import('@zmdb/aot-validator/utilities'),
-      import('@zmdb/aot-validator/serialization'),
+      import('@zmdb/validator'),
+      import('@zmdb/validator/serialization'),
     ]);
     expect(facade.random).toBe(utilities.random);
     expect(facade.validate).toBe(utilities.validate);
@@ -79,9 +79,9 @@ describe('zmdb product re-exports (#227, #620)', () => {
   it('moves repositories, transactions, replicas, and outbox to zmdb/orm', async () => {
     const [facade, repository, replicas, outbox] = await Promise.all([
       import('./orm.js'),
-      import('@zmdb/repository'),
-      import('@zmdb/repository/replicas'),
-      import('@zmdb/repository/outbox'),
+      import('@zmdb/orm'),
+      import('@zmdb/orm/replicas'),
+      import('@zmdb/orm/outbox'),
     ]);
     expect(facade.BaseRepository).toBe(repository.BaseRepository);
     expect(facade.withReplicas).toBe(replicas.withReplicas);

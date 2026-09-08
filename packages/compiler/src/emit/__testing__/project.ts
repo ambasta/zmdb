@@ -20,9 +20,9 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { AssertError } from '@zmdb/aot-validator/errors';
 import { ProtoReader, ProtoWriter } from '@zmdb/protobuf/wire';
-import type { TypeIR } from '@zmdb/schema-core/ir';
+import { type TypeIR } from '@zmdb/schema/ir';
+import { AssertError } from '@zmdb/validator/errors';
 import type { Diagnostic } from 'typescript/unstable/sync';
 
 import { findCallSites } from '../../reflect/callsites.js';
@@ -56,10 +56,10 @@ const TSCONFIG = {
     // touches a Node builtin.
     types: [] as string[],
     paths: {
-      '@zmdb/schema-core': [`${ROOT}packages/schema-core/src/index.ts`],
-      '@zmdb/schema-core/*': [`${ROOT}packages/schema-core/src/*/index.ts`],
-      '@zmdb/aot-validator': [`${ROOT}packages/aot-validator/src/index.ts`],
-      '@zmdb/aot-validator/*': [`${ROOT}packages/aot-validator/src/*/index.ts`],
+      '@zmdb/schema': [`${ROOT}packages/schema/src/index.ts`],
+      '@zmdb/schema/*': [`${ROOT}packages/schema/src/*/index.ts`],
+      '@zmdb/validator': [`${ROOT}packages/validator/src/index.ts`],
+      '@zmdb/validator/*': [`${ROOT}packages/validator/src/*/index.ts`],
       '@zmdb/protobuf': [`${ROOT}packages/protobuf/src/index.ts`],
       '@zmdb/protobuf/*': [`${ROOT}packages/protobuf/src/*.ts`],
     },
@@ -74,7 +74,7 @@ const TSCONFIG = {
  * typechecked, and a fixture that does not compile makes every assertion about it a
  * guess.
  */
-const GLOBALS = `import type * as ZmdbTags from '@zmdb/schema-core/tags';
+const GLOBALS = `import type * as ZmdbTags from '@zmdb/schema/tags';
 
 declare global {
   type Min<N extends number> = ZmdbTags.Min<N>;

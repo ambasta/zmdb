@@ -8,10 +8,10 @@
     "moduleResolution": "NodeNext",
     "noEmit": true,
     "paths": {
-      "@zmdb/query-compiler": ["__ROOT__/packages/query-compiler/src/index.ts"],
-      "@zmdb/query-compiler/*": ["__ROOT__/packages/query-compiler/src/*/index.ts"],
-      "@zmdb/schema-core": ["__ROOT__/packages/schema-core/src/index.ts"],
-      "@zmdb/schema-core/*": ["__ROOT__/packages/schema-core/src/*/index.ts"],
+      "@zmdb/sql": ["__ROOT__/packages/sql/src/index.ts"],
+      "@zmdb/sql/*": ["__ROOT__/packages/sql/src/*/index.ts"],
+      "@zmdb/schema": ["__ROOT__/packages/schema/src/index.ts"],
+      "@zmdb/schema/*": ["__ROOT__/packages/schema/src/*/index.ts"],
       "zmdb/tags": ["__ROOT__/packages/zmdb/src/tags.ts"]
     },
     "skipLibCheck": true,

@@ -74,7 +74,7 @@ compatibility facade or automatically install jobs.
 Prefer to depend only on the pieces you use (better tree-shaking):
 
 ```bash
-npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/compiler @zmdb/migrations @zmdb/aot-validator @zmdb/repository @zmdb/sqlite @zmdb/app @zmdb/web
+npm install @zmdb/schema @zmdb/sql @zmdb/compiler @zmdb/migrations @zmdb/validator @zmdb/orm @zmdb/sqlite @zmdb/app @zmdb/web
 ```
 
 ## Install Individual Packages
@@ -83,22 +83,22 @@ Install only what you need:
 
 ```bash
 # Schema definition + type derivation
-npm install @zmdb/schema-core
+npm install @zmdb/schema
 
 # Query builder (SELECT/INSERT/UPDATE/DELETE)
-npm install @zmdb/query-compiler
+npm install @zmdb/sql
 
 # Schema snapshots, migration plans, runners, introspection, and declaration emission
 npm install @zmdb/migrations
 
 # Runtime validation + serialization
-npm install @zmdb/aot-validator
+npm install @zmdb/validator
 
 # TypeScript reflection, AOT emission, build adapters, and lint rules
 npm install --save-dev @zmdb/compiler typescript@^7
 
 # Repository with CRUD + transactions
-npm install @zmdb/repository
+npm install @zmdb/orm
 
 # Complete SQLite dialect + migrations + introspection + node:sqlite driver
 npm install @zmdb/sqlite
@@ -260,12 +260,12 @@ If that throws instead of printing, the plugin is not running over this file.
 
 | Package                    | Purpose                                                                                        |
 | -------------------------- | ---------------------------------------------------------------------------------------------- |
-| `@zmdb/schema-core`        | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI   |
-| `@zmdb/query-compiler`     | SELECT/INSERT/UPDATE/DELETE, dialect protocols, JOINs, aggregations, FTS, schema-object DDL    |
+| `@zmdb/schema`             | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI   |
+| `@zmdb/sql`                | SELECT/INSERT/UPDATE/DELETE, dialect protocols, JOINs, aggregations, FTS, schema-object DDL    |
 | `@zmdb/migrations`         | Snapshots, diffs, DDL plans, files, runners, introspection, and declaration emission           |
-| `@zmdb/aot-validator`      | Runtime full/shallow is/assert/validate, equals/random, errors, and serialization              |
+| `@zmdb/validator`          | Runtime full/shallow is/assert/validate, equals/random, errors, and serialization              |
 | `@zmdb/compiler`           | TypeScript reflection, AOT emission, project compilation, build adapters, and lint rules       |
-| `@zmdb/repository`         | Auto-validating CRUD, hooks, transactions, populate                                            |
+| `@zmdb/orm`                | Auto-validating CRUD, hooks, transactions, populate                                            |
 | `@zmdb/mssql`              | T-SQL compilation, migrations, structural driver, introspection, and capability refusals       |
 | `@zmdb/postgres`           | PostgreSQL compiler traits, migrations, introspection, structural `pg` driver, and cursors     |
 | `@zmdb/sqlite`             | SQLite compiler traits, migrations, introspection, embedded runner, and `node:sqlite` driver   |

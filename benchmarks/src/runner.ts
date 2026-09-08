@@ -1,8 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { schemaIrsFrom } from '@zmdb/compiler/testing';
-import { objectTypeFromIR } from '@zmdb/schema-core/ir';
-import type { Min, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { objectTypeFromIR } from '@zmdb/schema/ir';
+import { type Min, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
 import { seed, runOrmSuite, competitorDnf, type OrmEngine } from './orm/adapter.js';
 import type { BenchResult } from './results.js';

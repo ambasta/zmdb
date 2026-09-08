@@ -8,7 +8,7 @@
 
 - zero `dependencies`;
 - zero `peerDependencies`;
-- no import from `@zmdb/web`, `@zmdb/aot-validator`, `@zmdb/schema-core`, Node built-ins, OpenAPI tooling, or a frontend framework;
+- no import from `@zmdb/web`, `@zmdb/validator`, `@zmdb/schema`, Node built-ins, OpenAPI tooling, or a frontend framework;
 - no global registry, ambient client, cache, retry loop, or request scheduler; and
 - only language and web-platform primitives: `URL`, `AbortController`, `AbortSignal`, `ReadableStream`, `TextEncoder`, `TextDecoder`, `Request`, `Response`, and an injected `fetch`.
 

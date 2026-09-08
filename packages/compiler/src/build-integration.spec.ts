@@ -1,4 +1,4 @@
-import { tags, validate } from '@zmdb/aot-validator';
+import { tags, validateRule as validate } from '@zmdb/validator';
 import { describe, it, expect } from 'vitest';
 
 import { transformCode } from './transform/index.js';

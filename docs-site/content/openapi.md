@@ -13,7 +13,7 @@ document back into nine framework clients; the [Client Applications](./framework
 The `toOpenApiComponents` function generates a map of schemas ready for OpenAPI specification:
 
 ```ts
-import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { toOpenApiComponents } from '@zmdb/schema/openapi';
 import { schemaOf } from 'zmdb';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
@@ -49,7 +49,7 @@ const { schemas } = toOpenApiComponents([schemaOf<User>()]);
 For API endpoints, generate schemas specific to each operation:
 
 ```ts
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema } from '@zmdb/schema/openapi';
 
 const userSchema = schemaOf<User>();
 
@@ -66,7 +66,7 @@ const updateSchema = toJsonSchema(userSchema, 'update');
 // All fields optional, excludes id
 
 // GET /users — list response (includes pagination envelope)
-import { toListSchema } from '@zmdb/schema-core/openapi';
+import { toListSchema } from '@zmdb/schema/openapi';
 const listSchema = toListSchema(userSchema);
 ```
 
@@ -77,7 +77,7 @@ const listSchema = toListSchema(userSchema);
 Combine OpenAPI generation with your HTTP framework:
 
 ```ts
-import { toJsonSchema, toListSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema, toListSchema } from '@zmdb/schema/openapi';
 import { schemaOf } from 'zmdb';
 import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
@@ -149,7 +149,7 @@ const schema = toJsonSchema(schemaOf<Account>(), 'entity');
 Generate a complete spec by combining components:
 
 ```ts
-import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const fullSpec = {
   openapi: '3.0.0',
@@ -205,7 +205,7 @@ const fullSpec = {
 For full-text search endpoints, use `toSearchSchema` which includes relevance scoring:
 
 ```ts
-import { toSearchSchema } from '@zmdb/schema-core/openapi';
+import { toSearchSchema } from '@zmdb/schema/openapi';
 
 const searchSchema = toSearchSchema(userSchema);
 // {

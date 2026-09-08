@@ -2,8 +2,8 @@
 // §1.6. Runtime behavior is in `migrations.spec.ts`; this file is compiled by
 // `node scripts/typecheck.mjs`.
 
-import type { DialectTarget } from '@zmdb/query-compiler';
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
+import { type DialectTarget } from '@zmdb/sql';
 
 import type { ChangeOp, diff, ForeignKeySnapshot, TableSnapshot } from './index.js';
 

@@ -1,5 +1,5 @@
-import type { Introspector, MigrationDialect, SqlDialect } from '@zmdb/query-compiler';
-import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
+import { type DatabaseVertical, type TransactionalDriver } from '@zmdb/orm';
+import { type Introspector, type MigrationDialect, type SqlDialect } from '@zmdb/sql';
 
 import {
   cockroach,

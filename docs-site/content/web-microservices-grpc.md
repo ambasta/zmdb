@@ -8,7 +8,7 @@ npm add --save-dev @zmdb/compiler@alpha
 ```
 
 None of these optional packages or grpc-js is installed by `npm add zmdb@alpha`. `@zmdb/protobuf` owns the service calls and generated artifact types; `@zmdb/compiler` owns reflection and emission;
-`@zmdb/aot-validator` owns the generated validation-helper ABI; and `@zmdb/transport-grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by
+`@zmdb/validator` owns the generated validation-helper ABI; and `@zmdb/transport-grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by
 `createGrpcClient` is caller-owned and must be closed.
 
 ## One TypeScript contract, including the wire format
@@ -17,7 +17,7 @@ gRPC uses the same type-derived protobuf path as `protoEncode`, `protoDecode` an
 
 ```ts
 import { loadGrpcService } from '@zmdb/protobuf';
-import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
 interface GetOrder {
   readonly id: string & ProtoField<1>;

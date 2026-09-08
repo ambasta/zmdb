@@ -1,0 +1,12 @@
+*.spec.ts
+**/*.spec.ts
+*.type-test.ts
+**/*.type-test.ts
+SPEC.md
+**/SPEC.md
+tsconfig.json
+tsconfig.build.json
+src/testing/capability-matrix.ts
+src/testing/database-vertical.ts
+src/testing/external-dialect.fixture.ts
+src/testing/official-dialects.fixture.ts

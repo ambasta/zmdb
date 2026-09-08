@@ -4,7 +4,7 @@
 // the tag order and nullable-intersection parentheses here prevents those two generated
 // paths from producing declarations that reflect differently.
 
-import type { ExtensionType } from '@zmdb/query-compiler';
+import { type ExtensionType } from '@zmdb/sql';
 
 export interface TaggedPropertyColumn {
   readonly sql: string | ExtensionType;

@@ -7,7 +7,7 @@
 
 Catalog result types, row validation, generic drift comparison, and selection helpers live at `@zmdb/migrations/introspect`. The narrow `@zmdb/migrations/introspect/runtime` entry exposes shared row
 helpers and drift normalization without loading a concrete catalog reader. Declaration emission and its formatter dependency live at `@zmdb/migrations/declarations`. Official readers and
-database-specific normalization live in database packages. Generated declarations import `@zmdb/schema-core/tags`, and `@zmdb/query-compiler` cannot reach introspection or `oxfmt`.
+database-specific normalization live in database packages. Generated declarations import `@zmdb/schema/tags`, and `@zmdb/sql` cannot reach introspection or `oxfmt`.
 
 ## 1. Why the reverse direction is not the forward one inverted
 
@@ -79,14 +79,14 @@ export declare function detectDrift(live: SchemaSnapshot, declared: SchemaSnapsh
 `CatalogSchemaSnapshot` is structurally a `SchemaSnapshot` and adds the catalog-only evidence plus the ordered keys, foreign keys, indexes and extensions already frozen by the dependent migration
 epics. Ordered primary keys and foreign keys now participate in migration diffing; indexes remain catalog evidence until their corresponding migration operation lands.
 
-`IntrospectionDriver` is the structural slice of the driver the repository already injects: `execute(query: CompiledQuery)`. It is declared here because `@zmdb/query-compiler` sits below
-`@zmdb/repository` and cannot import its `Driver` without reversing the package graph. An injected `SqlDialect` carries its introspector directly. `createIntrospector` accepts that explicit object and
-does not resolve an official name or registry. Catalog queries are ordinary `CompiledQuery` values with parameters, never concatenated strings: the schema list and the globs are caller input, and this
-is a module whose entire job is to send SQL naming things the caller chose.
+`IntrospectionDriver` is the structural slice of the driver the repository already injects: `execute(query: CompiledQuery)`. It is declared here because `@zmdb/sql` sits below `@zmdb/orm` and cannot
+import its `Driver` without reversing the package graph. An injected `SqlDialect` carries its introspector directly. `createIntrospector` accepts that explicit object and does not resolve an official
+name or registry. Catalog queries are ordinary `CompiledQuery` values with parameters, never concatenated strings: the schema list and the globs are caller input, and this is a module whose entire job
+is to send SQL naming things the caller chose.
 
-The package DAG keeps `@zmdb/migrations` below `@zmdb/schema-core` and independent of `@zmdb/aot-validator`. Catalog rows are therefore validated here by explicit field validators rather than asserted
-or imported through a forbidden upward or sibling edge. Declaration formatting is the one third-party runtime dependency in this package: `oxfmt`, invoked on generated source so checked-in output
-follows the repository formatter. A wrong-shaped row throws `CatalogRowError` naming the catalog, row and field before any value is used.
+The package DAG keeps `@zmdb/migrations` below `@zmdb/schema` and independent of `@zmdb/validator`. Catalog rows are therefore validated here by explicit field validators rather than asserted or
+imported through a forbidden upward or sibling edge. Declaration formatting is the one third-party runtime dependency in this package: `oxfmt`, invoked on generated source so checked-in output follows
+the repository formatter. A wrong-shaped row throws `CatalogRowError` naming the catalog, row and field before any value is used.
 
 ## 2. Catalog sources, per dialect
 
@@ -262,8 +262,8 @@ naming decision at generation time. An `index.ts` barrel re-exports them, which 
 no rule recovers `person` from `people` without the irregular table that produced it. So the emitter does not invert anything. It splits on `_`, PascalCases, and singularises through the same small
 explicit rule set and irregular table used by OpenAPI component naming.
 
-That pure lower-level function is exported from `@zmdb/query-compiler/naming`, allowing both the emitter and `@zmdb/schema-core/openapi` to reuse it without reversing the package graph. Where the
-result is not a safe or unique TypeScript identifier, the emitter uses a deterministic fallback and warns.
+That pure lower-level function is exported from `@zmdb/schema/naming`, allowing both the emitter and `@zmdb/schema/openapi` to reuse it without reversing the package graph. Where the result is not a
+safe or unique TypeScript identifier, the emitter uses a deterministic fallback and warns.
 
 The safety here is structural rather than careful: `Table<'…'>` always carries the physical table name verbatim, so an imperfect interface name costs nothing beyond aesthetics and can never produce a
 wrong query. The one risky inversion in this module is confined to an identifier nothing reads.

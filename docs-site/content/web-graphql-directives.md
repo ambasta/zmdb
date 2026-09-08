@@ -80,8 +80,8 @@ transform, so the inbound direction is your service's job.
 
 ## What it would have taken
 
-The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`, and will not be built. It is on record because of how it splits directives — three ways, rather
-than adding one mechanism for all of them.
+The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema/src/sdl/SPEC.md`, and will not be built. It is on record because of how it splits directives — three ways, rather than
+adding one mechanism for all of them.
 
 **`@deprecated` is emitted, from a tag.** It is the only directive the emitter writes, because it is pure schema — it changes what the document says and needs nothing at runtime:
 

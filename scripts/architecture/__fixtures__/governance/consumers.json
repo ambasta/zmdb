@@ -79,7 +79,7 @@
     {
       "id": "owned-exceptions",
       "paths": ["scripts/architecture/exceptions.mjs", "scripts/architecture/exceptions.d.mts"],
-      "expectedFindings": 80
+      "expectedFindings": 0
     },
     {
       "id": "roadmap-plan",

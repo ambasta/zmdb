@@ -3,7 +3,7 @@ PostgreSQL full-text search is expressible directly in the query builder, and a 
 ## Match a term
 
 ```ts
-import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
+import { ftsSelectFrom } from '@zmdb/sql/fts';
 
 ftsSelectFrom('products', 'postgres').whereMatch('description', 'wireless headphones').compile();
 ```
@@ -22,7 +22,7 @@ await products.findByFullText('description', 'wireless headphones');
 ## Ranked search with SearchDTO
 
 ```ts
-import { buildSearchResult, type SearchDTO } from '@zmdb/schema-core/dto';
+import { buildSearchResult, type SearchDTO } from '@zmdb/schema/dto';
 
 const search: SearchDTO<Product> = {
   query: 'wireless',

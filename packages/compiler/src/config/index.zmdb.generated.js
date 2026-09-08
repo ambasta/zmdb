@@ -11,7 +11,7 @@
 // Formatters and linters should skip it. The emitter writes a check as one long expression
 // because that is what it is; reformatting would leave the next compiler check
 // permanently out of date against a file nothing was wrong with.
-import { AssertError as _zmdbAssertError } from "@zmdb/aot-validator/utilities";
+import { AssertError as _zmdbAssertError } from "@zmdb/validator";
 function _zmdbCheckZmdbConfigData0(_v) { return typeof _v === "object" && _v !== null && !Array.isArray(_v) && (((typeof _v.schema === "string") || (_zmdbCheckArray1(_v.schema)))) && (_v.project === undefined || (typeof _v.project === "string")) && (_v.out === undefined || (typeof _v.out === "string")) && (_v.naming === undefined || (((_v.naming === "snake_case") || (_v.naming === "snake_case_plural")))) && (_v.migrations === undefined || (typeof _v.migrations === "object" && _v.migrations !== null && !Array.isArray(_v.migrations) && (_v.migrations.table === undefined || (typeof _v.migrations.table === "string")) && (_v.migrations.schema === undefined || (typeof _v.migrations.schema === "string")))) && (_v.introspect === undefined || (_zmdbCheckIntrospectOptions2(_v.introspect))) && (_v.http === undefined || (_zmdbCheckHttpGenerationConfig3(_v.http))); }
 function _zmdbCheckArray1(_v) { if (!Array.isArray(_v)) return false; for (let _i = 0; _i < _v.length; _i++) { if (!(typeof _v[_i] === "string")) return false; } return true; }
 function _zmdbCheckIntrospectOptions2(_v) { return typeof _v === "object" && _v !== null && !Array.isArray(_v) && (_v.schemas === undefined || (_zmdbCheckArray1(_v.schemas))) && (_v.include === undefined || (_zmdbCheckArray1(_v.include))) && (_v.exclude === undefined || (_zmdbCheckArray1(_v.exclude))); }

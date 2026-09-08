@@ -4,8 +4,8 @@
 
 ## 1. Responsibility
 
-This package owns the Anthropic SDK translation that previously lived at `packages/schema-core/src/llm/chat/drivers/anthropic.ts` and its tests. It turns the provider-neutral `@zmdb/ai/chat` contract
-into one injected Anthropic Messages API call and translates the response back.
+This package owns the Anthropic SDK translation that previously lived at `packages/schema/src/llm/chat/drivers/anthropic.ts` and its tests. It turns the provider-neutral `@zmdb/ai/chat` contract into
+one injected Anthropic Messages API call and translates the response back.
 
 Provider document dialects, `toolFor('anthropic', ...)`, the bounded chat loop, tool invocation, approval and redaction remain in `@zmdb/ai`. This package does not own OpenAI, Gemini, raw `fetch`,
 fallback, retries, streaming, model discovery, persistence or secret loading.
@@ -44,7 +44,7 @@ The caller constructs and injects the client. Importing this package reads no en
 - Direct workspace dependency: `@zmdb/ai` at `workspace:^`.
 - Sole external peer: optional `@anthropic-ai/sdk` at exactly `0.124.0`.
 - Exact development/fixture version: `0.124.0`, which is both declared and resolved in the current tree.
-- No direct dependency on `@zmdb/schema-core`, `@zmdb/aot-validator` or another integration package.
+- No direct dependency on `@zmdb/schema`, `@zmdb/validator` or another integration package.
 
 The SDK peer is optional because shipped runtime code keeps the import type-only and receives a structural client. The real SDK remains a development dependency so its request and response types are
 compiled. Applications that do not install `@zmdb/ai-anthropic` receive no Anthropic peer.

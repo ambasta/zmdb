@@ -58,9 +58,9 @@ export const TARGET_TOOLING_MANIFESTS: Readonly<{
   readonly '@zmdb/compiler': Readonly<{
     readonly dependencies: readonly ['@zmdb/ai'];
     readonly peerDependencies: readonly [
-      '@zmdb/aot-validator',
-      '@zmdb/query-compiler',
-      '@zmdb/schema-core',
+      '@zmdb/schema',
+      '@zmdb/sql',
+      '@zmdb/validator',
       'metro',
       'metro-babel-transformer',
       'oxlint',
@@ -70,16 +70,16 @@ export const TARGET_TOOLING_MANIFESTS: Readonly<{
   }>;
   readonly '@zmdb/migrations': Readonly<{
     readonly dependencies: readonly ['oxfmt'];
-    readonly peerDependencies: readonly ['@zmdb/query-compiler'];
+    readonly peerDependencies: readonly ['@zmdb/schema', '@zmdb/sql'];
     readonly optionalPeers: readonly [];
   }>;
   readonly '@zmdb/cli': Readonly<{
     readonly dependencies: readonly ['@zmdb/compiler', '@zmdb/migrations', 'oxfmt'];
     readonly peerDependencies: readonly [
       '@zmdb/app',
-      '@zmdb/query-compiler',
-      '@zmdb/repository',
-      '@zmdb/schema-core',
+      '@zmdb/orm',
+      '@zmdb/schema',
+      '@zmdb/sql',
       '@zmdb/web',
       'esbuild',
       'typescript',

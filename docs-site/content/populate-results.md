@@ -86,8 +86,8 @@ SELECT * FROM "orders" WHERE "userId" IN ($1, $2, $3, ...)
 Pass `populate` in the GetOptions to type-narrow the result:
 
 ```ts
-import type { GetDTO } from '@zmdb/schema-core/dto';
-import type { Populated } from '@zmdb/schema-core/derive';
+import { type GetDTO } from '@zmdb/schema/dto';
+import { type Populated } from '@zmdb/schema/derive';
 
 const result = await users.findById(1, { populate: ['orders'] });
 // result: Populated<User, 'orders'> | undefined

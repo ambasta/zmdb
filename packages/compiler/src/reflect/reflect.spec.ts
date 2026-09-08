@@ -9,8 +9,8 @@
 // another, because the differential only ever proved the two front-ends were wrong in the
 // same way, and this says what the right answer is.
 
-import type { ColumnIR, SchemaIR, TypeIR } from '@zmdb/schema-core/ir';
-import type { NamingStrategy } from '@zmdb/schema-core/naming';
+import { type ColumnIR, type SchemaIR, type TypeIR } from '@zmdb/schema/ir';
+import { type NamingStrategy } from '@zmdb/schema/naming';
 import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

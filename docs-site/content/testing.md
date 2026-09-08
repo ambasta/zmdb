@@ -4,7 +4,7 @@ zmdb is unusually easy to test, for two structural reasons: `compile()` produces
 
 ```ts
 import { expect, it } from 'vitest';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 it('filters by email', () => {
@@ -18,7 +18,7 @@ Microseconds, no setup. Assert on the whole `CompiledQuery` rather than a substr
 ## Fake the driver
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 import { postgres } from '@zmdb/postgres';
 
 const driver: Driver = { dialect: postgres, execute: async () => [{ id: 1, email: 'a@b.c', active: true }] };
@@ -86,7 +86,7 @@ The schema comes from your actual schema objects, so it cannot drift from a fixt
 ## Fixtures from the schema
 
 ```ts
-import { seedRows } from '@zmdb/repository/seeding';
+import { seedRows } from '@zmdb/orm/seeding';
 
 const [row] = seedRows(users, { count: 1, seed: 1 });
 if (row === undefined) throw new Error('seedRows returned nothing');

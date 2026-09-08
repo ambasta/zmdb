@@ -1,6 +1,6 @@
-import type { SqlDialect } from '@zmdb/query-compiler';
-import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
-import type { ConnectionPool } from 'mssql';
+import { type DatabaseVertical, type TransactionalDriver } from '@zmdb/orm';
+import { type SqlDialect } from '@zmdb/sql';
+import { type ConnectionPool } from 'mssql';
 
 import {
   type mssql,

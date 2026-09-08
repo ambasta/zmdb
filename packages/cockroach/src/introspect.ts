@@ -11,7 +11,7 @@ import {
   type IntrospectionDriver,
 } from '@zmdb/migrations/introspect/runtime';
 import { postgresFamilyIntrospector } from '@zmdb/postgres';
-import type { IntrospectOptions } from '@zmdb/query-compiler';
+import { type IntrospectOptions } from '@zmdb/sql';
 
 interface CockroachIndexRow {
   readonly name: string;

@@ -4,7 +4,7 @@ database from a runtime with no TCP.
 ## The client driver
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 export function httpDriver(url: string, token: string): Driver {
   return {

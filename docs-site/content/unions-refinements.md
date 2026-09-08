@@ -4,7 +4,7 @@ and the emitter finds the discriminant on its own.
 ## Unions
 
 ```ts
-import { assert, validate } from '@zmdb/aot-validator/utilities';
+import { assert, validate } from '@zmdb/validator';
 
 assert<string | number>(input); // string | number
 validate<string | null>(input); // the nullable-column shape
@@ -105,11 +105,10 @@ See [Tag Reference](./tags-reference.html).
 
 ## The rule-object API
 
-`@zmdb/aot-validator/advanced` contains the older rule-value API: `refine`, `transform`, `union`, `discriminated`, `validateObject`, and `coerce`. It predates type-first declarations and is mostly a
-stub:
+`@zmdb/validator/advanced` contains the older rule-value API: `refine`, `transform`, `union`, `discriminated`, `validateObject`, and `coerce`. It predates type-first declarations and is mostly a stub:
 
 ```ts
-import { refine, validateObject } from '@zmdb/aot-validator/advanced';
+import { refine, validateObject } from '@zmdb/validator/advanced';
 
 const adult = refine(v => typeof v === 'number' && v >= 18, 'must be at least 18');
 
@@ -136,7 +135,7 @@ For unions, discriminated unions and constraint checking, the type argument does
 ## Branded Types
 
 ```ts
-import type { Brand } from '@zmdb/aot-validator/advanced';
+import { type Brand } from '@zmdb/validator/advanced';
 
 type UserId = Brand<number, 'UserId'>;
 type OrderId = Brand<number, 'OrderId'>;

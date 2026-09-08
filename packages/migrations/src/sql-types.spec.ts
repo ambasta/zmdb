@@ -1,4 +1,4 @@
-import { SQL_TYPES } from '@zmdb/schema-core/ir';
+import { SQL_TYPES } from '@zmdb/schema/ir';
 import { describe, it, expect } from 'vitest';
 
 import { ddlType, emitUp, snapshot, type ChangeOp, type ColumnSnapshot } from './index.js';

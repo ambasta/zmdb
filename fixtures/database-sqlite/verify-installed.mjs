@@ -12,12 +12,12 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURE = join(ROOT, 'fixtures', 'database-sqlite');
 const PACKAGE_ROOT = join(ROOT, 'packages');
 const BUILD_ORDER = [
-  '@zmdb/query-compiler',
+  '@zmdb/sql',
   '@zmdb/migrations',
-  '@zmdb/schema-core',
+  '@zmdb/schema',
   '@zmdb/ai',
-  '@zmdb/aot-validator',
-  '@zmdb/repository',
+  '@zmdb/validator',
+  '@zmdb/orm',
   '@zmdb/sqlite',
 ];
 
@@ -91,7 +91,7 @@ function pack(allPackages, scratch) {
 function verifyInstalledTree(app) {
   const appManifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
   const consumerDependencies = Object.keys(appManifest.dependencies ?? {}).toSorted();
-  const expectedConsumerDependencies = ['@zmdb/query-compiler', '@zmdb/repository', '@zmdb/sqlite'];
+  const expectedConsumerDependencies = ['@zmdb/orm', '@zmdb/sql', '@zmdb/sqlite'];
   if (JSON.stringify(consumerDependencies) !== JSON.stringify(expectedConsumerDependencies)) {
     throw new Error(
       `packed consumer dependencies are [${consumerDependencies.join(', ')}], ` +
@@ -113,7 +113,7 @@ function verifyInstalledTree(app) {
     );
   }
   const peers = Object.keys(manifest.peerDependencies ?? {}).toSorted();
-  const expectedPeers = ['@zmdb/query-compiler', '@zmdb/repository'];
+  const expectedPeers = ['@zmdb/orm', '@zmdb/sql'];
   if (JSON.stringify(peers) !== JSON.stringify(expectedPeers)) {
     throw new Error(`@zmdb/sqlite peers are [${peers.join(', ')}], expected [${expectedPeers.join(', ')}]`);
   }
@@ -137,7 +137,7 @@ function main() {
     const app = join(scratch, 'app');
     copyForPack(FIXTURE, app);
     const manifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
-    const consumerPackages = ['@zmdb/query-compiler', '@zmdb/repository', '@zmdb/sqlite'];
+    const consumerPackages = ['@zmdb/sql', '@zmdb/orm', '@zmdb/sqlite'];
     manifest.dependencies = Object.fromEntries(
       consumerPackages.map(name => {
         const archive = archives.get(name);

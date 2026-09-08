@@ -9,7 +9,7 @@ handlers can rely on running in order are the three questions that make an emitt
 
 `#592` step 1 asks whether to unify with the existing `EventBus` and to "say plainly why there are two things". They do **not** unify, and the reason is sharper than a difference of scope.
 
-`EventBus` (`../../../repository/src/entity-modeling/index.ts:17-31`) is real and public via the `@zmdb/repository/entity-modeling` subpath. Its `emit` is:
+`EventBus` (`../../../repository/src/entity-modeling/index.ts:17-31`) is real and public via the `@zmdb/orm/entity-modeling` subpath. Its `emit` is:
 
 ```ts
 async emit(event: LifecycleEvent, ctx: unknown): Promise<void> {
@@ -21,7 +21,7 @@ async emit(event: LifecycleEvent, ctx: unknown): Promise<void> {
 
 Sequential, awaited, and with **no try/catch** — so a throwing subscriber stops the remaining subscribers and rejects the caller, which is the repository write.
 
-|                       | `EventBus` (`@zmdb/repository/entity-modeling`)     | `Events<M>` (`@zmdb/app/events`)        |
+|                       | `EventBus` (`@zmdb/orm/entity-modeling`)            | `Events<M>` (`@zmdb/app/events`)        |
 | --------------------- | --------------------------------------------------- | --------------------------------------- |
 | what an event is      | one of six fixed `LifecycleEvent` strings           | any key of the application's `EventMap` |
 | payload type          | `unknown`                                           | `M[K]`                                  |

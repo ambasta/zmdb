@@ -4,7 +4,7 @@
 //
 // `verify:exports` cannot do this job, and for a while it looked like it could. It
 // imports every subpath under plain `node` — but it does so from the workspace root,
-// where `node_modules/@zmdb/schema-core` is a symlink into `packages/`. Node resolves
+// where `node_modules/@zmdb/schema` is a symlink into `packages/`. Node resolves
 // the realpath, so the file it loads is not under `node_modules`, and the committed
 // manifest's `./src/index.ts` target works. Install the same package for real and it
 // does not:

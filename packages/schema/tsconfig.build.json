@@ -1,0 +1,19 @@
+{
+  // Emit configuration. The checking one is `./tsconfig.json`; see
+  // `../../tsconfig.build.json` for why they cannot be the same file.
+  "extends": "../../tsconfig.build.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "src/**/*.type-test.ts",
+    "src/derive/__testing__/instantiations.ts",
+    "src/dto/fixtures.ts",
+    "src/relations/fixtures.ts",
+    "src/tags/__fixtures__/duplicate-copy.ts",
+    "dist"
+  ]
+}

@@ -313,17 +313,17 @@ export function exportName(
  * could be read. When it could not, this is the better guess than nothing.
  */
 const DEFAULT_MODULES: Readonly<Record<string, string>> = {
-  is: '@zmdb/aot-validator/utilities',
-  equals: '@zmdb/aot-validator/utilities',
-  assert: '@zmdb/aot-validator/utilities',
-  assertShallow: '@zmdb/aot-validator/utilities',
-  assertEquals: '@zmdb/aot-validator/utilities',
-  validate: '@zmdb/aot-validator/utilities',
-  validateShallow: '@zmdb/aot-validator/utilities',
-  isShallow: '@zmdb/aot-validator/utilities',
-  random: '@zmdb/aot-validator/utilities',
-  toJsonSchema: '@zmdb/schema-core/openapi',
-  schemaOf: '@zmdb/schema-core',
+  is: '@zmdb/validator',
+  equals: '@zmdb/validator',
+  assert: '@zmdb/validator',
+  assertShallow: '@zmdb/validator',
+  assertEquals: '@zmdb/validator',
+  validate: '@zmdb/validator',
+  validateShallow: '@zmdb/validator',
+  isShallow: '@zmdb/validator',
+  random: '@zmdb/validator',
+  toJsonSchema: '@zmdb/schema/openapi',
+  schemaOf: '@zmdb/schema',
   toolFor: '@zmdb/ai',
   grpcDescriptor: '@zmdb/protobuf',
   loadGrpcService: '@zmdb/protobuf',
@@ -337,7 +337,7 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
  *
  * The source's own import, whenever there is one, and not a fixed table: a project that
  * installed `zmdb` can import `is` from the product root, and a witness that reached past
- * it to `@zmdb/aot-validator/utilities` would import a package that is not in the
+ * it to `@zmdb/validator` would import a package that is not in the
  * consumer's dependencies. `zmdb.is<User>(x)` resolves through the namespace's own import
  * for the same reason.
  */
@@ -350,7 +350,7 @@ function calleeSpecifier(facts: ModuleFacts, site: CallSite): string {
     const namespace = facts.imports.get(target.expression.text);
     if (namespace) return namespace.specifier;
   }
-  return DEFAULT_MODULES[site.callee] ?? '@zmdb/aot-validator/utilities';
+  return DEFAULT_MODULES[site.callee] ?? '@zmdb/validator';
 }
 
 // -----------------------------------------------------------------------------

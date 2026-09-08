@@ -6,7 +6,7 @@ the SQL statement type.
 Pass a primary driver and an array of replica drivers:
 
 ```ts
-import { withReplicas, type ReplicaOptions } from '@zmdb/repository/replicas';
+import { withReplicas, type ReplicaOptions } from '@zmdb/orm/replicas';
 import { PgDriver } from './drivers';
 
 const primary = new PgDriver(pool);
@@ -33,7 +33,7 @@ await repo.create({ name: 'Alice' }); // Always hits primary
 Writes (INSERT, UPDATE, DELETE) always go to the primary. Reads are round-robin'd across replicas:
 
 ```ts
-import { isWrite } from '@zmdb/repository/replicas';
+import { isWrite } from '@zmdb/orm/replicas';
 
 isWrite('SELECT * FROM users'); // false
 isWrite('INSERT INTO users ...'); // true

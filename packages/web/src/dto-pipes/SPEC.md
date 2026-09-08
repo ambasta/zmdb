@@ -6,8 +6,8 @@
 
 ### `validationPipe(validator)`
 
-A `Pipe<unknown, T>` (from `@zmdb/web/middleware`) that runs a validator (e.g. `@zmdb/aot-validator`'s `assert<CreateDTO<S>>`) on the body and yields the typed value; a throw becomes the chain's 400.
-The NestJS `ValidationPipe` analogue, but zero-runtime-parser (the consumer supplies the AOT `assert`).
+A `Pipe<unknown, T>` (from `@zmdb/web/middleware`) that runs a validator (e.g. `@zmdb/validator`'s `assert<CreateDTO<S>>`) on the body and yields the typed value; a throw becomes the chain's 400. The
+NestJS `ValidationPipe` analogue, but zero-runtime-parser (the consumer supplies the AOT `assert`).
 
 ### `decodePipe(decode)`
 
@@ -22,8 +22,8 @@ A `Pipe<unknown, Multipart>` that parses the adapter's exact request bytes with 
 
 ### `serializationInterceptor(serialize?)`
 
-An `Interceptor` that serializes the handler's result via a provided serializer (default: identity — the pipeline already JSON-encodes). When given `@zmdb/aot-validator`'s `stringify`/entity
-serializer, it produces the response body from `Entity<S>`. The NestJS `ClassSerializerInterceptor` analogue.
+An `Interceptor` that serializes the handler's result via a provided serializer (default: identity — the pipeline already JSON-encodes). When given `@zmdb/validator`'s `stringify`/entity serializer,
+it produces the response body from `Entity<S>`. The NestJS `ClassSerializerInterceptor` analogue.
 
 ### Convenience
 

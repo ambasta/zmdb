@@ -1,8 +1,8 @@
 import { diff, snapshot, type ChangeOp, type SchemaSnapshot, type SnapshotableSchema } from '@zmdb/migrations';
 import { mysql, type MysqlQueryable } from '@zmdb/mysql';
-import { createQueryCompiler, UnsupportedFeatureError, type IntrospectionDriver } from '@zmdb/query-compiler';
-import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { outboxTableDdl } from '@zmdb/query-compiler/outbox';
+import { outboxTableDdl } from '@zmdb/orm/outbox';
+import { createQueryCompiler, UnsupportedFeatureError, type IntrospectionDriver } from '@zmdb/sql';
+import { ftsSelectFrom } from '@zmdb/sql/fts';
 import { describe, expect, it } from 'vitest';
 
 import { singlestore, singlestoreDriver, singlestoreIntrospector } from './index.js';

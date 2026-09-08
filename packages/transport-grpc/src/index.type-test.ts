@@ -1,7 +1,7 @@
-import type { ApplicationExtension } from '@zmdb/app';
-import type { WithHeaders } from '@zmdb/app/messaging';
-import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
-import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
+import { type ApplicationExtension } from '@zmdb/app';
+import { type WithHeaders } from '@zmdb/app/messaging';
+import { type GrpcLoadedService, type GrpcMethodDef, type GrpcServiceDef } from '@zmdb/protobuf';
+import { type Equal, type Expect, type ExpectNot, type Extends } from '@zmdb/schema';
 
 import type {
   GrpcBinding,

@@ -1,4 +1,4 @@
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 import {
   defineHttpContract,
   httpOperation,

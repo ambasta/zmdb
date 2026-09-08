@@ -6,7 +6,7 @@ Over the serverless HTTP driver, which works in edge runtimes:
 
 ```ts
 import { connect } from '@planetscale/database';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const conn = connect({ url: process.env.DATABASE_URL });
 

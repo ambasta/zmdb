@@ -16,7 +16,7 @@ The upside is that the mapping is small and total. It is not, however, keyed by 
 
 ## The mapping, as frozen
 
-The design is frozen in `packages/schema-core/src/sdl/SPEC.md`, and the first thing it settles is what the mapping is a function of.
+The design is frozen in `packages/schema/src/sdl/SPEC.md`, and the first thing it settles is what the mapping is a function of.
 
 Not `SqlType`: the emitter reads the column's **wire type**, because a `Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>` column is an integer in the database and a string on the wire, and a
 table keyed by the SQL type emits `Int` for a field the resolver returns as a string.
@@ -132,7 +132,7 @@ An email scalar plus a column rule is the rule written twice. Put it on the colu
 
 ## What it would have taken
 
-The design is frozen, in `packages/schema-core/src/sdl/SPEC.md`, and neither function is being written. Two of them, neither a table of `SqlType` members:
+The design is frozen, in `packages/schema/src/sdl/SPEC.md`, and neither function is being written. Two of them, neither a table of `SqlType` members:
 
 ```ts
 sdlOf<Entity<Post>>('Post'); // the type, walking the shared IR

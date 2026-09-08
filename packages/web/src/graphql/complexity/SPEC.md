@@ -126,7 +126,7 @@ getting either wrong is a silent hole — a list field recorded as `list: false`
 So they are **not hand-written**. They come from the same type argument the SDL came from:
 
 ```ts
-/** In `@zmdb/schema-core/sdl`: the structural half of the cost table for one emitted type. */
+/** In `@zmdb/schema/sdl`: the structural half of the cost table for one emitted type. */
 export declare function costsOf<T>(name: string): CostTable;
 ```
 

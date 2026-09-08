@@ -1,13 +1,13 @@
 import { schemasFrom, type SchemasFromOptions } from '@zmdb/compiler/testing';
-import { UnsupportedFeatureError, createQueryCompiler, type SqlDialect } from '@zmdb/query-compiler';
+import { type Entity } from '@zmdb/schema';
+import { type PrimaryKey, type References, type Sql, type Table } from '@zmdb/schema/tags';
+import { UnsupportedFeatureError, createQueryCompiler, type SqlDialect } from '@zmdb/sql';
 import {
   createIndexDdl,
   replaceRoutineStatements,
   routineFingerprint,
   type RoutineDef,
-} from '@zmdb/query-compiler/schema-objects';
-import type { Entity } from '@zmdb/schema-core';
-import type { PrimaryKey, References, Sql, Table } from '@zmdb/schema-core/tags';
+} from '@zmdb/sql/schema-objects';
 import { describe, it, expect } from 'vitest';
 
 import {

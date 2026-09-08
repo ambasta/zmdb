@@ -3,8 +3,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { repositoryToken } from '@zmdb/app/data';
 import { Container, Inject } from '@zmdb/app/di';
 import { schemasFrom } from '@zmdb/compiler/testing';
-import { defineRepository, type BaseRepository } from '@zmdb/repository';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { defineRepository, type BaseRepository } from '@zmdb/orm';
+import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 import { sqliteDriver } from '@zmdb/sqlite';
 // Tests (#279) for zmdb data-layer integration — RED first (data exports absent).
 // Orders end-to-end on node:sqlite: controller injects a repository via DI, body

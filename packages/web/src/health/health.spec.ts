@@ -446,7 +446,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // §4's honest limit, asserted so that #581 "does not quietly implement a `timeoutMs` that
   // reads as if it cancels". The signal is delivered and aborted — that part is real and a
   // check may use it for anything that accepts one — but `Driver.execute` takes no signal
-  // (`packages/repository/src/index.ts:51-54`), so the work keeps running. The assertion is
+  // (`packages/orm/src/index.ts:51-54`), so the work keeps running. The assertion is
   // therefore about what the framework *does*, not about what stops: the signal aborts, and
   // the abandoned promise resolving later changes nothing.
   it('aborts the signal at the deadline and ignores an answer that arrives afterwards', async () => {

@@ -1,19 +1,19 @@
-import type { CatalogSelection, CatalogWarning, CompiledQuery, ReferentialAction } from '@zmdb/query-compiler';
+import { type CatalogSelection, type CatalogWarning, type CompiledQuery, type ReferentialAction } from '@zmdb/sql';
 
-export type {
-  CatalogColumnSnapshot,
-  CatalogForeignKeySnapshot,
-  CatalogIndexColumn,
-  CatalogIndexSnapshot,
-  CatalogSchemaSnapshot,
-  CatalogSelection,
-  CatalogTableSnapshot,
-  CatalogWarning,
-  IntrospectionDriver,
-  Introspector,
-  IntrospectOptions,
-  ReferentialAction,
-} from '@zmdb/query-compiler';
+export {
+  type CatalogColumnSnapshot,
+  type CatalogForeignKeySnapshot,
+  type CatalogIndexColumn,
+  type CatalogIndexSnapshot,
+  type CatalogSchemaSnapshot,
+  type CatalogSelection,
+  type CatalogTableSnapshot,
+  type CatalogWarning,
+  type IntrospectionDriver,
+  type Introspector,
+  type IntrospectOptions,
+  type ReferentialAction,
+} from '@zmdb/sql';
 export { normalizeDriftSnapshot } from './drift.js';
 
 export class CatalogRowError extends TypeError {

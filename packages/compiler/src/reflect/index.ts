@@ -1,4 +1,4 @@
-// Reflection: a TypeScript type → `@zmdb/schema-core/ir`.
+// Reflection: a TypeScript type → `@zmdb/schema/ir`.
 //
 // This is the front-end that makes type-first declaration possible, and since the
 // builder DSL was deleted it is the only one (PRD §6.7, REQ-TF-4 … REQ-TF-7). It reads
@@ -31,7 +31,7 @@
 // several `Type` members that exist in the `.d.ts` come back `undefined` over the
 // wire. The comments at each such site say which, and what is done instead.
 
-import type { SqlType } from '@zmdb/schema-core';
+import { type SqlType } from '@zmdb/schema';
 import {
   KNOWN_CONSTRAINT_KINDS,
   PROTO_SCALARS,
@@ -54,8 +54,8 @@ import {
   type TagField,
   type TableOptions,
   type TypeIR,
-} from '@zmdb/schema-core/ir';
-import type { NamingStrategy } from '@zmdb/schema-core/naming';
+} from '@zmdb/schema/ir';
+import { type NamingStrategy } from '@zmdb/schema/naming';
 import type { Node } from 'typescript/unstable/ast';
 import { SignatureKind, SymbolFlags } from 'typescript/unstable/sync';
 import type { Checker, IntersectionType, Symbol as TsSymbol, Type, TypeReference } from 'typescript/unstable/sync';
@@ -103,7 +103,7 @@ export interface ReflectOptions {
   readonly naming?: NamingStrategy;
 }
 
-export type { NamingStrategy } from '@zmdb/schema-core/naming';
+export { type NamingStrategy } from '@zmdb/schema/naming';
 
 // ---------------------------------------------------------------------------
 // Tag reading
@@ -112,7 +112,7 @@ export type { NamingStrategy } from '@zmdb/schema-core/naming';
 /**
  * The checker reports a `unique symbol` property as `__@<name>@<symbolId>`. The id
  * suffix is what makes plan D5 detectable: two installed copies of
- * `@zmdb/schema-core` declare `zmdbSerial` twice, the two are distinct types, and the
+ * `@zmdb/schema` declare `zmdbSerial` twice, the two are distinct types, and the
  * escaped names differ only in that number.
  */
 const TAG_PATTERN = /^__@(\w+?)@?(\d*)$/;
@@ -916,7 +916,7 @@ export class Reflector {
     this.#refuse(
       symbol.name,
       `the tag \`${tag.name}\` resolves to two different declarations (\`${first}\` and \`${tag.identity}\`), ` +
-        'which means two copies of @zmdb/schema-core are installed; deduplicate them',
+        'which means two copies of @zmdb/schema are installed; deduplicate them',
     );
   }
 
@@ -1352,7 +1352,7 @@ export class Reflector {
 
     // A generated `integer` is what `serial` means, and the declaration says it in two tags
     // rather than one because the old `Sql<'serial'>` made a serial key's value unassignable
-    // to an `integer` foreign key — see `ColumnSqlType` in `@zmdb/schema-core/tags`. The IR
+    // to an `integer` foreign key — see `ColumnSqlType` in `@zmdb/schema/tags`. The IR
     // keeps the one-word spelling, because that is the word two of the three dialects want
     // in the DDL and every renderer reads it.
     const coreSql = declaredSql ?? (extension === undefined ? this.#inferSql(property, data, enumValues) : undefined);

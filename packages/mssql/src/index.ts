@@ -1,3 +1,4 @@
+import { type DatabaseVertical, type TransactionalDriver } from '@zmdb/orm';
 import {
   defineSqlDialect,
   UnsupportedFeatureError,
@@ -5,8 +6,7 @@ import {
   type PaginationTail,
   type ResolvedDialectTraits,
   type SqlDialect,
-} from '@zmdb/query-compiler';
-import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
+} from '@zmdb/sql';
 
 import { mssqlCompiler } from './compiler.js';
 import {

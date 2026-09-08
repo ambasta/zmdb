@@ -1,11 +1,5 @@
-import {
-  appendComment,
-  type CommentKey,
-  type CommentPairs,
-  type CompiledQuery,
-  type SqlDialect,
-} from '@zmdb/query-compiler';
-import type { ExecuteOptions } from '@zmdb/repository';
+import { type ExecuteOptions } from '@zmdb/orm';
+import { appendComment, type CommentKey, type CommentPairs, type CompiledQuery, type SqlDialect } from '@zmdb/sql';
 
 import { fromTraceContext, toTraceparent } from './propagation.js';
 import { SpanKind, type Attributes, type Observability, type Span, type TraceCarrier, type Tracer } from './types.js';

@@ -4,8 +4,8 @@
 
 ## 1. Responsibility
 
-This package owns the pure MCP client and server moved from `packages/schema-core/src/llm/mcp/`. It translates between untrusted MCP messages and the provider-neutral tool registry owned by
-`@zmdb/ai`; applications continue to own stdio, HTTP, authentication, and process lifecycle.
+This package owns the pure MCP client and server moved from `packages/schema/src/llm/mcp/`. It translates between untrusted MCP messages and the provider-neutral tool registry owned by `@zmdb/ai`;
+applications continue to own stdio, HTTP, authentication, and process lifecycle.
 
 The protocol revision, envelope validation, bounded client, server discovery, tool listing/calling, and error-channel separation moved together. Chat orchestration, provider documents, and shared tool
 invocation remain in `@zmdb/ai`.
@@ -31,7 +31,7 @@ The existing protocol and behavioral contract moved with the source. In particul
 
 - Sole direct workspace dependency: `@zmdb/ai` at `workspace:^`.
 - Platform dependencies: `globalThis.crypto`, JSON and caller-supplied transport functions.
-- No direct dependency on `@zmdb/schema-core`, `@zmdb/aot-validator`, a provider package, a web package or an MCP SDK.
+- No direct dependency on `@zmdb/schema`, `@zmdb/validator`, a provider package, a web package or an MCP SDK.
 - No external peer dependency.
 
 The package contains no `node:` import, socket, stream, process access, controller or global registry. Its server remains a pure `handle(message, transport)` core and its client remains a bounded

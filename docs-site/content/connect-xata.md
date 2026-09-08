@@ -4,7 +4,7 @@ Dialect: `'postgres'`. Xata offers a Postgres-compatible endpoint, so a standard
 
 ```ts
 import { Pool } from 'pg';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const pool = new Pool({
   connectionString: process.env.XATA_POSTGRES_URL,

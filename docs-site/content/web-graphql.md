@@ -3,8 +3,8 @@
 
 ## How it would have sat on the existing seams
 
-The design was frozen before the capability was dropped — `packages/schema-core/src/sdl/SPEC.md` for the type half, `packages/web/src/graphql/SPEC.md` for the resolver half — and it was an **emitter +
-a resolver registry over DI**:
+The design was frozen before the capability was dropped — `packages/schema/src/sdl/SPEC.md` for the type half, `packages/web/src/graphql/SPEC.md` for the resolver half — and it was an **emitter + a
+resolver registry over DI**:
 
 - SDL emitted from the declared TypeScript type by `sdlOf<T>(name)`, walking the same IR the [JSON Schema/OpenAPI](./web-openapi.html) derivation walks, so the schema can't drift from the data model.
   Code-first only; an SDL _consumer_ is [refused](./web-graphql-schema-first.html).

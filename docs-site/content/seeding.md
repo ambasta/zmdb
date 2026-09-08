@@ -4,7 +4,7 @@ development environments.
 ## Basic Usage
 
 ```ts
-import { seedRows } from '@zmdb/repository/seeding';
+import { seedRows } from '@zmdb/orm/seeding';
 import { userSchema } from './schemas.js';
 
 // Generate 100 rows with the default seed (1)
@@ -103,7 +103,7 @@ or drop the pattern from the column and check the value at the boundary that rec
 `makeRng(seed)` is exported because a seed script usually needs more than rows — picking an existing id, choosing a category, deciding whether an optional field is set:
 
 ```ts
-import { makeRng, seedRows } from '@zmdb/repository/seeding';
+import { makeRng, seedRows } from '@zmdb/orm/seeding';
 
 const rng = makeRng(42);
 const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)]!;

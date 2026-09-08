@@ -3,7 +3,7 @@ Things that are working as designed but will surprise you at least once.
 ## A validator call the transformer did not reach throws
 
 ```ts
-import { is } from '@zmdb/aot-validator/utilities';
+import { is } from '@zmdb/validator';
 
 is<User>(raw); // transformed: a straight-line check, no allocation
 // untransformed: throws `runtime type witness required in test/fallback mode`
@@ -95,7 +95,7 @@ interface because `(tenantId, id)` and `(id, tenantId)` are different indexes. R
 ## `UpdateBuilder.set()` expressions reference only their own column
 
 ```ts
-import { inc } from '@zmdb/query-compiler';
+import { inc } from '@zmdb/sql';
 
 updateTable('posts').set({ views: inc(1) });
 ```

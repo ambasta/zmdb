@@ -1,7 +1,7 @@
 The legitimate job `flush()` does elsewhere — atomically committing several writes — is handled by **explicit transactions**.
 
 ```ts
-import { createTransactionalDb } from '@zmdb/repository/transactions';
+import { createTransactionalDb } from '@zmdb/orm/transactions';
 
 const db = createTransactionalDb(connection);
 

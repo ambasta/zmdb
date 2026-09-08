@@ -5,8 +5,8 @@
   "dependencies": {
     "@zmdb/migrations": "1.0.0-alpha.4",
     "@zmdb/mssql": "1.0.0-alpha.4",
-    "@zmdb/query-compiler": "1.0.0-alpha.4",
-    "@zmdb/repository": "1.0.0-alpha.4",
+    "@zmdb/orm": "1.0.0-alpha.4",
+    "@zmdb/sql": "1.0.0-alpha.4",
     "mssql": "12.7.0"
   },
   "devDependencies": {

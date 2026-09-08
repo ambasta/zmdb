@@ -56,7 +56,7 @@ Choose `ttlMs` as the maximum stale interval the caller can tolerate under those
 The first opted-in read without a configured store lazily creates a process-local `memoryStore()` for that repository. It is TTL-aware, least-recently-used and bounded to 1,000 entries by default:
 
 ```ts
-import { memoryStore } from '@zmdb/repository';
+import { memoryStore } from '@zmdb/orm';
 
 const store = memoryStore({ maxEntries: 5_000 });
 const users = new UserRepository(driver, 'postgres', { cacheStore: store });

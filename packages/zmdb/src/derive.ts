@@ -7,21 +7,21 @@
 // Four of these names — `Entity`, `CreateDTO`, `UpdateDTO`, `PrimaryKeyOf` — are also on
 // `zmdb` itself. They are the same types: the root used to define schema-value twins that
 // deferred here when the value carried a phantom, and those are gone, so both paths now
-// resolve to the definitions in `@zmdb/schema-core/derive`. Import from whichever reads
+// resolve to the definitions in `@zmdb/schema/derive`. Import from whichever reads
 // better at the use site.
-export type {
-  CreateDTO,
-  DefaultKeys,
-  Entity,
-  NullableKeys,
-  PrimaryKeyKeys,
-  PrimaryKeyOf,
-  ReadDTO,
-  SensitiveKeys,
-  SerialKeys,
-  UniqueKeys,
-  UpdateDTO,
-  WhereDTO,
-  Wire,
-  WireCreateDTO,
-} from '@zmdb/schema-core/derive';
+export {
+  type CreateDTO,
+  type DefaultKeys,
+  type Entity,
+  type NullableKeys,
+  type PrimaryKeyKeys,
+  type PrimaryKeyOf,
+  type ReadDTO,
+  type SensitiveKeys,
+  type SerialKeys,
+  type UniqueKeys,
+  type UpdateDTO,
+  type WhereDTO,
+  type Wire,
+  type WireCreateDTO,
+} from '@zmdb/schema/derive';

@@ -17,7 +17,7 @@ const rows = await driver.execute({
 This is the part worth doing properly. Validate rather than cast, and the hand-written query gets the same guarantees as a compiled one:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 
 interface Row {
   id: number;
@@ -61,7 +61,7 @@ The placeholder syntax is the dialect's, because the text goes straight to the d
 If a query has to run on more than one dialect, generate the placeholders:
 
 ```ts
-import { formatPlaceholder, quoteIdentifier } from '@zmdb/query-compiler';
+import { formatPlaceholder, quoteIdentifier } from '@zmdb/sql';
 
 const ph = (i: number) => formatPlaceholder(dialect, i + 1);
 const list = ids.map((_, i) => ph(i)).join(', ');

@@ -1,4 +1,4 @@
-import type { DatabaseVertical } from '@zmdb/repository';
+import { type DatabaseVertical } from '@zmdb/orm';
 
 import { mysql } from './dialect.js';
 import { mysqlFamilyDriver, type MysqlDriver, type MysqlOptions, type MysqlQueryable } from './driver.js';

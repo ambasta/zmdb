@@ -73,7 +73,7 @@ import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mj
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-for (const owner of ['aot-validator', 'web']) {
+for (const owner of ['validator', 'web']) {
   if (!GOVERNANCE.packages.some(packageRecord => packageRecord.id === owner)) {
     throw new Error(`governance snapshot omitted build-budget owner ${owner}`);
   }

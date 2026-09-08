@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { toolFromSchema } from '@zmdb/ai';
 import { schemasFrom } from '@zmdb/compiler/testing';
-import { ValidationError } from '@zmdb/schema-core';
-import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
+import { type Codec, type PrimaryKey, type Serial, type Sql, type Table, type WireAs } from '@zmdb/schema/tags';
+import { ValidationError } from '@zmdb/validator';
 import { describe, expect, it, vi } from 'vitest';
 
 import { langchainTool, type LangChainToolFields } from './index.js';
@@ -229,7 +229,7 @@ describe('@zmdb/ai-langchain', () => {
   });
 
   it('moves the LangChain peer out of schema-core and AI core manifests', () => {
-    const schemaCore = readManifest('schema-core');
+    const schemaCore = readManifest('schema');
     const ai = readManifest('ai');
     const integration = readManifest('ai-langchain');
 

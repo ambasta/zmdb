@@ -185,15 +185,7 @@ async function role(name) {
           : name === 'product'
             ? ['zmdb', '@zmdb/sqlite', 'typescript', '@types/node', 'esbuild']
             : name === 'public'
-              ? [
-                  'zmdb',
-                  '@zmdb/cli',
-                  '@zmdb/compiler',
-                  '@zmdb/migrations',
-                  '@zmdb/schema-core',
-                  'typescript',
-                  '@types/node',
-                ]
+              ? ['zmdb', '@zmdb/cli', '@zmdb/compiler', '@zmdb/migrations', '@zmdb/schema', 'typescript', '@types/node']
               : ['@zmdb/cli', ...appRoots];
     fixture.roles.set(name, await fixture.install(name, roots, name === 'nested'));
   }

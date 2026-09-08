@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 
-import { createQueryCompiler, distance } from '@zmdb/query-compiler';
-import type { Ext, Table } from '@zmdb/schema-core/tags';
+import { type Ext, type Table } from '@zmdb/schema/tags';
+import { createQueryCompiler, distance } from '@zmdb/sql';
 import { describe, expect, it, vi } from 'vitest';
 
 import { postgres, postgresDriver, type PgQueryable } from './index.js';

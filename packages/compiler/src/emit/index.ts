@@ -23,7 +23,7 @@
 //
 // **REQ-AV-4 — the emitted and the runtime paths must agree.** They are two walks, so
 // everything both of them decide — issue text, whether a union has a discriminant —
-// lives in `@zmdb/schema-core/ir` and is imported by both. The validator runtime's
+// lives in `@zmdb/schema/ir` and is imported by both. The validator runtime's
 // `utilities/index.ts` is the other walk.
 //
 // **Anonymous inlines, named hoists.** A name is the signal that a type may recur or
@@ -37,7 +37,6 @@
 
 import type { ToolProvider } from '@zmdb/ai';
 import { toolSchemaForProvider, ToolSpecRefusalError } from '@zmdb/ai/compiler';
-import { validatePatternComplexity } from '@zmdb/aot-validator';
 import {
   discriminantOf,
   expectedForConstraint,
@@ -57,7 +56,8 @@ import {
   type TupleIR,
   type TypeIR,
   type UnionIR,
-} from '@zmdb/schema-core/ir';
+} from '@zmdb/schema/ir';
+import { validatePatternComplexity } from '@zmdb/validator';
 
 import { emitProtoDecoder } from '../protobuf/decode.js';
 import { emitGrpcDescriptor, emitProtoDescriptor } from '../protobuf/descriptor.js';
@@ -176,7 +176,7 @@ export class Emitter {
   constructor(options: EmitOptions = {}) {
     this.#prefix = options.prefix ?? '_zmdb';
     this.#maxHelpers = options.maxHelpers ?? DEFAULT_MAX_HELPERS;
-    this.#errorModule = options.errorModule ?? '@zmdb/aot-validator/errors';
+    this.#errorModule = options.errorModule ?? '@zmdb/validator/errors';
     this.#protobufModule = options.protobufModule ?? '@zmdb/protobuf/wire';
   }
 
@@ -1486,5 +1486,5 @@ export {
   expectedOf,
   hasExcessCheck,
   messageFor,
-} from '@zmdb/schema-core/ir';
-export type { ConstraintKeyword, Discriminant, DiscriminantArm } from '@zmdb/schema-core/ir';
+} from '@zmdb/schema/ir';
+export { type ConstraintKeyword, type Discriminant, type DiscriminantArm } from '@zmdb/schema/ir';

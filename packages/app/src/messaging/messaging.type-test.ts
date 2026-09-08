@@ -1,4 +1,4 @@
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 
 import type { ApplicationExtension } from '../application.js';
 import type { Observability, Span, TraceCarrier } from '../observability/index.js';

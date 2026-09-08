@@ -4,7 +4,7 @@ import {
   type IntrospectOptions,
   type SchemaSnapshot,
   type SqlDialect,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
 
 import type { SnapshotableSchema } from './index.js';
 import type { CatalogWarning } from './introspect/index.js';

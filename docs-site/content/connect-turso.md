@@ -4,7 +4,7 @@ Dialect: `'sqlite'`. Turso is libSQL — SQLite with a server, replicas and an H
 
 ```ts
 import { createClient, type InValue } from '@libsql/client';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const client = createClient({
   url: requireEnv('TURSO_DATABASE_URL'),

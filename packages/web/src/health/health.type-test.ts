@@ -1,4 +1,9 @@
-import type { CheckResult, LivenessCheck, ReadinessCheck, databaseReadinessCheck } from '@zmdb/app/health';
+import {
+  type CheckResult,
+  type LivenessCheck,
+  type ReadinessCheck,
+  type databaseReadinessCheck,
+} from '@zmdb/app/health';
 // Type-level tests for the health-check surface frozen in ./SPEC.md §2 (#580, epic #578).
 // No runtime code: a *compilation* gate run by `node scripts/typecheck.mjs`, and therefore
 // by CI. `packages/web/tsconfig.json` includes `src/**/*.ts`, so this file is compiled.
@@ -6,8 +11,8 @@ import type { CheckResult, LivenessCheck, ReadinessCheck, databaseReadinessCheck
 // The negative assertions are the mechanism of §2: a `kind:
 // 'liveness' | 'readiness'` discriminant would pass every runtime test because a
 // convention wearing a field name has no compile-time consequence.
-import type { Driver } from '@zmdb/repository';
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Driver } from '@zmdb/orm';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type { WebResponse } from '../pipeline/index.js';
 import type { healthRoutes } from './index.js';

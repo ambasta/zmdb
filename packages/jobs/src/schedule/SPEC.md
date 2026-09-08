@@ -284,8 +284,8 @@ entire scheduler until the lease expires. Per-task leases spread tasks across re
 
 **`pg_try_advisory_lock` is refused**, and `web-task-scheduling.md` presents it as the Postgres option. Three reasons, in increasing order of severity:
 
-1. It is Postgres-only. `@zmdb/repository` supports four root dialect families plus Cockroach and SingleStore variants, and a coordination mechanism available on one dialect is a scheduler that works
-   in production and not in the test suite — which is the arrangement most likely to ship a broken lease.
+1. It is Postgres-only. `@zmdb/orm` supports four root dialect families plus Cockroach and SingleStore variants, and a coordination mechanism available on one dialect is a scheduler that works in
+   production and not in the test suite — which is the arrangement most likely to ship a broken lease.
 2. The page's own caveat — _"The lock is held on a session"_ — is fatal under a connection pool, because the application does not choose which session it gets. A lock taken on a pooled connection is
    released when that connection is reset or returned, and holding it means pinning a connection for the lifetime of the process.
 3. A session lock **cannot expire**. A process that is wedged but still connected holds it forever with no timeout, so the failure mode is a scheduler that never runs again and whose recovery requires

@@ -82,7 +82,7 @@ describe('protobuf package provenance (#656)', () => {
       expect(importsNaming(artifact.source, ['GrpcLoadedService', 'loadGrpcService']), artifact.path).toEqual([
         '@zmdb/protobuf',
       ]);
-      expect(artifact.source, artifact.path).not.toContain("from '@zmdb/aot-validator'");
+      expect(artifact.source, artifact.path).not.toContain("from '@zmdb/validator'");
     }
   });
 

@@ -4,7 +4,7 @@ runtime schema, no reflection.
 ## Usage
 
 ```ts
-import { is } from '@zmdb/aot-validator/utilities';
+import { is } from '@zmdb/validator';
 
 if (is<CreateUser>(payload)) {
   // payload is narrowed to CreateUser here

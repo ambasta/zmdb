@@ -16,19 +16,19 @@ import {
   type MigrationPlan,
   type MigrationTableOptions,
   type SchemaObjectOperation,
-} from '@zmdb/query-compiler';
-import type {
-  ExtensionDef,
-  GeneratedColumn,
-  IndexColumn,
-  IndexDef,
-  IndexMethod,
-  RlsPolicy,
-  RoutineDef,
-  RoutineSqlType,
-  SequenceDef,
-  ViewDef,
-} from '@zmdb/query-compiler/schema-objects';
+} from '@zmdb/sql';
+import {
+  type ExtensionDef,
+  type GeneratedColumn,
+  type IndexColumn,
+  type IndexDef,
+  type IndexMethod,
+  type RlsPolicy,
+  type RoutineDef,
+  type RoutineSqlType,
+  type SequenceDef,
+  type ViewDef,
+} from '@zmdb/sql/schema-objects';
 
 import { POSTGRES_TYPES } from './constants.js';
 
@@ -500,7 +500,6 @@ function migrationConnection<Name extends string>(
 
   return {
     name,
-    dialect: driver.dialect,
     transactionalDdl: true,
     async exec(sql) {
       await execute(sql);

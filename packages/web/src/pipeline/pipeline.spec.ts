@@ -1,6 +1,6 @@
 import { StringDecoder } from 'node:string_decoder';
 
-import { ValidationError } from '@zmdb/schema-core';
+import { ValidationError } from '@zmdb/validator';
 // Tests (#274) for the request pipeline & adapters — RED first (pipeline exports
 // absent). Dispatch, param extraction, validate-before-handler, serialize, 404,
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.

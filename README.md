@@ -61,7 +61,7 @@ Optional server integrations stay outside the `zmdb` default install:
 - `@zmdb/jobs-postgres` requires `pg@^8.23.0`; the caller owns the pool/client and the adapter never closes or releases it.
 - `@zmdb/otel` requires `@opentelemetry/api@^1.9.1`; the caller owns providers, exporters, tracers, meters, and shutdown.
 
-`@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/compiler` owns build-time reflection and emission, while `@zmdb/aot-validator` is the compiler-free
+`@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/compiler` owns build-time reflection and emission, while `@zmdb/validator` is the compiler-free
 validation runtime.
 
 Compiler tooling is independently usable: install `@zmdb/compiler` when a build, linter, Metro project, or no-bundler workflow needs the TypeScript front end directly. The

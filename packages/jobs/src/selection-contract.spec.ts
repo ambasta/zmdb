@@ -39,50 +39,50 @@ const COMMAND_TIMEOUT_MS = 120_000;
 
 const DEFAULT_CLOSURE = [
   '@zmdb/ai',
-  '@zmdb/aot-validator',
   '@zmdb/app',
   '@zmdb/compiler',
   '@zmdb/migrations',
-  '@zmdb/query-compiler',
-  '@zmdb/repository',
-  '@zmdb/schema-core',
+  '@zmdb/orm',
+  '@zmdb/schema',
+  '@zmdb/sql',
+  '@zmdb/validator',
   '@zmdb/web',
   'zmdb',
 ] as const;
 const PORTABLE_CLOSURE = [
-  '@zmdb/aot-validator',
   '@zmdb/app',
   '@zmdb/jobs',
-  '@zmdb/query-compiler',
-  '@zmdb/repository',
-  '@zmdb/schema-core',
+  '@zmdb/orm',
+  '@zmdb/schema',
+  '@zmdb/sql',
+  '@zmdb/validator',
 ] as const;
 const SQLITE_CLOSURE = [
-  '@zmdb/aot-validator',
   '@zmdb/app',
   '@zmdb/jobs',
   '@zmdb/jobs-sqlite',
   '@zmdb/migrations',
-  '@zmdb/query-compiler',
-  '@zmdb/repository',
-  '@zmdb/schema-core',
+  '@zmdb/orm',
+  '@zmdb/schema',
+  '@zmdb/sql',
   '@zmdb/sqlite',
+  '@zmdb/validator',
 ] as const;
 const POSTGRES_CLOSURE = [
-  '@zmdb/aot-validator',
   '@zmdb/app',
   '@zmdb/jobs',
   '@zmdb/jobs-postgres',
   '@zmdb/migrations',
+  '@zmdb/orm',
   '@zmdb/postgres',
-  '@zmdb/query-compiler',
-  '@zmdb/repository',
-  '@zmdb/schema-core',
+  '@zmdb/schema',
+  '@zmdb/sql',
+  '@zmdb/validator',
 ] as const;
 const JOBS_PACKAGES = ['@zmdb/jobs', '@zmdb/jobs-postgres', '@zmdb/jobs-sqlite'] as const;
 const DEFAULT_IDENTITY_SOURCE = `
-import { assert as directAssert } from '@zmdb/aot-validator/utilities';
-import { BaseRepository as DirectBaseRepository } from '@zmdb/repository';
+import { assert as directAssert } from '@zmdb/validator';
+import { BaseRepository as DirectBaseRepository } from '@zmdb/orm';
 import { createApp as directCreateApp } from '@zmdb/web';
 import { assert } from 'zmdb';
 import { BaseRepository } from 'zmdb/orm';

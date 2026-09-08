@@ -7,22 +7,22 @@ function gh(a, i) {
 }
 const MAP = {
   80: {
-    impl: 'packages/aot-validator/src/plugin/index.ts',
+    impl: 'packages/validator/src/plugin/index.ts',
     tests: 'plugin/plugin.spec.ts (5)',
     note: 'transformTypeChecks parses inline object/primitive type literals and emits monomorphic, allocation-free, early-exit inline JS (no TypeDescriptor walk); assert<T> wraps with a structured throw + returns input.',
   },
   85: {
-    impl: 'packages/query-compiler/src/joins/index.ts',
+    impl: 'packages/sql/src/joins/index.ts',
     tests: 'joins/joins.spec.ts (3)',
     note: 'joinableSelectFrom builds inner/left/right joins with qualified on-columns + table aliasing (self-join), dialect-aware, composable with where/order/limit.',
   },
   90: {
-    impl: 'packages/query-compiler/src/aggregations/index.ts',
+    impl: 'packages/sql/src/aggregations/index.ts',
     tests: 'aggregations/aggregations.spec.ts (3)',
     note: 'aggregateSelectFrom: count/sum/avg/min/max + expr() computed columns + groupBy + having, parameterized, dialect-aware.',
   },
   95: {
-    impl: 'packages/query-compiler/src/fts/index.ts',
+    impl: 'packages/sql/src/fts/index.ts',
     tests: 'fts/fts.spec.ts (3)',
     note: 'ftsSelectFrom.whereMatch: postgres to_tsvector/@@/to_tsquery + mysql MATCH...AGAINST; sqlite is an honest DNF (throws UnsupportedFeatureError).',
   },

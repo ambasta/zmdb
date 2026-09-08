@@ -10,8 +10,8 @@ import {
   type MigrationPlan,
   type MigrationTableOptions,
   type SchemaObjectOperation,
-} from '@zmdb/query-compiler';
-import type { GeneratedColumn, IndexColumn, IndexDef, SequenceDef } from '@zmdb/query-compiler/schema-objects';
+} from '@zmdb/sql';
+import { type GeneratedColumn, type IndexColumn, type IndexDef, type SequenceDef } from '@zmdb/sql/schema-objects';
 
 import { mssqlDdlType } from './types.js';
 
@@ -79,7 +79,6 @@ function migrationConnection(
 
   return {
     name: 'mssql',
-    dialect,
     transactionalDdl: true,
     async exec(sql): Promise<void> {
       await execute(sql);

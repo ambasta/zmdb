@@ -34,7 +34,7 @@ because execution still uses only text and bound parameters.
 
 ```ts
 import { Pool } from 'pg';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 

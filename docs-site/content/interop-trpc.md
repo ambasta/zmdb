@@ -7,8 +7,8 @@ The clean combination. tRPC owns routing and the client type; zmdb owns the sche
 
 ```ts
 import { initTRPC } from '@trpc/server';
-import { assert } from '@zmdb/aot-validator/utilities';
-import type { CreateDTO, ListDTO } from '@zmdb/repository';
+import { assert } from '@zmdb/validator';
+import { type CreateDTO, type ListDTO } from '@zmdb/orm';
 
 const t = initTRPC.context<{ postRepo: PostRepo }>().create();
 

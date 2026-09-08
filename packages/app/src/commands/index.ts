@@ -5,8 +5,8 @@
 
 import type { ParseArgsConfig } from 'node:util';
 
-import { coerce } from '@zmdb/aot-validator/advanced';
-import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
+import { type JsonSchemaObject } from '@zmdb/schema/ir';
+import { coerce } from '@zmdb/validator/advanced';
 
 import { applicationBridgeOf, createApplication } from '../application.js';
 import type { Container } from '../di/index.js';

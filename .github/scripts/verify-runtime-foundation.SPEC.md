@@ -1,206 +1,112 @@
-# Runtime foundation boundary policy — issue #635, amended by #656, #668, #669, #705, #706, #707, #708, #709, #710, #621, #670, #672, #628 and #629
+# Runtime foundation boundary policy — issues #635, #636 and #638
 
-This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
-change a manifest.
+This is the normative contract enforced by `.github/scripts/verify-runtime-foundation.mjs`. The four final packages are independent runtime owners; all four superseded package identities are removed.
 
 ## 1. Measured input inventory
 
-The inventory command is:
+The source inventory includes TypeScript implementation and retained test-support files, excluding `*.spec.ts`, `*.type-test.ts` and test-owned `__generated__`/`__budget__` scratch directories. The
+four build configurations explicitly exclude the 14 retained test supports, and package archives exclude them.
 
-```sh
-find packages/schema-core/src packages/query-compiler/src \
-  packages/aot-validator/src packages/repository/src \
-  -type f -name '*.ts' ! -name '*.spec.ts' ! -name '*.type-test.ts' \
-  ! -path '*/__generated__/*' ! -path '*/__budget__/*'
-```
+| Package           | Inventoried source files | Build implementation files | Public entries |
+| ----------------- | -----------------------: | -------------------------: | -------------: |
+| `@zmdb/schema`    |                       17 |                         13 |             10 |
+| `@zmdb/sql`       |                       23 |                         19 |              7 |
+| `@zmdb/validator` |                        7 |                          7 |              4 |
+| `@zmdb/orm`       |                       20 |                         14 |              8 |
 
-Those are exactly the TypeScript files included by the four current `tsconfig.build.json` files. Fixtures and `__testing__` helpers are included because the build configuration does not currently
-exclude them; the ownership map therefore cannot pretend they are not shipped. Gitignored `__generated__` and `__budget__` directories are test-owned scratch space, not checked-in build inputs.
-
-Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`. Issue #656 then
-moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`; #705 added the provider-neutral AI edge used by the compiler; #706 and
-#707 moved the Anthropic and LangChain peers; #708 moved the Vercel adapter, export and peer out of schema-core; #709 moved the MCP client/server implementation and export; #710 moved the final
-provider-neutral and LangChain implementations out of schema-core and removed its four LLM exports; #669 moved the SQLite introspector and driver into its database package; #670 moved the PostgreSQL
-driver and fixture out of repository; #672 moved SQL Server implementation out of the generic compiler and repository; #628 moved the TypeScript front end into `@zmdb/compiler`; and #629 moved the
-generic lifecycle/introspection implementations into `@zmdb/migrations` while retaining only their structural protocols in query-compiler:
-
-| Current package        | Build-included TypeScript files | Export-map entries |
-| ---------------------- | ------------------------------: | -----------------: |
-| `@zmdb/schema-core`    |                              16 |                  9 |
-| `@zmdb/query-compiler` |                              25 |                  9 |
-| `@zmdb/aot-validator`  |                               6 |                  5 |
-| `@zmdb/repository`     |                              18 |                  7 |
-| **Total**              |                          **65** |             **30** |
-
-The four manifests contain 20 dependency entries: 5 `dependencies` and 15 `devDependencies`. They contain no `peerDependencies` or `optionalDependencies`.
-
-Issues #670 and #672 add `@zmdb/postgres` and `@zmdb/mssql` before the hard foundation cutover. Their current inward package edges are explicit transitional boundaries; the ratchet does not recurse
-through those old package roots while checking the optional verticals. Every other non-foundation edge remains forbidden. Old-package imports in the database packages and packed fixtures stay explicit
-owned exception records until the coordinated foundation and final database purge remove the compatibility packages.
+There are 67 inventoried TypeScript files and 53 implementation files in these four packages. Schema and SQL have no production dependencies. Validator depends only on schema; ORM depends exactly on
+schema, SQL and validator. Database packages retain their existing inward foundation edges and their migrations lifecycle edge.
 
 ## 2. Exact file ownership
 
-Every one of the 65 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
-path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql` sections also record their package-owned production
-files outside that legacy input inventory.
-
-### `@zmdb/ai` — 0
-
-Issue #710 moved the ten remaining provider-neutral production files directly to `packages/ai/src/`, so no old foundation file remains in this destination.
-
-### `@zmdb/ai-anthropic` — 0
-
-Issue #706 moved the Anthropic driver directly to `packages/ai-anthropic/src/index.ts`, so no old foundation file remains in this destination.
-
-### `@zmdb/ai-langchain` — 0
-
-Issue #710 moved the LangChain implementation directly to `packages/ai-langchain/src/index.ts`, so no old foundation file remains in this destination.
-
-### `@zmdb/ai-vercel` — 0
-
-Issue #708 moved the sole Vercel adapter directly to `packages/ai-vercel/src/index.ts`, so no old foundation file remains in this destination.
-
-### `@zmdb/cli` — 0
-
-#628 deleted the old `zmdb-codegen` executable. #630 owns the later `zmdb codegen` command in the sole unified CLI.
-
-### `@zmdb/compiler` — 0
-
-#628 moved the TypeScript front end, compiler fixtures, and compiler test support into `packages/compiler`; those files are no longer members of this four-package runtime-foundation inventory.
-
-### Jobs providers — 0
-
-#756 removed the repository-owned jobs schema. Fresh queue, marker and schedule-lease schemas now belong to the selected SQLite and PostgreSQL jobs providers.
-
-### `@zmdb/mcp` — 0
-
-Issue #709 moved the three MCP production files directly to `packages/mcp/src/`, so no old foundation file remains in this destination.
-
-### `@zmdb/migrations` — 0 current legacy files
-
-Issue #629 moved the eleven generic migration/introspection implementations into `packages/migrations/src/`. They no longer belong to the four-package legacy inventory; query-compiler retains only the
-structural `introspect/types.ts` and `migrations/types.ts` protocols listed under `@zmdb/sql`.
-
-### `@zmdb/mssql` — 0
-
-Issue #672 moved the SQL Server driver directly to `packages/mssql/src/driver.ts`, so no old foundation file remains in this destination.
-
-### `@zmdb/orm` — 18
-
-```text
-packages/query-compiler/src/outbox/index.ts
-packages/repository/src/cache/index.ts
-packages/repository/src/drivers/transactional.ts
-packages/repository/src/dx/fixtures.ts
-packages/repository/src/entity-modeling/index.ts
-packages/repository/src/filters/index.ts
-packages/repository/src/index.ts
-packages/repository/src/loaders/index.ts
-packages/repository/src/orders-fixture.ts
-packages/repository/src/outbox/index.ts
-packages/repository/src/replicas/index.ts
-packages/repository/src/seeding/index.ts
-packages/repository/src/streaming/index.ts
-packages/repository/src/testing/official-dialects.fixture.ts
-packages/repository/src/transactions/index.ts
-packages/repository/src/transactions/recording-conn.ts
-packages/repository/src/typed-methods/typed-methods.fixture.ts
-packages/repository/src/typed-populate/fixtures.ts
-```
-
-The five fixture/support files remain owned by ORM tests and must stop being published.
-
-### `@zmdb/postgres` — 0 current generic files
-
-Issue #670 moved the former repository driver to `packages/postgres/src/driver.ts` and its fixture to `packages/postgres/src/testing/fixture.ts`. The fixture remains package acceptance-test support
-and is excluded from the tarball.
+The verifier compares each current source path with this inventory and refuses omitted, duplicate or absent paths. Retained test supports remain visible in this inventory even though they are excluded
+from builds and archives.
 
 ### `@zmdb/schema` — 17
 
 ```text
-packages/query-compiler/src/naming/index.ts
-packages/schema-core/src/custom-types/index.ts
-packages/schema-core/src/derive/__testing__/instantiations.ts
-packages/schema-core/src/derive/index.ts
-packages/schema-core/src/derive/query.ts
-packages/schema-core/src/dto/fixtures.ts
-packages/schema-core/src/dto/index.ts
-packages/schema-core/src/index.ts
-packages/schema-core/src/ir/index.ts
-packages/schema-core/src/ir/validation-shape.ts
-packages/schema-core/src/ir/vocabulary.ts
-packages/schema-core/src/naming/index.ts
-packages/schema-core/src/openapi/index.ts
-packages/schema-core/src/relations/fixtures.ts
-packages/schema-core/src/relations/index.ts
-packages/schema-core/src/tags/__fixtures__/duplicate-copy.ts
-packages/schema-core/src/tags/index.ts
+packages/schema/src/custom-types/index.ts
+packages/schema/src/derive/__testing__/instantiations.ts
+packages/schema/src/derive/index.ts
+packages/schema/src/derive/query.ts
+packages/schema/src/dto/fixtures.ts
+packages/schema/src/dto/index.ts
+packages/schema/src/entity-modeling/index.ts
+packages/schema/src/index.ts
+packages/schema/src/ir/index.ts
+packages/schema/src/ir/validation-shape.ts
+packages/schema/src/ir/vocabulary.ts
+packages/schema/src/naming/index.ts
+packages/schema/src/openapi/index.ts
+packages/schema/src/relations/fixtures.ts
+packages/schema/src/relations/index.ts
+packages/schema/src/tags/__fixtures__/duplicate-copy.ts
+packages/schema/src/tags/index.ts
 ```
-
-The three fixture/`__testing__` files remain schema-test-owned and must stop being published. `dto/index.ts`, `relations/index.ts`, and the current root are mixed files; §3 assigns every exported
-member before those files are split.
 
 ### `@zmdb/sql` — 23
 
 ```text
-packages/query-compiler/src/aggregations/index.ts
-packages/query-compiler/src/clauses.ts
-packages/query-compiler/src/comments/index.ts
-packages/query-compiler/src/compiled-query.ts
-packages/query-compiler/src/dialects/index.ts
-packages/query-compiler/src/dialects/protocol.ts
-packages/query-compiler/src/errors.ts
-packages/query-compiler/src/expressions/index.ts
-packages/query-compiler/src/extensions/index.ts
-packages/query-compiler/src/fts/index.ts
-packages/query-compiler/src/index.ts
-packages/query-compiler/src/introspect/types.ts
-packages/query-compiler/src/joins/index.ts
-packages/query-compiler/src/migrations/types.ts
-packages/query-compiler/src/quoting.ts
-packages/query-compiler/src/schema-objects/extensions.ts
-packages/query-compiler/src/schema-objects/index.ts
-packages/query-compiler/src/schema-objects/types.ts
-packages/query-compiler/src/set-ops/index.ts
-packages/query-compiler/src/testing/capability-matrix.ts
-packages/query-compiler/src/testing/database-vertical.ts
-packages/query-compiler/src/testing/external-dialect.fixture.ts
-packages/query-compiler/src/testing/official-dialects.fixture.ts
+packages/sql/src/aggregations/index.ts
+packages/sql/src/clauses.ts
+packages/sql/src/comments/index.ts
+packages/sql/src/compiled-query.ts
+packages/sql/src/dialects/index.ts
+packages/sql/src/dialects/protocol.ts
+packages/sql/src/errors.ts
+packages/sql/src/expressions/index.ts
+packages/sql/src/extensions/index.ts
+packages/sql/src/fts/index.ts
+packages/sql/src/index.ts
+packages/sql/src/introspect/types.ts
+packages/sql/src/joins/index.ts
+packages/sql/src/migrations/types.ts
+packages/sql/src/quoting.ts
+packages/sql/src/schema-objects/extensions.ts
+packages/sql/src/schema-objects/index.ts
+packages/sql/src/schema-objects/types.ts
+packages/sql/src/set-ops/index.ts
+packages/sql/src/testing/capability-matrix.ts
+packages/sql/src/testing/database-vertical.ts
+packages/sql/src/testing/external-dialect.fixture.ts
+packages/sql/src/testing/official-dialects.fixture.ts
 ```
 
-The generic package owns the injected dialect protocol and algorithms. Official vendor values may move to database verticals only by extracting them from these files; the generic definitions may not
-be duplicated. The three `testing/` files freeze that protocol for #667; they remain SQL-test-owned and must be excluded from the published build after the move.
-
-### `@zmdb/sqlite` — 7
+### `@zmdb/validator` — 7
 
 ```text
-packages/sqlite/src/dialect.ts
-packages/sqlite/src/driver.ts
-packages/sqlite/src/embedded.ts
-packages/sqlite/src/index.ts
-packages/sqlite/src/introspector.ts
-packages/sqlite/src/migrations.ts
-packages/sqlite/src/node.ts
+packages/validator/src/advanced/index.ts
+packages/validator/src/errors.ts
+packages/validator/src/index.ts
+packages/validator/src/regex-complexity.ts
+packages/validator/src/serialization/index.ts
+packages/validator/src/utilities/index.ts
+packages/validator/src/validation-error.ts
 ```
 
-### `@zmdb/validator` — 6
+### `@zmdb/orm` — 20
 
 ```text
-packages/aot-validator/src/advanced/index.ts
-packages/aot-validator/src/errors.ts
-packages/aot-validator/src/index.ts
-packages/aot-validator/src/regex-complexity.ts
-packages/aot-validator/src/serialization/index.ts
-packages/aot-validator/src/utilities/index.ts
-```
-
-The validator owns rule validation, emitted-code helpers, serialization, random generation, and public validation errors. `@zmdb/protobuf` owns protobuf/gRPC public calls, artifact types, and wire
-helpers; compiler-side descriptor/encoder/decoder production remains in `@zmdb/compiler`.
-
-### `@zmdb/web` — 1
-
-```text
-packages/repository/src/integrations/index.ts
+packages/orm/src/cache/index.ts
+packages/orm/src/drivers/transactional.ts
+packages/orm/src/dto/index.ts
+packages/orm/src/dx/fixtures.ts
+packages/orm/src/entity-modeling/index.ts
+packages/orm/src/filters/index.ts
+packages/orm/src/index.ts
+packages/orm/src/loaders/index.ts
+packages/orm/src/orders-fixture.ts
+packages/orm/src/outbox/index.ts
+packages/orm/src/outbox/sql.ts
+packages/orm/src/relations/index.ts
+packages/orm/src/replicas/index.ts
+packages/orm/src/seeding/index.ts
+packages/orm/src/streaming/index.ts
+packages/orm/src/testing/official-dialects.fixture.ts
+packages/orm/src/transactions/index.ts
+packages/orm/src/transactions/recording-conn.ts
+packages/orm/src/typed-methods/typed-methods.fixture.ts
+packages/orm/src/typed-populate/fixtures.ts
 ```
 
 ## 3. Mixed-file symbol seams
@@ -282,10 +188,10 @@ All 30 current export entries across the four foundation candidates have one dis
 
 Issues #670 and #672 removed `@zmdb/repository/drivers/pg` and `@zmdb/repository/drivers/mssql`; their database packages now own those public runtimes. After cutover, the four old package names and
 the remaining old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed consumers, except explicit removed-entry
-refusal tests. A fixture may use the exact awaited `node:assert/strict` `assert.rejects(import(literal), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' })` probe, or a fixture
-`import type { ... } from 'literal'` immediately preceded by an explanatory `// @ts-expect-error` line. Strict consumer typechecking proves those declarations are rejected. Unannotated type imports,
-runtime imports, production-file imports and positive imports in the same fixture remain findings. `@zmdb/mcp` remains independently published. There are no forwarding packages and no `exports`
-aliases.
+refusal tests. A fixture may use the exact awaited `node:assert/strict` `assert.rejects(import(literal), { code })` probe, with `ERR_MODULE_NOT_FOUND` for a deleted package or
+`ERR_PACKAGE_PATH_NOT_EXPORTED` for a removed subpath of an existing package, or a fixture `import type { ... } from 'literal'` immediately preceded by an explanatory `// @ts-expect-error` line.
+Strict consumer typechecking proves those declarations are rejected. Unannotated type imports, runtime imports, production-file imports and positive imports in the same fixture remain findings.
+`@zmdb/mcp` remains independently published. There are no forwarding packages and no `exports` aliases.
 
 ## 5. Manifest dependency disposition
 
@@ -398,7 +304,8 @@ concern subpaths unless the one-product facade contract explicitly promotes them
 | `zmdb/postgres`, `zmdb/sqlite`, `zmdb/mssql`        | matching database package                                                   |
 | `zmdb/ai`                                           | `@zmdb/ai`                                                                  |
 
-Importing `zmdb` must not eagerly load tooling, migrations, AI, MCP, protobuf, web/jobs, or database clients. Optional technology is selected by an explicit subpath or package.
+Importing `zmdb` must not eagerly load tooling, migrations, AI, MCP, protobuf, jobs, or database clients. Its current product-root `createApp` and `Controller` vocabulary comes directly from web,
+`Module` comes from app, and `defineConfig` remains dependency-light. Optional technology is selected by an explicit subpath or package.
 
 ## 9. Verifier and fixture requirements
 

@@ -1,4 +1,4 @@
-import { getEnumSet, getRegExp, tags, validate } from '@zmdb/aot-validator';
+import { getEnumSet, getRegExp, tags, validateRule as validate } from '@zmdb/validator';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { evaluate, FixtureProject } from './emit/__testing__/project.js';

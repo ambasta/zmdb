@@ -3,7 +3,7 @@
 > **Not planned.** GraphQL is out of scope for zmdb: the epics and every sub-issue under them are closed as wontfix, and no code in this tree implements this document. It stays frozen as the record of
 > what was decided and why — the failure modes it names are the ones anyone building this outside zmdb will meet.
 
-Part of `@zmdb/web`, exported from the `./graphql` subpath, with the emission half in `@zmdb/schema-core/sdl`. `../SPEC.md` owns resolvers; this file owns what makes a subgraph composable.
+Part of `@zmdb/web`, exported from the `./graphql` subpath, with the emission half in `@zmdb/schema/sdl`. `../SPEC.md` owns resolvers; this file owns what makes a subgraph composable.
 
 The deliverable is **a subgraph schema a real composer accepts**, not a gateway. The epic's non-goal says so and the reason is worth keeping in front of the reader: a federated schema that is subtly
 wrong composes successfully and then resolves the wrong thing at runtime, in the gateway, in a different service from the one that got it wrong.
@@ -14,7 +14,7 @@ So every rule here is written to fail at build time instead, and the arbiter of 
 
 The issue spells the federation surface as decorators — `Key(fields): ClassDecorator`, `External(): PropertyDecorator`. **None of those positions exist.** A zmdb entity is a TypeScript `interface`,
 and an interface has no class to decorate and no fields that can carry a decorator; `PropertyDecorator` is also the legacy decorator type, which Stage 3 does not have at all. So federation metadata
-travels the way every other declarative fact about a column travels — as an intersection tag, in `@zmdb/schema-core/tags`:
+travels the way every other declarative fact about a column travels — as an intersection tag, in `@zmdb/schema/tags`:
 
 ```ts
 export type Key<Fields extends string> = { readonly [zmdbKey]?: Fields };

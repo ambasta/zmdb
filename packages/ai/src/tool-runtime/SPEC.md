@@ -37,8 +37,8 @@ export declare function executeToolAdapter<T, Output>(name: string, value: unkno
 
 ## Dependency boundary
 
-The runtime imports only `validationIssuesOf` and its structural issue type from `@zmdb/schema-core`. It has no provider or framework dependency or peer. Callers supply validators at their own AOT
-call sites because a published generic cannot reflect its unresolved type parameter.
+The runtime imports only `validationIssuesOf` and its structural issue type from `@zmdb/schema`. It has no provider or framework dependency or peer. Callers supply validators at their own AOT call
+sites because a published generic cannot reflect its unresolved type parameter.
 
 ## Non-goals
 

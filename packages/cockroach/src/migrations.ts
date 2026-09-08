@@ -8,8 +8,8 @@ import {
   type MigrationPlan,
   type MigrationTableOptions,
   type SchemaObjectOperation,
-} from '@zmdb/query-compiler';
-import type { IndexColumn } from '@zmdb/query-compiler/schema-objects';
+} from '@zmdb/sql';
+import { type IndexColumn } from '@zmdb/sql/schema-objects';
 
 export const COCKROACH_TYPE_OVERRIDES = Object.freeze({
   serial: 'INT8 DEFAULT unique_rowid()',

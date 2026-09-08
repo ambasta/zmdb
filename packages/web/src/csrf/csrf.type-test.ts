@@ -1,5 +1,5 @@
 // Type-level assertions for the public CSRF surface in ./SPEC.md §3.
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type { AnyCtx, createCsrf, Csrf, CsrfOptions, Guard } from '../index.js';
 

@@ -1,4 +1,4 @@
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 import { Pool } from 'pg';
 import { afterAll, beforeAll } from 'vitest';
 

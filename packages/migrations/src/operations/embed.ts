@@ -1,6 +1,6 @@
 import { dirname, join, resolve } from 'node:path';
 
-import { dialectName } from '@zmdb/query-compiler';
+import { dialectName } from '@zmdb/sql';
 
 import { readMigrations, writeTextAtomically } from '../file-io.js';
 import { MigrationProjectError, requiredSourceFormatter, type MigrationProject } from '../project.js';

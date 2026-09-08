@@ -17,9 +17,9 @@
     "./state": "./src/index.ts"
   },
   "dependencies": {
-    "@zmdb/aot-validator": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^",
-    "@zmdb/schema-core": "workspace:^"
+    "@zmdb/orm": "workspace:^",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/sql": "workspace:^",
+    "@zmdb/validator": "workspace:^"
   }
 }

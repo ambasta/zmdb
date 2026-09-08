@@ -7,8 +7,8 @@
 // explicit short timeout so that hang is a fast failure instead of the 5s default.
 import { DatabaseSync } from 'node:sqlite';
 
-import { createTransactionalDb } from '@zmdb/repository/transactions';
-import type { TransactionContext, TxConnection } from '@zmdb/repository/transactions';
+import { createTransactionalDb } from '@zmdb/orm/transactions';
+import { type TransactionContext, type TxConnection } from '@zmdb/orm/transactions';
 import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -101,7 +101,7 @@ function outboxDb(): DatabaseSync {
 /**
  * A hand-written outbox writer, so this file isolates the `Events<M>` crossing from the repository
  * writer's own SQL tests. The SQL is deliberately the crudest possible: the real statement is the
- * outbox suite's assertion (../../../query-compiler/src/outbox/outbox.spec.ts), and duplicating it
+ * outbox suite's assertion (../../../orm/src/outbox/sql.spec.ts), and duplicating it
  * here would make one change break two suites.
  */
 function handWrittenOutbox(tx: TransactionContext): OutboxWriterLike {
@@ -472,7 +472,7 @@ describe('events: emitInTransaction (#593, SPEC §5, §9 items 9 and 10)', () =>
 
   it("emitInTransaction's row is gone after a rollback", async () => {
     // SPEC §5: "not delivered at all if the transaction rolls back". The outbox freeze
-    // (../../../query-compiler/src/outbox/SPEC.md §9 item 1) owns the general guarantee; what this
+    // (../../../orm/src/outbox/SPEC.md §9 item 1) owns the general guarantee; what this
     // asserts is that the `Events<M>` path actually reaches it rather than writing on its own
     // connection — a writer that opened its own connection would leave the row behind here and
     // pass every test in the outbox suite.

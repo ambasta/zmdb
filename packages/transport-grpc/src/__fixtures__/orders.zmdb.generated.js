@@ -11,7 +11,7 @@
 // Formatters and linters should skip it. The emitter writes a check as one long expression
 // because that is what it is; reformatting that would leave compiler check mode
 // permanently out of date against a file nothing was wrong with.
-import { AssertError as _zmdbAssertError } from "@zmdb/aot-validator/utilities";
+import { AssertError as _zmdbAssertError } from "@zmdb/validator";
 import { ProtoReader as _zmdbProtoReader } from "@zmdb/protobuf/wire";
 import { ProtoWriter as _zmdbProtoWriter } from "@zmdb/protobuf/wire";
 function _zmdbCheckGetOrder0(_v) { return typeof _v === "object" && _v !== null && !Array.isArray(_v) && (typeof _v.id === "string" && _v.id.length >= 1); }

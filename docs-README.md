@@ -74,11 +74,11 @@ async findAdmins() {
 zmdb is one product delivered through focused package firebreaks. The frozen release target keeps the eight-package core cohesive while versioning 28 integrations and two tooling packages
 independently. The product catalog owns official membership, architecture policy owns dependency direction, and release policy owns release groups and compatibility ranges:
 
-- `@zmdb/schema-core` — the tag vocabulary, the IR, and type derivation
-- `@zmdb/query-compiler` — builder to `{ text, parameters }`, never a connection
-- `@zmdb/aot-validator` — compiler-free validation and serialization runtime
+- `@zmdb/schema` — the tag vocabulary, the IR, and type derivation
+- `@zmdb/sql` — builder to `{ text, parameters }`, never a connection
+- `@zmdb/validator` — compiler-free validation and serialization runtime
 - `@zmdb/compiler` — the single TypeScript front end, AOT emitter, and build integrations
-- `@zmdb/repository` — BaseRepository with auto-validation
+- `@zmdb/orm` — BaseRepository with auto-validation
 
 The complete current graph, canonical rings, optional-peer boundaries, package-admission workflow, current publication workflow, and frozen target contract are generated or checked in
 [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`docs-site/content/architecture.md`](./docs-site/content/architecture.md), [`PUBLISHING.md`](./PUBLISHING.md), and
@@ -99,7 +99,7 @@ npm add zmdb@alpha
 Or install the packages you want:
 
 ```bash
-npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository
+npm install @zmdb/schema @zmdb/sql @zmdb/validator @zmdb/orm
 npm install --save-dev @zmdb/compiler
 ```
 

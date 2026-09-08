@@ -7,8 +7,8 @@
 // `documents` is declared rather than defined so assignability is checked while the
 // emitted values stay available to the spec, which supplies the function at evaluation.
 
-import type { CreateDTO, ReadDTO } from '@zmdb/schema-core/derive';
-import { toJsonSchema, type JsonSchemaObject } from '@zmdb/schema-core/openapi';
+import { type CreateDTO, type ReadDTO } from '@zmdb/schema/derive';
+import { toJsonSchema, type JsonSchemaObject } from '@zmdb/schema/openapi';
 
 import type { User } from './entities.js';
 

@@ -95,7 +95,7 @@ if (writeFinal && unstable.length > 0) {
 
 const output = {
   schemaVersion: 1,
-  suite: '@zmdb/aot-validator populated-row shallow validation',
+  suite: '@zmdb/validator populated-row shallow validation',
   publicationStatus: writeFinal ? 'final' : 'diagnostic',
   measuredAt: new Date().toISOString(),
   baseHead: git(['rev-parse', 'HEAD']),

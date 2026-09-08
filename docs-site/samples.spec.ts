@@ -347,7 +347,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
         fixture,
         fixtureDocument(
           sampleFence(JSON.stringify({ mode: 'compile', id: 'private-source-import' }), [
-            "import type { Table } from '../../packages/schema-core/src/tags/index.js';",
+            "import type { Table } from '../../packages/schema/src/tags/index.js';",
             'const value: Table = {} as Table;',
             'void value;',
           ]),
@@ -356,7 +356,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
       const result = verifySamples(fixture);
       expect(result.status).not.toBe(0);
       expect(result.output).toMatch(/private-source-import/i);
-      expect(result.output).toMatch(/private|packages\/schema-core\/src/i);
+      expect(result.output).toMatch(/private|packages\/schema\/src/i);
     });
   });
 

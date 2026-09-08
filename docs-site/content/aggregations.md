@@ -3,7 +3,7 @@ Grouped aggregates — `count`, `sum`, `avg`, `min`, `max` with `GROUP BY` and `
 ## Count
 
 ```ts
-import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
+import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
 
 aggregateSelectFrom('orders', 'postgres').count('id', 'orderCount').compile();
 ```

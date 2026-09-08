@@ -1,4 +1,4 @@
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 
 import type { HttpContractIR, OAuthFlows, SecurityRequirement, SecurityScheme } from '../contract/index.js';
 import { toOpenApi, type OpenApiDocument, type OpenApiRenderOptions } from './index.js';

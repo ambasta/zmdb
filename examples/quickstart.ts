@@ -12,8 +12,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/compiler/testing';
-import { defineRepository } from '@zmdb/repository';
-import type { OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { defineRepository } from '@zmdb/orm';
+import { type OneToMany, type PrimaryKey, type References, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 
 // 1 — declare your tables once. Everything below is derived from these two interfaces: the

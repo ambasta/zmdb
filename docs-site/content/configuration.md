@@ -35,7 +35,7 @@ The useful pattern is one module that reads the environment and exports typed va
 ```ts
 // src/config.ts
 import { Pool } from 'pg';
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 import { postgresDriver } from 'zmdb/postgres';
 
 interface Env {

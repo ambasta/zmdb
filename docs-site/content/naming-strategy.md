@@ -33,10 +33,10 @@ The returned entity still has an `authorId` property.
 
 ## Built-in strategies
 
-The public implementations live at `@zmdb/schema-core/naming`:
+The public implementations live at `@zmdb/schema/naming`:
 
 ```ts
-import { resolveNaming, snakeCase, snakeCasePlural } from '@zmdb/schema-core/naming';
+import { resolveNaming, snakeCase, snakeCasePlural } from '@zmdb/schema/naming';
 ```
 
 `snakeCase` handles acronym and digit boundaries rather than inserting an underscore before every capital:

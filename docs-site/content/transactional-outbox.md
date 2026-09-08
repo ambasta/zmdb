@@ -1,5 +1,4 @@
-> **Supported.** `@zmdb/repository/outbox` exports the declared table, the transaction-only writer and the dispatcher. `@zmdb/query-compiler/outbox` exports the migration and the dialect-aware claim
-> statements.
+> **Supported.** `@zmdb/orm/outbox` exports the declared table, the transaction-only writer and the dispatcher. `@zmdb/orm/outbox` exports the migration and the dialect-aware claim statements.
 
 ## The problem it solves
 
@@ -20,8 +19,8 @@ The outbox makes the publish a database write. A separate dispatcher reads only 
 defaults, partial index or MySQL's bounded key columns.
 
 ```ts
-import { outboxMigration } from '@zmdb/query-compiler/outbox';
-import { OutboxSchema } from '@zmdb/repository/outbox';
+import { outboxMigration } from '@zmdb/orm/outbox';
+import { OutboxSchema } from '@zmdb/orm/outbox';
 import { snapshot, up } from 'zmdb/migrations';
 
 const migration = outboxMigration(17, 'postgres');
@@ -70,7 +69,7 @@ types remain strings.
 ## Write inside the caller's transaction
 
 ```ts
-import { outboxWriter } from '@zmdb/repository/outbox';
+import { outboxWriter } from '@zmdb/orm/outbox';
 
 await db.transaction(async tx => {
   const order = await orderRepo.withTransaction(tx).create(dto);
@@ -84,7 +83,7 @@ wraps.
 ## Dispatch
 
 ```ts
-import { createOutboxDispatcher } from '@zmdb/repository/outbox';
+import { createOutboxDispatcher } from '@zmdb/orm/outbox';
 
 const dispatcher = createOutboxDispatcher({
   driver,
@@ -162,7 +161,7 @@ There is deliberately no automatic replay helper: retrying a poison message befo
 claim path can see it:
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 
 const replay = createQueryCompiler(driver.dialect)
   .updateTable('zmdb_outbox')

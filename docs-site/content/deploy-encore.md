@@ -20,7 +20,7 @@ and do not wrap Encore's endpoints in `@zmdb/web` — you would lose the tracing
 
 ```ts
 import { SQLDatabase } from 'encore.dev/storage/sqldb';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const db = new SQLDatabase('app', { migrations: './migrations' });
 

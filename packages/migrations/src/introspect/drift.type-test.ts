@@ -1,5 +1,5 @@
-import type { DialectTarget } from '@zmdb/query-compiler';
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
+import { type DialectTarget } from '@zmdb/sql';
 
 import type { ChangeOp, SchemaSnapshot } from '../index.js';
 import { mysqlDialect } from '../testing/official-dialects.fixture.js';

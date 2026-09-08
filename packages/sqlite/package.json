@@ -47,14 +47,14 @@
   },
   "devDependencies": {
     "@zmdb/compiler": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^",
-    "@zmdb/schema-core": "workspace:^",
+    "@zmdb/orm": "workspace:^",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/sql": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/query-compiler": "1.0.0-alpha.4",
-    "@zmdb/repository": "1.0.0-alpha.4"
+    "@zmdb/orm": "1.0.0-alpha.4",
+    "@zmdb/sql": "1.0.0-alpha.4"
   },
   "engines": {
     "node": ">=26"

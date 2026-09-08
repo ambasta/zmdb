@@ -1,6 +1,6 @@
-import type { ToolSpec } from '@zmdb/ai';
+import { type ToolSpec } from '@zmdb/ai';
 import { defineTools, type ToolRegistry } from '@zmdb/ai/chat';
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 
 import {
   createMcpClient,

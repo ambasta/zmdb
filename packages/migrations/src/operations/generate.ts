@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { SqlDialect } from '@zmdb/query-compiler';
+import { type SqlDialect } from '@zmdb/sql';
 
 import { writeTextAtomically } from '../file-io.js';
 import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot } from '../index.js';

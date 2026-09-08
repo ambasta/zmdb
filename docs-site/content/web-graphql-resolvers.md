@@ -135,8 +135,8 @@ Also disable introspection in production and cap query depth and complexity — 
 
 ## What it would have taken
 
-The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`, and it is not being implemented. Four decorators, a registry, and a type that ties the two
-halves together:
+The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema/src/sdl/SPEC.md`, and it is not being implemented. Four decorators, a registry, and a type that ties the two halves
+together:
 
 ```ts
 @Resolver('Post')

@@ -4,7 +4,7 @@
 // live-PostgreSQL + Drizzle/Prisma/Kysely + k6 comparison is reported as
 // DNF(not implemented) rather than faked. Anti-pattern cases are
 // DNF(anti-pattern).
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { sqlite } from '@zmdb/sqlite';
 
 import type { BenchResult } from '../results.js';
@@ -19,7 +19,7 @@ export interface OrmEngine {
 
 /**
  * Minimal structural view of a `node:sqlite` database — the same trick as
- * `@zmdb/repository`'s sqlite driver: methods are bivariant, so a real
+ * `@zmdb/orm`'s sqlite driver: methods are bivariant, so a real
  * `DatabaseSync` is assignable and nothing here depends on ambient Node types.
  */
 export interface SqliteLike {

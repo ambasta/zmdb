@@ -47,9 +47,9 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { CoreSchema, TaggedSchema } from '@zmdb/schema-core';
-import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
-import type { NamingStrategy } from '@zmdb/schema-core/naming';
+import { type CoreSchema, type TaggedSchema } from '@zmdb/schema';
+import { schemaFromIR, type SchemaIR } from '@zmdb/schema/ir';
+import { type NamingStrategy } from '@zmdb/schema/naming';
 
 import { schemaIrFromType, type ReflectDiagnostic, type ReflectOptions } from '../reflect/index.js';
 import { ReflectSession } from '../reflect/session.js';

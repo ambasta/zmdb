@@ -20,9 +20,9 @@ sqliteVertical.driver === sqliteDriver;
 sqlite.introspector === sqliteIntrospector;
 ```
 
-The package depends at runtime only on `@zmdb/migrations`, `@zmdb/query-compiler` and `@zmdb/repository`. Its manifest declares no direct third-party runtime dependency or database client. Its public
-types are structural; the root is browser-safe and does not import a Node built-in merely by loading. The structural adapter works with `node:sqlite` when the application passes a
-`DatabaseSync`-compatible object.
+The package depends at runtime only on `@zmdb/migrations`, `@zmdb/sql` and `@zmdb/orm`. Its manifest declares no direct third-party runtime dependency or database client. Its public types are
+structural; the root is browser-safe and does not import a Node built-in merely by loading. The structural adapter works with `node:sqlite` when the application passes a `DatabaseSync`-compatible
+object.
 
 The SQLite embedded subpath delegates to the generic browser-safe runner in `@zmdb/migrations/embedded`. It imports no Node built-in, filesystem code, compiler barrel or database binding.
 
@@ -60,8 +60,8 @@ operations are refusals rather than plausible SQL.
 - `repository/src/drivers/sqlite.ts`, Date binding, statement caching, active-iterator protection, streaming and transactions; and
 - driver, migration, introspection and capability tests specific to SQLite.
 
-Generic repository tests may continue to use an in-memory SQLite connection as a fixture. They stay in `@zmdb/repository` when the assertion is about generic CRUD, DTO, cache, relation or lifecycle
-behavior rather than SQLite.
+Generic repository tests may continue to use an in-memory SQLite connection as a fixture. They stay in `@zmdb/orm` when the assertion is about generic CRUD, DTO, cache, relation or lifecycle behavior
+rather than SQLite.
 
 ## Required refusals
 

@@ -1,4 +1,4 @@
-> **Install:** `npm add @zmdb/ai@alpha @zmdb/schema-core@alpha @zmdb/aot-validator@alpha`. `@zmdb/ai` owns provider documents; `@zmdb/aot-validator` owns the boundary check. No provider client is
+> **Install:** `npm add @zmdb/ai@alpha @zmdb/schema-core@alpha @zmdb/aot-validator@alpha`. `@zmdb/ai` owns provider documents; `@zmdb/validator` owns the boundary check. No provider client is
 > installed unless the application chooses one.
 
 Getting a model to return data your database accepts is two problems: constraining what it produces, and checking what it actually produced. zmdb's schema object covers both, from one declaration.
@@ -32,8 +32,8 @@ const res = await client.messages.create({
 A schema-constrained model output is _usually_ right, which is not the same as right:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
-import type { CreateDTO } from '@zmdb/schema-core';
+import { assert } from '@zmdb/validator';
+import { type CreateDTO } from '@zmdb/schema';
 
 const block = res.content.find(c => c.type === 'tool_use');
 const dto = assert<CreateDTO<User>>(block?.input);

@@ -5,7 +5,7 @@
 // bundle actually ships — which is the only form of REQ-TF-10 worth having, because that
 // object is what `defineRepository` compiles SQL from.
 
-import { schemaOf } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema';
 
 import type { Membership, User } from './tables.js';
 

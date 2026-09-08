@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 
-import type { NamingStrategy } from '@zmdb/schema-core/naming';
+import { type NamingStrategy } from '@zmdb/schema/naming';
 
 import { codegen } from './codegen/index.js';
 import { artifactPaths, isGeneratedPath } from './codegen/witness.js';

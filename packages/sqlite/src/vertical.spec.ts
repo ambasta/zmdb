@@ -9,7 +9,7 @@ import {
   UnsupportedFeatureError,
   type MigrationPlan,
   type SchemaObjectOperation,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import { sqlite } from './dialect.js';

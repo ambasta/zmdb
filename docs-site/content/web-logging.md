@@ -86,7 +86,7 @@ backpressure and cancellation.
 A `Driver` wrapper covers handlers, workers and CLI scripts alike, because it sits under all of them:
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 export function loggingDriver(inner: Driver, sink: Sink): Driver {
   return {
@@ -156,7 +156,7 @@ Which makes logging _testable_: the assertion that an error path actually logs i
 - No global logger and no ambient context, so nothing to reset between tests and nothing shared between concurrent requests. A traced handler can read `ctx.span?.spanContext()` explicitly when a log
   needs trace correlation.
 - `sink` is one function type — adapt pino, `console`, or an array in a test in a single line.
-- Granular imports: `@zmdb/web/middleware`, `@zmdb/repository`.
+- Granular imports: `@zmdb/web/middleware`, `@zmdb/orm`.
 
 ---
 

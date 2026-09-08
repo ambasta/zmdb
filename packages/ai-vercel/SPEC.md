@@ -43,13 +43,13 @@ The caller passes the installed SDK's `jsonSchema` function. The package neither
 - Current direct workspace dependency: `@zmdb/ai` at `workspace:^`. The frozen release target replaces that cross-unit source range with the explicit compatibility range owned by release policy.
 - Sole external peer: `ai` at `^7.0.93`, marked optional because shipped source never imports it and receives the branded factory from the caller.
 - Supported and tested floor: exact `ai@7.0.93`.
-- No runtime dependency on `@zmdb/schema-core`, `@ai-sdk/*`, Zod, a provider SDK or another integration package. `zod` is a development-only entry that satisfies the AI SDK's own peer while both the
+- No runtime dependency on `@zmdb/schema`, `@ai-sdk/*`, Zod, a provider SDK or another integration package. `zod` is a development-only entry that satisfies the AI SDK's own peer while both the
   adapter and SDK declarations compile.
 
-Issue #746 built and packed `@zmdb/query-compiler`, `@zmdb/schema-core`, `@zmdb/ai`, and `@zmdb/ai-vercel`, installed those tarballs with exact `ai@7.0.93` in a project outside the repository,
-resolved both imports from that project's `node_modules`, typechecked representative public use with `exactOptionalPropertyTypes: true` and the documented `skipLibCheck: true`, and executed the real
-`description`, `execute`, and `inputSchema` fields. The stricter `skipLibCheck: false` attempt reached upstream `@ai-sdk/provider-utils` declaration errors, so the proof does not claim that
-configuration. Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
+Issue #746 built and packed `@zmdb/sql`, `@zmdb/schema`, `@zmdb/ai`, and `@zmdb/ai-vercel`, installed those tarballs with exact `ai@7.0.93` in a project outside the repository, resolved both imports
+from that project's `node_modules`, typechecked representative public use with `exactOptionalPropertyTypes: true` and the documented `skipLibCheck: true`, and executed the real `description`,
+`execute`, and `inputSchema` fields. The stricter `skipLibCheck: false` attempt reached upstream `@ai-sdk/provider-utils` declaration errors, so the proof does not claim that configuration.
+Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
 
 Issue #748 made the measured policy executable: the manifest exposes `ai@^7.0.93`, the development dependency is exact `7.0.93`, and the packed test installs the four published zmdb tarballs plus the
 real SDK in a clean project. No root-workspace alias or TypeScript path mapping participates in that proof.

@@ -60,15 +60,15 @@ import { API } from 'typescript/unstable/sync';
 // package-script `--import` flag. Register the repository's canonical `.js` -> `.ts`
 // source resolver before dynamically loading the shipped vocabulary.
 await import('../../scripts/ts-specifier-hook.mjs');
-const { KNOWN_CONSTRAINT_KINDS, TAG_NAMES } = await import('../../packages/schema-core/src/ir/vocabulary.js');
+const { KNOWN_CONSTRAINT_KINDS, TAG_NAMES } = await import('../../packages/schema/src/ir/vocabulary.js');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-const TAGS = 'packages/schema-core/src/tags/index.ts';
-const VOCABULARY = 'packages/schema-core/src/ir/vocabulary.type-test.ts';
+const TAGS = 'packages/schema/src/tags/index.ts';
+const VOCABULARY = 'packages/schema/src/ir/vocabulary.type-test.ts';
 const REFLECT = 'packages/compiler/src/reflect/index.ts';
 const FIXTURES = 'packages/compiler/src/reflect/__fixtures__/';
-const RUNTIME = 'packages/aot-validator/src/index.ts';
+const RUNTIME = 'packages/validator/src/index.ts';
 const INLINER = 'packages/compiler/src/transform/index.ts';
 const COMPILER_SOURCE_ROOT = resolve(ROOT, 'packages/compiler/src');
 
@@ -506,8 +506,8 @@ function programOf(name) {
 const problems = [];
 const notes = [];
 
-const core = programOf('schema-core');
-const validator = programOf('aot-validator');
+const core = programOf('schema');
+const validator = programOf('validator');
 const compiler = programOf('compiler');
 
 try {
@@ -731,8 +731,8 @@ try {
     /\/src\//.test(fileName) && !TEST_FILE.some(pattern => pattern.test(fileName)) && !fileName.endsWith('.d.ts');
 
   for (const { program, label } of [
-    { program: core.program, label: 'schema-core' },
-    { program: validator.program, label: 'aot-validator' },
+    { program: core.program, label: 'schema' },
+    { program: validator.program, label: 'validator' },
     { program: compiler.program, label: 'compiler' },
   ]) {
     for (const fileName of program.getSourceFileNames()) {

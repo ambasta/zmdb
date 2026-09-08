@@ -2,7 +2,7 @@ import type { ResolvedConfig } from '@zmdb/compiler/config';
 import { schemasFromFiles } from '@zmdb/compiler/testing';
 import type { MigrationDriver, MigrationProject, SnapshotableSchema } from '@zmdb/migrations';
 import { emitDeclarations } from '@zmdb/migrations/declarations';
-import { dialectName, type Introspector } from '@zmdb/query-compiler';
+import { dialectName, type Introspector } from '@zmdb/sql';
 import type { FormatConfig } from 'oxfmt';
 
 import { configuredIntrospector } from './database.js';

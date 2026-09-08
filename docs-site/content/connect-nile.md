@@ -5,8 +5,8 @@ on its own.
 
 ```ts
 import { Pool } from 'pg';
-import { ValidationError } from '@zmdb/schema-core';
-import type { Driver } from '@zmdb/repository';
+import { ValidationError } from '@zmdb/validator';
+import { type Driver } from '@zmdb/orm';
 
 const pool = new Pool({
   connectionString: process.env.NILEDB_URL,

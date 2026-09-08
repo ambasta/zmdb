@@ -4,7 +4,7 @@ Bun runs zmdb unchanged — it is ESM-only TypeScript with no native code — an
 
 ```ts
 import { Database } from 'bun:sqlite';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const db = new Database('app.db', { strict: true });
 db.exec('PRAGMA foreign_keys = ON');

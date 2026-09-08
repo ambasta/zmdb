@@ -1,5 +1,9 @@
+import assert from 'node:assert/strict';
+
 import { BaseRepository, ValidationError } from '@zmdb/orm';
 import { schemaFromIR } from '@zmdb/schema/ir';
+
+import { dialect } from './dialect.js';
 
 const schema = schemaFromIR({
   table: 'users',
@@ -39,7 +43,7 @@ const schema = schemaFromIR({
 
 const queries = [];
 const driver = {
-  dialect: 'sqlite',
+  dialect,
   async execute(query) {
     queries.push(query);
     if (query.text.startsWith('INSERT')) return [{ id: 1, email: query.parameters[0] }];
@@ -51,12 +55,16 @@ class Users extends BaseRepository {
   static schema = schema;
 }
 
-const users = new Users(driver, 'sqlite');
+const users = new Users(driver, dialect);
 const created = await users.create({ email: 'a@example.test' });
 const found = await users.findById(1);
 if (created.id !== 1 || found?.email !== 'a@example.test' || queries.length !== 2) {
   throw new Error('@zmdb/orm did not execute installed typed CRUD through the structural driver');
 }
+assert.equal(queries[0].text, 'INSERT INTO <users> (<email>) VALUES ($1) RETURNING *');
+assert.deepEqual(queries[0].parameters, ['a@example.test']);
+assert.equal(queries[1].text, 'SELECT * FROM <users> WHERE <id> = $1 LIMIT 1');
+assert.deepEqual(queries[1].parameters, [1]);
 
 try {
   await users.create({ email: 'x' });
@@ -64,3 +72,4 @@ try {
 } catch (error) {
   if (!(error instanceof ValidationError)) throw error;
 }
+assert.equal(queries.length, 2, 'invalid values must be refused before driver execution');

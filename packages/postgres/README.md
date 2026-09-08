@@ -5,7 +5,7 @@ The PostgreSQL vertical for zmdb. It binds the SQL compiler, migration DDL, cata
 ```ts
 import { Pool } from 'pg';
 import { postgres, postgresDriver } from '@zmdb/postgres';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const driver = postgresDriver(pool);

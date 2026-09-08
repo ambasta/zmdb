@@ -1,6 +1,6 @@
 // Type-level contract for the bounded multipart parser shipped by #569.
 
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type { multipartPipe } from '../dto-pipes/index.js';
 import type { Pipe } from '../middleware/index.js';

@@ -54,7 +54,7 @@ Nothing enumerates your tables either. A schema comes from a type — `schemaOf<
 array:
 
 ```ts
-import { schemaOf } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema';
 import type { Post, User } from './domain/index.ts';
 
 export const ALL_TABLES = [schemaOf<User>(), schemaOf<Post>()] as const;

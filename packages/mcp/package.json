@@ -44,9 +44,9 @@
     "@zmdb/ai": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
-    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/compiler": "workspace:^",
-    "@zmdb/schema-core": "workspace:^",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/validator": "workspace:^",
     "typescript": "7.0.2"
   },
   "engines": {

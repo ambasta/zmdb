@@ -1,0 +1,21 @@
+{
+  // Emit configuration. The checking one is `./tsconfig.json`; see
+  // `../../tsconfig.build.json` for why they cannot be the same file.
+  "extends": "../../tsconfig.build.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "src/**/*.type-test.ts",
+    "src/dx/fixtures.ts",
+    "src/orders-fixture.ts",
+    "src/testing/official-dialects.fixture.ts",
+    "src/transactions/recording-conn.ts",
+    "src/typed-methods/typed-methods.fixture.ts",
+    "src/typed-populate/fixtures.ts",
+    "dist"
+  ]
+}

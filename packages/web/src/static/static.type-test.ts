@@ -6,7 +6,7 @@
 // type, and a runtime test can only ever assert that one particular spelling of an option does
 // nothing — `serve('sub', {})` answering 404 says nothing about `{ listing: true }` existing.
 //
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type { StaticOptions } from '../index.js';
 

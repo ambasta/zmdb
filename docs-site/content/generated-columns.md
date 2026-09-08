@@ -6,10 +6,10 @@ application-level calculations.
 
 ## Creating a Generated Column
 
-Use `generatedColumnDdl` from `@zmdb/query-compiler/schema-objects` to generate the DDL. The function accepts a `GeneratedColumn` definition with the column name, SQL type, and expression.
+Use `generatedColumnDdl` from `@zmdb/sql/schema-objects` to generate the DDL. The function accepts a `GeneratedColumn` definition with the column name, SQL type, and expression.
 
 ```ts
-import { generatedColumnDdl } from '@zmdb/query-compiler/schema-objects';
+import { generatedColumnDdl } from '@zmdb/sql/schema-objects';
 
 const genCol = {
   name: 'full_name',
@@ -106,7 +106,7 @@ If you need to _read_ it through a typed path, declare a second interface over a
 Generated columns can be selected like regular columns. They're computed automatically, so you don't need to do anything special in your queries.
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);

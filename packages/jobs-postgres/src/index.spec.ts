@@ -183,7 +183,7 @@ describe('@zmdb/jobs-postgres (#661)', () => {
     });
     expect(adapter.peerDependenciesMeta).toBeUndefined();
 
-    for (const name of ['aot-validator', 'app', 'jobs', 'repository', 'web', 'zmdb']) {
+    for (const name of ['validator', 'app', 'jobs', 'orm', 'web', 'zmdb']) {
       const manifest = readManifest(join(root, 'packages', name, 'package.json'));
       expect(manifest.peerDependencies ?? {}, name).not.toHaveProperty('pg');
     }

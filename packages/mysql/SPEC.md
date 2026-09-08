@@ -18,8 +18,8 @@ export function mysqlFamilyMigrations<Name extends string>(name: Name, overrides
 The family factories are the only parent implementation surface SingleStore may reuse. They accept the child dialect explicitly, return objects bound to it, and expose no mutable parent table. The
 migration factory keeps ordinary MySQL columns, keys, ALTER forms, ledger behavior, quoting and type rendering in this package while admitting child-owned type and table-definition clauses.
 
-The package depends on `@zmdb/query-compiler` and `@zmdb/repository`. `mysql2` is an optional peer and a development dependency. The adapter is typed against the structural `mysql2/promise` connection
-and pool methods it actually uses.
+The package depends on `@zmdb/sql` and `@zmdb/orm`. `mysql2` is an optional peer and a development dependency. The adapter is typed against the structural `mysql2/promise` connection and pool methods
+it actually uses.
 
 ## Capabilities
 

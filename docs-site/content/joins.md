@@ -5,7 +5,7 @@ The examples use `orders(id, userId, status)` joined to `users(id, email)`.
 ## Inner join
 
 ```ts
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
+import { joinableSelectFrom } from '@zmdb/sql/joins';
 
 joinableSelectFrom('orders', 'postgres').innerJoin('users', 'orders.userId', 'users.id').where('orders.status', '=', 'shipped').compile();
 ```

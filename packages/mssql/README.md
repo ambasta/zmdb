@@ -12,7 +12,7 @@ npm add @zmdb/mssql@alpha mssql
 
 ```ts
 import sql from 'mssql';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { mssql, mssqlDriver } from '@zmdb/mssql';
 
 const pool = await sql.connect(process.env.DATABASE_URL!);

@@ -13,21 +13,21 @@ Provider schema dialects live in `@zmdb/ai`. Provider clients and framework adap
 | Vercel AI SDK tool adapter                            | `npm add @zmdb/ai-vercel@alpha ai@^7.0.93`                   | `@zmdb/ai-vercel`                                                                          | optional `ai@^7.0.93`                |
 | Transport-neutral MCP client/server cores             | `npm add @zmdb/ai@alpha @zmdb/mcp@alpha`                     | `@zmdb/mcp`                                                                                | none; no MCP SDK                     |
 
-`@zmdb/ai` itself depends only on `@zmdb/schema-core` and has no external peer. Each integration depends inward on `@zmdb/ai`; installing the provider-neutral package or MCP does not install
-Anthropic, LangChain, Vercel AI, or an MCP SDK.
+`@zmdb/ai` itself depends only on `@zmdb/schema` and has no external peer. Each integration depends inward on `@zmdb/ai`; installing the provider-neutral package or MCP does not install Anthropic,
+LangChain, Vercel AI, or an MCP SDK.
 
 ## Migrating from schema-core
 
-The old `@zmdb/schema-core` exports are removed, not deprecated aliases. Replace all six former subpaths directly:
+The old `@zmdb/schema` exports are removed, not deprecated aliases. Replace all six former subpaths directly:
 
-| Removed schema-core subpath | Final import                                                                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/llm`                      | `@zmdb/ai` for tool APIs; `@zmdb/schema-core/openapi` for `toJsonSchema`; use the explicit chat, HTTP, and MCP entries below for former star exports |
-| `/llm/chat`                 | `@zmdb/ai/chat`; move `anthropicDriver` and its types to `@zmdb/ai-anthropic`                                                                        |
-| `/llm/http`                 | `@zmdb/ai/http`                                                                                                                                      |
-| `/llm/langchain`            | `@zmdb/ai-langchain`                                                                                                                                 |
-| `/llm/ai-sdk`               | `@zmdb/ai-vercel`                                                                                                                                    |
-| `/llm/mcp`                  | `@zmdb/mcp`                                                                                                                                          |
+| Removed schema-core subpath | Final import                                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/llm`                      | `@zmdb/ai` for tool APIs; `@zmdb/schema/openapi` for `toJsonSchema`; use the explicit chat, HTTP, and MCP entries below for former star exports |
+| `/llm/chat`                 | `@zmdb/ai/chat`; move `anthropicDriver` and its types to `@zmdb/ai-anthropic`                                                                   |
+| `/llm/http`                 | `@zmdb/ai/http`                                                                                                                                 |
+| `/llm/langchain`            | `@zmdb/ai-langchain`                                                                                                                            |
+| `/llm/ai-sdk`               | `@zmdb/ai-vercel`                                                                                                                               |
+| `/llm/mcp`                  | `@zmdb/mcp`                                                                                                                                     |
 
 There is deliberately no schema-core forwarder: `@zmdb/ai` already depends on schema-core, so forwarding in the opposite direction would create a package cycle.
 
@@ -51,7 +51,7 @@ behind these choices lives in `TOOL_DIALECTS` with the source and date used to i
 
 ```ts
 import { toolFor } from '@zmdb/ai';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
 interface Order extends Table<'orders'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

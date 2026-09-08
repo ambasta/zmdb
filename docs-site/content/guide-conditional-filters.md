@@ -5,7 +5,7 @@ A search endpoint takes optional filters and applies the ones that were supplied
 Build the `where` object conditionally:
 
 ```ts
-import type { WhereDTO } from '@zmdb/repository';
+import { type WhereDTO } from '@zmdb/orm';
 
 interface Query {
   minAge?: number;

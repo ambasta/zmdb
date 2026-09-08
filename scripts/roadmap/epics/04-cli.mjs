@@ -17,7 +17,7 @@ export const CLI_EPICS = [
       'cli-export',
       'cli-pull',
     ],
-    packages: ['@zmdb/query-compiler', '@zmdb/compiler', 'zmdb'],
+    packages: ['@zmdb/sql', '@zmdb/compiler', 'zmdb'],
     motivation: `
 The migration engine is complete and unreachable. \`snapshot\`, \`diff\`, \`ddlType\`, \`emitUp\`,
 \`emitDown\` and the runner all exist and are tested, and using any of them means writing a script that
@@ -243,7 +243,7 @@ export interface ResolvedConfig extends ZmdbConfig {
         why: 'These are the commands that can lose data, so they come after the scaffolding is proven and they get the strictest tests. The ledger honesty property — that a failed migration is not recorded as applied — is the one that determines whether the tool is recoverable after a bad deploy.',
         files: [
           '`packages/zmdb/src/cli/commands/migrate.ts`, `push.ts`, `check.ts`, `up.ts` (new)',
-          '`packages/query-compiler/src/migrations/runner.ts` — anything the runner is missing for the ledger.',
+          '`packages/sql/src/migrations/runner.ts` — anything the runner is missing for the ledger.',
         ],
         steps: [
           'Implement the ledger through the runner, not in the command. If the runner does not own the ledger today, moving it there is part of this slice — a ledger implemented in the CLI is invisible to library users and will diverge.',

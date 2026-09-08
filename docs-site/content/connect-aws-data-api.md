@@ -4,7 +4,7 @@ Dialect: `'postgres'` (or `'mysql'`). The RDS Data API is HTTP against Aurora Se
 
 ```ts
 import { RDSDataClient, ExecuteStatementCommand } from '@aws-sdk/client-rds-data';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const client = new RDSDataClient({});
 

@@ -4,7 +4,7 @@ Dialect: `'sqlite'`. SQLite Cloud is hosted SQLite with a wire protocol and an H
 
 ```ts
 import { Database } from '@sqlitecloud/drivers';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const db = new Database(requireEnv('SQLITECLOUD_URL'));
 

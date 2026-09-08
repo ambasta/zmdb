@@ -46,7 +46,7 @@ See [Next.js Client](./client-next.html) for the complete client binding, cancel
 // src/server/db.ts   — server only
 import 'server-only';
 import { Pool } from 'pg';
-import { defineRepository } from '@zmdb/repository';
+import { defineRepository } from '@zmdb/orm';
 import { users, posts } from '@/schema.js';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
@@ -98,9 +98,9 @@ Watch for N+1s: a server component that renders a list of children, each fetchin
 
 ```ts
 // app/api/posts/route.ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 import { postRepo } from '@/server/db';
-import type { CreateDTO } from '@zmdb/repository';
+import { type CreateDTO } from '@zmdb/orm';
 import { posts } from '@/schema.js';
 
 export async function POST(request: Request) {

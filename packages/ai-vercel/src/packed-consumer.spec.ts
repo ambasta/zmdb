@@ -12,7 +12,7 @@ import {
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const PUBLISH_PACKAGES = await publishCatalog(ROOT);
-const PACKAGE_NAMES = ['@zmdb/query-compiler', '@zmdb/schema-core', '@zmdb/ai', '@zmdb/ai-vercel'] as const;
+const PACKAGE_NAMES = ['@zmdb/sql', '@zmdb/schema', '@zmdb/validator', '@zmdb/ai', '@zmdb/ai-vercel'] as const;
 
 function build(packageName: (typeof PACKAGE_NAMES)[number]): void {
   const result = spawnSync('yarn', ['workspace', packageName, 'build'], {
@@ -163,12 +163,16 @@ describe('@zmdb/ai-vercel packed AI SDK floor (#748)', () => {
         },
         packages: [
           {
-            directory: join(ROOT, 'packages', 'query-compiler'),
-            manifest: publishManifest(readManifest('query-compiler', PUBLISH_PACKAGES)),
+            directory: join(ROOT, 'packages', 'sql'),
+            manifest: publishManifest(readManifest('sql', PUBLISH_PACKAGES)),
           },
           {
-            directory: join(ROOT, 'packages', 'schema-core'),
-            manifest: publishManifest(readManifest('schema-core', PUBLISH_PACKAGES)),
+            directory: join(ROOT, 'packages', 'schema'),
+            manifest: publishManifest(readManifest('schema', PUBLISH_PACKAGES)),
+          },
+          {
+            directory: join(ROOT, 'packages', 'validator'),
+            manifest: publishManifest(readManifest('validator', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'ai'),

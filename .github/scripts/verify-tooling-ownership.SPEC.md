@@ -7,18 +7,18 @@
 
 ## 1. Extraction rule and totals
 
-The shipped/build-input source inventory is every file below `packages/{aot-validator,cli,compiler,migrations,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, plus
-`packages/schema-core/src/ir/{validation-shape,vocabulary}.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count
-because the publish manifest ships `src` and the build consumes or copies them.
+The shipped/build-input source inventory is every file below `packages/{validator,cli,compiler,migrations,sql,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, plus
+`packages/schema/src/ir/{validation-shape,vocabulary}.ts`, `packages/schema/src/naming/index.ts` and `packages/orm/src/outbox/sql.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in
+declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **209 paths**, each exactly once:
+The inventory has **210 paths**, each exactly once:
 
 ```json
 {
   "compiler": 34,
   "migrations": 21,
   "cli": 33,
-  "runtime": 30,
+  "runtime": 31,
   "facade": 53,
   "optional-integration": 0,
   "test-only": 38,
@@ -121,36 +121,36 @@ cli	packages/cli/src/templates/project.ts
 cli	packages/cli/src/templates/repository.ts
 cli	packages/cli/src/templates/schema.ts
 cli	packages/cli/src/templates/types.ts
-runtime	packages/aot-validator/src/advanced/index.ts
-runtime	packages/aot-validator/src/errors.ts
-runtime	packages/aot-validator/src/index.ts
-runtime	packages/aot-validator/src/regex-complexity.ts
-runtime	packages/aot-validator/src/serialization/index.ts
-runtime	packages/aot-validator/src/utilities/index.ts
+runtime	packages/validator/src/advanced/index.ts
+runtime	packages/validator/src/errors.ts
+runtime	packages/validator/src/index.ts
+runtime	packages/validator/src/regex-complexity.ts
+runtime	packages/validator/src/serialization/index.ts
+runtime	packages/validator/src/utilities/index.ts
 runtime	packages/compiler/src/config/contract.ts
-runtime	packages/query-compiler/src/aggregations/index.ts
-runtime	packages/query-compiler/src/clauses.ts
-runtime	packages/query-compiler/src/comments/index.ts
-runtime	packages/query-compiler/src/compiled-query.ts
-runtime	packages/query-compiler/src/dialects/index.ts
-runtime	packages/query-compiler/src/dialects/protocol.ts
-runtime	packages/query-compiler/src/errors.ts
-runtime	packages/query-compiler/src/expressions/index.ts
-runtime	packages/query-compiler/src/extensions/index.ts
-runtime	packages/query-compiler/src/fts/index.ts
-runtime	packages/query-compiler/src/index.ts
-runtime	packages/query-compiler/src/introspect/types.ts
-runtime	packages/query-compiler/src/joins/index.ts
-runtime	packages/query-compiler/src/migrations/types.ts
-runtime	packages/query-compiler/src/naming/index.ts
-runtime	packages/query-compiler/src/outbox/index.ts
-runtime	packages/query-compiler/src/quoting.ts
-runtime	packages/query-compiler/src/schema-objects/extensions.ts
-runtime	packages/query-compiler/src/schema-objects/index.ts
-runtime	packages/query-compiler/src/schema-objects/types.ts
-runtime	packages/query-compiler/src/set-ops/index.ts
-runtime	packages/schema-core/src/ir/validation-shape.ts
-runtime	packages/schema-core/src/ir/vocabulary.ts
+runtime	packages/sql/src/aggregations/index.ts
+runtime	packages/sql/src/clauses.ts
+runtime	packages/sql/src/comments/index.ts
+runtime	packages/sql/src/compiled-query.ts
+runtime	packages/sql/src/dialects/index.ts
+runtime	packages/sql/src/dialects/protocol.ts
+runtime	packages/sql/src/errors.ts
+runtime	packages/sql/src/expressions/index.ts
+runtime	packages/sql/src/extensions/index.ts
+runtime	packages/sql/src/fts/index.ts
+runtime	packages/sql/src/index.ts
+runtime	packages/sql/src/introspect/types.ts
+runtime	packages/sql/src/joins/index.ts
+runtime	packages/sql/src/migrations/types.ts
+runtime	packages/schema/src/naming/index.ts
+runtime	packages/orm/src/outbox/sql.ts
+runtime	packages/sql/src/quoting.ts
+runtime	packages/sql/src/schema-objects/extensions.ts
+runtime	packages/sql/src/schema-objects/index.ts
+runtime	packages/sql/src/schema-objects/types.ts
+runtime	packages/sql/src/set-ops/index.ts
+runtime	packages/schema/src/ir/validation-shape.ts
+runtime	packages/schema/src/ir/vocabulary.ts
 facade	packages/zmdb/src/app-commands.ts
 facade	packages/zmdb/src/app-cqrs.ts
 facade	packages/zmdb/src/app-data.ts
@@ -237,11 +237,12 @@ test-only	packages/compiler/src/reflect/__fixtures__/tables.ts
 test-only	packages/compiler/src/reflect/__fixtures__/tsconfig.json
 test-only	packages/migrations/src/introspect/__fixtures__/mysql-8.4.11.json
 test-only	packages/migrations/src/testing/official-dialects.fixture.ts
-test-only	packages/query-compiler/src/testing/capability-matrix.ts
-test-only	packages/query-compiler/src/testing/database-vertical.ts
-test-only	packages/query-compiler/src/testing/external-dialect.fixture.ts
-test-only	packages/query-compiler/src/testing/official-dialects.fixture.ts
+test-only	packages/sql/src/testing/capability-matrix.ts
+test-only	packages/sql/src/testing/database-vertical.ts
+test-only	packages/sql/src/testing/external-dialect.fixture.ts
+test-only	packages/sql/src/testing/official-dialects.fixture.ts
 test-only	packages/zmdb/src/testing/official-dialects.fixture.ts
+runtime	packages/validator/src/validation-error.ts
 ```
 
 `test-only` paths follow the concern they test when implementation moves them; they never become published public APIs. The zero counts are retained as ratchet categories: adding an
@@ -253,33 +254,33 @@ There are **76 current export keys**: 14 AOT validator, 9 query compiler and 53 
 their implementation moves, while #651's server facade keys, #620's concern facades, and #755's selected-jobs boundary are governed by `packages/zmdb/SPEC.md` and `scripts/product/catalog.mjs`.
 
 ```text
-@zmdb/aot-validator	.	retain	@zmdb/aot-validator
-@zmdb/aot-validator	./advanced	retain	@zmdb/aot-validator/advanced
-@zmdb/aot-validator	./emit	delete-after-move	@zmdb/compiler/emit
-@zmdb/aot-validator	./errors	retain	@zmdb/aot-validator/errors
-@zmdb/aot-validator	./lint	delete-after-move	@zmdb/compiler/lint
-@zmdb/aot-validator	./serialization	retain	@zmdb/aot-validator/serialization
-@zmdb/aot-validator	./utilities	retain	@zmdb/aot-validator/utilities
-@zmdb/aot-validator	./metro	delete-after-move	@zmdb/compiler/metro
-@zmdb/aot-validator	./plugin	delete-after-move	@zmdb/compiler/unplugin
-@zmdb/aot-validator	./reflect	delete-after-move	@zmdb/compiler/reflect
-@zmdb/aot-validator	./testing	delete-after-move	@zmdb/compiler/testing
-@zmdb/aot-validator	./codegen	delete-after-move	@zmdb/compiler
-@zmdb/aot-validator	./transformer	delete-after-move	@zmdb/compiler/transform
-@zmdb/aot-validator	./unplugin	delete-after-move	@zmdb/compiler/unplugin
-@zmdb/query-compiler	.	retain	@zmdb/query-compiler
-@zmdb/query-compiler	./comments	retain	@zmdb/query-compiler/comments
-@zmdb/query-compiler	./fts	retain	@zmdb/query-compiler/fts
-@zmdb/query-compiler	./joins	retain	@zmdb/query-compiler/joins
-@zmdb/query-compiler	./aggregations	retain	@zmdb/query-compiler/aggregations
-@zmdb/query-compiler	./introspect	delete-after-move	@zmdb/migrations/introspect
-@zmdb/query-compiler	./migrations	delete-after-move	@zmdb/migrations
-@zmdb/query-compiler	./migrations/embedded	delete-after-move	@zmdb/migrations/embedded
-@zmdb/query-compiler	./migrations/runner	delete-after-move	@zmdb/migrations/runner
-@zmdb/query-compiler	./naming	retain	@zmdb/query-compiler/naming
-@zmdb/query-compiler	./outbox	retain	@zmdb/query-compiler/outbox
-@zmdb/query-compiler	./set-ops	retain	@zmdb/query-compiler/set-ops
-@zmdb/query-compiler	./schema-objects	retain	@zmdb/query-compiler/schema-objects
+@zmdb/validator	.	retain	@zmdb/validator
+@zmdb/validator	./advanced	retain	@zmdb/validator/advanced
+@zmdb/validator	./emit	delete-after-move	@zmdb/compiler/emit
+@zmdb/validator	./errors	retain	@zmdb/validator/errors
+@zmdb/validator	./lint	delete-after-move	@zmdb/compiler/lint
+@zmdb/validator	./serialization	retain	@zmdb/validator/serialization
+@zmdb/validator	./utilities	retain	@zmdb/validator
+@zmdb/validator	./metro	delete-after-move	@zmdb/compiler/metro
+@zmdb/validator	./plugin	delete-after-move	@zmdb/compiler/unplugin
+@zmdb/validator	./reflect	delete-after-move	@zmdb/compiler/reflect
+@zmdb/validator	./testing	delete-after-move	@zmdb/compiler/testing
+@zmdb/validator	./codegen	delete-after-move	@zmdb/compiler
+@zmdb/validator	./transformer	delete-after-move	@zmdb/compiler/transform
+@zmdb/validator	./unplugin	delete-after-move	@zmdb/compiler/unplugin
+@zmdb/sql	.	retain	@zmdb/sql
+@zmdb/sql	./comments	retain	@zmdb/sql/comments
+@zmdb/sql	./fts	retain	@zmdb/sql/fts
+@zmdb/sql	./joins	retain	@zmdb/sql/joins
+@zmdb/sql	./aggregations	retain	@zmdb/sql/aggregations
+@zmdb/sql	./introspect	delete-after-move	@zmdb/migrations/introspect
+@zmdb/sql	./migrations	delete-after-move	@zmdb/migrations
+@zmdb/sql	./migrations/embedded	delete-after-move	@zmdb/migrations/embedded
+@zmdb/sql	./migrations/runner	delete-after-move	@zmdb/migrations/runner
+@zmdb/sql	./naming	retain	@zmdb/schema/naming
+@zmdb/sql	./outbox	retain	@zmdb/orm/outbox
+@zmdb/sql	./set-ops	retain	@zmdb/sql/set-ops
+@zmdb/sql	./schema-objects	retain	@zmdb/sql/schema-objects
 zmdb	.	retain	zmdb
 zmdb	./schema	retain-product-facade	@zmdb/schema
 zmdb	./sql	retain-product-facade	@zmdb/sql
@@ -323,11 +324,12 @@ The target repository has one bin declaration, `@zmdb/cli` → `zmdb`. The `zmdb
 The line grammar is `<dependency><TAB><consumer><TAB><kind>`. These are the complete workspace edges introduced or required by this tooling target:
 
 ```text
-@zmdb/query-compiler	@zmdb/compiler	required
-@zmdb/schema-core	@zmdb/compiler	required
-@zmdb/aot-validator	@zmdb/compiler	required
+@zmdb/sql	@zmdb/compiler	required
+@zmdb/schema	@zmdb/compiler	required
+@zmdb/validator	@zmdb/compiler	required
 @zmdb/ai	@zmdb/compiler	required
-@zmdb/query-compiler	@zmdb/migrations	required
+@zmdb/sql	@zmdb/migrations	required
+@zmdb/schema	@zmdb/migrations	required
 @zmdb/compiler	@zmdb/cli	required
 @zmdb/migrations	@zmdb/cli	required
 @zmdb/cli	zmdb	required
@@ -347,12 +349,12 @@ product facade.
 There are **35 current dependency/peer/development edges** in the four affected manifests.
 
 ```text
-packages/aot-validator/package.json	dependency	@zmdb/schema-core	retain-runtime
-packages/aot-validator/package.json	dev	typescript	retain-runtime-build
+packages/validator/package.json	dependency	@zmdb/schema	retain-runtime
+packages/validator/package.json	dev	typescript	retain-runtime-build
 packages/compiler/package.json	dependency	@zmdb/ai	retain-compiler-build-time
-packages/compiler/package.json	dependency	@zmdb/aot-validator	retain-generated-runtime-abi
-packages/compiler/package.json	dependency	@zmdb/query-compiler	retain-config-protocols
-packages/compiler/package.json	dependency	@zmdb/schema-core	retain-reflection-ir
+packages/compiler/package.json	dependency	@zmdb/validator	retain-generated-runtime-abi
+packages/compiler/package.json	dependency	@zmdb/sql	retain-config-protocols
+packages/compiler/package.json	dependency	@zmdb/schema	retain-reflection-ir
 packages/compiler/package.json	peer	metro	retain-compiler-optional-peer
 packages/compiler/package.json	peer	metro-babel-transformer	retain-compiler-optional-peer
 packages/compiler/package.json	peer	oxlint	retain-compiler-optional-peer
@@ -363,15 +365,15 @@ packages/compiler/package.json	dev	metro-babel-transformer	retain-compiler-integ
 packages/compiler/package.json	dev	oxlint	retain-compiler-lint-tests
 packages/compiler/package.json	dev	protobufjs	retain-compiler-protobuf-conformance
 packages/compiler/package.json	dev	typescript	retain-compiler-build
-packages/query-compiler/package.json	dependency	oxfmt	move-migrations-dependency
-packages/query-compiler/package.json	dev	@zmdb/compiler	retain-compiler-query-fixtures
-packages/query-compiler/package.json	dev	typescript	retain-query-build
-packages/zmdb/package.json	dependency	@zmdb/aot-validator	retain-facade
+packages/sql/package.json	dependency	oxfmt	move-migrations-dependency
+packages/sql/package.json	dev	@zmdb/compiler	retain-compiler-query-fixtures
+packages/sql/package.json	dev	typescript	retain-query-build
+packages/zmdb/package.json	dependency	@zmdb/validator	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/app	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/compiler	retain-product-and-config-facades
-packages/zmdb/package.json	dependency	@zmdb/query-compiler	retain-facade
-packages/zmdb/package.json	dependency	@zmdb/repository	retain-facade
-packages/zmdb/package.json	dependency	@zmdb/schema-core	retain-facade
+packages/zmdb/package.json	dependency	@zmdb/sql	retain-facade
+packages/zmdb/package.json	dependency	@zmdb/orm	retain-facade
+packages/zmdb/package.json	dependency	@zmdb/schema	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/sqlite	retain-database-facade-until-cutover
 packages/zmdb/package.json	dependency	@zmdb/web	retain-facade
 packages/zmdb/package.json	dependency	esbuild	move-cli-optional-peer-and-dev
@@ -469,7 +471,7 @@ compiler-config	packages/compiler/src/config/index.zmdb.witness.ts	2
 ```
 
 The target oracle scans generated `.js`, declarations and witnesses. It rejects `@zmdb/compiler`, `typescript`, `oxlint`, Metro, bundlers, Node built-ins, old tooling subpaths and private
-`packages/*/src` imports. Runtime assertion code imports `@zmdb/aot-validator/errors`; witnesses retain only original source type/callee imports.
+`packages/*/src` imports. Runtime assertion code imports `@zmdb/validator/errors`; witnesses retain only original source type/callee imports.
 
 ## 8. Documentation migration set
 
@@ -534,8 +536,8 @@ The implementation changes these seven manifests and no runtime-package manifest
 
 ```text
 package.json	retarget repository fixture commands; packages/* already discovers the three new workspaces
-packages/aot-validator/package.json	remove compiler exports, compiler peers and zmdb-codegen
-packages/query-compiler/package.json	remove lifecycle exports and oxfmt
+packages/validator/package.json	remove compiler exports, compiler peers and zmdb-codegen
+packages/sql/package.json	remove lifecycle exports and oxfmt
 packages/zmdb/package.json	remove its bin implementation; retain/add product facades; add @zmdb/cli, @zmdb/compiler and @zmdb/migrations
 packages/compiler/package.json	add compiler exports, peers and dependencies
 packages/migrations/package.json	add lifecycle exports and dependencies

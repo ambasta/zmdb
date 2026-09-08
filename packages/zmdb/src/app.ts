@@ -6,6 +6,9 @@ export {
   UnresolvedTokenError,
   compileModule,
   createApplication,
+  createStateUpdatePayload,
+  defineStateTransitions,
+  defineEntityStateMachine,
   createToken,
   injectionsOf,
   lazy,
@@ -14,6 +17,11 @@ export {
 } from '@zmdb/app';
 export type {
   Application,
+  StateTransitions,
+  AllowedTargetStates,
+  StateUpdateDTO,
+  EntityStateMachineOptions,
+  EntityStateMachine,
   ApplicationExtension,
   ApplicationExtensionContext,
   ApplicationMetadata,

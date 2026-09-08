@@ -24,7 +24,7 @@ import { API } from 'typescript/unstable/sync';
 import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const BOUNDARY = 'packages/query-compiler/src/clauses.ts';
+const BOUNDARY = 'packages/sql/src/clauses.ts';
 const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
 const OPERATOR_NAMES = new Set(['op', 'operator']);
 

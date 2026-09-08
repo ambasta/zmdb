@@ -3,17 +3,16 @@
 // Each ORM builds queries with its OWN builder. Routes a builder cannot express
 // return HTTP 501 (honest per-route DNF), never a faked 200.
 import { serve } from '@hono/node-server';
+import { createQueryCompiler } from '@zmdb/sql';
+import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
+import { ftsSelectFrom } from '@zmdb/sql/fts';
+import { joinableSelectFrom } from '@zmdb/sql/joins';
 import { sql, eq, asc } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { pgTable, integer, text, numeric } from 'drizzle-orm/pg-core';
 import { Hono } from 'hono';
 import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 import { Pool } from 'pg';
-
-import { aggregateSelectFrom } from '../../../packages/query-compiler/src/aggregations/index.js';
-import { ftsSelectFrom } from '../../../packages/query-compiler/src/fts/index.js';
-import { createQueryCompiler } from '../../../packages/query-compiler/src/index.js';
-import { joinableSelectFrom } from '../../../packages/query-compiler/src/joins/index.js';
 
 const ORM = process.env.ORM || 'zmdb';
 const PORT = Number(process.env.PORT || 3000);

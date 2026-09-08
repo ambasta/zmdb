@@ -65,7 +65,7 @@ into a collection scan.
 `format: 'date-time'` and `format: 'int64'`. MongoDB also omits the standard `integer` type in favour of BSON numeric types.
 
 ```ts
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema } from '@zmdb/schema/openapi';
 
 // Application code: zmdb does not ship this adapter.
 const mongoSchema = adaptJsonSchemaForMongo(toJsonSchema(users, 'entity'));
@@ -83,8 +83,8 @@ declaration feeding validation — without claiming that OpenAPI JSON Schema and
 The layers that do not execute database queries remain usable:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
-import type { CreateDTO, Entity } from '@zmdb/schema-core';
+import { assert } from '@zmdb/validator';
+import { type CreateDTO, type Entity } from '@zmdb/schema';
 
 @Controller('/users')
 export class UsersController {

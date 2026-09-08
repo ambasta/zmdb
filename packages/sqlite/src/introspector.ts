@@ -508,7 +508,6 @@ function normalizeSqliteDriftSnapshot(snapshot: SchemaSnapshot, role: 'live' | '
 
 export const sqliteIntrospector: Introspector<typeof databaseName> = {
   name: databaseName,
-  dialect: databaseName,
   snapshot: sqliteSnapshot,
   normalizeForDrift: normalizeSqliteDriftSnapshot,
 };

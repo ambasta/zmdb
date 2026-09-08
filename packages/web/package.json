@@ -49,7 +49,8 @@
     "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
     "./testing": "./src/testing/index.ts",
-    "./devtools": "./src/devtools/index.ts"
+    "./devtools": "./src/devtools/index.ts",
+    "./integrations": "./src/integrations/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -61,12 +62,13 @@
   },
   "dependencies": {
     "@zmdb/app": "workspace:^",
-    "@zmdb/schema-core": "workspace:^"
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/validator": "workspace:^"
   },
   "devDependencies": {
     "@zmdb/ai": "workspace:^",
-    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/compiler": "workspace:^",
+    "@zmdb/validator": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {

@@ -22,7 +22,7 @@
 // independent runner reports above. The 5x threshold stays as written because it is the epic's
 // frozen target, not a description of the margin.
 
-import { is as runtimeIs } from '@zmdb/aot-validator/utilities';
+import { is as runtimeIs } from '@zmdb/validator';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { FixtureProject } from '../emit/__testing__/project.js';

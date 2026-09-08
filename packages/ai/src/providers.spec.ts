@@ -1,7 +1,16 @@
 import { schemasFrom } from '@zmdb/compiler/testing';
-import { schemaFromIR, type ColumnIR } from '@zmdb/schema-core/ir';
-import type { JsonSchemaObject } from '@zmdb/schema-core/openapi';
-import type { Codec, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
+import { schemaFromIR, type ColumnIR } from '@zmdb/schema/ir';
+import { type JsonSchemaObject } from '@zmdb/schema/openapi';
+import {
+  type Codec,
+  type HasDefault,
+  type PrimaryKey,
+  type Sensitive,
+  type Serial,
+  type Sql,
+  type Table,
+  type WireAs,
+} from '@zmdb/schema/tags';
 import { describe, expect, it } from 'vitest';
 
 import { toolFor, toolFromSchema, type ToolSpecFor } from './index.js';

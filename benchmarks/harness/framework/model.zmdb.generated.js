@@ -11,7 +11,7 @@
 // Formatters and linters should skip it. The emitter writes a check as one long expression
 // because that is what it is; reformatting would leave the next compiler check
 // permanently out of date against a file nothing was wrong with.
-import { AssertError as _zmdbAssertError } from "@zmdb/aot-validator/utilities";
+import { AssertError as _zmdbAssertError } from "@zmdb/validator";
 function _zmdbCheckUserCreate0(_v) { return typeof _v === "object" && _v !== null && !Array.isArray(_v) && (typeof _v.email === "string") && (typeof _v.name === "string"); }
 function _zmdbIssues1(_v, _p, _o) { _zmdbIssuesUserCreate2(_v, _p, _o); }
 function _zmdbIssuesUserCreate2(_v, _p, _o) { if (!(typeof _v === "object" && _v !== null && !Array.isArray(_v))) { _zmdbIssue(_o, _p, "UserCreate", _v); } else { if (!(typeof _v.email === "string")) _zmdbIssue(_o, _p + ".email", "string", _v.email); if (!(typeof _v.name === "string")) _zmdbIssue(_o, _p + ".name", "string", _v.name); } }

@@ -59,7 +59,7 @@ throw new ValidationError('title is required', [{ path: ['title'], message: 'req
 ```
 
 `assert<T>()` throws an `AssertError` carrying an `issues` array, and the router turns **any** thrown object with an `issues` property into a 400 with those paths in the body — it duck-types rather
-than checking a class, so `ValidationError` from `@zmdb/schema-core` and your own error types work identically. Validating the body therefore gives you a 400 with the issue paths for free.
+than checking a class, so `ValidationError` from `@zmdb/schema` and your own error types work identically. Validating the body therefore gives you a 400 with the issue paths for free.
 
 **For any other status, map it in your adapter.** The one place that can set a status and headers:
 

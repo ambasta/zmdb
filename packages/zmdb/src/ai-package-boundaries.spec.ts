@@ -33,7 +33,7 @@ const AI_VERCEL = join(PACKAGES, 'ai-vercel');
 const COMPILER = join(PACKAGES, 'compiler');
 const MCP = join(PACKAGES, 'mcp');
 const MCP_SOURCE = join(MCP, 'src');
-const SCHEMA_CORE = join(PACKAGES, 'schema-core');
+const SCHEMA_CORE = join(PACKAGES, 'schema');
 const LLM = join(SCHEMA_CORE, 'src', 'llm');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 
@@ -258,11 +258,11 @@ function projectedAiGraph(): string[] {
 
   const schemaManifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
   for (const dependency of Object.keys(schemaManifest.dependencies ?? {})) {
-    if (dependency.startsWith('@zmdb/')) edges.add(`@zmdb/schema-core -> ${dependency}`);
+    if (dependency.startsWith('@zmdb/')) edges.add(`@zmdb/schema -> ${dependency}`);
   }
-  const aotManifest = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
+  const aotManifest = readJson<PackageManifest>(join(PACKAGES, 'validator', 'package.json'));
   for (const dependency of Object.keys(aotManifest.dependencies ?? {})) {
-    if (dependency.startsWith('@zmdb/')) edges.add(`@zmdb/aot-validator -> ${dependency}`);
+    if (dependency.startsWith('@zmdb/')) edges.add(`@zmdb/validator -> ${dependency}`);
   }
   const compilerManifest = readJson<PackageManifest>(join(COMPILER, 'package.json'));
   for (const dependency of Object.keys(compilerManifest.dependencies ?? {})) {
@@ -389,25 +389,26 @@ beforeAll(() => {
   if (loaded === undefined) throw new Error(`could not load ${relative(ROOT, project)}`);
   compilerProgram = loaded.program;
 
-  packedAi = packWorkspacePackage('ai', AI_PACKED_SUBPATHS, ['schema-core']);
-  packedAnthropic = packWorkspacePackage('ai-anthropic', ANTHROPIC_PACKED_SUBPATHS, ['ai', 'schema-core']);
-  packedAiLangChain = packWorkspacePackage('ai-langchain', AI_LANGCHAIN_PACKED_SUBPATHS, ['ai', 'schema-core']);
-  packedAiVercel = packWorkspacePackage('ai-vercel', ['@zmdb/ai-vercel'], ['ai', 'schema-core', 'query-compiler']);
-  packedMcp = packWorkspacePackage('mcp', ['@zmdb/mcp'], ['ai', 'schema-core']);
+  packedAi = packWorkspacePackage('ai', AI_PACKED_SUBPATHS, ['schema', 'validator']);
+  packedAnthropic = packWorkspacePackage('ai-anthropic', ANTHROPIC_PACKED_SUBPATHS, ['ai', 'schema', 'validator']);
+  packedAiLangChain = packWorkspacePackage('ai-langchain', AI_LANGCHAIN_PACKED_SUBPATHS, ['ai', 'schema', 'validator']);
+  packedAiVercel = packWorkspacePackage('ai-vercel', ['@zmdb/ai-vercel'], ['ai', 'schema', 'sql', 'validator']);
+  packedMcp = packWorkspacePackage('mcp', ['@zmdb/mcp'], ['ai', 'schema', 'validator']);
   packedSchemaCore = packWorkspacePackage(
-    'schema-core',
+    'schema',
     [
-      '@zmdb/schema-core',
-      '@zmdb/schema-core/custom-types',
-      '@zmdb/schema-core/derive',
-      '@zmdb/schema-core/dto',
-      '@zmdb/schema-core/ir',
-      '@zmdb/schema-core/naming',
-      '@zmdb/schema-core/openapi',
-      '@zmdb/schema-core/relations',
-      '@zmdb/schema-core/tags',
+      '@zmdb/schema',
+      '@zmdb/schema/custom-types',
+      '@zmdb/schema/derive',
+      '@zmdb/schema/dto',
+      '@zmdb/schema/entity-modeling',
+      '@zmdb/schema/ir',
+      '@zmdb/schema/naming',
+      '@zmdb/schema/openapi',
+      '@zmdb/schema/relations',
+      '@zmdb/schema/tags',
     ],
-    ['query-compiler'],
+    [],
   );
 }, 60_000);
 
@@ -417,7 +418,7 @@ afterAll(() => {
 });
 
 describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709, #710)', () => {
-  it('schema-core exposes no llm subpath or AI peer dependency', () => {
+  it('schema exposes no llm subpath or AI peer dependency', () => {
     const manifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
     const llmExports = Object.keys(manifest.exports ?? {}).filter(
       path => path === './llm' || path.startsWith('./llm/'),
@@ -435,15 +436,16 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect
       .soft(Object.keys(packedSchemaCore.imported).toSorted())
       .toEqual([
-        '@zmdb/schema-core',
-        '@zmdb/schema-core/custom-types',
-        '@zmdb/schema-core/derive',
-        '@zmdb/schema-core/dto',
-        '@zmdb/schema-core/ir',
-        '@zmdb/schema-core/naming',
-        '@zmdb/schema-core/openapi',
-        '@zmdb/schema-core/relations',
-        '@zmdb/schema-core/tags',
+        '@zmdb/schema',
+        '@zmdb/schema/custom-types',
+        '@zmdb/schema/derive',
+        '@zmdb/schema/dto',
+        '@zmdb/schema/entity-modeling',
+        '@zmdb/schema/ir',
+        '@zmdb/schema/naming',
+        '@zmdb/schema/openapi',
+        '@zmdb/schema/relations',
+        '@zmdb/schema/tags',
       ]);
   });
 
@@ -463,8 +465,10 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect.soft(entries.map(file => packageOwner(file))).toEqual(entries.map(() => '@zmdb/ai'));
     expect.soft(forbidden).toEqual([]);
     expect.soft(manifest.dependencies).toBeUndefined();
-    expect.soft(manifest.devDependencies?.['@zmdb/schema-core']).toBe('workspace:^');
-    expect.soft(manifest.peerDependencies).toEqual({ '@zmdb/schema-core': '1.0.0-alpha.4' });
+    expect.soft(manifest.devDependencies?.['@zmdb/schema']).toBe('workspace:^');
+    expect
+      .soft(manifest.peerDependencies)
+      .toEqual({ '@zmdb/schema': '1.0.0-alpha.4', '@zmdb/validator': '1.0.0-alpha.4' });
     expect.soft(AI_SDK_PEERS.filter(peer => manifest.dependencies?.[peer] !== undefined)).toEqual([]);
   });
 
@@ -490,7 +494,9 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     });
     expect.soft(external).toEqual(['@anthropic-ai/sdk', '@zmdb/ai']);
     expect.soft(external.filter(name => !name.startsWith('@zmdb/'))).toEqual(['@anthropic-ai/sdk']);
-    expect.soft(aiManifest.peerDependencies).toEqual({ '@zmdb/schema-core': '1.0.0-alpha.4' });
+    expect
+      .soft(aiManifest.peerDependencies)
+      .toEqual({ '@zmdb/schema': '1.0.0-alpha.4', '@zmdb/validator': '1.0.0-alpha.4' });
     expect.soft(aiManifest.dependencies?.['@anthropic-ai/sdk']).toBeUndefined();
     expect.soft(schemaManifest.devDependencies?.['@anthropic-ai/sdk']).toBeUndefined();
     expect.soft(schemaManifest.peerDependencies?.['@anthropic-ai/sdk']).toBeUndefined();
@@ -537,7 +543,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect.soft(aiManifest.peerDependencies ?? {}).not.toHaveProperty('@langchain/core');
   });
 
-  it('MCP imports AI contracts but no schema-core private path', () => {
+  it('MCP imports AI contracts but no schema private path', () => {
     const mcpFiles = MCP_SOURCE_FILES.map(path => join(MCP_SOURCE, path));
     const crossOwnerImports = mcpFiles
       .filter(file => file.endsWith('.ts') && !file.endsWith('.spec.ts') && !file.endsWith('.type-test.ts'))
@@ -573,17 +579,17 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
   it('the AI package graph is acyclic', () => {
     const observed = projectedAiGraph();
     const expected = [
-      '@zmdb/ai -> @zmdb/schema-core',
+      '@zmdb/ai -> @zmdb/schema',
+      '@zmdb/ai -> @zmdb/validator',
       '@zmdb/ai-anthropic -> @zmdb/ai',
       '@zmdb/ai-langchain -> @zmdb/ai',
       '@zmdb/ai-vercel -> @zmdb/ai',
-      '@zmdb/aot-validator -> @zmdb/schema-core',
+      '@zmdb/validator -> @zmdb/schema',
       '@zmdb/compiler -> @zmdb/ai',
-      '@zmdb/compiler -> @zmdb/aot-validator',
-      '@zmdb/compiler -> @zmdb/schema-core',
+      '@zmdb/compiler -> @zmdb/validator',
+      '@zmdb/compiler -> @zmdb/schema',
       '@zmdb/mcp -> @zmdb/ai',
-      '@zmdb/schema-core -> @zmdb/query-compiler',
-    ];
+    ].toSorted();
     expect.soft(cycleIn(observed)).toBeNull();
     expect.soft(observed).toEqual(expected);
   });
@@ -601,11 +607,11 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
         readFileSync(file, 'utf8')
           .split('\n')
           .map((line, index) => ({ file, index: index + 1, line }))
-          .filter(entry => entry.line.includes('@zmdb/schema-core/llm')),
+          .filter(entry => entry.line.includes('@zmdb/schema/llm')),
       )
       .map(entry => `${relative(ROOT, entry.file)}:${String(entry.index)} ${entry.line.trim()}`);
     const manifest = readJson<PackageManifest>(join(COMPILER, 'package.json'));
-    const runtimeManifest = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
+    const runtimeManifest = readJson<PackageManifest>(join(PACKAGES, 'validator', 'package.json'));
     expect.soft(stale).toEqual([]);
     expect.soft(manifest.dependencies?.['@zmdb/ai']).toBe('workspace:1.0.0-alpha.4');
     expect.soft(runtimeManifest.dependencies?.['@zmdb/ai']).toBeUndefined();
@@ -659,8 +665,8 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect.soft(packedAiVercel.installedPeers).toEqual([]);
   });
 
-  it('installing @zmdb/schema-core alone installs no AI SDK peer', () => {
-    // The consumer contains only the packed schema-core package and none of the SDKs.
+  it('installing @zmdb/schema alone installs no AI SDK peer', () => {
+    // The consumer contains only the packed schema package and none of the SDKs.
     // #706-#708 moved all three optional peers to their integration packages.
     expect(packedSchemaCore.installedPeers).toEqual([]);
     expect
@@ -689,10 +695,10 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     });
     expect.soft(generated).toContain('// generated by @zmdb/ai/http — do not edit');
     expect.soft(generated).toContain("import type { OpenApiGeneratedTool } from '@zmdb/ai/http';");
-    expect.soft(generated).not.toContain('@zmdb/schema-core/llm/http');
+    expect.soft(generated).not.toContain('@zmdb/schema/llm/http');
   });
 
-  it('no source file imports @zmdb/schema-core/llm after migration', () => {
+  it('no source file imports @zmdb/schema/llm after migration', () => {
     const stale = filesUnder(PACKAGES)
       .filter(
         file =>
@@ -703,7 +709,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
       )
       .flatMap(file =>
         importsOf(file)
-          .filter(reference => /^@zmdb\/schema-core\/llm(?:\/|$)/.test(reference.specifier))
+          .filter(reference => /^@zmdb\/schema\/llm(?:\/|$)/.test(reference.specifier))
           .map(reference => `${relative(ROOT, file)} -> ${reference.specifier}`),
       )
       .toSorted();

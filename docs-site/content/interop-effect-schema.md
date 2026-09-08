@@ -9,7 +9,7 @@ The useful boundary is the driver, because `Driver` has one required method:
 
 ```ts
 import { Effect } from 'effect';
-import type { Driver, CompiledQuery } from '@zmdb/query-compiler';
+import { type Driver, type CompiledQuery } from '@zmdb/sql';
 
 const query = (q: CompiledQuery) =>
   Effect.tryPromise({
@@ -34,7 +34,7 @@ the SQL.
 **zmdb schema → JSON Schema → Effect.** `toJsonSchema(schema, variant)` gives you a JSON Schema per operation shape, which you can convert or use to generate an Effect schema:
 
 ```ts
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema } from '@zmdb/schema/openapi';
 const createShape = toJsonSchema(posts, 'create');
 ```
 

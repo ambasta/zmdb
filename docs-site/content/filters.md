@@ -25,11 +25,12 @@ and SQL Server `!<`, while refusing quotes, whitespace, semicolons, SQL comment 
 
 ## Typed filters — WhereDTO
 
-For the repository/read side there is a **typed** filter DTO derived from your schema (`@zmdb/schema-core/dto`). Each column is keyed to its value type with an operator set, and `compileWhere` folds
-it into the query builder.
+For the repository/read side there is a **typed** filter DTO derived from your schema (`@zmdb/schema/dto`). Each column is keyed to its value type with an operator set, and `compileWhere` folds it
+into the query builder.
 
 ```ts
-import { compileWhere, type WhereDTO } from '@zmdb/schema-core/dto';
+import { compileWhere } from '@zmdb/orm/dto';
+import { type WhereDTO } from '@zmdb/schema/dto';
 
 const where: WhereDTO<User> = {
   age: { gte: 18, lt: 65 }, // ANDed comparisons

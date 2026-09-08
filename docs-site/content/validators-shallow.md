@@ -7,7 +7,7 @@ runtime work that stop at a compile-time depth.
 ## API
 
 ```ts
-import { assert, assertShallow, isShallow, validateShallow } from '@zmdb/aot-validator/utilities';
+import { assert, assertShallow, isShallow, validateShallow } from '@zmdb/validator';
 
 const topLevelOkay = isShallow<Order, 1>(value);
 const order = assertShallow<Order, 2>(value);

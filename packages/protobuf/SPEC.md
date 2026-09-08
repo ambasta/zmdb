@@ -72,7 +72,7 @@ Application source imports all five transformed calls from `@zmdb/protobuf`. Cal
 - a direct or aliased binding that resolves to a named root export is recognised;
 - a namespace property may be recognised only when its symbol resolves to the same export;
 - a local function, shadowed binding or same-named export from another module is ignored; and
-- re-exporting these calls through `zmdb`, `@zmdb/aot-validator` or another package is not a supported compiler entry.
+- re-exporting these calls through `zmdb`, `@zmdb/validator` or another package is not a supported compiler entry.
 
 The untransformed functions throw by name because an erased type argument cannot be reconstructed at runtime. No slow parser fallback is permitted.
 
@@ -84,7 +84,7 @@ Generated artifacts use canonical imports:
 | gRPC witness and declaration artifacts     | service calls and artifact types from `@zmdb/protobuf` |
 | reflection, diagnostics and source rewrite | live inside `@zmdb/compiler`                           |
 
-Generated code must not import `@zmdb/aot-validator/protobuf/wire`, and protobuf declarations must not import their public artifact types from `@zmdb/aot-validator`.
+Generated code must not import `@zmdb/validator/protobuf/wire`, and protobuf declarations must not import their public artifact types from `@zmdb/validator`.
 
 ## 4. Lifecycle and compatibility
 
@@ -97,14 +97,14 @@ unknown-field or gRPC service-artifact semantics.
 
 The implementation removes, rather than forwards:
 
-- the three protobuf calls and the two gRPC artifact calls/types from `@zmdb/aot-validator`; and
-- `@zmdb/aot-validator/protobuf/wire`.
+- the three protobuf calls and the two gRPC artifact calls/types from `@zmdb/validator`; and
+- `@zmdb/validator/protobuf/wire`.
 
 Standalone installation is:
 
 ```sh
 yarn add @zmdb/protobuf
-yarn add --dev @zmdb/aot-validator
+yarn add --dev @zmdb/validator
 ```
 
 The second line supplies the build-time compiler. A project that already receives the compiler through its zmdb toolchain does not add it twice.

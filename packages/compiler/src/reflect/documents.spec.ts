@@ -18,9 +18,9 @@
 
 import { readFileSync } from 'node:fs';
 
-import type { CoreSchema } from '@zmdb/schema-core';
-import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
-import { toJsonSchema, type Variant } from '@zmdb/schema-core/openapi';
+import { type CoreSchema } from '@zmdb/schema';
+import { type JsonSchemaObject } from '@zmdb/schema/ir';
+import { toJsonSchema, type Variant } from '@zmdb/schema/openapi';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { schemasFrom } from '../testing/index.js';
@@ -139,7 +139,7 @@ describe('what the emitted module contains (REQ-TF-6)', () => {
       .map(line => line.trim())
       .filter(line => !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('/*'));
     expect(code.filter(line => line.includes('toJsonSchema'))).toEqual([
-      "import { toJsonSchema } from '@zmdb/schema-core/openapi';",
+      "import { toJsonSchema } from '@zmdb/schema/openapi';",
     ]);
   });
 

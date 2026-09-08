@@ -5,9 +5,9 @@ returns typed entities — all on the same zero-overhead path as the rest of zmd
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { schemaOf } from '@zmdb/schema-core';
-import { assert } from '@zmdb/aot-validator/utilities';
-import { defineRepository, type BaseRepository } from '@zmdb/repository';
+import { schemaOf } from '@zmdb/schema';
+import { assert } from '@zmdb/validator';
+import { defineRepository, type BaseRepository } from '@zmdb/orm';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 import type { CreateDTO } from 'zmdb/derive';
 import { repositoryToken } from '@zmdb/app/data';

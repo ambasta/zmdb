@@ -1,3 +1,4 @@
+import { createQueryCompiler } from '@zmdb/sql';
 import { sql, eq, asc } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { pgTable, integer, text, numeric } from 'drizzle-orm/pg-core';
@@ -9,8 +10,6 @@ import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 // builder) — those are DNF for zmdb, which is exactly the feature-gap metric.
 import { Pool } from 'pg';
 import { Bench } from 'tinybench';
-
-import { createQueryCompiler } from '../../../packages/query-compiler/src/index.js';
 
 const pool = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench', max: 10 });
 

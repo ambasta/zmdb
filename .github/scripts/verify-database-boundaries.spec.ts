@@ -93,12 +93,12 @@ describe('database boundary verifier (#667)', () => {
   });
 
   it('distinguishes shipped source from tests and fixtures', async () => {
-    expect(isShippedGenericSource('packages/query-compiler/src/index.ts')).toBe(true);
-    expect(isShippedGenericSource('packages/query-compiler/src/index.spec.ts')).toBe(false);
-    expect(isShippedGenericSource('packages/query-compiler/src/__fixtures__/postgres.ts')).toBe(false);
-    expect(isShippedGenericSource('packages/query-compiler/src/testing/database-vertical.ts')).toBe(false);
-    expect(isShippedGenericSource('packages/schema-core/src/relations/index.ts')).toBe(true);
-    expect(isShippedGenericSource('packages/schema-core/src/relations/populate.spec.ts')).toBe(false);
+    expect(isShippedGenericSource('packages/sql/src/index.ts')).toBe(true);
+    expect(isShippedGenericSource('packages/sql/src/index.spec.ts')).toBe(false);
+    expect(isShippedGenericSource('packages/sql/src/__fixtures__/postgres.ts')).toBe(false);
+    expect(isShippedGenericSource('packages/sql/src/testing/database-vertical.ts')).toBe(false);
+    expect(isShippedGenericSource('packages/schema/src/relations/index.ts')).toBe(true);
+    expect(isShippedGenericSource('packages/schema/src/relations/populate.spec.ts')).toBe(false);
 
     await expect(runDatabaseBoundaryFixtureProofs()).resolves.toEqual({
       astCases: 8,

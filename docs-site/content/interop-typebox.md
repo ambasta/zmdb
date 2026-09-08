@@ -37,7 +37,7 @@ TypeBox's uncompiled `Value.Check` avoids codegen but is much slower. So the cho
 `toJsonSchema` emits JSON Schema, and TypeBox consumes JSON Schema by construction — so a declared table can validate through TypeBox, ajv, or anything else in that ecosystem:
 
 ```ts
-import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const createSchema = toJsonSchema(posts, 'create'); // omits serial, respects defaults
 const components = toOpenApiComponents([users, posts]);

@@ -34,7 +34,7 @@ function releasePackage(group, evidence, internalIds = [], peers = {}) {
 const PUBLISH = '.github/scripts/verify-publish.mjs';
 
 export const RELEASE_PACKAGE_POLICY = Object.freeze({
-  ai: releasePackage('integration', PUBLISH, ['schema-core']),
+  ai: releasePackage('integration', PUBLISH, ['schema', 'validator']),
   'ai-anthropic': releasePackage('integration', PUBLISH, ['ai'], {
     '@anthropic-ai/sdk': peer('0.124.0', '0.124.0', PUBLISH),
   }),
@@ -48,46 +48,36 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
     '@angular/core': peer('>=22.1.5 <23.0.0', '22.1.5', 'fixtures/client-adapters'),
     rxjs: peer('>=7.8.2 <8.0.0', '7.8.2', 'fixtures/client-adapters'),
   }),
-  'aot-validator': releasePackage('core', PUBLISH),
+  validator: releasePackage('core', PUBLISH),
   app: releasePackage('core', PUBLISH),
   cli: releasePackage(
     'tooling',
     'fixtures/consumer-cli',
-    ['app', 'compiler', 'migrations', 'query-compiler', 'repository', 'schema-core', 'web'],
+    ['app', 'compiler', 'migrations', 'orm', 'schema', 'sql', 'web'],
     {
       esbuild: peer('>=0.28.2 <0.29.0', '0.28.2', 'fixtures/consumer-cli'),
       typescript: peer('>=7.0.2 <8.0.0', '7.0.2', 'fixtures/consumer-cli'),
     },
   ),
   client: releasePackage('integration', 'fixtures/consumer-http-client'),
-  cockroach: releasePackage('integration', 'fixtures/database-cockroach', [
-    'migrations',
-    'postgres',
-    'query-compiler',
-    'repository',
-  ]),
-  compiler: releasePackage(
-    'tooling',
-    'fixtures/consumer-compiler',
-    ['ai', 'aot-validator', 'query-compiler', 'schema-core'],
-    {
-      metro: peer('>=0.87.0 <0.88.0', '0.87.0', 'fixtures/consumer-metro'),
-      'metro-babel-transformer': peer('>=0.87.0 <0.88.0', '0.87.0', 'fixtures/consumer-metro'),
-      oxlint: peer('>=1.81.0 <1.82.0', '1.81.0', 'fixtures/consumer-compiler'),
-      typescript: peer('>=7.0.2 <8.0.0', '7.0.2', 'fixtures/consumer-compiler'),
-    },
-  ),
+  cockroach: releasePackage('integration', 'fixtures/database-cockroach', ['migrations', 'orm', 'postgres', 'sql']),
+  compiler: releasePackage('tooling', 'fixtures/consumer-compiler', ['ai', 'schema', 'sql', 'validator'], {
+    metro: peer('>=0.87.0 <0.88.0', '0.87.0', 'fixtures/consumer-metro'),
+    'metro-babel-transformer': peer('>=0.87.0 <0.88.0', '0.87.0', 'fixtures/consumer-metro'),
+    oxlint: peer('>=1.81.0 <1.82.0', '1.81.0', 'fixtures/consumer-compiler'),
+    typescript: peer('>=7.0.2 <8.0.0', '7.0.2', 'fixtures/consumer-compiler'),
+  }),
   jobs: releasePackage('core', 'fixtures/consumer-jobs-providers'),
   'jobs-postgres': releasePackage('integration', 'fixtures/consumer-jobs-providers', ['jobs', 'postgres'], {
     pg: peer('^8.23.0', '8.23.0', 'fixtures/consumer-jobs-providers'),
   }),
   'jobs-sqlite': releasePackage('integration', 'fixtures/consumer-jobs-providers', ['jobs', 'sqlite']),
   mcp: releasePackage('integration', 'fixtures/consumer-mcp', ['ai']),
-  migrations: releasePackage('tooling', PUBLISH, ['query-compiler']),
-  mssql: releasePackage('integration', 'fixtures/database-mssql', ['migrations', 'query-compiler', 'repository'], {
+  migrations: releasePackage('tooling', PUBLISH, ['schema', 'sql']),
+  mssql: releasePackage('integration', 'fixtures/database-mssql', ['migrations', 'orm', 'sql'], {
     mssql: peer('^12.7.0', '12.7.0', 'fixtures/database-mssql'),
   }),
-  mysql: releasePackage('integration', 'fixtures/database-mysql', ['migrations', 'query-compiler', 'repository'], {
+  mysql: releasePackage('integration', 'fixtures/database-mysql', ['migrations', 'orm', 'sql'], {
     mysql2: peer('^3.24.3', '3.24.3', 'fixtures/database-mysql'),
   }),
   next: releasePackage('integration', 'fixtures/next-app-router', ['client', 'react'], {
@@ -102,16 +92,11 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
   otel: releasePackage('integration', 'fixtures/consumer-server-integrations', ['app'], {
     '@opentelemetry/api': peer('^1.9.1', '1.9.1', 'fixtures/consumer-server-integrations'),
   }),
-  postgres: releasePackage(
-    'integration',
-    'fixtures/database-postgres',
-    ['migrations', 'query-compiler', 'repository'],
-    {
-      pg: peer('^8.23.0', '8.23.0', 'fixtures/database-postgres'),
-    },
-  ),
+  postgres: releasePackage('integration', 'fixtures/database-postgres', ['migrations', 'orm', 'sql'], {
+    pg: peer('^8.23.0', '8.23.0', 'fixtures/database-postgres'),
+  }),
   protobuf: releasePackage('integration', PUBLISH),
-  'query-compiler': releasePackage('core', PUBLISH),
+  sql: releasePackage('core', PUBLISH),
   react: releasePackage('integration', 'fixtures/client-adapters', ['client'], {
     react: peer('>=19.2.8 <20.0.0', '19.2.8', 'fixtures/client-adapters'),
   }),
@@ -119,20 +104,15 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
     react: peer('>=19.2.8 <20.0.0', '19.2.8', 'fixtures/client-adapters'),
     'react-native': peer('>=0.87.1 <0.88.0', '0.87.1', 'fixtures/client-adapters'),
   }),
-  repository: releasePackage('core', PUBLISH),
-  'schema-core': releasePackage('core', PUBLISH),
-  singlestore: releasePackage(
-    'integration',
-    'fixtures/database-singlestore',
-    ['migrations', 'mysql', 'query-compiler', 'repository'],
-    {
-      mysql2: peer('^3.24.3', '3.24.3', 'fixtures/database-singlestore'),
-    },
-  ),
+  orm: releasePackage('core', PUBLISH),
+  schema: releasePackage('core', PUBLISH),
+  singlestore: releasePackage('integration', 'fixtures/database-singlestore', ['migrations', 'mysql', 'orm', 'sql'], {
+    mysql2: peer('^3.24.3', '3.24.3', 'fixtures/database-singlestore'),
+  }),
   solid: releasePackage('integration', 'fixtures/client-adapters', ['client'], {
     'solid-js': peer('>=1.9.15 <2.0.0', '1.9.15', 'fixtures/client-adapters'),
   }),
-  sqlite: releasePackage('integration', 'fixtures/database-sqlite', ['migrations', 'query-compiler', 'repository']),
+  sqlite: releasePackage('integration', 'fixtures/database-sqlite', ['migrations', 'orm', 'sql']),
   svelte: releasePackage('integration', 'fixtures/client-adapters', ['client'], {
     svelte: peer('>=5.57.0 <6.0.0', '5.57.0', 'fixtures/client-adapters'),
   }),

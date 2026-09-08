@@ -1,4 +1,4 @@
-import type { DialectTypeMap } from '@zmdb/query-compiler';
+import { type DialectTypeMap } from '@zmdb/sql';
 
 export const POSTGRES_TYPES: DialectTypeMap = Object.freeze({
   serial: 'SERIAL',

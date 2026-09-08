@@ -4,12 +4,12 @@
 
 ## Current package after #628
 
-Reflection, sessions, call-site discovery, and every reflection fixture live in `@zmdb/compiler/reflect`. TypeScript is a compiler peer and cannot be reached from `@zmdb/aot-validator`, its
-declarations, or generated runtime code.
+Reflection, sessions, call-site discovery, and every reflection fixture live in `@zmdb/compiler/reflect`. TypeScript is a compiler peer and cannot be reached from `@zmdb/validator`, its declarations,
+or generated runtime code.
 
 ## 1. Why it exists
 
-`@zmdb/schema-core/ir` gave the repo one vocabulary and one set of back-ends. This is the front-end that lets a **type** reach it, so that
+`@zmdb/schema/ir` gave the repo one vocabulary and one set of back-ends. This is the front-end that lets a **type** reach it, so that
 
 ```ts
 interface User extends Table<'users'> {
@@ -99,7 +99,7 @@ of unrelated non-object types".
 
 A symbol-keyed property cannot cross a JSON boundary, so there is nothing to check and nothing lost by treating every one of them as phantom.
 
-The `@<id>` suffix is what makes plan **D5** detectable: two installed copies of `@zmdb/schema-core` declare `zmdbSerial` twice, the two `unique symbol`s are nominally distinct, and the escaped names
+The `@<id>` suffix is what makes plan **D5** detectable: two installed copies of `@zmdb/schema` declare `zmdbSerial` twice, the two `unique symbol`s are nominally distinct, and the escaped names
 differ only in that number. `#readTags` keeps a basename → first-seen-escaped-name map and refuses with both spellings named, because the alternative symptom is "my `Serial` tag does nothing" with no
 explanation.
 
@@ -150,7 +150,7 @@ export interface ReflectOptions {
   readonly naming?: NamingStrategy;
 }
 
-// Canonical public type: @zmdb/schema-core/naming
+// Canonical public type: @zmdb/schema/naming
 export interface NamingStrategy {
   readonly column?: (property: string, context: { table: string }) => string;
   readonly table?: (declared: string) => string;
@@ -169,8 +169,8 @@ again or agrees with another pass by luck.
 The order for one column is: read the tags, then take `Physical<'…'>` if the declaration carries one, else `naming.column(property, …)` if configured, else the property name. Explicit beats strategy,
 and the strategy is never consulted for a column that already answered the question.
 
-`Physical` is a type-only export from both `@zmdb/schema-core/tags` and `zmdb/tags`. The same optional unique-symbol slot is read in two positions: directly on the interface for `physicalTable`, and
-from a property's intersection members for `physicalName`.
+`Physical` is a type-only export from both `@zmdb/schema/tags` and `zmdb/tags`. The same optional unique-symbol slot is read in two positions: directly on the interface for `physicalTable`, and from a
+property's intersection members for `physicalName`.
 
 `context.table` is the **declared** table name, not the physical one. A user function that special-cases a table wants the string the author wrote, and passing the declared name means that function
 reads the same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently changes which branch a `column` strategy takes.
@@ -258,4 +258,4 @@ because recording `string` as the payload would throw away the constraint the de
 This complete module, including `callsites.ts`, `index.ts`, `session.ts` and its non-protobuf fixtures, now lives in `@zmdb/compiler/reflect`. The APIs and one-session rules above did not change.
 
 Config arrives from `@zmdb/compiler/config`; neither reflection nor an adapter discovers config. The unplugin, Metro, testing and CLI routes all import this public compiler subpath. The target has no
-`@zmdb/aot-validator/reflect` forwarder, and runtime validator imports cannot reach the reflection session.
+`@zmdb/validator/reflect` forwarder, and runtime validator imports cannot reach the reflection session.

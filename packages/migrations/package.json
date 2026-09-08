@@ -51,17 +51,18 @@
     "oxfmt": "0.66.0"
   },
   "devDependencies": {
-    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/mssql": "workspace:^",
+    "@zmdb/orm": "workspace:^",
     "@zmdb/postgres": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^",
-    "@zmdb/schema-core": "workspace:^",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/sql": "workspace:^",
     "@zmdb/sqlite": "workspace:^",
+    "@zmdb/validator": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/query-compiler": "1.0.0-alpha.4"
+    "@zmdb/schema": "1.0.0-alpha.4",
+    "@zmdb/sql": "1.0.0-alpha.4"
   },
   "engines": {
     "node": ">=26"

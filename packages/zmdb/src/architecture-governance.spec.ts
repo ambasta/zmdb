@@ -477,7 +477,7 @@ describe('architecture and release governance fixtures', () => {
     expect(liveResult.stdout.trim()).toBe(
       cli === undefined
         ? 'architecture zones: 39 catalog packages, 72 workspace edges, and canonical rings verified.'
-        : 'architecture zones: 40 catalog packages, 78 workspace edges, and canonical rings verified.',
+        : 'architecture zones: 40 catalog packages, 80 workspace edges, and canonical rings verified.',
     );
   });
 

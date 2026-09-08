@@ -6,7 +6,7 @@ validation interception, and transaction support — all without proxies or an i
 A repository is a minimal subclass that binds to your schema. The entire required body is one line.
 
 ```ts
-import { BaseRepository } from '@zmdb/repository';
+import { BaseRepository } from '@zmdb/orm';
 import { UserSchema } from './schema';
 
 class UserRepository extends BaseRepository<User> {

@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { down, driverMigrationConnection, up } from '@zmdb/migrations';
 import { detectDrift } from '@zmdb/migrations/introspect';
 import { mssql, mssqlDriver, mssqlIntrospector } from '@zmdb/mssql';
-import { createQueryCompiler, quoteTable } from '@zmdb/query-compiler';
+import { createQueryCompiler, quoteTable } from '@zmdb/sql';
 
 const connection = process.env.ZMDB_MSSQL_URL;
 if (connection === undefined) {

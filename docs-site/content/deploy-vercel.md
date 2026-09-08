@@ -27,7 +27,7 @@ Use an HTTP driver, which holds no connection:
 
 ```ts
 import { neon } from '@neondatabase/serverless';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const sql = neon(requireEnv('DATABASE_URL'));
 export const driver: Driver = {

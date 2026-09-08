@@ -16,7 +16,7 @@ it('does not report a nullable tag written on the non-null arm', async () => {
     valid: [
       {
         code:
-          "import type { Table, Unique } from '@zmdb/schema-core/tags';\n" +
+          "import type { Table, Unique } from '@zmdb/schema/tags';\n" +
           "interface Account extends Table<'accounts'> { email: (string & Unique) | null; }\n",
       },
     ],
@@ -36,7 +36,7 @@ it('does not report an arbitrary local intersection', async () => {
     valid: [
       {
         code:
-          "import type { Table } from '@zmdb/schema-core/tags';\n" +
+          "import type { Table } from '@zmdb/schema/tags';\n" +
           'type LocalMarker = { readonly local?: true };\n' +
           "interface Account extends Table<'accounts'> { email: (string | null) & LocalMarker; }\n",
       },
@@ -50,7 +50,7 @@ it('does not treat a non-tag export from the tags module as an autofixable tag',
     valid: [
       {
         code:
-          "import type { NonNull, Table } from '@zmdb/schema-core/tags';\n" +
+          "import type { NonNull, Table } from '@zmdb/schema/tags';\n" +
           "interface Account extends Table<'accounts'> { email: (string | null) & NonNull<string>; }\n",
       },
     ],
@@ -63,7 +63,7 @@ it('does not report a union with no nullish arm', async () => {
     valid: [
       {
         code:
-          "import type { Table, Unique } from '@zmdb/schema-core/tags';\n" +
+          "import type { Table, Unique } from '@zmdb/schema/tags';\n" +
           "interface Account extends Table<'accounts'> { externalId: (string | number) & Unique; }\n",
       },
     ],
@@ -94,12 +94,12 @@ it('applies the autofix without changing behaviour', async () => {
 
 it('reports a tag distributed across undefined', async () => {
   const code =
-    "import type { Table, Unique } from '@zmdb/schema-core/tags';\n\n" +
+    "import type { Table, Unique } from '@zmdb/schema/tags';\n\n" +
     "interface Account extends Table<'accounts'> {\n" +
     '  alias: (string | undefined) & Unique;\n' +
     '}\n';
   const output =
-    "import type { Table, Unique } from '@zmdb/schema-core/tags';\n\n" +
+    "import type { Table, Unique } from '@zmdb/schema/tags';\n\n" +
     "interface Account extends Table<'accounts'> {\n" +
     '  alias: (string & Unique) | undefined;\n' +
     '}\n';
@@ -125,12 +125,12 @@ it('reports a tag distributed across undefined', async () => {
 
 it('moves null outside an extension-backed column tag', async () => {
   const code =
-    "import type { Ext, Table } from '@zmdb/schema-core/tags';\n\n" +
+    "import type { Ext, Table } from '@zmdb/schema/tags';\n\n" +
     "interface Document extends Table<'documents'> {\n" +
     "  embedding: (readonly number[] | null) & Ext<'vector', 'vector', [3]>;\n" +
     '}\n';
   const output =
-    "import type { Ext, Table } from '@zmdb/schema-core/tags';\n\n" +
+    "import type { Ext, Table } from '@zmdb/schema/tags';\n\n" +
     "interface Document extends Table<'documents'> {\n" +
     "  embedding: (readonly number[] & Ext<'vector', 'vector', [3]>) | null;\n" +
     '}\n';

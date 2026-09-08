@@ -3,7 +3,7 @@ Dialect: `'sqlite'`. D1 is SQLite at the edge, accessed through a Worker binding
 ## Setup
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 import { sqlite } from '@zmdb/sqlite';
 
 export function d1Driver(db: D1Database): Driver {

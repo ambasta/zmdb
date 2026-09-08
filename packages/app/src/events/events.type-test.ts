@@ -1,5 +1,5 @@
-import type { TransactionContext } from '@zmdb/repository/transactions';
-import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
+import { type TransactionContext } from '@zmdb/orm/transactions';
+import { type Equal, type Expect, type Mutual } from '@zmdb/schema';
 
 import {
   createEvents,
@@ -119,7 +119,7 @@ const off: () => void = events.on('user.deleted', payload => {
 void off;
 
 // §2: `keyof M & string` and not `keyof M`. With a `symbol`-keyed map entry the event parameter must
-// still be a string, because the outbox `topic` column is text (../../../query-compiler/src/outbox/
+// still be a string, because the outbox `topic` column is text (../../../orm/src/outbox/
 // SPEC.md §2.3) and a symbol has no serialisation.
 type _EventKeyIsAString = Expect<Equal<Parameters<Events<AppEvents>['emit']>[0], 'post.published' | 'user.deleted'>>;
 

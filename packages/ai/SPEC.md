@@ -6,7 +6,7 @@
 ### Current state after #710
 
 - `@zmdb/ai`, `/chat`, `/compiler`, `/http`, and `/tool-runtime` are explicit package exports.
-- The package has one runtime dependency, `@zmdb/schema-core`, and no external dependency or peer.
+- The package has one runtime dependency, `@zmdb/schema`, and no external dependency or peer.
 - `@zmdb/ai-anthropic` owns the Anthropic driver, depends only on `@zmdb/ai`, and declares the SDK as its sole optional peer.
 - Provider-neutral runtime and type tests execute from `packages/ai/src`.
 - AOT `toolFor` imports and generated OpenAPI modules name the new package.
@@ -15,20 +15,20 @@
   fixture.
 - `@zmdb/mcp` owns its client, server, protocol specification, runtime tests, and type tests; its sole runtime dependency is `@zmdb/ai`.
 - Schema-core has no `src/llm` files, `./llm*` exports, provider/framework peer, or dependency on AI.
-- Measured after #710, `packages/ai/src` contains 21 files, `packages/mcp/src` contains six, `packages/ai-langchain/src` contains three, and `packages/schema-core/src/llm` contains zero.
+- Measured after #710, `packages/ai/src` contains 21 files, `packages/mcp/src` contains six, `packages/ai-langchain/src` contains three, and `packages/schema/src/llm` contains zero.
 
 ## 1. Measured starting point
 
 The inventory below was measured on 2026-09-05 at `94164c53`.
 
-- `packages/schema-core/src/llm/` contains exactly **32 files**.
-- `@zmdb/schema-core` publishes six LLM subpaths: `./llm`, `./llm/ai-sdk`, `./llm/chat`, `./llm/http`, `./llm/langchain` and `./llm/mcp`. Its package root does not export the LLM surface.
-- `@zmdb/schema-core` declares `@anthropic-ai/sdk` `0.123.0`, `@langchain/core` `^1.2.9` and `ai` `^7.0.83` as optional peers.
+- `packages/schema/src/llm/` contains exactly **32 files**.
+- `@zmdb/schema` publishes six LLM subpaths: `./llm`, `./llm/ai-sdk`, `./llm/chat`, `./llm/http`, `./llm/langchain` and `./llm/mcp`. Its package root does not export the LLM surface.
+- `@zmdb/schema` declares `@anthropic-ai/sdk` `0.123.0`, `@langchain/core` `^1.2.9` and `ai` `^7.0.83` as optional peers.
 - The installed Anthropic SDK is `0.123.0`. The LangChain consumer fixture declares and resolves `1.2.9`. The Vercel AI SDK fixture declares and resolves `7.0.92`, so the current lockfile does not
   prove the lower bound `7.0.83` even though the peer range starts there.
 - Nine canonical LLM documentation pages exist: `llm-chat`, `llm-function-calling`, `llm-http`, `llm-json-schema`, `llm-langchain`, `llm-mcp`, `llm-strategy`, `llm-structured-output` and
   `llm-vercel-ai-sdk`.
-- The AOT transformer, emitter, scanner, witness tests and callable-surface test still name `@zmdb/schema-core/llm`. Generated OpenAPI-tool modules also emit that old package header.
+- The AOT transformer, emitter, scanner, witness tests and callable-surface test still name `@zmdb/schema/llm`. Generated OpenAPI-tool modules also emit that old package header.
 
 These are migration inputs, not final ownership claims.
 
@@ -38,27 +38,27 @@ In this diagram `A --> B` means “A has a direct runtime dependency on B”:
 
 ```text
 @zmdb/ai-anthropic ──┐
-@zmdb/ai-langchain ──┼──> @zmdb/ai ──> @zmdb/schema-core ──> @zmdb/query-compiler
+@zmdb/ai-langchain ──┼──> @zmdb/ai ──> @zmdb/schema ──> @zmdb/sql
 @zmdb/ai-vercel ─────┤         ▲
 @zmdb/mcp ───────────┘         │
                                │
 @zmdb/compiler ────────────────┘
-         ├────────────────────> @zmdb/aot-validator ──> @zmdb/schema-core
-         ├────────────────────> @zmdb/query-compiler
-         └────────────────────> @zmdb/schema-core
+         ├────────────────────> @zmdb/validator ──> @zmdb/schema
+         ├────────────────────> @zmdb/sql
+         └────────────────────> @zmdb/schema
 ```
 
 The graph has these hard rules:
 
 1. `@zmdb/ai` is the only owner of provider-neutral tool documents, provider dialect data, parsing, bounded chat orchestration, shared tool invocation and OpenAPI-derived tools.
-2. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain` and `@zmdb/ai-vercel` each depend on `@zmdb/ai` and own one external integration. They do not depend directly on `@zmdb/schema-core`.
-3. `@zmdb/mcp` depends on `@zmdb/ai` plus platform APIs. It has no dependency on an MCP SDK, a provider SDK or `@zmdb/schema-core`.
-4. `@zmdb/compiler` depends directly on `@zmdb/ai`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, and `@zmdb/schema-core`: reflection consumes schema IR, generated validators target the runtime ABI,
-   and `toolFor` compilation consumes provider-neutral AI documents. `@zmdb/aot-validator` depends only on `@zmdb/schema-core`.
-5. `@zmdb/schema-core` never depends on any package in this slice. No provider or framework package depends on a sibling integration package.
+2. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain` and `@zmdb/ai-vercel` each depend on `@zmdb/ai` and own one external integration. They do not depend directly on `@zmdb/schema`.
+3. `@zmdb/mcp` depends on `@zmdb/ai` plus platform APIs. It has no dependency on an MCP SDK, a provider SDK or `@zmdb/schema`.
+4. `@zmdb/compiler` depends directly on `@zmdb/ai`, `@zmdb/validator`, `@zmdb/sql`, and `@zmdb/schema`: reflection consumes schema IR, generated validators target the runtime ABI, and `toolFor`
+   compilation consumes provider-neutral AI documents. `@zmdb/validator` depends only on `@zmdb/schema`.
+5. `@zmdb/schema` never depends on any package in this slice. No provider or framework package depends on a sibling integration package.
 6. The implemented #710 manifests use `workspace:^`. The #746 release target supersedes that range form: same-core edges alone retain `workspace:^`, while every edge in this integration slice uses the
    explicit cross-unit compatibility range and core imports become required peers plus workspace development dependencies. External SDKs are peers of exactly one integration package and never
-   dependencies or peers of `@zmdb/ai`, `@zmdb/schema-core`, `@zmdb/mcp` or `@zmdb/aot-validator`, and they are not compiler dependencies.
+   dependencies or peers of `@zmdb/ai`, `@zmdb/schema`, `@zmdb/mcp` or `@zmdb/validator`, and they are not compiler dependencies.
 
 ## 3. Exact public entry points
 
@@ -72,7 +72,7 @@ export type { ParseResult, ToolOptions, ToolProvider, ToolSchema, ToolSpec, Tool
 ```
 
 The root owns the five provider document dialects (`openai`, `openai-strict`, `anthropic`, `gemini`, `json-schema`) and their refusal rules. A provider name here selects a document shape; it does not
-install an SDK or make a request. `toJsonSchema` remains owned by `@zmdb/schema-core/openapi` and is not re-exported.
+install an SDK or make a request. `toJsonSchema` remains owned by `@zmdb/schema/openapi` and is not re-exported.
 
 ### 3.2 `@zmdb/ai/chat`
 
@@ -113,7 +113,7 @@ export { ToolSpecRefusalError, toolSchemaForProvider } from '@zmdb/ai/compiler';
 export type { ToolSpecRefusal } from '@zmdb/ai/compiler';
 ```
 
-`ToolProvider` remains imported from `@zmdb/ai`; `ShapeIR` remains imported from `@zmdb/schema-core/ir`. No application-facing root star-exports this subpath.
+`ToolProvider` remains imported from `@zmdb/ai`; `ShapeIR` remains imported from `@zmdb/schema/ir`. No application-facing root star-exports this subpath.
 
 ### 3.6 Integration roots
 
@@ -137,8 +137,8 @@ The package-specific specifications below freeze the signatures and peer policy.
 
 ## 4. Complete ownership map
 
-Every file currently below `packages/schema-core/src/llm/` appears exactly once in this table. “Merge” means the named package is the sole migration owner and the old file is deleted after its
-contract is incorporated; it does not permit the old path to survive.
+Every file currently below `packages/schema/src/llm/` appears exactly once in this table. “Merge” means the named package is the sole migration owner and the old file is deleted after its contract is
+incorporated; it does not permit the old path to survive.
 
 | Current path                     | Final owner          | Final disposition                                                           |
 | -------------------------------- | -------------------- | --------------------------------------------------------------------------- |
@@ -211,7 +211,7 @@ condition by measuring exact `ai@7.0.93`; issue #748 then set the manifest to `^
 3. `packages/compiler/src/codegen/scan.ts` maps `toolFor` to `@zmdb/ai`.
 4. Codegen witnesses import `ToolOptions`, `ToolProvider` and `ToolSpecFor` from `@zmdb/ai`.
 5. The callable-surface test imports `@zmdb/ai` when proving every `CALLEES` member is callable.
-6. `@zmdb/compiler/package.json` declares both `@zmdb/schema-core` and `@zmdb/ai` with `workspace:^`.
+6. `@zmdb/compiler/package.json` declares both `@zmdb/schema` and `@zmdb/ai` with `workspace:^`.
 
 A successfully transformed `toolFor<T>()` call still contains no runtime call to `toolFor`, no schema walk and no provider SDK import.
 
@@ -224,7 +224,7 @@ A successfully transformed `toolFor<T>()` call still contains no runtime call to
 import type { OpenApiGeneratedTool } from '@zmdb/ai/http';
 ```
 
-The generator, checked-in fixture, deterministic-output assertion, web round-trip suite and documentation sample must agree byte for byte. No generated file may retain `@zmdb/schema-core/llm/http`.
+The generator, checked-in fixture, deterministic-output assertion, web round-trip suite and documentation sample must agree byte for byte. No generated file may retain `@zmdb/schema/llm/http`.
 
 ## 8. Completed green migration sequence
 
@@ -234,14 +234,14 @@ to old package**. MCP moved directly in #709 because schema-core could not depen
 1. **Package shells:** #705 and #707 introduced the temporary new-to-old boundaries; #706, #708, and #709 moved the independent Anthropic, Vercel, and MCP leaves directly.
 2. **Consumer names:** AOT callee sources and witnesses, web round-trip tests, generated OpenAPI headers, fixtures, and public tests moved to `@zmdb/ai*` and `@zmdb/mcp`.
 3. **Physical ownership:** #710 moved every remaining provider-neutral file and the LangChain implementation to their final packages.
-4. **Old owner removal:** #710 removed all four remaining `./llm*` exports and the complete `packages/schema-core/src/llm/` tree.
+4. **Old owner removal:** #710 removed all four remaining `./llm*` exports and the complete `packages/schema/src/llm/` tree.
 5. **Forwarder removal:** every published AI/MCP export now resolves to source physically owned by its package.
 
 The repository now gates all of these conditions:
 
-- no directory at `packages/schema-core/src/llm`;
-- no `@zmdb/schema-core/llm` import, generated header, documentation sample or API-coverage mapping;
-- no Anthropic, LangChain or Vercel AI SDK peer in `@zmdb/schema-core`;
+- no directory at `packages/schema/src/llm`;
+- no `@zmdb/schema/llm` import, generated header, documentation sample or API-coverage mapping;
+- no Anthropic, LangChain or Vercel AI SDK peer in `@zmdb/schema`;
 - no provider SDK import reachable from `@zmdb/ai`, `@zmdb/ai/chat`, `@zmdb/ai/http`, `@zmdb/mcp` or the default product facade; and
 - no new package source that re-exports an old schema-core LLM path.
 
@@ -250,10 +250,10 @@ The repository now gates all of these conditions:
 The release graph publishes dependencies before consumers:
 
 ```text
-@zmdb/query-compiler
-  -> @zmdb/schema-core
+@zmdb/sql
+  -> @zmdb/schema
     -> @zmdb/ai
-      -> @zmdb/aot-validator
+      -> @zmdb/validator
       -> @zmdb/ai-anthropic
       -> @zmdb/ai-langchain
       -> @zmdb/ai-vercel
@@ -279,14 +279,14 @@ Before any package is published, qualification must prove:
 - No unified provider client, model registry, retry policy, fallback, pricing table or secret discovery.
 - No provider SDK in `@zmdb/ai`.
 - No MCP transport, socket, controller or SDK.
-- No compatibility export left in `@zmdb/schema-core`.
+- No compatibility export left in `@zmdb/schema`.
 - No root star export that makes importing `@zmdb/ai` load chat, HTTP, MCP or a provider integration.
 - No runtime implementation or package-manifest change in issue #703 itself.
 
 ## Runtime-foundation cutover (#635)
 
 The #703 graph is the extraction path through the current package names. At the later foundation cutover, the provider-neutral implementation now physically owned by `@zmdb/ai` remains there, while
-its inward contracts move from `@zmdb/schema-core` to `@zmdb/schema` and `@zmdb/validator`.
+its inward contracts move from `@zmdb/schema` to `@zmdb/schema` and `@zmdb/validator`.
 
 No foundation package imports AI. Provider SDKs, LangChain, Vercel AI, and MCP remain separate packages. Generated OpenAPI tool modules then import `@zmdb/schema/tags`, `@zmdb/validator`, and
 `@zmdb/ai/http`, never an old package name.

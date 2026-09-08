@@ -3,7 +3,7 @@ A materialized view stores its result set instead of recomputing it. `createView
 ## Creating one
 
 ```ts
-import { createViewDdl } from '@zmdb/query-compiler/schema-objects';
+import { createViewDdl } from '@zmdb/sql/schema-objects';
 
 const ddl = createViewDdl(
   {
@@ -74,7 +74,7 @@ await driver.execute({ text: 'REFRESH MATERIALIZED VIEW CONCURRENTLY "author_sta
 `CONCURRENTLY` requires a unique index:
 
 ```ts
-import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 createIndexDdl({ name: 'author_stats_pk', table: 'author_stats', columns: ['author_id'], unique: true }, 'postgres');
 ```

@@ -1,4 +1,4 @@
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import { mssql, mssqlDriver, type MssqlPool, type MssqlRequest, type MssqlTransaction } from './index.js';

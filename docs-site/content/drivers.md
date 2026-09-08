@@ -2,7 +2,7 @@ A `Driver` is the whole database abstraction: one required dialect object, one m
 — repositories, transactions, replicas, logging, caching and observability — composes around that boundary.
 
 ```ts
-import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
+import { type CompiledQuery, type SqlDialect } from '@zmdb/sql';
 
 export interface Driver<Name extends string = string> {
   readonly dialect: SqlDialect<Name>;
@@ -13,14 +13,14 @@ export interface Driver<Name extends string = string> {
 ```
 
 `CompiledQuery` always has `text` and `parameters`. It may also have optional compile-time `telemetry` when an observing wrapper requests it. An ordinary driver hands the text and parameters to the
-client and returns rows; it does not parse SQL. `Driver` lives in `@zmdb/repository`, not in the compiler.
+client and returns rows; it does not parse SQL. `Driver` lives in `@zmdb/orm`, not in the compiler.
 
 ## First-party drivers
 
 ```ts
 // node:sqlite — no external dependency
 import { DatabaseSync } from 'node:sqlite';
-import { defineRepository } from '@zmdb/repository';
+import { defineRepository } from '@zmdb/orm';
 import { sqliteDriver } from '@zmdb/sqlite';
 
 const db = new DatabaseSync('app.db');
@@ -31,7 +31,7 @@ const users = defineRepository(UserSchema, sqliteDriver(db));
 // mysql2 — selected by the application
 import mysql2 from 'mysql2/promise';
 import { mysqlDriver } from '@zmdb/mysql';
-import { defineRepository } from '@zmdb/repository';
+import { defineRepository } from '@zmdb/orm';
 
 const pool = mysql2.createPool({
   uri: process.env.DATABASE_URL,
@@ -88,7 +88,7 @@ on iterator cleanup. A bare Postgres `Client` and the SQL Server adapter omit `s
 Any database with a client that takes SQL plus parameters:
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 import { sqlite } from '@zmdb/sqlite';
 
 export function d1Driver(db: D1Database): Driver {
@@ -139,7 +139,7 @@ The driver carries the required dialect object, so repository construction needs
 Or a subclass, when you want to add methods or [lifecycle hooks](./lifecycle-hooks.html):
 
 ```ts
-import { BaseRepository } from '@zmdb/repository';
+import { BaseRepository } from '@zmdb/orm';
 
 class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
@@ -184,7 +184,7 @@ Two things to be careful about:
   transaction and the rollback does nothing. `withTransaction` exists to make that mistake structural rather than silent.
 - **`ROLLBACK` can throw too** (a dead connection), which would mask the original error. Log it and rethrow the original.
 
-`@zmdb/repository/transactions` wraps this pattern — see [Transactions](./transactions.html).
+`@zmdb/orm/transactions` wraps this pattern — see [Transactions](./transactions.html).
 
 > [!WARNING] `repo.update(id, { balance: dec(amount) })` emits `balance = balance - $1` through the repository's transaction-bound driver. A read-then-write is **not** equivalent: two concurrent
 > transfers can both read 100, both write 90, and lose one debit. See [Increment & Decrement](./guide-increment-decrement.html).

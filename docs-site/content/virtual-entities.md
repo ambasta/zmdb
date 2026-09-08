@@ -4,8 +4,8 @@ feature.
 ## The pattern
 
 ```ts
-import { defineRepository } from '@zmdb/repository';
-import { createViewDdl } from '@zmdb/query-compiler/schema-objects';
+import { defineRepository } from '@zmdb/orm';
+import { createViewDdl } from '@zmdb/sql/schema-objects';
 import { schemaOf } from 'zmdb';
 import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 
@@ -55,7 +55,7 @@ const page = await repo.list({
 If you cannot create a view — a read replica you do not own DDL on, a query that takes parameters — compile the SQL directly and validate the rows:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 import type { Entity } from 'zmdb/derive';
 
 async function orderSummaries(minTotal: number) {

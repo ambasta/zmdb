@@ -116,18 +116,18 @@ const PACKAGES = [
   'next',
   'nuxt',
   'solid',
-  'schema-core',
+  'schema',
   'ai',
   'ai-anthropic',
   'ai-langchain',
   'ai-vercel',
   'mcp',
   'migrations',
-  'aot-validator',
+  'validator',
   'compiler',
   'protobuf',
-  'repository',
-  'query-compiler',
+  'orm',
+  'sql',
   'mssql',
   'postgres',
   'cockroach',
@@ -246,7 +246,7 @@ function admitsString(type, checker, seen = new Set()) {
 /** Public refine/transform signatures must remain callable-only and string-free. */
 function auditStringSourceSignatures(program, checker) {
   const problems = [];
-  const file = resolve(ROOT, 'packages/aot-validator/src/advanced/index.ts');
+  const file = resolve(ROOT, 'packages/validator/src/advanced/index.ts');
   const sourceFile = program.getSourceFile(file);
   if (!sourceFile) return [`could not load ${relative(ROOT, file)} for the string-source guard.`];
 
@@ -299,7 +299,7 @@ function auditStringSourceSignatures(program, checker) {
  */
 async function auditStringSourceEmission() {
   const problems = [];
-  const advanced = resolve(ROOT, 'packages/aot-validator/src/advanced');
+  const advanced = resolve(ROOT, 'packages/validator/src/advanced');
   const entries = [
     resolve(ROOT, 'packages/compiler/src/transform/index.ts'),
     resolve(ROOT, 'packages/compiler/src/emit/index.ts'),
@@ -540,7 +540,7 @@ for (const name of PACKAGES) {
       findings.push(...audit.findings);
       undocumented.push(...audit.undocumented);
     }
-    if (name === 'aot-validator') {
+    if (name === 'validator') {
       contractProblems.push(...auditStringSourceSignatures(program, checker));
     }
     perPackage.push({ name, assertions, boundaryComments });

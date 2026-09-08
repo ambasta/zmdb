@@ -5,8 +5,8 @@ primitives, while Cockroach owns every override, refusal, retry code, live-serve
 
 ```ts
 import { cockroach, cockroachDriver } from '@zmdb/cockroach';
-import { createQueryCompiler } from '@zmdb/query-compiler';
-import { defineRepository } from '@zmdb/repository';
+import { createQueryCompiler } from '@zmdb/sql';
+import { defineRepository } from '@zmdb/orm';
 import { Pool } from 'pg';
 
 const pool = new Pool({ connectionString: process.env.COCKROACH_URL });

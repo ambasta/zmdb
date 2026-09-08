@@ -4,51 +4,63 @@
 // placeholders with real package entry points while retaining this exact
 // subpath and delegation freeze.
 
-import type {
-  CompileProjectOptions as CompilerCompileProjectOptions,
-  CompileResult as CompilerCompileResult,
-  compileProject as compilerCompileProject,
-  writeCompileResult as compilerWriteCompileResult,
-  watchCodegen as compilerWatchCodegen,
+import {
+  type CompileProjectOptions as CompilerCompileProjectOptions,
+  type CompileResult as CompilerCompileResult,
+  type compileProject as compilerCompileProject,
+  type writeCompileResult as compilerWriteCompileResult,
+  type watchCodegen as compilerWatchCodegen,
 } from '@zmdb/compiler';
-import type { EmitDiagnostic, EmitOptions, Emitter } from '@zmdb/compiler/emit';
-import type { configs as lintConfigs } from '@zmdb/compiler/lint';
-import type { MetroOptions, withZmdb } from '@zmdb/compiler/metro';
-import type {
-  ReflectDiagnostic,
-  ReflectLimits,
-  ReflectOptions,
-  ReflectResult,
-  Reflector,
-  irFromType,
-  schemaIrFromType,
+import { type EmitDiagnostic, type EmitOptions, type Emitter } from '@zmdb/compiler/emit';
+import { type configs as lintConfigs } from '@zmdb/compiler/lint';
+import { type MetroOptions, type withZmdb } from '@zmdb/compiler/metro';
+import {
+  type ReflectDiagnostic,
+  type ReflectLimits,
+  type ReflectOptions,
+  type ReflectResult,
+  type Reflector,
+  type irFromType,
+  type schemaIrFromType,
 } from '@zmdb/compiler/reflect';
-import type { schemasFrom, schemasFromFiles, schemaIrsFrom } from '@zmdb/compiler/testing';
-import type { TransformContext, TransformDiagnostic, TransformResult, transformFile } from '@zmdb/compiler/transform';
-import type { UnpluginLike, ZmdbAotOptions, zmdbAot } from '@zmdb/compiler/unplugin';
-import type {
-  ChangeOp,
-  DiffOptions,
-  SchemaSnapshot,
-  SnapshotableSchema,
-  diff,
-  emitDown,
-  emitUp,
-  snapshot,
+import { type schemasFrom, type schemasFromFiles, type schemaIrsFrom } from '@zmdb/compiler/testing';
+import {
+  type TransformContext,
+  type TransformDiagnostic,
+  type TransformResult,
+  type transformFile,
+} from '@zmdb/compiler/transform';
+import { type UnpluginLike, type ZmdbAotOptions, type zmdbAot } from '@zmdb/compiler/unplugin';
+import {
+  type ChangeOp,
+  type DiffOptions,
+  type SchemaSnapshot,
+  type SnapshotableSchema,
+  type diff,
+  type emitDown,
+  type emitUp,
+  type snapshot,
 } from '@zmdb/migrations';
-import type { emitDeclarations } from '@zmdb/migrations/declarations';
-import type {
-  EmbeddedConnection,
-  EmbeddedMigration,
-  EmbeddedMigrationError,
-  runEmbedded,
+import { type emitDeclarations } from '@zmdb/migrations/declarations';
+import {
+  type EmbeddedConnection,
+  type EmbeddedMigration,
+  type EmbeddedMigrationError,
+  type runEmbedded,
 } from '@zmdb/migrations/embedded';
-import type { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
-import type { CatalogSchemaSnapshot, normalizeDriftSnapshot } from '@zmdb/migrations/introspect/runtime';
-import type { Migration, MigrationConnection, MigrationStatus, down, status, up } from '@zmdb/migrations/runner';
-import type { SqlDialect } from '@zmdb/query-compiler';
-import type { Equal, Expect, Extends } from '@zmdb/schema-core';
-import type { NamingStrategy } from '@zmdb/schema-core/naming';
+import { type createIntrospector, type detectDrift } from '@zmdb/migrations/introspect';
+import { type CatalogSchemaSnapshot, type normalizeDriftSnapshot } from '@zmdb/migrations/introspect/runtime';
+import {
+  type Migration,
+  type MigrationConnection,
+  type MigrationStatus,
+  type down,
+  type status,
+  type up,
+} from '@zmdb/migrations/runner';
+import { type Equal, type Expect, type Extends } from '@zmdb/schema';
+import { type NamingStrategy } from '@zmdb/schema/naming';
+import { type SqlDialect } from '@zmdb/sql';
 
 import type {
   TARGET_PRODUCT_TOOLING_EXPORTS,
@@ -335,19 +347,19 @@ export type _OnlyCompilerAndCliHaveToolingPeers = Expect<
     TargetPeers,
     {
       readonly '@zmdb/compiler':
-        | '@zmdb/aot-validator'
-        | '@zmdb/query-compiler'
-        | '@zmdb/schema-core'
+        | '@zmdb/validator'
+        | '@zmdb/sql'
+        | '@zmdb/schema'
         | 'metro'
         | 'metro-babel-transformer'
         | 'oxlint'
         | 'typescript';
-      readonly '@zmdb/migrations': '@zmdb/query-compiler';
+      readonly '@zmdb/migrations': '@zmdb/schema' | '@zmdb/sql';
       readonly '@zmdb/cli':
         | '@zmdb/app'
-        | '@zmdb/query-compiler'
-        | '@zmdb/repository'
-        | '@zmdb/schema-core'
+        | '@zmdb/sql'
+        | '@zmdb/orm'
+        | '@zmdb/schema'
         | '@zmdb/web'
         | 'esbuild'
         | 'typescript';

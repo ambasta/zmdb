@@ -10,7 +10,7 @@ Give every property a stable field number and select an integer width whenever t
 
 ```ts
 import { protoEncode } from '@zmdb/protobuf';
-import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
 interface UserMessage {
   id: number & Proto<'int32'> & ProtoField<1>;

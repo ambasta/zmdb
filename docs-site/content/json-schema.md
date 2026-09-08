@@ -6,7 +6,7 @@ systems, and code generation tools.
 ## Basic Generation
 
 ```ts
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema } from '@zmdb/schema/openapi';
 import { schemaOf } from 'zmdb';
 import type { Min, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
@@ -122,7 +122,7 @@ const jsonSchema = toJsonSchema(schemaOf<Profile>(), 'entity');
 Use `toOpenApiComponents` to generate a map of schemas for an entire API:
 
 ```ts
-import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const schemas = toOpenApiComponents([schemaOf<User>(), schemaOf<Order>(), schemaOf<Product>()]);
 
@@ -147,7 +147,7 @@ const schemas = toOpenApiComponents([schemaOf<User>(), schemaOf<Order>(), schema
 For list/search responses, use `toListSchema` and `toSearchSchema`:
 
 ```ts
-import { toListSchema, toSearchSchema } from '@zmdb/schema-core/openapi';
+import { toListSchema, toSearchSchema } from '@zmdb/schema/openapi';
 
 const listSchema = toListSchema(userSchema);
 // {

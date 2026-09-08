@@ -17,7 +17,7 @@
 
 import { readFileSync } from 'node:fs';
 
-import type { CoreSchema } from '@zmdb/schema-core';
+import { type CoreSchema } from '@zmdb/schema';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { schemasFrom } from '../testing/index.js';
@@ -138,7 +138,7 @@ describe('what the emitted module contains', () => {
       .split('\n')
       .map(line => line.trim())
       .filter(line => !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('/*'));
-    expect(code.filter(line => line.includes('schemaOf'))).toEqual(["import { schemaOf } from '@zmdb/schema-core';"]);
+    expect(code.filter(line => line.includes('schemaOf'))).toEqual(["import { schemaOf } from '@zmdb/schema';"]);
   });
 
   it('hoists one frozen constant per distinct schema and shares it', () => {

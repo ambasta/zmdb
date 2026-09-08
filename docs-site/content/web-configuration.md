@@ -6,7 +6,7 @@ misconfigured process dies at startup instead of at 3am on a live request.
 ```ts
 import { createToken } from '@zmdb/app/di';
 import { Module } from '@zmdb/app/modules';
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 
 interface Config {
   readonly port: number;
@@ -58,8 +58,8 @@ A factory receives the `Container`, so it resolves whatever else it needs. There
 ```ts
 import { Pool } from 'pg';
 import { postgresDriver } from '@zmdb/postgres';
-import { defineRepository } from '@zmdb/repository';
-import type { Driver } from '@zmdb/repository';
+import { defineRepository } from '@zmdb/orm';
+import { type Driver } from '@zmdb/orm';
 import { repositoryToken } from '@zmdb/app/data';
 
 export const DRIVER = createToken<Driver>('DRIVER');

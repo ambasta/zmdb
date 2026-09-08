@@ -4,24 +4,24 @@
 // the #645 SPECs. App and web retain their product facades; jobs remains a
 // package-owned selected capability.
 
-import type {
-  Application as AppPackageApplication,
-  ApplicationOptions as AppPackageApplicationOptions,
+import {
+  type Application as AppPackageApplication,
+  type ApplicationOptions as AppPackageApplicationOptions,
 } from '@zmdb/app';
-import type { Worker as JobsPackageWorker } from '@zmdb/jobs';
-import type { Equal, Expect } from '@zmdb/schema-core';
-import type {
+import { type Worker as JobsPackageWorker } from '@zmdb/jobs';
+import { type Equal, type Expect } from '@zmdb/schema';
+import {
   // @ts-expect-error #649 deletes the compatibility application name
-  App as RemovedWebApp,
+  type App as RemovedWebApp,
   // @ts-expect-error #649 keeps transport-shaped options out of HTTP
-  AppOptions as RemovedWebAppOptions,
-  createApp as webCreateApp,
-  WebApplication as WebPackageApplication,
-  WebApplicationOptions as WebPackageApplicationOptions,
+  type AppOptions as RemovedWebAppOptions,
+  type createApp as webCreateApp,
+  type WebApplication as WebPackageApplication,
+  type WebApplicationOptions as WebPackageApplicationOptions,
 } from '@zmdb/web/app';
-import type { Application as AppFacadeApplication } from 'zmdb/app';
+import { type Application as AppFacadeApplication } from 'zmdb/app';
 // @ts-expect-error selected jobs intentionally has no product facade
-import type { Worker as ForbiddenJobsFacadeWorker } from 'zmdb/jobs';
+import { type Worker as ForbiddenJobsFacadeWorker } from 'zmdb/jobs';
 
 interface FrozenContainer {}
 interface FrozenLazyModuleHandle {

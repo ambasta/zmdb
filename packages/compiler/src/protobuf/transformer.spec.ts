@@ -26,7 +26,7 @@ it('recognises the canonical protobuf callees in the transformer', () => {
 const project = FixtureProject.open();
 afterAll(() => project.close());
 
-const MESSAGE = `import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+const MESSAGE = `import type { Proto, ProtoField } from '@zmdb/schema/tags';
 
 interface Message {
   readonly value: number & Proto<'int32'> & ProtoField<1>;

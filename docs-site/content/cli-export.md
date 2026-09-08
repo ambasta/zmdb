@@ -64,7 +64,7 @@ is a different tool doing a different job, and the right one for a backup.
 To include the schema objects that _are_ emitted by helpers, append them:
 
 ```ts
-import { createIndexDdl, createViewDdl } from '@zmdb/query-compiler/schema-objects';
+import { createIndexDdl, createViewDdl } from '@zmdb/sql/schema-objects';
 import { indexes, views } from '../src/schema-objects.js';
 
 for (const i of indexes) console.log(createIndexDdl(i, dialect) + ';');

@@ -14,14 +14,14 @@ npm add --save-dev @zmdb/compiler@alpha
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
 The sole peer is `@grpc/grpc-js@^1.14.4`. The package is not installed by `npm add zmdb@alpha`; `@zmdb/protobuf` supplies the source-level service artifact, `@zmdb/compiler` emits it at build time,
-and the generated validators import the `@zmdb/aot-validator` runtime ABI.
+and the generated validators import the `@zmdb/validator` runtime ABI.
 
 ## Usage
 
 ```ts
 import { Module, createApplication } from '@zmdb/app';
 import { loadGrpcService } from '@zmdb/protobuf';
-import type { ProtoField } from '@zmdb/schema-core/tags';
+import { type ProtoField } from '@zmdb/schema/tags';
 import { bindGrpcService, grpcExtension, type GrpcMetadata } from '@zmdb/transport-grpc';
 
 interface GetOrder {

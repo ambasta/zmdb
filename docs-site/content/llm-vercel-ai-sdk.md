@@ -15,9 +15,9 @@
 ```ts
 import { jsonSchema, tool } from 'ai';
 import { aiSdkTool } from '@zmdb/ai-vercel';
-import { assert } from '@zmdb/aot-validator/utilities';
-import { schemaOf, type CreateDTO } from '@zmdb/schema-core';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { assert } from '@zmdb/validator';
+import { schemaOf, type CreateDTO } from '@zmdb/schema';
+import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

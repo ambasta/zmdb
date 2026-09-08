@@ -48,19 +48,19 @@ const TSCONFIG = {
       'zmdb/*': [`${ROOT}packages/zmdb/src/*.ts`],
       '@zmdb/app': [`${ROOT}packages/app/src/index.ts`],
       '@zmdb/app/*': [`${ROOT}packages/app/src/*/index.ts`],
-      '@zmdb/schema-core': [`${ROOT}packages/schema-core/src/index.ts`],
-      '@zmdb/schema-core/*': [`${ROOT}packages/schema-core/src/*/index.ts`],
-      '@zmdb/query-compiler': [`${ROOT}packages/query-compiler/src/index.ts`],
-      '@zmdb/query-compiler/*': [`${ROOT}packages/query-compiler/src/*/index.ts`],
-      '@zmdb/repository': [`${ROOT}packages/repository/src/index.ts`],
-      '@zmdb/repository/*': [`${ROOT}packages/repository/src/*/index.ts`],
-      '@zmdb/aot-validator': [`${ROOT}packages/aot-validator/src/index.ts`],
-      '@zmdb/aot-validator/*': [`${ROOT}packages/aot-validator/src/*/index.ts`],
+      '@zmdb/schema': [`${ROOT}packages/schema/src/index.ts`],
+      '@zmdb/schema/*': [`${ROOT}packages/schema/src/*/index.ts`],
+      '@zmdb/sql': [`${ROOT}packages/sql/src/index.ts`],
+      '@zmdb/sql/*': [`${ROOT}packages/sql/src/*/index.ts`],
+      '@zmdb/orm': [`${ROOT}packages/orm/src/index.ts`],
+      '@zmdb/orm/*': [`${ROOT}packages/orm/src/*/index.ts`],
+      '@zmdb/validator': [`${ROOT}packages/validator/src/index.ts`],
+      '@zmdb/validator/*': [`${ROOT}packages/validator/src/*/index.ts`],
       '@zmdb/protobuf': [`${ROOT}packages/protobuf/src/index.ts`],
       '@zmdb/protobuf/*': [`${ROOT}packages/protobuf/src/*.ts`],
       '@zmdb/web': [`${ROOT}packages/web/src/index.ts`],
       '@zmdb/web/*': [`${ROOT}packages/web/src/*/index.ts`],
-      '@consumer/validation': [`${ROOT}packages/aot-validator/src/utilities/index.ts`],
+      '@consumer/validation': [`${ROOT}packages/validator/src/utilities/index.ts`],
     },
   },
   include: ['**/*.ts'],
@@ -135,14 +135,14 @@ const ok = (result: CodegenResult): void => {
 
 describe('an import the rewrite compiled away', () => {
   it('goes, and takes its line with it', () => {
-    const run = generate(`import { is } from '@zmdb/aot-validator/utilities';
+    const run = generate(`import { is } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `);
     ok(run.result);
-    expect(run.app).not.toContain("from '@zmdb/aot-validator'");
+    expect(run.app).not.toContain("from '@zmdb/validator'");
     expect(run.app).toContain("from './app.zmdb.generated.js'");
     // No blank line where the statement was, and none at the top of the file — a deleted first
     // import used to leave the file beginning with the paragraph break that followed it.
@@ -159,7 +159,7 @@ import type { Order } from './model.js';
 export const OrderSchema = schemaOf<Order>();
 `,
       {
-        'model.ts': `import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
+        'model.ts': `import type { PrimaryKey, Sql, Table } from '@zmdb/schema/tags';
 
 export interface Order extends Table<'orders'> {
   readonly id: number & Sql<'integer'> & PrimaryKey;
@@ -179,7 +179,7 @@ export interface Order extends Table<'orders'> {
     // The regression that started this file. `is` appears in the prose, and a text search for
     // it kept an import of a function nothing calls any more — which then failed to typecheck,
     // because the generated module exports `zmdbIsOrder`, not `is`.
-    const run = generate(`import { is } from '@zmdb/aot-validator/utilities';
+    const run = generate(`import { is } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
@@ -188,14 +188,14 @@ import type { Order } from './model.js';
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `);
     ok(run.result);
-    expect(run.app).not.toContain("from '@zmdb/aot-validator'");
+    expect(run.app).not.toContain("from '@zmdb/validator'");
     expect(run.app).toContain('the type argument *is* the input');
   });
 
   it('keeps the names the file still uses', () => {
     // Half the import is compiled away and half is not, which is the case that makes this a
     // rewrite of the clause rather than a deletion of the statement.
-    const run = generate(`import { is, type ValidateResult, validate } from '@zmdb/aot-validator/utilities';
+    const run = generate(`import { is, type ValidateResult, validate } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
@@ -203,19 +203,19 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
 export const explain = (value: unknown): ValidateResult<Order> => validate<Order>(value);
 `);
     ok(run.result);
-    expect(run.app).toContain("import { type ValidateResult } from '@zmdb/aot-validator/utilities';");
-    expect(run.app).not.toMatch(/import \{[^}]*\bis\b[^}]*\} from '@zmdb\/aot-validator\/utilities'/);
+    expect(run.app).toContain("import { type ValidateResult } from '@zmdb/validator';");
+    expect(run.app).not.toMatch(/import \{[^}]*\bis\b[^}]*\} from '@zmdb\/validator'/);
   });
 
   it('is replaced in place when it was the only import in the file', () => {
     // An inline type argument needs nothing from `./model.ts`, so the validator import is the
     // whole import block, and deleting it leaves nowhere to anchor the new one.
-    const run = generate(`import { is } from '@zmdb/aot-validator/utilities';
+    const run = generate(`import { is } from '@zmdb/validator';
 
 export const acceptsPoint = (value: unknown): boolean => is<{ readonly x: number }>(value);
 `);
     ok(run.result);
-    expect(run.app).not.toContain('@zmdb/aot-validator');
+    expect(run.app).not.toContain('@zmdb/validator');
     expect(run.app).toContain("from './app.zmdb.generated.js'");
     expect(run.app.startsWith('import ')).toBe(true);
     expect(run.app).not.toContain('\n\n\n');
@@ -228,7 +228,7 @@ export const acceptsPoint = (value: unknown): boolean => is<{ readonly x: number
     // `zmdb.is<Order>(v)` is a call site — `calleeName` reads through the property access — but
     // `zmdb` itself may still be used for anything else in the file, and a namespace binding is
     // not divisible. So it stays.
-    const run = generate(`import * as zmdb from '@zmdb/aot-validator/utilities';
+    const run = generate(`import * as zmdb from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
@@ -236,7 +236,7 @@ export const accepts = (value: unknown): boolean => zmdb.is<Order>(value);
 export const failed = (error: unknown): boolean => error instanceof zmdb.AssertError;
 `);
     ok(run.result);
-    expect(run.app).toContain("import * as zmdb from '@zmdb/aot-validator/utilities';");
+    expect(run.app).toContain("import * as zmdb from '@zmdb/validator';");
     expect(run.app).toContain('zmdbIsOrder(value)');
   });
 });
@@ -249,7 +249,7 @@ describe('a second run', () => {
   it('changes nothing, and --check agrees', () => {
     // Idempotence is what makes this safe to put in a pre-commit hook. It is also what the
     // committed fixture depends on: `--check` recomputes the whole rewrite and compares.
-    const first = generate(`import { is } from '@zmdb/aot-validator/utilities';
+    const first = generate(`import { is } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
@@ -270,7 +270,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
     // The other loop. oxfmt wraps a 200-character import across eight lines and sorts the
     // clause; if `--check` compared import *text* it would call that stale, rewrite it, and be
     // told off by `fmt --check` on the next run, forever. It compares the imported *names*.
-    const run = generate(`import { assert, is, validate } from '@zmdb/aot-validator/utilities';
+    const run = generate(`import { assert, is, validate } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
@@ -300,7 +300,7 @@ export const explain = (value: unknown) => validate<Order>(value);
 describe('a protobuf encoder call', () => {
   it('writes a checked Uint8Array wrapper and preserves the wire-runtime import', () => {
     const run = generate(`import { protoEncode } from '@zmdb/protobuf';
-import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+import type { Proto, ProtoField } from '@zmdb/schema/tags';
 
 export interface Message {
   value: number & Proto<'int32'> & ProtoField<1>;
@@ -322,7 +322,7 @@ export const encodeMessage = (value: Message): Uint8Array => protoEncode<Message
 
   it('recognises an aliased canonical binding and removes only its local name', () => {
     const run = generate(`import { protoEncode as encodeProto } from '@zmdb/protobuf';
-import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+import type { Proto, ProtoField } from '@zmdb/schema/tags';
 
 export interface Message {
   value: number & Proto<'int32'> & ProtoField<1>;
@@ -338,7 +338,7 @@ export const encodeMessage = (value: Message): Uint8Array => encodeProto<Message
 
   it('recognises the canonical namespace property', () => {
     const run = generate(`import * as protobuf from '@zmdb/protobuf';
-import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+import type { Proto, ProtoField } from '@zmdb/schema/tags';
 
 export interface Message {
   value: number & Proto<'int32'> & ProtoField<1>;
@@ -356,7 +356,7 @@ export const encodeMessage = (value: Message): Uint8Array => protobuf.protoEncod
 describe('a protobuf decoder call', () => {
   it('writes a checked message wrapper and preserves the bounded wire-runtime import', () => {
     const run = generate(`import { protoDecode } from '@zmdb/protobuf';
-import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+import type { Proto, ProtoField } from '@zmdb/schema/tags';
 
 export interface Message {
   value: number & Proto<'int32'> & ProtoField<1>;
@@ -380,7 +380,7 @@ export const decodeMessage = (bytes: Uint8Array): Message => protoDecode<Message
 describe('a gRPC service loader call', () => {
   it('captures the service and package literals in a zero-argument generated wrapper', () => {
     const run = generate(`import { loadGrpcService } from '@zmdb/protobuf';
-import type { ProtoField } from '@zmdb/schema-core/tags';
+import type { ProtoField } from '@zmdb/schema/tags';
 
 export interface Ping {
   value: string & ProtoField<1>;
@@ -486,7 +486,7 @@ describe('the generated import is written in the style of the file it joins', ()
     // The generator writes into somebody else's source, so it is a guest. Emitting the quote
     // character the file already uses is what keeps the edit from showing up as a diff in a
     // project whose formatter disagrees with ours.
-    const run = generate(`import { is } from "@zmdb/aot-validator/utilities";
+    const run = generate(`import { is } from "@zmdb/validator";
 
 import type { Order } from "./model.js";
 
@@ -505,7 +505,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
 
 import type { Order } from './model.js';
 
-import { is } from '@zmdb/aot-validator/utilities';
+import { is } from '@zmdb/validator';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `);
@@ -525,7 +525,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
 
 describe('a file that stops validating anything', () => {
   it('has its generated modules deleted, not left behind', () => {
-    const first = generate(`import { is } from '@zmdb/aot-validator/utilities';
+    const first = generate(`import { is } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
@@ -572,7 +572,7 @@ describe('--watch', () => {
     await new Promise(resolve => setTimeout(resolve, 100));
     writeFileSync(
       join(src, 'app.ts'),
-      `import { is } from '@zmdb/aot-validator/utilities';
+      `import { is } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
@@ -600,7 +600,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
 // A session the caller owns
 // -----------------------------------------------------------------------------
 
-const APP = `import { is } from '@zmdb/aot-validator/utilities';
+const APP = `import { is } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 

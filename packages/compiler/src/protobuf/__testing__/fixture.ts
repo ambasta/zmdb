@@ -3,8 +3,8 @@ import { FixtureProject } from '../../emit/__testing__/project.js';
 /**
  * The frozen public vocabulary is repeated locally on purpose.
  *
- * The tests-freeze must compile before `@zmdb/schema-core/tags` and
- * `@zmdb/aot-validator` export these names. The real exports are pinned separately by
+ * The tests-freeze must compile before `@zmdb/schema/tags` and
+ * `@zmdb/validator` export these names. The real exports are pinned separately by
  * compile-only tests; these declarations let the behavior tests reach the transformer
  * and fail at the absent protobuf call site rather than fail the whole TypeScript
  * project with TS2305.

@@ -4,7 +4,7 @@ Dialect: `'mysql'`. TiDB speaks the MySQL protocol, so `mysql2` connects and the
 
 ```ts
 import { createPool } from 'mysql2/promise';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const pool = createPool({
   uri: process.env.TIDB_URL,

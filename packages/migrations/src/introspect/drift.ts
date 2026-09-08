@@ -4,7 +4,7 @@ import {
   type SchemaSnapshot,
   type SqlDialect,
   type TableSnapshot,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
 
 import { diff } from '../index.js';
 import { tableSelected, type CatalogForeignKeySnapshot, type CatalogIndexSnapshot } from './common.js';

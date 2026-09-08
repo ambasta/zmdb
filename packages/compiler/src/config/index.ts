@@ -2,10 +2,10 @@ import { glob, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, join, normalize, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { AssertError } from '@zmdb/aot-validator/errors';
-import { isSqlDialect } from '@zmdb/query-compiler';
-import { isRecord } from '@zmdb/schema-core';
-import { resolveNaming, type NamingStrategy } from '@zmdb/schema-core/naming';
+import { isRecord } from '@zmdb/schema';
+import { resolveNaming, type NamingStrategy } from '@zmdb/schema/naming';
+import { isSqlDialect } from '@zmdb/sql';
+import { AssertError } from '@zmdb/validator/errors';
 
 import { projectSourceFileNames } from '../reflect/index.js';
 import type { HttpGenerationConfig, ZmdbConfig, ZmdbConfigData } from './contract.js';

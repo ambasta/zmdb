@@ -9,25 +9,25 @@
 // because "`any` is refused with a reason" is a promise, and an untested promise
 // about a validator that always passes is the worst kind.
 
-import type { Brand } from '@zmdb/aot-validator/advanced';
-import type {
-  HasDefault,
-  Length,
-  Max,
-  MaxLength,
-  Min,
-  MinLength,
-  Nullable,
-  Pattern,
-  PrimaryKey,
-  Proto,
-  ProtoField,
-  Rule,
-  Sensitive,
-  Serial,
-  Sql,
-  Unique,
-} from '@zmdb/schema-core/tags';
+import {
+  type HasDefault,
+  type Length,
+  type Max,
+  type MaxLength,
+  type Min,
+  type MinLength,
+  type Nullable,
+  type Pattern,
+  type PrimaryKey,
+  type Proto,
+  type ProtoField,
+  type Rule,
+  type Sensitive,
+  type Serial,
+  type Sql,
+  type Unique,
+} from '@zmdb/schema/tags';
+import { type Brand } from '@zmdb/validator/advanced';
 
 // `of` is never passed and never called — the declaration exists so a call site can
 // hand `T` to the checker. The unused parameter is there to give `T` a position, which

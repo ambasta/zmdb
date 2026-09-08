@@ -1,4 +1,4 @@
-import type { TransactionContext } from '@zmdb/repository/transactions';
+import { type TransactionContext } from '@zmdb/orm/transactions';
 // Runtime contract for the command bus — ./SPEC.md §7 items 4, 6, 7, 8, 9,
 // 10, 11 and 12. Items 1, 2, 3 and 5 are compile-time claims and live in ./cqrs.type-test.ts; they
 // are the closure properties of the mapped type, which no runtime test can see.

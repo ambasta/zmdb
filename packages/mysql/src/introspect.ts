@@ -20,7 +20,7 @@ import {
   type CatalogTableSnapshot,
   type CatalogWarning,
 } from '@zmdb/migrations/introspect/runtime';
-import type { IntrospectionDriver, Introspector, IntrospectOptions } from '@zmdb/query-compiler';
+import { type IntrospectionDriver, type Introspector, type IntrospectOptions } from '@zmdb/sql';
 
 interface MysqlColumn {
   readonly table: string;
@@ -419,7 +419,6 @@ export function mysqlFamilyIntrospector<Name extends string>(
   const normalize = overrides.normalizeForDrift;
   const introspector: Introspector<Name> = {
     name,
-    dialect: name,
     snapshot: (driver, options = {}) =>
       snapshot === undefined ? mysqlSnapshot(driver, options) : snapshot(driver, options, mysqlSnapshot),
     normalizeForDrift: (catalog, role) =>

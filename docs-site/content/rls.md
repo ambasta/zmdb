@@ -9,7 +9,7 @@ providing security at the database level without relying solely on application l
 Use `enableRlsDdl` to enable RLS on a table. This is the first step before creating any policies.
 
 ```ts
-import { enableRlsDdl, UnsupportedFeatureError } from '@zmdb/query-compiler/schema-objects';
+import { enableRlsDdl, UnsupportedFeatureError } from '@zmdb/sql/schema-objects';
 
 const ddl = enableRlsDdl('orders', 'postgres');
 console.log(ddl);
@@ -26,7 +26,7 @@ ALTER TABLE "orders" ENABLE ROW LEVEL SECURITY
 Use `createPolicyDdl` to define a policy. The policy specifies which rows are visible based on a USING expression.
 
 ```ts
-import { createPolicyDdl } from '@zmdb/query-compiler/schema-objects';
+import { createPolicyDdl } from '@zmdb/sql/schema-objects';
 
 const policy = {
   name: 'users_can_see_own_orders',

@@ -3,7 +3,7 @@
 // command crosses the same validation, authorisation, transaction, and outcome
 // observation boundary.
 
-import type { TransactionContext } from '@zmdb/repository/transactions';
+import { type TransactionContext } from '@zmdb/orm/transactions';
 
 /** A command name mapped to its input and result types. */
 export interface CommandMap {

@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import type { AuthenticationProvider, ClientResponse } from '@zmdb/client';
+import { type AuthenticationProvider, type ClientResponse } from '@zmdb/client';
 import { createFakeClientTransport, type HeldClientRequest } from '@zmdb/client/testing';
-import type { TypeIR } from '@zmdb/schema-core/ir';
+import { type TypeIR } from '@zmdb/schema/ir';
 import { describe, expect, it } from 'vitest';
 
 import { createApiClient, isPatchAccountsAccountIdError } from '../__fixtures__/http-client.generated.js';
@@ -197,7 +197,7 @@ describe('HttpContractIR typed-client generation', () => {
     const source = generated().source;
     const imports = [...source.matchAll(/from ['"]([^'"]+)['"]/gu)].map(match => match[1]);
     expect(imports).toEqual(['@zmdb/client', '@zmdb/client']);
-    expect(source).not.toMatch(/@zmdb\/(?:web|aot-validator|schema-core)|node:/u);
+    expect(source).not.toMatch(/@zmdb\/(?:web|validator|schema)|node:/u);
   });
 
   it('emits a stable path-independent source map', () => {

@@ -27,7 +27,7 @@ import {
 //   - `Meter.histogram`'s `unit: 's'` literal — §7's seconds-not-milliseconds rule is a
 //     runtime assertion for the *value* and a compile-time one for the *unit*.
 //
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type { Ctx } from '../context/index.js';
 

@@ -4,7 +4,7 @@
 // The token → instance-type binding is the whole point of `Token<T>`'s phantom
 // field, and it was previously "checked" by `expectTypeOf` inside a `.spec.ts`,
 // where such a call does nothing at runtime.
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import { createToken } from './index.js';
 import type { Container } from './index.js';

@@ -4,7 +4,7 @@
 // lives at ./compiler so an application that only registers an already-compiled
 // contract never reaches TypeScript, the filesystem, or a reflection session.
 
-import type { JsonValue as SchemaJsonValue, TypeIR } from '@zmdb/schema-core/ir';
+import { type JsonValue as SchemaJsonValue, type TypeIR } from '@zmdb/schema/ir';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type JsonValue = SchemaJsonValue;

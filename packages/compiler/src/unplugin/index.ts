@@ -10,7 +10,7 @@
 // the project is the expensive half; a checker call is a cheap round-trip. A session per
 // file would make the AOT path cost more than the runtime walker it replaces.
 
-import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
+import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema/naming';
 
 import type { EmitOptions } from '../emit/index.js';
 import { ReflectSession } from '../reflect/session.js';

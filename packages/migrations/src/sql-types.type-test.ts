@@ -1,4 +1,4 @@
-import type { Equal, Expect, SqlType } from '@zmdb/schema-core';
+import { type Equal, type Expect, type SqlType } from '@zmdb/schema';
 
 import type { CHANGE_PHASES, ChangeOp, DdlSqlType } from './index.js';
 

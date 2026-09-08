@@ -70,9 +70,9 @@ export const TARGET_TOOLING_MANIFESTS = Object.freeze({
   '@zmdb/compiler': Object.freeze({
     dependencies: Object.freeze(['@zmdb/ai']),
     peerDependencies: Object.freeze([
-      '@zmdb/aot-validator',
-      '@zmdb/query-compiler',
-      '@zmdb/schema-core',
+      '@zmdb/schema',
+      '@zmdb/sql',
+      '@zmdb/validator',
       'metro',
       'metro-babel-transformer',
       'oxlint',
@@ -82,16 +82,16 @@ export const TARGET_TOOLING_MANIFESTS = Object.freeze({
   }),
   '@zmdb/migrations': Object.freeze({
     dependencies: Object.freeze(['oxfmt']),
-    peerDependencies: Object.freeze(['@zmdb/query-compiler']),
+    peerDependencies: Object.freeze(['@zmdb/schema', '@zmdb/sql']),
     optionalPeers: Object.freeze([]),
   }),
   '@zmdb/cli': Object.freeze({
     dependencies: Object.freeze(['@zmdb/compiler', '@zmdb/migrations', 'oxfmt']),
     peerDependencies: Object.freeze([
       '@zmdb/app',
-      '@zmdb/query-compiler',
-      '@zmdb/repository',
-      '@zmdb/schema-core',
+      '@zmdb/orm',
+      '@zmdb/schema',
+      '@zmdb/sql',
       '@zmdb/web',
       'esbuild',
       'typescript',
@@ -102,37 +102,32 @@ export const TARGET_TOOLING_MANIFESTS = Object.freeze({
 
 const POLICY_PATH = '.github/scripts/verify-tooling-ownership.SPEC.md';
 const INVENTORY_ROOTS = [
-  'packages/aot-validator/src',
+  'packages/validator/src',
   'packages/cli/src',
   'packages/compiler/src',
   'packages/migrations/src',
-  'packages/query-compiler/src',
+  'packages/sql/src',
   'packages/zmdb/src',
 ];
 const EXTRA_INVENTORY_PATHS = [
-  'packages/schema-core/src/ir/validation-shape.ts',
-  'packages/schema-core/src/ir/vocabulary.ts',
+  'packages/schema/src/ir/validation-shape.ts',
+  'packages/schema/src/ir/vocabulary.ts',
+  'packages/schema/src/naming/index.ts',
+  'packages/orm/src/outbox/sql.ts',
 ];
 const INVENTORY_EXTENSIONS = new Set(['.ts', '.js', '.json', '.proto']);
 const EXPECTED_OWNER_COUNTS = Object.freeze({
   compiler: 34,
   migrations: 21,
   cli: 33,
-  runtime: 30,
+  runtime: 31,
   facade: 53,
   'optional-integration': 0,
   'test-only': 38,
   obsolete: 0,
 });
 
-const RUNTIME_ROOTS = Object.freeze([
-  '@zmdb/schema-core',
-  '@zmdb/query-compiler',
-  '@zmdb/aot-validator',
-  '@zmdb/repository',
-  '@zmdb/web',
-  'zmdb',
-]);
+const RUNTIME_ROOTS = Object.freeze(['@zmdb/schema', '@zmdb/sql', '@zmdb/validator', '@zmdb/orm', '@zmdb/web', 'zmdb']);
 const RUNTIME_FOUNDATIONS = new Set(RUNTIME_ROOTS.filter(packageName => packageName !== 'zmdb'));
 const TARGET_TOOLING_PACKAGES = new Set(Object.keys(TARGET_TOOLING_MANIFESTS));
 
@@ -617,24 +612,24 @@ function targetPackageProblems(architecture) {
   )?.manifest;
   if (product === undefined) return ['zmdb is absent from the governance workspace manifest inventory'];
   const validator = architecture.workspacePackages.find(
-    packageRecord => packageRecord.manifest.name === '@zmdb/aot-validator',
+    packageRecord => packageRecord.manifest.name === '@zmdb/validator',
   )?.manifest;
   if (validator === undefined) {
-    problems.push('@zmdb/aot-validator is absent from the governance workspace manifest inventory');
+    problems.push('@zmdb/validator is absent from the governance workspace manifest inventory');
   }
   for (const subpath of RETIRED_AOT_TOOLING_EXPORTS) {
     if (validator?.exports?.[subpath] !== undefined) {
-      problems.push(`@zmdb/aot-validator still publishes retired compiler subpath ${subpath}`);
+      problems.push(`@zmdb/validator still publishes retired compiler subpath ${subpath}`);
     }
   }
   if (validator !== undefined && Object.keys(normalizeBins(validator)).length > 0) {
-    problems.push('@zmdb/aot-validator must not publish an executable');
+    problems.push('@zmdb/validator must not publish an executable');
   }
   if (product.exports?.['./unplugin'] !== undefined) problems.push('zmdb still publishes retired subpath ./unplugin');
-  const queryCompiler = architecture.workspacePackages.find(record => record.manifest.name === '@zmdb/query-compiler');
+  const queryCompiler = architecture.workspacePackages.find(record => record.manifest.name === '@zmdb/sql');
   for (const selector of ['./introspect', './migrations', './migrations/embedded', './migrations/runner']) {
     if (queryCompiler?.manifest.exports?.[selector] !== undefined) {
-      problems.push(`@zmdb/query-compiler still publishes retired subpath ${selector}`);
+      problems.push(`@zmdb/sql still publishes retired subpath ${selector}`);
     }
   }
   for (const [packageName, expected] of Object.entries(TARGET_TOOLING_EXPORTS)) {

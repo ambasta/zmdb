@@ -42,7 +42,7 @@ first query.
 ## Using it
 
 ```ts
-import { defineRepository } from '@zmdb/repository';
+import { defineRepository } from '@zmdb/orm';
 
 const repo = defineRepository(users, driver);
 

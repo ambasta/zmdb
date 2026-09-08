@@ -4,7 +4,7 @@ Dialect: `'postgres'`. Supabase is Postgres, so connect with an ordinary Postgre
 
 ```ts
 import { Pool } from 'pg';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

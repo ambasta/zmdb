@@ -7,7 +7,7 @@ import {
   type CompiledQuery,
   type MigrationDriver as DialectMigrationDriver,
   type SqlDialect,
-} from '@zmdb/query-compiler';
+} from '@zmdb/sql';
 
 export interface Migration {
   readonly version: number;
@@ -38,7 +38,7 @@ export interface MigrationConnection {
   transaction?<T>(run: (connection?: MigrationConnection) => Promise<T>): Promise<T>;
 }
 
-// Interface matching any runtime database driver (e.g. from @zmdb/repository).
+// Interface matching any runtime database driver (e.g. from @zmdb/orm).
 export interface MigrationDriver {
   readonly dialect: SqlDialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;

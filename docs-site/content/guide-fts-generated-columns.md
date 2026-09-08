@@ -18,7 +18,7 @@ than about a column; `Fts<true>` is the shorthand for "index this table, I do no
 ## The generated column and its index
 
 ```ts
-import { generatedColumnDdl, createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+import { generatedColumnDdl, createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const fragment = generatedColumnDdl(
   {

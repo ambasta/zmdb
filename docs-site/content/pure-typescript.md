@@ -4,7 +4,7 @@ runtime. Everything that gets its shape from a **value** does not.
 ## The part that needs the build step
 
 ```ts
-import { is } from '@zmdb/aot-validator/utilities';
+import { is } from '@zmdb/validator';
 
 is<User>(payload); // needs the transformer
 ```
@@ -27,7 +27,7 @@ The five protobuf and gRPC artifact calls are imported from `@zmdb/protobuf`; re
 **Rule-first validation.** `validate(rule, value)` takes the constraint as a value, so it runs anywhere:
 
 ```ts
-import { tags, validate } from '@zmdb/aot-validator';
+import { tags, validateRule as validate } from '@zmdb/validator';
 
 validate(tags.Min(0), input.price); // boolean
 validate(tags.Pattern('^[^@]+@[^@]+$'), input.email);
@@ -47,7 +47,7 @@ second implementation. An unknown `kind` throws.
 **Serialization.** Neither `stringify` nor `parse` is transformed, so both work unchanged:
 
 ```ts
-import { parse, stringify } from '@zmdb/aot-validator/serialization';
+import { parse, stringify } from '@zmdb/validator/serialization';
 
 const json = stringify(user); // JSON.stringify, plus one fixed bigint TypeError
 const result = parse(json); // { success, data? , issues? } — malformed JSON is a value, not a throw
@@ -60,7 +60,7 @@ second). The three shallow calls additionally accept their depth as a third fall
 compile-time-only:
 
 ```ts
-import { assert, type TypeIR } from '@zmdb/aot-validator/utilities';
+import { assert, type TypeIR } from '@zmdb/validator';
 
 const ir: TypeIR = { kind: 'scalar', scalar: 'string' };
 assert(rawValue, ir); // no type argument, no transformer

@@ -5,7 +5,7 @@ Row-returning repository writes remain deliberately narrower: `create`, ordinary
 
 ```ts
 import { mysql, mysqlDriver } from '@zmdb/mysql';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/sql';
 
 const driver = mysqlDriver(pool);
 const compiler = createQueryCompiler(mysql);

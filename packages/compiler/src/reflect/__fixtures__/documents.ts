@@ -9,8 +9,8 @@
 // `CreateDTO<User>` has to equal `toJsonSchema(users, 'create')` down to the byte, where
 // `users` is the schema value reflected from `User`.
 
-import type { CreateDTO, Entity, ReadDTO, UpdateDTO } from '@zmdb/schema-core/derive';
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { type CreateDTO, type Entity, type ReadDTO, type UpdateDTO } from '@zmdb/schema/derive';
+import { toJsonSchema } from '@zmdb/schema/openapi';
 
 import type { Membership, User } from './tables.js';
 

@@ -5,7 +5,7 @@
 // is asked the same questions as the runtime walker. If the emitted code did not parse, or
 // still called back into the walker, or disagreed with it, this is where that shows up.
 
-import { is as runtimeIs } from '@zmdb/aot-validator/utilities';
+import { is as runtimeIs } from '@zmdb/validator';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { FixtureProject } from '../emit/__testing__/project.js';

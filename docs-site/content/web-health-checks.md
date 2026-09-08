@@ -8,7 +8,7 @@
 They answer different questions, and conflating them causes outages.
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 import { Controller, Get, Public, createRouter, type Guard } from '@zmdb/web';
 import { databaseReadinessCheck, detailedReadyRoute, healthRoutes, type HealthChecks } from '@zmdb/web/health';
 

@@ -12,7 +12,7 @@
 // no bookkeeping to keep in step.
 
 import type { ZmdbConfigData } from './contract.js';
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 /*zmdb:/imports*/
 
 /*zmdb:begin:zmdbAssertZmdbConfigData*/

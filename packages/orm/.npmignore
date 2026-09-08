@@ -1,0 +1,14 @@
+*.spec.ts
+**/*.spec.ts
+*.type-test.ts
+**/*.type-test.ts
+SPEC.md
+**/SPEC.md
+tsconfig.json
+tsconfig.build.json
+src/dx/fixtures.ts
+src/orders-fixture.ts
+src/testing/official-dialects.fixture.ts
+src/transactions/recording-conn.ts
+src/typed-methods/typed-methods.fixture.ts
+src/typed-populate/fixtures.ts

@@ -4,10 +4,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { diff, up } from '@zmdb/migrations';
-import { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/query-compiler';
-import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { outboxPendingIndexDdl, outboxTableDdl } from '@zmdb/query-compiler/outbox';
+import { outboxPendingIndexDdl, outboxTableDdl } from '@zmdb/orm/outbox';
 import { singlestore, singlestoreDriver, singlestoreIntrospector, singlestoreMigrations } from '@zmdb/singlestore';
+import { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/sql';
+import { ftsSelectFrom } from '@zmdb/sql/fts';
 import mysql2 from 'mysql2/promise';
 
 const fixtureRoot = dirname(dirname(fileURLToPath(import.meta.url)));

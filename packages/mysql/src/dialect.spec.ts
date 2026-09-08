@@ -1,9 +1,4 @@
-import {
-  UnsupportedFeatureError,
-  createQueryCompiler,
-  extendSqlDialect,
-  type MigrationDriver,
-} from '@zmdb/query-compiler';
+import { UnsupportedFeatureError, createQueryCompiler, extendSqlDialect, type MigrationDriver } from '@zmdb/sql';
 import { describe, expect, it, vi } from 'vitest';
 
 import { mysql } from './dialect.js';

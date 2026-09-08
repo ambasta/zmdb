@@ -14,31 +14,23 @@ export {
   random,
   validate,
   validateShallow,
-} from '@zmdb/aot-validator/utilities';
-export type { TypeIR, ValidateResult, ValidationIssue } from '@zmdb/aot-validator/utilities';
+} from '@zmdb/validator';
+export { type TypeIR, type ValidateResult, type ValidationIssue } from '@zmdb/validator';
 
+export { coerce, discriminated, evalRule, refine, transform, union, validateObject } from '@zmdb/validator/advanced';
 export {
-  coerce,
-  discriminated,
-  evalRule,
-  refine,
-  transform,
-  union,
-  validateObject,
-} from '@zmdb/aot-validator/advanced';
-export type {
-  Brand,
-  DiscriminatedRule,
-  ObjectMode,
-  RefinePredicate,
-  RefineRule,
-  TransformFn,
-  TransformRule,
-  UnionRule,
-} from '@zmdb/aot-validator/advanced';
+  type Brand,
+  type DiscriminatedRule,
+  type ObjectMode,
+  type RefinePredicate,
+  type RefineRule,
+  type TransformFn,
+  type TransformRule,
+  type UnionRule,
+} from '@zmdb/validator/advanced';
 
-export { assertStringify, decode, parse, stringify } from '@zmdb/aot-validator/serialization';
-export type { ParseResult } from '@zmdb/aot-validator/serialization';
+export { assertStringify, decode, parse, stringify } from '@zmdb/validator/serialization';
+export { type ParseResult } from '@zmdb/validator/serialization';
 
 export {
   MAX_REGEX_CACHE_SIZE,
@@ -48,5 +40,5 @@ export {
   getRegExp,
   tags,
   validatePatternComplexity,
-} from '@zmdb/aot-validator';
-export type { Rule } from '@zmdb/aot-validator';
+} from '@zmdb/validator';
+export { type Rule } from '@zmdb/validator';

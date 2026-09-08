@@ -9,7 +9,7 @@ Table aliases let you give a table a short name in a query — essential for **s
 Pass `'table as alias'` to the join builder; both the base table and joined tables can be aliased, and columns are referenced through the alias.
 
 ```ts
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
+import { joinableSelectFrom } from '@zmdb/sql/joins';
 
 joinableSelectFrom('employees as e', 'postgres').leftJoin('employees as r', 'r.id', 'e.recipient_id').where('e.id', '=', 1).compile();
 ```
@@ -40,7 +40,7 @@ When a join produces columns you want under cleaner keys (e.g. mapping `r_id`/`r
 `SELECT ... AS` rename.
 
 ```ts
-import { aliasRow, type JoinRow } from '@zmdb/schema-core';
+import { aliasRow, type JoinRow } from '@zmdb/orm/relations';
 
 type Row = JoinRow<Employee, Recipient, 'left'>; // Employee & Partial<Recipient>
 const clean = aliasRow(row, { r_id: 'recipientId', r_name: 'recipientName' });

@@ -49,7 +49,7 @@ The platform-specific part is the last inch: something that runs `{ text, parame
 
 ```ts
 import * as SQLite from 'expo-sqlite';
-import type { Driver } from '@zmdb/repository';
+import { type Driver } from '@zmdb/orm';
 
 const db = await SQLite.openDatabaseAsync('app.db');
 await db.execAsync('PRAGMA foreign_keys = ON');
@@ -153,8 +153,7 @@ local reads.
 ## Why the SQLite adapter stays in the app
 
 The `Driver` and `EmbeddedConnection` boundaries are structural, while the native binding is an application choice: Expo's binding, `op-sqlite`, SQLCipher, or a future platform package. Keeping the
-adapter here avoids making every repository consumer install a mobile peer dependency. A first-party `@zmdb/repository/expo-sqlite` package would be a convenience wrapper, not a missing execution
-path.
+adapter here avoids making every repository consumer install a mobile peer dependency. A first-party `@zmdb/orm/expo-sqlite` package would be a convenience wrapper, not a missing execution path.
 
 ---
 

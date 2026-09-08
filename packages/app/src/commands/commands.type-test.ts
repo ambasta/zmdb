@@ -1,10 +1,10 @@
 // This file is compiled by `node scripts/typecheck.mjs` and is not a Vitest test file. Every
 // `@ts-expect-error` is therefore checked by TS2578 if the forbidden shape becomes legal.
 
-import type { Constructor } from '@zmdb/app/di';
-import type { CompiledModule, ModuleClass, ModuleDef } from '@zmdb/app/modules';
-import type { Equal, Expect } from '@zmdb/schema-core';
-import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
+import { type Constructor } from '@zmdb/app/di';
+import { type CompiledModule, type ModuleClass, type ModuleDef } from '@zmdb/app/modules';
+import { type Equal, type Expect } from '@zmdb/schema';
+import { type JsonSchemaObject } from '@zmdb/schema/ir';
 
 import { createCommandApp, type Command, type CommandApp, type CommandClass, type CommandDef } from './index.js';
 

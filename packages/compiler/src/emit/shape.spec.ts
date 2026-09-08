@@ -10,8 +10,7 @@
 // The last test in each block closes the loop back to the runtime walker, because a helper
 // that is right and unused is the failure this file would otherwise miss.
 
-import { equals, issuesFor } from '@zmdb/aot-validator/utilities';
-import type { ObjectIR, TypeIR } from '@zmdb/schema-core/ir';
+import { type ObjectIR, type TypeIR } from '@zmdb/schema/ir';
 import {
   discriminantOf,
   expectedForConstraint,
@@ -19,7 +18,8 @@ import {
   expectedOf,
   hasExcessCheck,
   messageFor,
-} from '@zmdb/schema-core/ir';
+} from '@zmdb/schema/ir';
+import { equals, issuesFor } from '@zmdb/validator';
 import { describe, expect, it } from 'vitest';
 
 /** A required, mutable property, which is what all but one case below wants. */

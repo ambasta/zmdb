@@ -20,7 +20,7 @@ Those are construction rules, not recommendations around an otherwise unbounded 
 import Anthropic from '@anthropic-ai/sdk';
 import { anthropicDriver } from '@zmdb/ai-anthropic';
 import { defineTools, run } from '@zmdb/ai/chat';
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 
 interface SearchArgs {
   q: string;

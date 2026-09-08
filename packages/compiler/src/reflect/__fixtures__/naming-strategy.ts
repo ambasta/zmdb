@@ -2,7 +2,7 @@
 // Vitest. It keeps the application-facing properties camelCase while the tests hand
 // the reflector a literal build-time strategy.
 
-import type { Physical, PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
+import { type Physical, type PrimaryKey, type Sql, type Table } from '@zmdb/schema/tags';
 
 function namingCase<T>(_label: string, _value?: T): void {}
 

@@ -3,7 +3,7 @@ Filters that come from a request are conditional by nature. Both the DTO and the
 ## With `WhereDTO` — build the object
 
 ```ts
-import type { WhereDTO } from '@zmdb/schema-core';
+import { type WhereDTO } from '@zmdb/schema';
 
 function buildWhere(q: { status?: string; minAge?: number; search?: string }): WhereDTO<User> {
   const where: WhereDTO<User> = {};
@@ -37,7 +37,7 @@ a literal union means the cast is justified rather than assumed — and it stops
 Better still, let the validator do it:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 
 const params = assert<{ sort?: Sortable; dir?: 'asc' | 'desc'; limit?: number }>(ctx.query);
 ```

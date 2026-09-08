@@ -29,7 +29,7 @@ const input = assert<Omit<NewPost, 'authorId'>>(args.input);
 ## Where the gap is not, after all
 
 **Generating GraphQL SDL from a composed type** reads like the missing capability, and this page used to say so — a hypothetical `toGraphQLType(schema, variant)` working from a _schema object_, with
-`Omit<PostRow, 'authorEmail'>` having no runtime representation to hand it. That framing is wrong, and the frozen emitter (`packages/schema-core/src/sdl/SPEC.md` §10) does not have the problem:
+`Omit<PostRow, 'authorEmail'>` having no runtime representation to hand it. That framing is wrong, and the frozen emitter (`packages/schema/src/sdl/SPEC.md` §10) does not have the problem:
 
 ```ts
 sdlOf<Omit<Entity<Post>, 'authorEmail'>>('PublicPost');

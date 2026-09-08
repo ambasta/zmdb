@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { Client, Metadata, credentials, status, type ClientWritableStream } from '@grpc/grpc-js';
 import { createApplication, type ApplicationExtension } from '@zmdb/app';
-import type { WithHeaders } from '@zmdb/app/messaging';
+import { type WithHeaders } from '@zmdb/app/messaging';
 import { Module } from '@zmdb/app/modules';
 import { describe, expect, it } from 'vitest';
 
@@ -191,7 +191,7 @@ async function malformedGet(address: string): Promise<void> {
 describe('the protobuf boundary', () => {
   it('grpcDescriptor is owned by @zmdb/protobuf while emission stays in @zmdb/compiler', () => {
     const protobuf = readFileSync(new URL('../../protobuf/src/index.ts', import.meta.url), 'utf8');
-    const aotRoot = readFileSync(new URL('../../aot-validator/src/index.ts', import.meta.url), 'utf8');
+    const aotRoot = readFileSync(new URL('../../validator/src/index.ts', import.meta.url), 'utf8');
     const emit = readFileSync(new URL('../../compiler/src/emit/index.ts', import.meta.url), 'utf8');
     const wanted = ['protoEncode', 'protoDecode', 'protoDescriptor', 'grpcDescriptor', 'loadGrpcService'];
     expect(wanted.every(name => protobuf.includes(`function ${name}`))).toBe(true);

@@ -1,4 +1,4 @@
-import type { Equal, Expect } from '@zmdb/schema-core';
+import { type Equal, type Expect } from '@zmdb/schema';
 
 import type {
   CompiledModule,
