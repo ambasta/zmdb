@@ -8,7 +8,10 @@ export class CliInvocationError extends Error {
 
 /** Preserve the original failure before an error raised while disposing its resources. */
 export function errorMessage(error: unknown): string {
-  if (error instanceof SuppressedError) {
+  if (
+    (typeof SuppressedError !== 'undefined' && error instanceof SuppressedError) ||
+    (error instanceof Error && 'suppressed' in error && 'error' in error)
+  ) {
     return `${errorMessage(error.suppressed)}\ncleanup: ${errorMessage(error.error)}`;
   }
   if (error instanceof AggregateError) {
@@ -16,4 +19,14 @@ export function errorMessage(error: unknown): string {
     if (errors.length > 0) return errors.map(errorMessage).join('\ncleanup: ');
   }
   return error instanceof Error ? error.message : String(error);
+}
+
+export function makeSuppressedError(cleanupError: unknown, cause: unknown, message: string): Error {
+  if (typeof SuppressedError !== 'undefined') {
+    return new SuppressedError(cleanupError, cause, message);
+  }
+  const err = new Error(message, { cause });
+  Reflect.set(err, 'suppressed', cleanupError);
+  Reflect.set(err, 'error', cause);
+  return err;
 }
