@@ -32,9 +32,10 @@ const SUITE_META = {
   orm: {
     label: 'Historical ORM',
     blurb:
-      'zmdb added as a participant server in drizzle-team/drizzle-benchmarks and replayed with k6 over the upstream ' +
-      '13-route request list, against the same Postgres, the same driver and the same pool geometry as every other ' +
-      'participant. Ranked on throughput with the latency columns kept alongside it.',
+      'Archived k6 replay over the upstream drizzle-team/drizzle-benchmarks 13-route request list. ' +
+      'The fixture used the same Postgres, driver and pool geometry, but its projections and join response shapes ' +
+      'differed across participants. These historical numbers do not support a fair ORM ranking. The corrected ' +
+      'fixture has passed response-parity checks; its peer throughput has not been rerun.',
     command: 'yarn bench:orm',
   },
   framework: {
@@ -116,6 +117,50 @@ ${data === null ? missingHtml(name) : body}
 </section>`;
 }
 
+function optimizationPanel(data) {
+  if (data === null) {
+    return '<section class="suite" id="suite-optimizations"><h2>Latest optimizations</h2><p>No optimization capture is available on this build.</p></section>';
+  }
+  const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+  const range = values => values.map(value => number.format(value)).join('–');
+  const measurement = value => `${number.format(value.value)} <small>[${range(value.range)}]</small>`;
+  const revision = value =>
+    `<a href="https://github.com/ambasta/zmdb/commit/${encodeURIComponent(value)}"><code>${escapeHtml(value.slice(0, 8))}</code></a>`;
+  return `<section class="suite" id="suite-optimizations">
+<h2>Latest optimizations — ${escapeHtml(data.measuredAt)}</h2>
+<p>Before/after measurements of the changes integrated in ${revision(data.sourceRevision)}, using
+${revision(data.baseRevision)} as the baseline. These short, sequential runs compare zmdb with itself.
+They do not update competitor rankings or establish an industry-wide lead.</p>
+<p class="note">${escapeHtml(data.environment)}</p>
+<p>Values in brackets are observed sample ranges, not confidence intervals. The p99 columns show ranges of
+individual run percentiles; they are not pooled percentiles.</p>
+${data.groups
+  .map(
+    group => `<h3 id="optimization-${escapeHtml(group.id)}">${escapeHtml(group.title)}</h3>
+<p class="note">${escapeHtml(group.methodology)}</p>
+<div class="grid-scroll"><table><thead><tr><th>Workload</th>
+<th class="num">Before (${escapeHtml(group.unit)})</th><th class="num">After (${escapeHtml(group.unit)})</th>
+<th class="num">${escapeHtml(group.changeLabel)}</th>${group.p99 ? '<th class="num">Before p99 (ms)</th><th class="num">After p99 (ms)</th>' : ''}
+</tr></thead><tbody>${group.rows
+      .map(
+        row => `<tr><th scope="row">${escapeHtml(row.name)}</th><td class="num">${measurement(row.before)}</td>
+<td class="num">${measurement(row.after)}</td><td class="num">${row.changePercent > 0 ? '+' : ''}${number.format(row.changePercent)}%</td>
+${group.p99 ? `<td class="num">${range(row.before.p99Range)}</td><td class="num">${range(row.after.p99Range)}</td>` : ''}</tr>`,
+      )
+      .join('')}</tbody></table></div>
+<p class="note">${escapeHtml(group.conclusion)}</p>`,
+  )
+  .join('')}
+<h3>Database comparison fairness</h3>
+<p>${escapeHtml(data.fairness)}</p>
+<p><a href="./optimizations-2026-09-09.json" download>Summary and provenance (JSON)</a> ·
+<a href="./${escapeHtml(data.rawFile)}" download>Per-run measurements and source hashes (gzip JSON)</a> ·
+<a href="https://github.com/ambasta/zmdb/blob/9c8c206f1f0703ec49dc2723e8df16fab82b0288/benchmarks/rca/2026-09-08.md">Earlier comparative benchmarks and profiling report</a></p>
+<p class="note">The linked investigation measured revision <code>07b3ec80</code> before these optimizations.
+Its peer comparisons and experimental ablations retain their original conditions; experimental gains are not substituted for the implemented measurements above.</p>
+</section>`;
+}
+
 function engineeringPanel(data) {
   if (data === null) {
     return `<section class="suite" id="suite-engineering"><h2>Engineering costs</h2>
@@ -168,7 +213,7 @@ function engineeringPanel(data) {
     ['Rounds', data.rounds],
   ];
   return `<section class="suite" id="suite-engineering">
-<h2>Engineering costs — current-product capture</h2>
+<h2>Engineering costs — earlier capture</h2>
 <p>Recorded zmdb measurements at revision <a href="https://github.com/ambasta/zmdb/commit/${encodeURIComponent(data.sourceRevision)}"><code>${escapeHtml(data.sourceRevision)}</code></a>.
 Each row uses the committed metric name, unit, median and min–max range. Values are displayed to three decimal places;
 full precision and every sample are available in the downloads.</p>
@@ -705,18 +750,21 @@ export function benchmarkHighlights(dashDir) {
 
 export function buildBenchmarksPage({ css, navHtml, dashDir }) {
   const data = {
+    optimizations: read(dashDir, 'optimizations-2026-09-09'),
     engineering: read(dashDir, 'engineering'),
     validation: read(dashDir, 'validation'),
     orm: read(dashDir, 'orm'),
     framework: read(dashDir, 'framework'),
   };
 
-  const nav = `<div class="suitenav"><a href="#suite-engineering">Engineering costs</a>${Object.entries(SUITE_META)
+  const nav = `<div class="suitenav"><a href="#suite-optimizations">Latest optimizations</a><a href="#suite-engineering">Engineering costs</a>${Object.entries(
+    SUITE_META,
+  )
     .map(([key, meta]) => `<a href="#suite-${key}">${meta.label}</a>`)
     .join('')}</div>`;
 
-  const intro = `<p>The current-product engineering capture records editor/compiler, build, packaging, installed-consumer,
-startup and PostgreSQL costs. Its metadata and downloadable samples identify the code and machine measured.</p>
+  const intro = `<p>The latest capture measures serialization, generated validation, HTTP handling and nested relation loading
+before and after the September 9 optimizations. Earlier engineering costs and competitor captures follow, with their own dates and revisions.</p>
 <div class="admonition note"><div class="adm-title">Capture boundaries</div>
 <p>The validation and ORM competitor tables are historical upstream-suite captures. The HTTP panel retains the dated
 Node refresh alongside older peer, Bun and Deno results; those entries were not all rerun together. Their provenance
@@ -725,7 +773,7 @@ belongs to each capture. They do not form a fresh comparison against the Postgre
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Benchmarks — zmdb docs</title>
-<meta name="description" content="zmdb engineering costs with raw samples and reproduction commands, alongside historical validation, ORM and HTTP benchmark captures."/>
+<meta name="description" content="Latest zmdb optimization measurements, sample ranges and provenance, alongside earlier engineering costs and historical validation, ORM and HTTP benchmarks."/>
 <script>${THEME_BOOT}</script>
 <style>${css}${DASH_CSS}</style></head><body>
 ${topbarHtml({ base: '../', active: 'benchmarks', withNavToggle: true })}
@@ -740,6 +788,7 @@ ${navHtml(null, '../docs/')}</aside>
 <h1>Benchmarks</h1>
 ${intro}
 ${nav}
+${optimizationPanel(data.optimizations)}
 ${engineeringPanel(data.engineering)}
 ${validationPanel(data.validation)}
 ${ormPanel(data.orm)}
