@@ -2240,7 +2240,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
 
       if (spec.having) {
-        builder = builder.having(this.aggregateColumn(String(spec.having.column)), spec.having.op, spec.having.value);
+        builder = builder.having(
+          this.aggregateColumn(String(spec.having.column)),
+          spec.having.op as Operator,
+          spec.having.value,
+        );
       }
 
       if (spec.orderBy) {

@@ -457,7 +457,7 @@ export interface AggregateSpec<T extends DeclaredTable> {
   where?: WhereDTO<T> | Record<string, unknown>;
   groupBy?: readonly AggregateColumn<T>[];
   computed: Record<string, ComputedSpec<T>>;
-  having?: Readonly<{ column: AggregateColumn<T>; op: Operator; value: unknown }>;
+  having?: Readonly<{ column: AggregateColumn<T>; op: string; value: unknown }>;
   orderBy?: ReadonlyArray<{ column: AggregateColumn<T>; dir?: OrderDir }>;
   limit?: number;
   offset?: number;

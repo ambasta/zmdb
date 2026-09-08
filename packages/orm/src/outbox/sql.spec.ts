@@ -33,6 +33,7 @@ import {
 } from '@zmdb/sql';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 import { describe, expect, it } from 'vitest';
+
 import {
   cockroachDialect,
   mysqlDialect,
@@ -42,6 +43,19 @@ import {
   sqliteDialect,
   type OfficialDialectName,
 } from '../../../sql/src/testing/official-dialects.fixture.js';
+import {
+  OUTBOX_TABLE,
+  outboxCandidatesQuery,
+  outboxClaimQuery,
+  outboxMarkDeadQuery,
+  outboxMarkDeliveredQuery,
+  outboxMarkRetryQuery,
+  outboxMigration,
+  outboxPendingIndexDdl,
+  outboxReadBackQuery,
+  outboxTableDdl,
+  type OutboxStatus,
+} from './sql.js';
 
 // ---------------------------------------------------------------------------
 // fixtures
