@@ -7,9 +7,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
-export const evidence =
-  process.env.ZMDB_CLI_EVIDENCE ??
-  '/home/amitprakash/foss/zmdb-handover/campaign-20260907-takeover-1709/issue-630/qualification';
+export const evidence = process.env.ZMDB_CLI_EVIDENCE ?? join(tmpdir(), `zmdb-cli-evidence-${crypto.randomUUID()}`);
 export const dataRoots = [
   '@zmdb/compiler',
   '@zmdb/migrations',
@@ -295,7 +293,7 @@ export async function createFixture() {
       for (const [name, record] of selected) {
         process.stderr.write(`CLI fixture build ${name}\n`);
         const label = name.replaceAll(/[/@]/g, '_');
-        await command(process.execPath, ['/home/amitprakash/foss/zmdb/scripts/build-package.mjs'], {
+        await command(process.execPath, [join(root, 'scripts/build-package.mjs')], {
           cwd: record.directory,
           timeout: 600_000,
           expected: 0,
