@@ -252,7 +252,7 @@ try {
     ],
     extensions: [],
   };
-  assert.deepEqual(detectDrift(normalized, declared), {
+  assert.deepEqual(detectDrift(normalized, declared, { dialect: mssql }), {
     onlyInDatabase: [],
     onlyInDeclarations: [],
     clean: true,

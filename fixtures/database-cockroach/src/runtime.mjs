@@ -202,7 +202,7 @@ try {
       migrationClient.release();
     }
     assert(
-      warnings.length === 1 && warnings[0]?.startsWith('cockroach does not support transactional DDL'),
+      warnings.length === 1 && warnings[0]?.startsWith('the configured database does not support transactional DDL'),
       `Cockroach migration warning changed: ${JSON.stringify(warnings)}`,
     );
     const driver = cockroachDriver(pool);
@@ -326,7 +326,7 @@ try {
       ],
       extensions: [],
     };
-    const report = detectDrift(normalized, declared);
+    const report = detectDrift(normalized, declared, { dialect: cockroach });
     assert(report.clean, `Cockroach drift report was not clean: ${JSON.stringify(report)}`);
   });
 
