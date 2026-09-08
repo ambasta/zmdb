@@ -29,7 +29,7 @@ PGURL="${PGURL:-${DATABASE_URL:-postgres://postgres:postgres@localhost:55432/ben
 TREND_STATS="${TREND_STATS:-avg,min,med,p(90),p(95),p(99),max}"
 
 ORMS="${ORMS:-zmdb}"
-declare -A PORT=([drizzle]=3000 [kysely]=3001 [zmdb]=3002)
+PORT_BASE="${PORT_BASE:-3000}"
 
 mkdir -p "$WORK"
 
@@ -37,6 +37,10 @@ die() {
   echo "${BASH_SOURCE[1]##*/}: $1" >&2
   exit 1
 }
+
+[[ "$PORT_BASE" =~ ^[0-9]+$ ]] || die "PORT_BASE must be an integer"
+((10#$PORT_BASE > 0 && 10#$PORT_BASE <= 65533)) || die "PORT_BASE must be between 1 and 65533"
+declare -A PORT=([drizzle]=$((10#$PORT_BASE)) [kysely]=$((10#$PORT_BASE + 1)) [zmdb]=$((10#$PORT_BASE + 2)))
 
 [ -n "$K6" ] && [ -x "$K6" ] || die "k6 not found (set K6=/path/to/k6 or put it on PATH)"
 [ -f "$REQ" ] || die "request replay data missing: $REQ
@@ -63,6 +67,7 @@ PGURL="$PGURL" node -e '
 start_server() { # $1=orm $2=port $3=logfile
   PGURL="$PGURL" ORM=$1 PORT=$2 node --import "$ROOT/scripts/ts-specifier-hook.mjs" server.ts >"$3" 2>&1 &
   local pid=$!
+  SERVER_PID=$pid
   local i
   for i in $(seq 1 40); do
     if curl -sf -o /dev/null "http://localhost:$2/customer-by-id?id=1" 2>/dev/null; then
@@ -72,17 +77,19 @@ start_server() { # $1=orm $2=port $3=logfile
     if ! kill -0 "$pid" 2>/dev/null; then
       echo "server for $1 exited during startup; see $3" >&2
       tail -5 "$3" >&2
+      wait "$pid" 2>/dev/null || true
       return 1
     fi
     sleep 0.5
   done
   echo "server for $1 never became ready; see $3" >&2
-  kill "$pid" 2>/dev/null
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
   return 1
 }
 
 stop_server() { # $1=pid
-  kill "$1" 2>/dev/null
-  wait "$1" 2>/dev/null
+  kill "$1" 2>/dev/null || true
+  wait "$1" 2>/dev/null || true
   sleep 1
 }
