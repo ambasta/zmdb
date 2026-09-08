@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import { once } from 'node:events';
+import { EventEmitter, once } from 'node:events';
 
 import {
   Client,
@@ -387,37 +387,63 @@ function requestValue(decoded: DecodedRequest): unknown {
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
+  const queue: DecodedRequest[] = [];
+  let signalNext: (() => void) | undefined;
+  let done = false;
+  let streamError: unknown;
+
+  const onData = (data: DecodedRequest) => {
+    queue.push(data);
+    if (signalNext) {
+      const fn = signalNext;
+      signalNext = undefined;
+      fn();
+    }
+  };
+  const onEnd = () => {
+    done = true;
+    if (signalNext) {
+      const fn = signalNext;
+      signalNext = undefined;
+      fn();
+    }
+  };
+  const onError = (err: unknown) => {
+    streamError = err;
+    done = true;
+    if (signalNext) {
+      const fn = signalNext;
+      signalNext = undefined;
+      fn();
+    }
+  };
+
+  const ee = call as unknown as EventEmitter;
+  ee.on('data', onData);
+  ee.on('end', onEnd);
+  ee.on('close', onEnd);
+  ee.on('error', onError);
+
   try {
-    for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
+    while (!done || queue.length > 0) {
+      if (queue.length === 0 && !done) {
+        await new Promise<void>((resolve, reject) => {
+          signalNext = resolve;
+          if (scope.signal.aborted) reject(scope.reason());
+        });
+      }
+      if (scope.signal.aborted) throw scope.reason();
+      if (streamError) throw streamError;
+      while (queue.length > 0) {
+        const item = queue.shift()!;
+        yield requestValue(item);
+      }
     }
   } finally {
-    await iterator.return?.();
-  }
-}
-
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
-  try {
-    return await Promise.race([iterator.next(), aborted]);
-  } finally {
-    removeAbort();
+    ee.removeListener('data', onData);
+    ee.removeListener('end', onEnd);
+    ee.removeListener('close', onEnd);
+    ee.removeListener('error', onError);
   }
 }
 
@@ -842,7 +868,7 @@ async function pumpRequests(
 ): Promise<void> {
   for await (const request of requests) {
     const valid = method.validateRequest(request);
-    if (!call.write(valid)) await once(call, 'drain');
+    call.write(valid);
   }
   call.end();
 }
@@ -853,9 +879,16 @@ function requestPump(
   method: RuntimeMethod,
 ): RequestPump {
   let failure: ReturnType<RequestPump['failure']> = { failed: false };
-  const done = pumpRequests(call, requests, method).catch(error => {
-    failure = { failed: true, error };
-    call.cancel();
+  const done = new Promise<void>(resolve => {
+    queueMicrotask(() => {
+      pumpRequests(call, requests, method)
+        .then(resolve)
+        .catch(error => {
+          failure = { failed: true, error };
+          call.cancel();
+          resolve();
+        });
+    });
   });
   return {
     done,
@@ -918,6 +951,9 @@ class ClientObservation {
     call.on('status', result => {
       this.#observe(result.metadata, options?.onTrailer);
       this.#finish();
+    });
+    (call as unknown as EventEmitter).on('error', () => {
+      // Suppress unhandled stream rejections after call.cancel()
     });
   }
 
