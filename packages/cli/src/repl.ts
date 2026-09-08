@@ -4,6 +4,20 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { start, type REPLServer } from 'node:repl';
 
+const FallbackSuppressedError =
+  typeof SuppressedError !== 'undefined'
+    ? SuppressedError
+    : class SuppressedError extends Error {
+        error: unknown;
+        suppressed: unknown;
+        constructor(error: unknown, suppressed: unknown, message?: string) {
+          super(message);
+          this.name = 'SuppressedError';
+          this.error = error;
+          this.suppressed = suppressed;
+        }
+      };
+
 import type { Token } from '@zmdb/app/di';
 import { moduleDefOf, type ModuleClass } from '@zmdb/app/modules';
 import { createApp, type WebApplication } from '@zmdb/web/app';
@@ -72,7 +86,7 @@ export async function createReplSession(rootModule: ModuleClass, options: ReplSe
     try {
       await app[Symbol.asyncDispose]();
     } catch (cleanupError) {
-      throw new SuppressedError(cleanupError, error, 'REPL operation and application cleanup failed');
+      throw new FallbackSuppressedError(cleanupError, error, 'REPL operation and application cleanup failed');
     }
     throw error;
   }
@@ -158,7 +172,7 @@ export async function createReplSession(rootModule: ModuleClass, options: ReplSe
           await app[Symbol.asyncDispose]();
         } catch (cleanupError) {
           if (!outcome.ok)
-            throw new SuppressedError(cleanupError, outcome.error, 'REPL close and application cleanup failed');
+            throw new FallbackSuppressedError(cleanupError, outcome.error, 'REPL close and application cleanup failed');
           throw cleanupError;
         }
         if (!outcome.ok) throw outcome.error;
@@ -169,7 +183,7 @@ export async function createReplSession(rootModule: ModuleClass, options: ReplSe
     try {
       await app[Symbol.asyncDispose]();
     } catch (cleanupError) {
-      throw new SuppressedError(cleanupError, error, 'REPL operation and application cleanup failed');
+      throw new FallbackSuppressedError(cleanupError, error, 'REPL operation and application cleanup failed');
     }
     throw error;
   }
