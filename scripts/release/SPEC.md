@@ -133,6 +133,7 @@ The current public inventory is classified exactly once:
 | `svelte`             | `@zmdb/svelte`             | integration   | `fixtures/client-adapters`                  |
 | `sveltekit`          | `@zmdb/sveltekit`          | integration   | `fixtures/client-adapters/sveltekit-packed` |
 | `transport-grpc`     | `@zmdb/transport-grpc`     | integration   | `fixtures/consumer-server-integrations`     |
+| `transport-kafka`    | `@zmdb/transport-kafka`    | integration   | `fixtures/consumer-transport-kafka`         |
 | `transport-nats`     | `@zmdb/transport-nats`     | integration   | `fixtures/consumer-server-integrations`     |
 | `transport-rabbitmq` | `@zmdb/transport-rabbitmq` | integration   | `fixtures/consumer-server-integrations`     |
 | `transport-redis`    | `@zmdb/transport-redis`    | integration   | `fixtures/consumer-server-integrations`     |
@@ -261,6 +262,7 @@ changes no manifest.
 | `@zmdb/svelte`             | `svelte@>=5.57.0 <6.0.0`; `5.57.0`                                                                                                                                  |
 | `@zmdb/sveltekit`          | `@sveltejs/kit@>=2.70.3 <3.0.0`; `2.70.3`; `svelte@>=5.57.0 <6.0.0`; `5.57.0`                                                                                       |
 | `@zmdb/transport-grpc`     | `@grpc/grpc-js@^1.14.4`; `1.14.4`                                                                                                                                   |
+| `@zmdb/transport-kafka`    | `kafkajs@>=2.2.4 <3.0.0`; `2.2.4`                                                                                                                                   |
 | `@zmdb/transport-nats`     | `@nats-io/transport-node@^3.4.0`; `3.4.0`                                                                                                                           |
 | `@zmdb/transport-rabbitmq` | `amqplib@^2.0.1`; `2.0.1`                                                                                                                                           |
 | `@zmdb/transport-redis`    | `redis@^6.2.1`; `6.2.1`                                                                                                                                             |

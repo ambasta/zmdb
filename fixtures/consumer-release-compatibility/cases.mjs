@@ -101,6 +101,11 @@ export const CONSUMER_CASES = Object.freeze({
   svelte: own('svelte'),
   sveltekit: own('sveltekit', { evidence: 'SvelteKit request forwarding with a fetch wiremock' }),
   'transport-grpc': server('grpc', { roots: ['app'], evidence: 'real gRPC TCP unary request/response and lifecycle' }),
+  'transport-kafka': existing('fixtures/consumer-transport-kafka', ['contracts.ts', 'application.ts', 'runtime.mjs'], {
+    roots: ['app'],
+    service: 'ZMDB_KAFKA_URL',
+    evidence: 'real Kafka event delivery, retry, replay and application lifecycle',
+  }),
   'transport-rabbitmq': existing('fixtures/consumer-release-compatibility/rabbitmq', ['contracts.ts', 'runtime.mjs'], {
     service: 'ZMDB_RABBITMQ_URL',
     evidence: 'real AMQP event and correlated request/response',

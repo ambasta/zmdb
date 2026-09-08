@@ -435,6 +435,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-server-integrations' },
   }),
   productPackage({
+    id: 'transport-kafka',
+    directory: 'packages/transport-kafka',
+    npmName: '@zmdb/transport-kafka',
+    role: 'transport-kafka',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'Kafka event messaging' },
+    docsOwner: 'web-microservices-transports',
+    consumer: { fixture: 'fixtures/consumer-transport-kafka' },
+  }),
+  productPackage({
     id: 'transport-nats',
     directory: 'packages/transport-nats',
     npmName: '@zmdb/transport-nats',

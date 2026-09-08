@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "allowImportingTsExtensions": false,
+    "experimentalDecorators": false,
+    "types": ["node"]
+  },
+  "files": ["contracts.ts", "application.ts"]
+}

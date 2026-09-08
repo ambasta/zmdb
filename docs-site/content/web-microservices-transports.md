@@ -55,6 +55,14 @@ import { createRabbitMqStrategy } from '@zmdb/transport-rabbitmq';
 import { createRedisStrategy } from '@zmdb/transport-redis';
 ```
 
+## Kafka events
+
+Install `@zmdb/transport-kafka` with `kafkajs@>=2.2.4 <3.0.0` and attach `createKafkaStrategy(...)` through `transportExtension`. Supply a configured Kafka client, consumer group, input topics,
+dead-letter topic, partition concurrency and error sink. The adapter owns only the producer and consumer it creates.
+
+Kafka is event-only. Successful handling and confirmed dead-letter publication advance ordered offsets; retry pauses and rewinds only the affected partition. Attempt counts reset after restart or
+reassignment. A bounded close fences late settlement. The [Kafka contract](https://github.com/ambasta/zmdb/blob/main/packages/transport-kafka/SPEC.md) defines every option and lifecycle boundary.
+
 ## Redis Pub/Sub
 
 ```ts

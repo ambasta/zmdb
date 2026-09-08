@@ -56,6 +56,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/svelte             | 1.0.0-alpha.4 | integration  | svelte          | integration: Svelte 5                          | `npm add @zmdb/svelte@1.0.0-alpha.4 'svelte@>=5.57.0 <6.0.0'`                                                    | Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.                                                               | client-svelte                |
 | @zmdb/sveltekit          | 1.0.0-alpha.4 | integration  | sveltekit       | integration: SvelteKit                         | `npm add @zmdb/sveltekit@1.0.0-alpha.4 '@sveltejs/kit@>=2.70.3 <3.0.0' 'svelte@>=5.57.0 <6.0.0'`                 | Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.                                   | client-sveltekit             |
 | @zmdb/transport-grpc     | 1.0.0-alpha.4 | integration  | grpc            | integration: gRPC                              | `npm add @zmdb/transport-grpc@1.0.0-alpha.4 @grpc/grpc-js@^1.14.4 @zmdb/app@1.0.0-alpha.4`                       | Typed gRPC server and client integration for generated @zmdb/protobuf service artifacts and the @zmdb/app lifecycle.                                                           | web-microservices-grpc       |
+| @zmdb/transport-kafka    | 1.0.0-alpha.4 | integration  | transport-kafka | integration: Kafka event messaging             | `npm add @zmdb/transport-kafka@1.0.0-alpha.4 @zmdb/app@1.0.0-alpha.4 'kafkajs@>=2.2.4 <3.0.0'`                   | Kafka event transport with ordered manual offsets, partition retries and bounded application lifecycle.                                                                        | web-microservices-transports |
 | @zmdb/transport-nats     | 1.0.0-alpha.4 | integration  | transport-nats  | integration: core NATS messaging               | `npm add @zmdb/transport-nats@1.0.0-alpha.4 @nats-io/transport-node@^3.4.0 @zmdb/app@1.0.0-alpha.4`              | Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.                                                                           | web-microservices-transports |
 | @zmdb/transport-rabbitmq | 1.0.0-alpha.4 | integration  | rabbitmq        | integration: RabbitMQ                          | `npm add @zmdb/transport-rabbitmq@1.0.0-alpha.4 @zmdb/app@1.0.0-alpha.4 amqplib@^2.0.1`                          | RabbitMQ transport strategy for the zmdb application messaging contract, with confirmed retries and owned dead-letter topology.                                                | web-microservices-transports |
 | @zmdb/transport-redis    | 1.0.0-alpha.4 | integration  | transport-redis | integration: Redis Pub/Sub                     | `npm add @zmdb/transport-redis@1.0.0-alpha.4 @zmdb/app@1.0.0-alpha.4 redis@^6.2.1`                               | Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.                                                                                 | web-microservices-transports |
@@ -870,6 +871,25 @@ Typed gRPC server and client integration for generated @zmdb/protobuf service ar
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
+
+### `@zmdb/transport-kafka`
+
+Kafka event transport with ordered manual offsets, partition retries and bounded application lifecycle.
+
+- **Release unit:** `integration`
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:** None.
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `@zmdb/app` → `1.0.0-alpha.4`
+  - `kafkajs` → `>=2.2.4 <3.0.0`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/consumer-transport-kafka
 
 ### `@zmdb/transport-nats`
 

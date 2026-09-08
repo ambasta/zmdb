@@ -9,8 +9,8 @@ row, point to an equal-or-inward zone, and have a strictly lower canonical ring.
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, `scripts/release/policy.mjs`, and the admitted manifests: **41 catalog packages**, **82 direct workspace edges**, **8
-core packages**, **30 integration packages**, **3 tooling packages**, and canonical rings **0–5**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, `scripts/release/policy.mjs`, and the admitted manifests: **42 catalog packages**, **83 direct workspace edges**, **8
+core packages**, **31 integration packages**, **3 tooling packages**, and canonical rings **0–5**.
 
 | Ring | Zone        | Release unit | Package                    | Direct workspace dependencies                                                                                                                                              |
 | ---- | ----------- | ------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -47,6 +47,7 @@ core packages**, **30 integration packages**, **3 tooling packages**, and canoni
 | 4    | integration | integration  | `@zmdb/otel`               | `@zmdb/app`                                                                                                                                                                |
 | 4    | integration | integration  | `@zmdb/singlestore`        | `@zmdb/migrations`<br>`@zmdb/mysql`<br>`@zmdb/sql`<br>`@zmdb/orm`                                                                                                          |
 | 4    | integration | integration  | `@zmdb/transport-grpc`     | `@zmdb/app`<br>`@zmdb/protobuf`                                                                                                                                            |
+| 4    | integration | integration  | `@zmdb/transport-kafka`    | `@zmdb/app`                                                                                                                                                                |
 | 4    | integration | integration  | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                                                |
 | 4    | integration | integration  | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                                                |
 | 4    | integration | integration  | `@zmdb/transport-redis`    | `@zmdb/app`                                                                                                                                                                |

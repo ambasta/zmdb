@@ -297,6 +297,7 @@ connection closing remain in the adapter.
 
 The selected broker clients implement the same strategy contract from dedicated packages:
 
+- `@zmdb/transport-kafka` uses ordered Kafka consumer-group offsets;
 - `@zmdb/transport-redis` uses Redis Pub/Sub;
 - `@zmdb/transport-nats` uses core NATS;
 - `@zmdb/transport-rabbitmq` uses a RabbitMQ topic exchange;
@@ -336,12 +337,13 @@ to whole seconds; a dead settlement confirms the destination send before deletin
 caller client. Its capabilities are `true / true / false`. Standard-queue redelivery remains possible; FIFO and request/response are refused. The complete options and wire fields are owned by
 `packages/transport-sqs/SPEC.md`.
 
+Kafka is event-only. `createKafkaStrategy` commits each partition's next offset only after ordered handler success or a confirmed dead-letter record. A retry pauses and seeks that partition while
+other partitions may progress. Attempts are local to the current process and assignment; reassignment fences stale settlement. The caller supplies the Kafka SDK factory and topic/group configuration;
+the strategy owns its created producer and consumer, with bounded intake and drain. The complete contract lives in `packages/transport-kafka/SPEC.md`.
+
 ### 9.2 Deferred transports
 
-Kafka and MQTT remain deferred:
-
-- Kafka commits ordered offsets rather than settling independent messages.
-- MQTT retry timing belongs to broker QoS and cannot honour `retry.afterMs`.
+MQTT remains deferred because retry timing belongs to broker QoS and cannot honour `retry.afterMs`.
 
 There is no bespoke TCP JSON protocol. HTTP or a broker provides a maintained framing, TLS and reconnection story without creating another transport product inside the framework.
 

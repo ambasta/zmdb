@@ -395,6 +395,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  'transport-kafka': packagePolicy({
+    directory: 'packages/transport-kafka',
+    zone: 'integration',
+    ring: 4,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   'transport-nats': packagePolicy({
     directory: 'packages/transport-nats',
     zone: 'integration',

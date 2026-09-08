@@ -437,6 +437,15 @@ export const PACKAGE_POLICY = {
     optionalPeerEntries: {},
     toolingEntries: [],
   },
+  'transport-kafka': {
+    directory: 'packages/transport-kafka',
+    zone: 'integration',
+    ring: 4,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  },
   'transport-nats': {
     directory: 'packages/transport-nats',
     zone: 'integration',

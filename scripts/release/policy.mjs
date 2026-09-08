@@ -123,6 +123,9 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
   'transport-grpc': releasePackage('integration', 'fixtures/consumer-server-integrations', ['app', 'protobuf'], {
     '@grpc/grpc-js': peer('^1.14.4', '1.14.4', 'fixtures/consumer-server-integrations'),
   }),
+  'transport-kafka': releasePackage('integration', 'fixtures/consumer-transport-kafka', ['app'], {
+    kafkajs: peer('>=2.2.4 <3.0.0', '2.2.4', 'fixtures/consumer-transport-kafka'),
+  }),
   'transport-nats': releasePackage('integration', 'fixtures/consumer-server-integrations', ['app'], {
     '@nats-io/transport-node': peer('^3.4.0', '3.4.0', 'fixtures/consumer-server-integrations'),
   }),
