@@ -80,11 +80,17 @@ sample_one() { # $1=orm $2=rep
   local pid
   pid=$(start_server "$orm" "$port" "$WORK/rich-$orm.log") || return 1
   if [ "$WARMUP" = 1 ]; then
-    HOST="http://localhost:$port" REQ="$REQ" "$K6" run --quiet "$WORK/warmup-rich.js" \
-      >"$WORK/warmup-rich-$orm.log" 2>&1
+    if ! HOST="http://localhost:$port" REQ="$REQ" "$K6" run --quiet "$WORK/warmup-rich.js" \
+      >"$WORK/warmup-rich-$orm-rep$rep.log" 2>&1; then
+      stop_server "$pid"
+      return 1
+    fi
   fi
-  HOST="http://localhost:$port" REQ="$REQ" "$K6" run --quiet --summary-trend-stats="$TREND_STATS" --summary-export="$OUT/$orm-rep$rep.json" \
-    "$WORK/bench-rich.js" >"$WORK/k6rich-$orm.log" 2>&1
+  if ! HOST="http://localhost:$port" REQ="$REQ" "$K6" run --quiet --summary-trend-stats="$TREND_STATS" --summary-export="$OUT/$orm-rep$rep.json" \
+    "$WORK/bench-rich.js" >"$WORK/k6rich-$orm-rep$rep.log" 2>&1; then
+    stop_server "$pid"
+    return 1
+  fi
   echo "  pass $rep: $orm done"
   stop_server "$pid"
 }
