@@ -178,6 +178,7 @@ function executeSample(directory, sample) {
     process.execPath,
     [
       '--permission',
+      '--import=data:text/javascript,import net from "node:net";import http from "node:http";import https from "node:https";globalThis.fetch=()=>{throw new Error("ERR_PERMISSION_DENIED: network access disabled")};net.connect=net.createConnection=()=>{throw new Error("ERR_PERMISSION_DENIED: network access disabled")};http.request=http.get=()=>{throw new Error("ERR_PERMISSION_DENIED: network access disabled")};https.request=https.get=()=>{throw new Error("ERR_PERMISSION_DENIED: network access disabled")};',
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
       `--allow-fs-read=${realpathSync(join(root, 'packages'))}`,
