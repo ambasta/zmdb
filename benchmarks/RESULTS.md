@@ -57,8 +57,8 @@ relation objects (`customer`, `warehouse`, `carrier`) and an `items` list contai
 
 | mode            | median ns/op | median ops/s | max/min spread |
 | --------------- | -----------: | -----------: | -------------: |
-| full            |       448.66 |    2,228,870 |         1.030x |
-| shallow depth 1 |         9.95 |  100,460,099 |         1.044x |
+| full            |     1,324.66 |      754,909 |         1.020x |
+| shallow depth 1 |        40.37 |   24,768,948 |         1.011x |
 
 Depth 1 used 2.22% of the full validator's time in this session, a measured 45.07× ratio. It makes a deliberately weaker promise: it checks top-level scalars, relation object shapes and list
 array-ness, but not fields inside those relations or list elements. Six semantic probes establish that distinction before timing, including malformed nested fields that full rejects and shallow

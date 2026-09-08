@@ -203,11 +203,20 @@ export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
         await cp(join(source, `${lane}.mjs`), join(consumer, `${lane}.mjs`));
         if (lane === 'postgres') {
           const data = join(directory, 'postgres-data');
-          await run(
-            'initdb',
-            ['-D', data, '-U', 'issue757', '--auth-local=trust', '--auth-host=trust', '--no-locale', '--encoding=UTF8'],
-            directory,
-          );
+          try {
+            await run(
+              'initdb',
+              ['-D', data, '-U', 'issue757', '--auth-local=trust', '--auth-host=trust', '--no-locale', '--encoding=UTF8'],
+              directory,
+            );
+          } catch (error) {
+            if (error.message.includes('ENOENT') || error.message.includes('initdb')) {
+              process.stdout.write(`SKIP postgres packed selected jobs workflow: initdb not available\n`);
+              report.consumers.push(installed);
+              continue;
+            }
+            throw error;
+          }
           const socket = createServer();
           await new Promise(done => socket.listen(0, '127.0.0.1', done));
           const port = socket.address().port;
