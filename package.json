@@ -34,6 +34,7 @@
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest --project unit",
     "typecheck": "node scripts/typecheck.mjs",
+    "validate:spec": "node .github/scripts/validate-specs.mjs",
     "verify:angular-adapter": "node --import ./scripts/ts-specifier-hook.mjs fixtures/client-adapters/angular/verify-packed.mjs",
     "verify:database-cockroach": "node fixtures/database-cockroach/verify-installed.mjs",
     "verify:database-postgres": "node fixtures/database-postgres/verify-installed.mjs",
