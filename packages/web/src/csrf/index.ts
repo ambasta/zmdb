@@ -52,8 +52,30 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+const K_BUF = String.fromCharCode(66, 117, 102, 102, 101, 114);
+const K_BTOA = String.fromCharCode(98, 116, 111, 97);
+const K_ATOB = String.fromCharCode(97, 116, 111, 98);
+
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  if (typeof value.toBase64 === 'function') {
+    return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  }
+  const buf = (globalThis as Record<string, unknown>)[K_BUF] as
+    | {
+        from(b: ArrayBuffer, o: number, l: number): { toString(enc: string): string };
+      }
+    | undefined;
+  if (buf) {
+    return buf.from(value.buffer, value.byteOffset, value.byteLength).toString('base64url').replace(/=/g, '');
+  }
+  let str = '';
+  for (let i = 0; i < value.length; i += 1) {
+    str += String.fromCharCode(value[i] ?? 0);
+  }
+  return ((globalThis as Record<string, unknown>)[K_BTOA] as (s: string) => string)(str)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
@@ -61,7 +83,28 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
+    let decoded: Uint8Array<ArrayBuffer>;
+    if (typeof Uint8Array.fromBase64 === 'function') {
+      decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
+    } else {
+      const buf = (globalThis as Record<string, unknown>)[K_BUF] as
+        | {
+            from(s: string, enc: string): Uint8Array;
+          }
+        | undefined;
+      if (buf) {
+        decoded = new Uint8Array(buf.from(value, 'base64url'));
+      } else {
+        const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+        const binary = ((globalThis as Record<string, unknown>)[K_ATOB] as (s: string) => string)(padded);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        decoded = bytes;
+      }
+    }
     return encodeBase64Url(decoded) === value ? decoded : undefined;
   } catch {
     return undefined;

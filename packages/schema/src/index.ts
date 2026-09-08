@@ -16,9 +16,8 @@
 // The derived types have one spelling each, and it takes the declared type. See the
 // DTO suite below.
 
-// The IR bindings below are types. With verbatimModuleSyntax, the named import
-// clause remains an empty runtime import of the IR module.
-import { type ExtensionType, type SchemaIR } from './ir/index.js';
+import type { CustomType } from './custom-types/index.js';
+import type { ExtensionType, SchemaIR } from './ir/index.js';
 
 export type SqlType =
   | 'serial'
@@ -74,6 +73,7 @@ export interface ColumnMeta {
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
+  readonly customType?: CustomType;
 }
 
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
@@ -258,6 +258,8 @@ export type ExpectNot<T extends false> = T;
 export { resolveRelation } from './relations/index.js';
 export { type ResolvedRelation } from './relations/index.js';
 export { type Populated, type PopulatedEntity } from './derive/index.js';
+export { defineType, encodeValue, decodeValue } from './custom-types/index.js';
+export type { CustomType } from './custom-types/index.js';
 
 // ---------------------------------------------------------------------------
 // Entity State Machine & State Transition Helpers
