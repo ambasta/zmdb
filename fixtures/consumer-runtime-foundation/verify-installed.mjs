@@ -18,8 +18,7 @@ const DEPENDENCIES = {
 };
 const TYPES = { typescript: '7.0.2', '@types/node': '26.4.1' };
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
-  const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'hex' ? digest.toHex() : digest.toBase64();
+  return Buffer.from(await crypto.subtle.digest(algorithm, bytes)).toString(encoding);
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);
