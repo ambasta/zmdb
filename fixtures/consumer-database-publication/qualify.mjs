@@ -180,7 +180,8 @@ try {
       tarballs.set(entry.npmName, { manifest, tarball });
     }
   });
-const toBase64 = bytes => typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.btoa(String.fromCharCode(...bytes));
+  const toBase64 = bytes =>
+    typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.btoa(String.fromCharCode(...bytes));
 
   const integrities = {};
   for (const [name, record] of tarballs) {

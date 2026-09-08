@@ -74,8 +74,12 @@ export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
       assert(packages.has(name), `missing packed input ${name}`);
     }
     const integrities = new Map();
-const toBase64 = bytes => typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.btoa(String.fromCharCode(...bytes));
-const toHex = bytes => typeof bytes.toHex === 'function' ? bytes.toHex() : Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    const toBase64 = bytes =>
+      typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.btoa(String.fromCharCode(...bytes));
+    const toHex = bytes =>
+      typeof bytes.toHex === 'function'
+        ? bytes.toHex()
+        : Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 
     report.tarballs = [];
     for (const entry of tarballs) {
