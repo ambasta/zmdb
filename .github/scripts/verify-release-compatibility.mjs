@@ -281,7 +281,15 @@ export async function withCompatibilityWorkspace(parent, run) {
 
 async function digest(bytes, algorithm, encoding = 'hex') {
   const value = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? value.toBase64() : value.toHex();
+  if (encoding === 'base64') {
+    return typeof value.toBase64 === 'function'
+      ? value.toBase64()
+      : // oxlint-disable-next-line eslint/no-restricted-globals
+        btoa(String.fromCharCode(...value));
+  }
+  return typeof value.toHex === 'function'
+    ? value.toHex()
+    : Array.from(value, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 async function sourceIdentity(directory) {
