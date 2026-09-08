@@ -12,6 +12,10 @@ still run through the same `@zmdb/app` extension lifecycle.
 The [server journey](./web-overview.html) attaches a real worker with `createApp(Module, { extensions: [jobsExtension({ workers })] })`. HTTP and jobs use one application lifecycle; no jobs facade or
 second application is required.
 
+The portable jobs install supplies APIs and storage ports. Both `createQueue` and `createWorker` require an explicit `store`; omitting it throws `TypeError`. Installing jobs alone does not select
+SQLite, create a database or apply migrations. Choose the [SQLite or PostgreSQL provider](#choosing-a-backend) before constructing persistent queues and workers. The default `zmdb` application still
+includes its own SQLite database concern; that is separate from selecting jobs storage.
+
 ## Delivery is at-least-once: make the effect idempotent
 
 A worker can commit an effect and die before it marks the job done. That crash window makes delivery **at-least-once**, so every handler must make a repeated invocation harmless. Scaling from one
@@ -226,6 +230,14 @@ An abort signal is cooperative. A handler that ignores `ctx.signal` cannot be fo
 grace period and requeues the row; the old JavaScript invocation may therefore overlap its replacement, which is another reason the effect must be idempotent.
 
 If the final lease write fails, the original lease still expires and another worker claims the row later. Work becomes late rather than silently lost.
+
+## Alpha migration: select the provider explicitly
+
+Replace `createMemoryJobStore` imports from `@zmdb/jobs/memory` with the same named constructor from `@zmdb/jobs-sqlite`, and install `@zmdb/jobs-sqlite` alongside `@zmdb/jobs`. A branch-only
+`zmdb/jobs/memory` import has the same destination. The selected memory provider owns its fresh database and applies its migrations automatically; durable providers require explicit migration setup.
+
+Replace branch-only `zmdb/jobs` and `zmdb/jobs/schedule` imports with `@zmdb/jobs` and `@zmdb/jobs/schedule`. The default product does not install these packages or expose compatibility aliases. Pass
+the selected provider's store to the existing queue, worker and scheduler APIs, and keep caller-owned connection shutdown after application disposal.
 
 ## Backend boundary
 

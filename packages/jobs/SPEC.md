@@ -56,8 +56,8 @@ The current jobs-related public entries are:
 
 ## 2. Product-selection contract
 
-The default product is the opinionated `zmdb` schema, ORM, validation, application-kernel, and HTTP journey. Installing `zmdb` must install the metadata-declared default closure and must not install a
-database package, `@zmdb/jobs`, a jobs provider, or `pg`.
+The default product is the opinionated `zmdb` schema, ORM, validation, application-kernel, and HTTP journey. Installing `zmdb` installs the metadata-declared default closure, including SQLite. It must
+not install another database package, `@zmdb/jobs`, a jobs provider, or `pg`.
 
 Jobs is one **selected first-party capability**. It is cohesive without being mandatory:
 

@@ -17,7 +17,11 @@ Three replicas run an in-process timer three times. That is correct for a local 
 
 There is no default. Constructing a scheduler with a `once-per-cluster` task and no `leases` throws before the loop starts; it never silently degrades to one run per replica.
 
-`LeaseStore` is structural, so the application can implement it over the database or coordination service it already operates:
+Per-replica timers need no database provider. For cluster work, explicitly select `@zmdb/jobs-sqlite` or `@zmdb/jobs-postgres` with `pg`, apply that provider's migrations, and pass its store as
+`leases`. Use storage shared by the participating replicas; separate memory stores cannot coordinate a cluster. The [queues provider guide](./web-queues.html#choosing-a-backend) gives the exact
+installation commands and resource owners. Portable jobs does not select a database automatically.
+
+`LeaseStore` is structural, so the application can also implement it over the database or coordination service it already operates:
 
 ```ts
 interface LeaseStore {
@@ -205,9 +209,11 @@ Overlap is always prevented; there is no option to enable it.
 `onTaskError(task, scheduledFor, error)` receives thrown task errors, timeout reports and lease-renewal failures. The scheduler does not retry task bodies: enqueue work when it needs retries and a
 dead-letter path.
 
-`timeoutMs` is an observation deadline, not a way to terminate JavaScript. A scheduled method receives no `AbortSignal`, so a method that does not settle remains the active invocation even after its
-timeout is reported and continues to prevent overlap. Likewise, `onShutdown()` waits up to its configured grace, while `onShutdown({ graceMs })` applies an owner-supplied cap; both release held leases
-before returning but cannot forcibly stop application code. A resumed old runner can overlap a replacement, so idempotency remains required.
+A scheduled method receives an `AbortSignal`. The scheduler aborts it when the task times out, loses its lease, or exhausts the shutdown grace period. Pass that signal to cancellable asynchronous
+work. A method that ignores cancellation remains the active invocation until it settles and continues to prevent overlap within that scheduler.
+
+`onShutdown()` waits up to its configured grace, while `onShutdown({ graceMs })` applies an owner-supplied cap. Both release held leases before returning; cancellation remains cooperative and cannot
+forcibly stop application code. A resumed old runner can overlap a replacement after its lease expires or is released, so idempotency remains required.
 
 Both observation callbacks are isolated: if logging throws, it does not stop the scheduler or replace the original error.
 
