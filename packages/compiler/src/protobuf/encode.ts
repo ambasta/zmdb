@@ -4,7 +4,18 @@
 // and call the small wire runtime; no descriptor, field table or property-name loop
 // reaches the application.
 
-import { type ObjectIR, type PropertyIR, type ProtoScalar, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
+import { type ObjectIR, type PropertyIR, type ScalarIR, type TypeIR } from '@zmdb/schema/ir';
+
+import {
+  IDENTIFIER,
+  isPacked,
+  planField,
+  planScalar,
+  safeName,
+  type AtomPlan,
+  type EnumPlan,
+  type FieldPlan as ProtoFieldPlan,
+} from './plan.js';
 
 export interface ProtoEncodeDiagnostic {
   readonly path: string;
@@ -25,57 +36,7 @@ export interface ProtoEncoderResult {
   readonly diagnostics: readonly ProtoEncodeDiagnostic[];
 }
 
-type NumericMethod =
-  | 'uint32'
-  | 'int32'
-  | 'sint32'
-  | 'uint64'
-  | 'int64'
-  | 'sint64'
-  | 'fixed32'
-  | 'sfixed32'
-  | 'fixed64'
-  | 'sfixed64'
-  | 'float'
-  | 'double';
-
-interface ScalarPlan {
-  readonly kind: 'scalar';
-  readonly method: NumericMethod | 'bool' | 'string';
-  readonly wire: 0 | 1 | 2 | 5;
-  readonly zero: 'number' | 'bigint' | 'boolean' | 'string';
-}
-
-interface EnumPlan {
-  readonly kind: 'enum';
-  readonly helper: string;
-  readonly wire: 0;
-}
-
-interface MessagePlan {
-  readonly kind: 'message';
-  readonly helper: string;
-  readonly wire: 2;
-}
-
-interface TimestampPlan {
-  readonly kind: 'timestamp';
-  readonly helper: string;
-  readonly wire: 2;
-}
-
-type AtomPlan = ScalarPlan | EnumPlan | MessagePlan | TimestampPlan;
-
-interface FieldPlan {
-  readonly atom: AtomPlan;
-  readonly repeated: boolean;
-  readonly nullable: boolean;
-}
-
-const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const THIRTY_TWO_BIT = new Set<ProtoScalar>(['int32', 'uint32', 'sint32', 'fixed32', 'sfixed32']);
-const SIXTY_FOUR_BIT = new Set<ProtoScalar>(['int64', 'uint64', 'sint64', 'fixed64', 'sfixed64']);
-const FLOATING = new Set<ProtoScalar>(['float', 'double']);
+type FieldPlan = ProtoFieldPlan<AtomPlan>;
 
 /** Emit all helper declarations and the root helper to call, or named diagnostics. */
 export function emitProtoEncoder(
@@ -205,49 +166,13 @@ class EncoderEmitter {
   }
 
   #fieldPlan(node: TypeIR, path: string): FieldPlan | undefined {
-    if (node.kind === 'array') {
-      if (node.element.kind === 'array') {
-        return this.#refuse(
-          path,
-          'a nested array would require `repeated repeated`, which proto3 cannot spell without an explicit wrapper message',
-        );
-      }
-      const element = this.#fieldPlan(node.element, `${path}[]`);
-      if (element === undefined) return undefined;
-      if (element.repeated || element.nullable) {
-        return this.#refuse(path, 'a repeated protobuf element cannot itself be repeated or nullable');
-      }
-      return { atom: element.atom, repeated: true, nullable: false };
-    }
-
-    if (node.kind === 'union') {
-      const values = node.members.filter(member => member.kind !== 'null' && member.kind !== 'undefined');
-      const nullable = node.members.some(member => member.kind === 'null');
-      const literals = values.filter(member => member.kind === 'literal' && typeof member.value === 'string');
-      if (literals.length === values.length && literals.length > 0) {
-        const atom = this.#enum(
-          path,
-          literals.map(member => (member.kind === 'literal' && typeof member.value === 'string' ? member.value : '')),
-        );
-        return { atom, repeated: false, nullable };
-      }
-
-      const [only] = values;
-      if (values.length === 1 && only !== undefined) {
-        const resolved = this.#fieldPlan(only, path);
-        return resolved === undefined ? undefined : { ...resolved, nullable: resolved.nullable || nullable };
-      }
-      if (values.some(member => member.kind === 'object')) {
-        return this.#refuse(
-          path,
-          'a union of message types would require `oneof`, but union arms have no ProtoField<N> tag slot',
-        );
-      }
-      return this.#refuse(path, 'this TypeScript union has no single protobuf field spelling');
-    }
-
-    const atom = this.#atom(node, path);
-    return atom === undefined ? undefined : { atom, repeated: false, nullable: false };
+    return planField<AtomPlan>(
+      node,
+      path,
+      (value, location) => this.#atom(value, location),
+      (location, values) => this.#enum(location, values),
+      (location, reason, origin) => this.#refuse(location, reason, origin),
+    );
   }
 
   #atom(node: TypeIR, path: string): AtomPlan | undefined {
@@ -286,44 +211,12 @@ class EncoderEmitter {
   }
 
   #scalar(node: ScalarIR, path: string): AtomPlan | undefined {
-    const proto = node.proto;
-    switch (node.scalar) {
-      case 'number':
-      case 'integer':
-        if (proto === undefined) return scalar('double', 1, 'number');
-        if (THIRTY_TWO_BIT.has(proto) || FLOATING.has(proto)) return numeric(proto);
-        if (SIXTY_FOUR_BIT.has(proto)) {
-          return this.#refuse(
-            path,
-            `Proto<'${proto}'> needs bigint because a TypeScript number cannot preserve every 64-bit integer`,
-          );
-        }
-        return this.#refuse(path, `Proto<'${proto}'> is not a numeric protobuf scalar`);
-      case 'bigint':
-        if (proto === undefined) {
-          return this.#refuse(path, 'an untagged bigint has no inferable protobuf width or signedness; add Proto<K>');
-        }
-        return SIXTY_FOUR_BIT.has(proto)
-          ? numeric(proto)
-          : this.#refuse(path, `a bigint protobuf field needs an explicit 64-bit scalar, not Proto<'${proto}'>`);
-      case 'boolean':
-        if (proto === undefined || proto === 'bool') return scalar('bool', 0, 'boolean');
-        return this.#refuse(path, `a boolean protobuf field cannot use Proto<'${proto}'>`);
-      case 'string':
-        if (proto === undefined || proto === 'string') return scalar('string', 2, 'string');
-        if (proto === 'bytes') {
-          return this.#refuse(
-            path,
-            "Proto<'bytes'> needs Uint8Array, and the current reflection refuses typed-array data types",
-          );
-        }
-        return this.#refuse(path, `a string protobuf field cannot use Proto<'${proto}'>`);
-      case 'date':
-        if (proto !== undefined) {
-          return this.#refuse(path, `Date has the fixed google.protobuf.Timestamp mapping, not Proto<'${proto}'>`);
-        }
-        return { kind: 'timestamp', helper: this.#timestamp(), wire: 2 };
-    }
+    return planScalar(
+      node,
+      path,
+      () => this.#timestamp(),
+      (location, reason, origin) => this.#refuse(location, reason, origin),
+    );
   }
 
   #enum(path: string, values: readonly string[]): EnumPlan {
@@ -397,36 +290,6 @@ class EncoderEmitter {
   }
 }
 
-function numeric(method: ProtoScalar): ScalarPlan {
-  switch (method) {
-    case 'int32':
-    case 'uint32':
-    case 'sint32':
-      return scalar(method, 0, 'number');
-    case 'int64':
-    case 'uint64':
-    case 'sint64':
-      return scalar(method, 0, 'bigint');
-    case 'fixed32':
-    case 'sfixed32':
-    case 'float':
-      return scalar(method, 5, 'number');
-    case 'fixed64':
-    case 'sfixed64':
-      return scalar(method, 1, 'bigint');
-    case 'double':
-      return scalar(method, 1, 'number');
-    case 'bool':
-    case 'string':
-    case 'bytes':
-      throw new Error(`non-numeric protobuf scalar ${method}`);
-  }
-}
-
-function scalar(method: ScalarPlan['method'], wire: ScalarPlan['wire'], zero: ScalarPlan['zero']): ScalarPlan {
-  return { kind: 'scalar', method, wire, zero };
-}
-
 function defaultGuard(atom: AtomPlan, value: string): string | undefined {
   if (atom.kind !== 'scalar') return undefined;
   switch (atom.zero) {
@@ -439,14 +302,4 @@ function defaultGuard(atom: AtomPlan, value: string): string | undefined {
     case 'string':
       return `${value} !== ""`;
   }
-}
-
-function isPacked(atom: AtomPlan): atom is ScalarPlan | EnumPlan {
-  return atom.kind === 'enum' || (atom.kind === 'scalar' && atom.method !== 'string');
-}
-
-function safeName(raw: string): string {
-  const words = raw.split(/[^A-Za-z0-9_$]+/).filter(word => word.length > 0);
-  const joined = words.map(word => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`).join('');
-  return joined.length === 0 ? 'Message' : joined;
 }
