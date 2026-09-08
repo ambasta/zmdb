@@ -181,6 +181,7 @@ function executeSample(directory, sample) {
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
       `--allow-fs-read=${realpathSync(join(root, 'packages'))}`,
+      '--import=data:text/javascript,if(process.permission&&!process.permission.has("net")){globalThis.fetch=()=>{throw new Error("ERR_ACCESS_DENIED: network")}}',
       output,
     ],
     {
