@@ -4,6 +4,7 @@
 // parser scans that byte array without decoding file contents, bounds every
 // header and part before allocating its representation, and never performs I/O.
 
+import { isHttpTokenCode } from '../http-token.js';
 import { BoundaryStatusError } from '../middleware/errors.js';
 
 export interface UploadLimits {
@@ -116,29 +117,6 @@ function trimEnd(value: string, start: number, end: number): number {
   return at;
 }
 
-function isParameterNameCode(code: number): boolean {
-  return (
-    (code >= 48 && code <= 57) ||
-    (code >= 65 && code <= 90) ||
-    (code >= 97 && code <= 122) ||
-    code === 33 ||
-    code === 35 ||
-    code === 36 ||
-    code === 37 ||
-    code === 38 ||
-    code === 39 ||
-    code === 42 ||
-    code === 43 ||
-    code === 45 ||
-    code === 46 ||
-    code === 94 ||
-    code === 95 ||
-    code === 96 ||
-    code === 124 ||
-    code === 126
-  );
-}
-
 function parseParameterizedValue(source: string): ParameterizedValue {
   const firstSemicolon = source.indexOf(';');
   const valueEnd = firstSemicolon === -1 ? source.length : firstSemicolon;
@@ -157,7 +135,7 @@ function parseParameterizedValue(source: string): ParameterizedValue {
     }
 
     const nameStart = at;
-    while (at < source.length && isParameterNameCode(source.charCodeAt(at))) {
+    while (at < source.length && isHttpTokenCode(source.charCodeAt(at))) {
       at += 1;
     }
     if (at === nameStart) {
@@ -352,7 +330,7 @@ function parsePartHeaders(value: Uint8Array<ArrayBuffer>): ParsedPartHeaders {
     }
     const name = line.slice(0, separator);
     for (let index = 0; index < name.length; index += 1) {
-      if (!isParameterNameCode(name.charCodeAt(index))) {
+      if (!isHttpTokenCode(name.charCodeAt(index))) {
         malformed('multipart part contains an invalid header name');
       }
     }

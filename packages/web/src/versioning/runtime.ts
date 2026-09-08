@@ -3,6 +3,8 @@
 // decorators, while the router and document generator must still spell paths
 // and media types identically.
 
+import { isHttpTokenCode } from '../http-token.js';
+
 function trimSlashes(value: string): string {
   let start = 0;
   let end = value.length;
@@ -21,32 +23,9 @@ export function pathForVersion(prefix: string, version: string, path: string): s
   return path === '/' ? head : `${head}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
-function isTokenCode(code: number): boolean {
-  return (
-    (code >= 48 && code <= 57) ||
-    (code >= 65 && code <= 90) ||
-    (code >= 97 && code <= 122) ||
-    code === 33 ||
-    code === 35 ||
-    code === 36 ||
-    code === 37 ||
-    code === 38 ||
-    code === 39 ||
-    code === 42 ||
-    code === 43 ||
-    code === 45 ||
-    code === 46 ||
-    code === 94 ||
-    code === 95 ||
-    code === 96 ||
-    code === 124 ||
-    code === 126
-  );
-}
-
 function mediaParameterValue(value: string): string {
   for (let index = 0; index < value.length; index += 1) {
-    if (!isTokenCode(value.charCodeAt(index))) {
+    if (!isHttpTokenCode(value.charCodeAt(index))) {
       return `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
     }
   }
