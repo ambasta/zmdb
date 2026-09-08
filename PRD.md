@@ -97,14 +97,16 @@ replacement, must be able to install exactly that (**REQ-UM-2**).
 
 Ordered. When two conflict, the lower number wins and the conflict is documented at the call site.
 
-### P1 — Push work left of runtime
+### P1 — Push work left of runtime, account for every bucket
 
-```
-type-check time   →   build time   →   install time   →   RUNTIME
-(free for users)      (once, CI)       (once, npm i)       (per request — minimize!)
-```
+Resolve work before a request where possible, while charging the work to the phase that performs it. Editor latency, type-checking, builds, distribution, startup and steady-state runtime each have a
+budget. Compiler work is paid by developers and CI; it is not free because it emits no runtime code.
 
-Anything at runtime that could have been resolved earlier is a **defect**, not a trade-off. Allocation, indirection, reflection, and dynamic dispatch on the hot path are defects.
+**REQ-COST-1:** Measure the separate workloads, retain raw provenance and apply the per-bucket regression rules in the
+[engineering cost contract](./benchmarks/SPEC.md#8-engineering-cost-contract-739). An aggregate cannot pass while any required workload or metric exceeds its budget. A performance claim without input
+hashes and resolved dependency versions is invalid. Deterministic CI smoke is not release benchmark evidence; final comparative measurements wait until every non-benchmark sub-issue is complete.
+
+Avoid unnecessary allocation, indirection, reflection and dynamic dispatch on the hot path. Moving that work earlier does not waive the receiving bucket's budget.
 
 ### P2 — Single source of truth, pure derivation
 

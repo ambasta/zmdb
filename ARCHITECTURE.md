@@ -22,18 +22,22 @@ Everything else — ergonomics, breadth, parity with incumbents — is subordina
 
 ### 1.1 Corollary: the cost model
 
-We reason about cost in **four buckets**, and we push work as far left as possible:
+Moving work before a request can reduce runtime cost, but no phase is free. We account for six paid buckets separately:
 
-```
-type-check time   →   build time   →   install time   →   RUNTIME
-(free for users)      (once, CI)       (once, npm i)       (per request — minimize!)
-```
+| Bucket       | Where the cost is paid                                                      |
+| ------------ | --------------------------------------------------------------------------- |
+| Editor       | Cold project load and interactive completion, quick-info and diagnostics    |
+| Type-check   | Clean, no-change incremental, affected-edit and installed-consumer checking |
+| Build        | Clean and cached compilation, AOT generation and emitted artifacts          |
+| Distribution | Packing, installation, dependency footprint and cache population            |
+| Startup      | Process/import/application initialization and the first request or query    |
+| Runtime      | Steady-state validation, SQL, persistence and HTTP work                     |
 
-- **Type-check time** (free for the consumer): schema→type derivation, illegal states, route/param typing, DI graph validation. Prefer this above all.
-- **Build time** (paid once by the consumer's bundler/tsc): AOT validator inlining, SQL compilation where the query is static.
-- **Install time** (paid once): our own `dist` build; native/WASM artifact download.
-- **Runtime** (paid every time): only the irreducible work — the actual SQL round-trip, the inlined validation booleans, one object shape. Anything else here must justify itself against north star
-  (1).
+Prefer resolving work earlier when that preserves the public contract and reduces the cost paid repeatedly. Charge the resulting compiler, editor, build or install work to its own bucket; an
+improvement in runtime throughput cannot excuse an over-budget editor or compiler result.
+
+[The engineering cost contract](./benchmarks/SPEC.md#8-engineering-cost-contract-739) owns workload boundaries, raw provenance, sampling and regression acceptance. Existing harness definitions own
+their operations and result formats. Deterministic CI smoke evidence is distinct from release comparative measurements, which wait until all non-benchmark work is complete.
 
 ---
 
