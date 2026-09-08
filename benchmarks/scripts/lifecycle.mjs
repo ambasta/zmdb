@@ -58,7 +58,7 @@ for (const key of Object.keys(environment)) {
 }
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  return Buffer.from(digest).toString(encoding === 'base64' ? 'base64' : 'hex');
 };
 
 async function run(label, executable, args, cwd, env = {}, timeout = 600_000) {
