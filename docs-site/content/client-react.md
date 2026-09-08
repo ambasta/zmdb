@@ -4,7 +4,7 @@ URL construction, authentication patches, transport, response validation, and st
 ## Install
 
 ```bash
-npm add @zmdb/client@alpha @zmdb/react@alpha react@19
+npm add @zmdb/client@1.0.0-beta.1 @zmdb/react@1.0.0-beta.1 react@19
 ```
 
 ## Provide

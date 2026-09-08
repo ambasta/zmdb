@@ -6,10 +6,10 @@ cache, retry policy, transport, or second client runtime.
 ## Install
 
 ```bash
-npm add @zmdb/vue@alpha vue@^3.5
+npm add @zmdb/vue@1.0.0-beta.1 vue@^3.5
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+**, is **ESM-only**, and declares Vue as a required peer dependency.
+> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+**, is **ESM-only**, and declares Vue as a required peer dependency.
 
 ## Create bindings for the generated client
 

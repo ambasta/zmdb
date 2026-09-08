@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@zmdb/jobs": "1.0.0-alpha.4",
-    "@zmdb/jobs-sqlite": "1.0.0-alpha.4"
+    "@zmdb/jobs": "1.0.0-beta.1",
+    "@zmdb/jobs-sqlite": "1.0.0-beta.1"
   },
   "devDependencies": {
     "@types/node": "26.4.1"

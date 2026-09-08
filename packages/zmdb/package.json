@@ -1,6 +1,6 @@
 {
   "name": "zmdb",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.",
   "keywords": [
     "data-layer",
@@ -86,7 +86,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
@@ -94,13 +94,13 @@
   },
   "dependencies": {
     "@zmdb/app": "workspace:^",
-    "@zmdb/cli": "workspace:1.0.0-alpha.4",
-    "@zmdb/compiler": "workspace:1.0.0-alpha.4",
-    "@zmdb/migrations": "workspace:1.0.0-alpha.4",
+    "@zmdb/cli": "workspace:1.0.0-beta.1",
+    "@zmdb/compiler": "workspace:1.0.0-beta.1",
+    "@zmdb/migrations": "workspace:1.0.0-beta.1",
     "@zmdb/orm": "workspace:^",
     "@zmdb/schema": "workspace:^",
     "@zmdb/sql": "workspace:^",
-    "@zmdb/sqlite": "workspace:1.0.0-alpha.4",
+    "@zmdb/sqlite": "workspace:1.0.0-beta.1",
     "@zmdb/validator": "workspace:^",
     "@zmdb/web": "workspace:^",
     "esbuild": "^0.28.2",
@@ -116,11 +116,11 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/cockroach": "1.0.0-alpha.4",
-    "@zmdb/mssql": "1.0.0-alpha.4",
-    "@zmdb/mysql": "1.0.0-alpha.4",
-    "@zmdb/postgres": "1.0.0-alpha.4",
-    "@zmdb/singlestore": "1.0.0-alpha.4"
+    "@zmdb/cockroach": "1.0.0-beta.1",
+    "@zmdb/mssql": "1.0.0-beta.1",
+    "@zmdb/mysql": "1.0.0-beta.1",
+    "@zmdb/postgres": "1.0.0-beta.1",
+    "@zmdb/singlestore": "1.0.0-beta.1"
   },
   "peerDependenciesMeta": {
     "@zmdb/cockroach": {

@@ -5,7 +5,7 @@ historical server-only workaround.
 ## Install
 
 ```bash
-npm add @zmdb/client@alpha @zmdb/react@alpha @zmdb/next@alpha next@^16.3 react@19 react-dom@19
+npm add @zmdb/client@1.0.0-beta.1 @zmdb/react@1.0.0-beta.1 @zmdb/next@1.0.0-beta.1 next@^16.3 react@19 react-dom@19
 ```
 
 ## Provide

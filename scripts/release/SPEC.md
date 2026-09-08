@@ -332,7 +332,7 @@ The repository keeps one root changelog. Each released section identifies one re
 ```
 
 Release ids are `core` or one independent catalog id. A core section may use any core catalog id or `product` as a bullet owner. An independent section may use only its own catalog id. One release
-operation consumes exactly one non-empty released section.
+unit operation consumes exactly one non-empty released section.
 
 `Unreleased` remains one section, partitioned by bullet owner:
 
@@ -348,6 +348,10 @@ Tags are:
 
 - `core-v<version>` for the core train; and
 - `<catalog-id>-v<version>` for one integration or tooling package.
+
+The CLI also accepts `v<version>` for a coordinated release of the entire current catalog. Every package must already carry that exact version, and every release unit must have its own non-empty
+changelog section. This combines the unit plans in the existing dependency-first order; it does not change unit ownership or compatibility policy. The publish workflow requires successful CI on the
+tagged commit, builds packages, and publishes from disposable staging directories. Manual dispatch prepares real tarballs without publishing.
 
 The future read-only plan boundary is:
 

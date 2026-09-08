@@ -8,11 +8,10 @@ Part of **[zmdb](https://github.com/ambasta/zmdb)**. Application runtime code im
 ## Install
 
 ```bash
-npm add -D @zmdb/compiler@alpha typescript@^7.0.2
+npm add -D @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+**. Published modules are ESM; Node.js 26 also supports synchronous `require('@zmdb/compiler/metro')`
-> from a CommonJS Metro configuration.
+> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+**. Published modules are ESM; Node.js 26 also supports synchronous `require('@zmdb/compiler/metro')` from a CommonJS Metro configuration.
 
 ## Choose a compilation route
 

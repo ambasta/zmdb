@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/postgres",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspection, node-postgres driver, cursors, and cancellation.",
   "keywords": [
     "database",
@@ -34,14 +34,14 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
+    "@zmdb/migrations": "workspace:1.0.0-beta.1"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
@@ -51,8 +51,8 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/orm": "1.0.0-alpha.4",
-    "@zmdb/sql": "1.0.0-alpha.4",
+    "@zmdb/orm": "1.0.0-beta.1",
+    "@zmdb/sql": "1.0.0-beta.1",
     "pg": "^8.23.0"
   },
   "peerDependenciesMeta": {

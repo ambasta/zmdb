@@ -38,10 +38,10 @@ Runtime code uses built ESM entry points and `.js` relative imports. No source-s
 Select only the public package needed by the consumer:
 
 ```bash
-npm install @zmdb/schema@1.0.0-alpha.4
-npm install @zmdb/sql@1.0.0-alpha.4
-npm install @zmdb/validator@1.0.0-alpha.4
-npm install @zmdb/orm@1.0.0-alpha.4
+npm install @zmdb/schema@1.0.0-beta.1
+npm install @zmdb/sql@1.0.0-beta.1
+npm install @zmdb/validator@1.0.0-beta.1
+npm install @zmdb/orm@1.0.0-beta.1
 ```
 
 These are four independent installation examples, not a requirement to list transitive dependencies yourself. ORM installs its declared foundation closure. Applications choosing direct core packages

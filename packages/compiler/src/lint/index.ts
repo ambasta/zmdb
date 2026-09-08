@@ -41,7 +41,7 @@ const rules: Readonly<Record<string, LintRule>> = {
 const plugin: LintPlugin = {
   meta: {
     name: '@zmdb/compiler',
-    version: '1.0.0-alpha.4',
+    version: '1.0.0-beta.1',
   },
   rules,
 };

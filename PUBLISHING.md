@@ -1,7 +1,7 @@
 # Publishing zmdb to npm (Trusted Publishing / OIDC)
 
-> **Prerelease.** The current train is `1.0.0-alpha.*`. The workflow publishes a version under `latest` when it becomes the highest policy-precedence release (`stable > rc > beta > alpha`); otherwise
-> it uses its channel tag. Use an exact version for a deterministic prerelease install. Bump the prerelease (`alpha.1`, `alpha.2`, … then `beta.0`, then `1.0.0`) as it matures.
+> **Prerelease.** The prepared first beta is `1.0.0-beta.1`. The workflow publishes a version under `latest` when it becomes the highest policy-precedence release (`stable > rc > beta > alpha`);
+> otherwise it uses its channel tag. Use an exact version for a deterministic prerelease install. Increment the beta number for subsequent beta releases.
 
 The `@zmdb/*` packages publish from GitHub Actions using **Trusted Publishing (OIDC)** — **no npm token**. GitHub Actions proves its identity to npm with a short-lived OIDC credential, so there is no
 long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo also get automatic **provenance**.
@@ -41,7 +41,7 @@ registry lookup, build, tag or publish.
 
 ### Selecting versions and upgrading
 
-Start an application with the product, for example `npm install zmdb@1.0.0-alpha.4`. Select an integration only when the application uses it. Independent versioning lets an integration release without
+Start an application with the product, for example `npm install zmdb@1.0.0-beta.1`. Select an integration only when the application uses it. Independent versioning lets an integration release without
 forcing a core release; it does not mean every integration version works with every core version. Its published peer and dependency ranges must admit the installed core and SDK versions.
 
 Read the generated [package reference](./docs-site/content/package-reference.md) for membership and the [release policy](./scripts/release/policy.mjs) for these distinct promises:
@@ -160,7 +160,7 @@ Choose one release id and version. Use `core` for the cohesive train or an integ
 
 ```bash
 RELEASE_ID=core
-RELEASE_VERSION=1.0.0-alpha.5
+RELEASE_VERSION=1.0.0-beta.2
 RELEASE_TAG="$RELEASE_ID-v$RELEASE_VERSION"
 
 node scripts/release/bump.mjs "$RELEASE_ID" "$RELEASE_VERSION"
@@ -175,15 +175,18 @@ The final release flow is:
 1. Write and review non-empty `Unreleased` notes, set `RELEASE_ID` and `RELEASE_VERSION`, and run the commands above. The bump validates the transition, moves only notes owned by that unit under a
    dated heading, preserves unrelated notes under `Unreleased`, updates the selected package or eight core manifests atomically, and refreshes the lockfile. It does not create a commit or tag and does
    not publish.
-2. Run the complete ordinary repository gate. A manual workflow dispatch is the publication dry run and is read-only outside its disposable package staging area.
-3. Commit the selected release unit and create exactly `<release-id>-v<version>` at that commit:
+2. Push the prepared commit and wait for its CI run to pass. A manual workflow dispatch builds real tarballs for inspection without publishing or changing source manifests.
+3. After CI passes, create `<release-id>-v<version>` at the prepared commit:
 
    ```bash
    git tag "$RELEASE_ID-v$RELEASE_VERSION"
    git push origin "$RELEASE_ID-v$RELEASE_VERSION"
    ```
 
-4. CI recomputes the plan, rejects any tag/version/changelog disagreement before build or packaging, verifies every package, and publishes in `publishOrder`.
+4. The publish workflow requires successful CI on that exact commit, recomputes the plan, rejects any tag/version/changelog disagreement, builds packages, and publishes in `publishOrder`.
+
+A coordinated catalog release uses `v<version>` after every package and compatibility range has been prepared together. It requires a non-empty changelog section for every release unit. Use
+`--tag v<version>` to inspect that combined plan, or select `all` in the manual workflow dispatch.
 
 Publication stops at the first failure. A retry uses the same tag and version, verifies the registry copy of any package already published in the interrupted unit, skips only a byte-identical existing
 version, and resumes the remaining topological suffix. It never changes the selected unit. The release is complete only when every planned npm name reports the selected version.
@@ -212,9 +215,8 @@ Release verification reports every problem in deterministic package/path order a
 - **GitHub-hosted runner** (`ubuntu-latest`) — OIDC does not work on self-hosted.
 - **`registry-url: https://registry.npmjs.org`** on `setup-node` — set.
 - **`package.json` `repository.url` must exactly match the GitHub repo** — it is `git+https://github.com/ambasta/zmdb.git` for every package.
-- Packages are built to conventional ESM `.js` + `.d.ts` and the manifests are repointed to `dist` before publish (see the build steps).
-- The publish job provides PostgreSQL, NATS, RabbitMQ, Redis, and strict `utf8mb4` MySQL services. `yarn verify:server-integrations` requires the first four URLs, while `yarn verify:mysql-live`
-  requires MySQL and runs the packed `@zmdb/mysql` consumer; neither lane may silently skip.
+- Packages are built to conventional ESM `.js` + `.d.ts`. The publisher writes transformed manifests into disposable package staging, then packs those directories.
+- CI owns the unit, packed-consumer and live database/broker checks. The publish workflow reuses successful CI for the tagged commit.
 
 ## One-time setup (you, on npmjs.com)
 
@@ -228,19 +230,17 @@ Release verification reports every problem in deterministic package/path order a
 
    > [!IMPORTANT] npm only lets you configure a Trusted Publisher after a package exists. A new package therefore needs one manual publish before OIDC can take over.
    >
-   > Run that first publish from a clean temporary worktree while logged in to npm. `repoint-dist.mjs` rewrites the package manifests for publication, so a disposable worktree keeps those changes away
-   > from normal development.
+   > Run that first publish from the prepared commit after CI passes, while logged in to an npm account with permission for the package names. The publisher stages transformed manifests without
+   > changing the source tree.
    >
    > ```bash
    > yarn install --immutable
    > yarn build
    > yarn verify:publish
-   > RELEASE_ID=angular
-   > RELEASE_VERSION=1.0.0-alpha.5
-   > RELEASE_TAG="$RELEASE_ID-v$RELEASE_VERSION"
+   > RELEASE_VERSION=1.0.0-beta.1
+   > RELEASE_TAG="v$RELEASE_VERSION"
    > node scripts/release/plan.mjs --tag "$RELEASE_TAG" --json > /tmp/zmdb-release-plan.json
    > node scripts/release/plan.mjs --tag "$RELEASE_TAG" --publish-tsv > /tmp/zmdb-publish-order.tsv
-   > node .github/scripts/repoint-dist.mjs --tag "$RELEASE_TAG"
    > VER=$(node -e "const fs=require('node:fs'); console.log(JSON.parse(fs.readFileSync(process.argv[1], 'utf8')).version)" /tmp/zmdb-release-plan.json)
    >
    > while IFS=$'\t' read -r directory package_name; do
@@ -248,7 +248,7 @@ Release verification reports every problem in deterministic package/path order a
    >     --directory "$directory" \
    >     --package "$package_name" \
    >     --version "$VER" \
-   >     --tag alpha \
+   >     --tag beta \
    >     --pack-destination /tmp/zmdb-release-tarballs
    > done < /tmp/zmdb-publish-order.tsv
    > ```
@@ -261,9 +261,9 @@ Release verification reports every problem in deterministic package/path order a
 
 ## Releasing after trusted publishers are configured
 
-Use the release-preparation commands above. In the Actions tab, _Publish @zmdb packages to npm_ → _Run workflow_ is always a dry run: it builds, verifies, executes every optional server integration
-and the packed MySQL vertical against their live peers, repoints only the disposable checkout and runs `npm pack --dry-run`. Only the exact pushed `<release-id>-v<version>` tag starts a real publish.
-The workflow uses the derived plan and OIDC; it embeds neither a package inventory nor an npm token.
+Use the release-preparation commands above. In the Actions tab, _Publish @zmdb packages to npm_ → _Run workflow_ builds and packs the selected release, retaining real `.tgz` artifacts for inspection.
+It does not publish. A pushed `<release-id>-v<version>` tag publishes that unit; `v<version>` publishes the coordinated catalog. The workflow uses the derived plan and OIDC; it embeds neither a
+package inventory nor an npm token.
 
 ## What ends up in each tarball
 
@@ -276,9 +276,9 @@ README.md
 LICENSE
 ```
 
-`exports` selects emitted JavaScript and declarations, retaining declared framework conditions and the compiler Metro entry's synchronous `require` condition. `files` contains `dist`, `src`,
-`README.md`, and `LICENSE`. Same-core workspace dependencies become exact versions for prereleases; crossing ranges remain policy-owned. Package `.npmignore` files exclude specs, type tests, and
-`SPEC.md`.
+`exports` selects emitted JavaScript and declarations, retaining declared framework conditions and the compiler Metro entry's synchronous `require` condition. Staging contains only `dist`, `src`,
+`README.md`, `LICENSE`, the transformed manifest and `.npmignore`. The staged manifest omits the redundant `files` allowlist so npm applies the package ignore rules. Same-core workspace dependencies
+become exact versions for prereleases; crossing ranges remain policy-owned. Package `.npmignore` files exclude specs, type tests, and `SPEC.md`.
 
 ## How the build works, and why not tsup
 
@@ -288,8 +288,8 @@ declarations name the built files correctly while `allowImportingTsExtensions` r
 The project previously used tsup. Its declaration step relies on `rollup-plugin-dts`, which expects `ts.sys` and `ts.createProgram` from the `typescript` package. TypeScript 7 does not expose that
 API, so declaration generation failed before reading a source file.
 
-The direct `tsc` build also produces the mirrored layout expected by `repoint-dist.mjs`. The publish manifest can therefore derive every `dist` subpath from the committed source manifest instead of
-maintaining a second entry-point table.
+The direct `tsc` build also produces the mirrored layout expected by the publish manifest transform. The publish manifest can therefore derive every `dist` subpath from the committed source manifest
+instead of maintaining a second entry-point table.
 
 Two things about emit are not obvious:
 

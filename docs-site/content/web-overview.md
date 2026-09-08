@@ -6,7 +6,7 @@ Requires Node.js 26+, TypeScript 7+, ESM and Stage-3 decorators. Set `experiment
 ## Start with the product
 
 ```bash
-npm add zmdb@alpha
+npm add zmdb@1.0.0-beta.1
 npm add --save-dev typescript@7.0.2 @types/node@26.4.1 esbuild@0.28.2
 ```
 
@@ -51,7 +51,7 @@ repository boundary.
 ## Add a selected worker to the same application
 
 ```bash
-npm add @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha
+npm add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1
 ```
 
 The core jobs package supplies queues, workers, schedules and provider ports. `@zmdb/jobs-sqlite` supplies both durable SQLite storage and the memory store used by this runnable example. Jobs are

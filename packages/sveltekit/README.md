@@ -6,10 +6,10 @@ stores from `@zmdb/svelte`.
 ## Install
 
 ```bash
-npm add @zmdb/client@alpha @zmdb/svelte@alpha @zmdb/sveltekit@alpha @sveltejs/kit@^2.70.3 svelte@^5.57.0
+npm add @zmdb/client@1.0.0-beta.1 @zmdb/svelte@1.0.0-beta.1 @zmdb/sveltekit@1.0.0-beta.1 @sveltejs/kit@^2.70.3 svelte@^5.57.0
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+**, SvelteKit 2.70, Svelte 5, and ESM.
+> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+**, SvelteKit 2.70, Svelte 5, and ESM.
 
 ## Server loads
 

@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/sql",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, full-text search, set operations, and schema-object DDL.",
   "keywords": [
     "mysql",
@@ -40,7 +40,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",

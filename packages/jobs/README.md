@@ -5,20 +5,20 @@ Typed queues, workers, dead letters, scheduling, leases, and explicit provider p
 ## Install
 
 ```bash
-npm add @zmdb/jobs@alpha
+npm add @zmdb/jobs@1.0.0-beta.1
 ```
 
-The package is ESM-only and requires Node.js 26 or later. It has no third-party runtime peer. `npm add zmdb@alpha` does not install it, and there is no `zmdb/jobs` facade.
+The package is ESM-only and requires Node.js 26 or later. It has no third-party runtime peer. `npm add zmdb@1.0.0-beta.1` does not install it, and there is no `zmdb/jobs` facade.
 
 ## Choose the capability and its storage
 
-The default [SQLite HTTP application](https://ambasta.github.io/zmdb/docs/web-overview.html) starts with `npm add zmdb@alpha`. Add jobs when the application needs background work:
+The default [SQLite HTTP application](https://ambasta.github.io/zmdb/docs/web-overview.html) starts with `npm add zmdb@1.0.0-beta.1`. Add jobs when the application needs background work:
 
-| Choice                                  | Install                                                         | Public imports                            |
-| --------------------------------------- | --------------------------------------------------------------- | ----------------------------------------- |
-| Portable queues and scheduling          | `npm add @zmdb/jobs@alpha`                                      | `@zmdb/jobs`, `@zmdb/jobs/schedule`       |
-| SQLite jobs, including the memory store | `npm add @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha`              | `@zmdb/jobs`, `@zmdb/jobs-sqlite`         |
-| PostgreSQL jobs                         | `npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0` | `@zmdb/jobs`, `@zmdb/jobs-postgres`, `pg` |
+| Choice                                  | Install                                                                       | Public imports                            |
+| --------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------- |
+| Portable queues and scheduling          | `npm add @zmdb/jobs@1.0.0-beta.1`                                             | `@zmdb/jobs`, `@zmdb/jobs/schedule`       |
+| SQLite jobs, including the memory store | `npm add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1`              | `@zmdb/jobs`, `@zmdb/jobs-sqlite`         |
+| PostgreSQL jobs                         | `npm add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-postgres@1.0.0-beta.1 pg@^8.23.0` | `@zmdb/jobs`, `@zmdb/jobs-postgres`, `pg` |
 
 The portable install supplies behavior and provider ports. Queue and worker constructors require an explicit `store` and throw `TypeError` when it is missing; they never choose SQLite automatically.
 Per-replica schedules can run without a database. A cluster schedule requires a supplied `LeaseStore` and is refused before startup when it is missing. These package boundaries let applications select
@@ -65,8 +65,8 @@ lifecycle.
 Replace the empty arrays with the workers and schedulers owned by that application. The extension uses the same startup, rollback, reverse shutdown, and grace deadline as every other `@zmdb/app`
 extension.
 
-The default package has no `pg` peer. SQLite workers add `@zmdb/jobs-sqlite@alpha`, which owns both durable and memory storage. PostgreSQL workers add `@zmdb/jobs-postgres@alpha` and `pg@^8.23.0`;
-that adapter borrows a caller-owned pool or client and never closes the supplied resource; it releases only connections it acquires internally.
+The default package has no `pg` peer. SQLite workers add `@zmdb/jobs-sqlite@1.0.0-beta.1`, which owns both durable and memory storage. PostgreSQL workers add `@zmdb/jobs-postgres@1.0.0-beta.1` and
+`pg@^8.23.0`; that adapter borrows a caller-owned pool or client and never closes the supplied resource; it releases only connections it acquires internally.
 
 ## Alpha migration
 

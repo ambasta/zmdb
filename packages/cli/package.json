@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/cli",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "The zmdb executable and developer command APIs for schema, application and HTTP workflows.",
   "keywords": [
     "cli",
@@ -35,15 +35,15 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/compiler": "workspace:1.0.0-alpha.4",
-    "@zmdb/migrations": "workspace:1.0.0-alpha.4",
+    "@zmdb/compiler": "workspace:1.0.0-beta.1",
+    "@zmdb/migrations": "workspace:1.0.0-beta.1",
     "oxfmt": "0.66.0"
   },
   "devDependencies": {
@@ -58,11 +58,11 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/app": "1.0.0-alpha.4",
-    "@zmdb/orm": "1.0.0-alpha.4",
-    "@zmdb/schema": "1.0.0-alpha.4",
-    "@zmdb/sql": "1.0.0-alpha.4",
-    "@zmdb/web": "1.0.0-alpha.4",
+    "@zmdb/app": "1.0.0-beta.1",
+    "@zmdb/orm": "1.0.0-beta.1",
+    "@zmdb/schema": "1.0.0-beta.1",
+    "@zmdb/sql": "1.0.0-beta.1",
+    "@zmdb/web": "1.0.0-beta.1",
     "esbuild": ">=0.28.2 <0.29.0",
     "typescript": ">=7.0.2 <8.0.0"
   },

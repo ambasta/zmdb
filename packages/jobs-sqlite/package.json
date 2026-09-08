@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/jobs-sqlite",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Explicit SQLite persistence and owned memory storage for portable zmdb jobs.",
   "keywords": [
     "jobs",
@@ -32,21 +32,21 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/sqlite": "workspace:1.0.0-alpha.4"
+    "@zmdb/sqlite": "workspace:1.0.0-beta.1"
   },
   "devDependencies": {
     "@zmdb/jobs": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/jobs": "1.0.0-alpha.4"
+    "@zmdb/jobs": "1.0.0-beta.1"
   },
   "engines": {
     "node": ">=26"

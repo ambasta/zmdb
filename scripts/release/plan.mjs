@@ -57,22 +57,51 @@ function parseArguments(argv) {
   if ((releaseId === undefined) !== (version === undefined)) {
     throw new TypeError('--release and --version must be supplied together');
   }
+  const coordinatedVersion = /^v(.+)$/.exec(tag ?? '')?.[1];
   const target =
-    tag !== undefined
+    tag !== undefined && coordinatedVersion === undefined
       ? releaseTargetFromTag(tag)
       : releaseId === undefined
         ? undefined
         : releaseId === 'core'
           ? { kind: 'core', version }
           : { kind: 'package', id: releaseId, version };
-  return { format, root, target };
+  return { coordinatedVersion, format, root, target };
 }
 
 async function main(argv) {
   const options = parseArguments(argv);
   const architecture = await loadArchitecture(options.root);
   const model = releaseModel(options.root, { architecture });
-  const plan = createReleasePlan(model, options.target ?? currentCoreTarget(model));
+  let plan = createReleasePlan(model, options.target ?? currentCoreTarget(model));
+  if (options.coordinatedVersion !== undefined) {
+    const version = options.coordinatedVersion;
+    const plans = Object.keys(model.releaseOwners).map(id =>
+      createReleasePlan(model, id === 'core' ? { kind: 'core', version } : { kind: 'package', id, version }),
+    );
+    for (const entry of model.entries) {
+      if (entry.manifest.version !== version) {
+        throw new Error(`${entry.npmName} is ${entry.manifest.version}; coordinated release requires ${version}`);
+      }
+    }
+    for (const selected of plans) {
+      if (selected.changelogEntry.trim().length === 0) {
+        throw new Error(`CHANGELOG.md has no entry for ${selected.releaseId}@${version}`);
+      }
+    }
+    const packages = model.entries.map(entry => entry.npmName);
+    plan = {
+      releaseId: 'all',
+      version,
+      packages,
+      publishOrder: packages,
+      manifestChanges: plans.flatMap(selected => selected.manifestChanges),
+      compatibilityCases: [...new Set(plans.flatMap(selected => selected.compatibilityCases))].toSorted(),
+      changelogEntry: plans
+        .map(selected => `## ${selected.releaseId}@${version}\n\n${selected.changelogEntry}`)
+        .join('\n\n'),
+    };
+  }
   if (options.format === '--json') {
     console.log(JSON.stringify(plan, undefined, 2));
     return;

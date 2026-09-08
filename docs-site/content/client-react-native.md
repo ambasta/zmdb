@@ -4,7 +4,7 @@ own URL construction, authentication patches, transport, response validation, an
 ## Install
 
 ```bash
-npm add @zmdb/client@alpha @zmdb/react@alpha @zmdb/react-native@alpha react@19 react-native@">=0.87 <0.88"
+npm add @zmdb/client@1.0.0-beta.1 @zmdb/react@1.0.0-beta.1 @zmdb/react-native@1.0.0-beta.1 react@19 react-native@">=0.87 <0.88"
 ```
 
 ## Provide

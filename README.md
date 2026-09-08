@@ -29,7 +29,7 @@ Advanced dependency boundaries are explained in the [runtime foundation](./docs-
 Create a formatter-clean SQLite project with the packaged CLI:
 
 ```bash
-npx zmdb@alpha new project blog
+npx zmdb@1.0.0-beta.1 new project blog
 cd blog
 npm install
 npm run check

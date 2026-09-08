@@ -8,12 +8,12 @@ startup requires an `onUndeliverable` sink.
 ## Install
 
 ```bash
-npm add @zmdb/transport-redis@alpha redis@^6.2.1
+npm add @zmdb/transport-redis@1.0.0-beta.1 redis@^6.2.1
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-The sole peer is `redis@^6.2.1`. Neither it nor this package is installed by `npm add zmdb@alpha`.
+The sole peer is `redis@^6.2.1`. Neither it nor this package is installed by `npm add zmdb@1.0.0-beta.1`.
 
 ## Usage
 

@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/transport-redis",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.",
   "keywords": [
     "messaging",
@@ -33,7 +33,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
@@ -45,7 +45,7 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/app": "1.0.0-alpha.4",
+    "@zmdb/app": "1.0.0-beta.1",
     "redis": "^6.2.1"
   },
   "engines": {

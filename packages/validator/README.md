@@ -8,10 +8,10 @@ Part of **[zmdb](https://github.com/ambasta/zmdb)**. The TypeScript front end, r
 ## Install
 
 ```bash
-npm add @zmdb/validator@alpha
+npm add @zmdb/validator@1.0.0-beta.1
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**.
+> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**.
 
 ## Entry points
 
@@ -23,7 +23,7 @@ npm add @zmdb/validator@alpha
 For build-time reflection and AOT compilation:
 
 ```bash
-npm add --save-dev @zmdb/compiler@alpha typescript@^7
+npm add --save-dev @zmdb/compiler@1.0.0-beta.1 typescript@^7
 ```
 
 ## Documentation

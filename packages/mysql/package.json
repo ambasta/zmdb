@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/mysql",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Complete MySQL compiler, migrations, introspection, and structural mysql2 driver vertical for zmdb.",
   "keywords": [
     "database",
@@ -34,14 +34,14 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
+    "@zmdb/migrations": "workspace:1.0.0-beta.1"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
@@ -51,8 +51,8 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/orm": "1.0.0-alpha.4",
-    "@zmdb/sql": "1.0.0-alpha.4",
+    "@zmdb/orm": "1.0.0-beta.1",
+    "@zmdb/sql": "1.0.0-beta.1",
     "mysql2": "^3.24.3"
   },
   "peerDependenciesMeta": {

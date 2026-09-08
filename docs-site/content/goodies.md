@@ -87,7 +87,7 @@ Six variants per schema (`entity`, `create`, `update`, `get`, `list`, `search`),
 
 ## Turn a schema into an LLM tool spec
 
-Install the provider-neutral package with `npm add @zmdb/ai@alpha`; it adds no provider SDK or framework peer.
+Install the provider-neutral package with `npm add @zmdb/ai@1.0.0-beta.1`; it adds no provider SDK or framework peer.
 
 ```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 import { toolFromSchema } from '@zmdb/ai';

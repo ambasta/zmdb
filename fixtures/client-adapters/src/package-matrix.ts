@@ -48,7 +48,7 @@ export interface AdapterPackageExpectation {
 }
 
 const GENERATED_CLIENT = 'fixtures/client-adapters/src/generated/api.generated.ts';
-const CORE_BASELINE = 'workspace:1.0.0-alpha.4';
+const CORE_BASELINE = 'workspace:1.0.0-beta.1';
 
 export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
   {

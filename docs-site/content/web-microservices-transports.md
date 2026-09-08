@@ -1,7 +1,7 @@
 Redis Pub/Sub, core NATS and RabbitMQ implement one public strategy contract, but they do not pretend to offer equivalent durability. Choose from the settlement matrix below before choosing from
 familiarity.
 
-The adapters and peers are opt-in; `npm add zmdb@alpha` installs none of them. `@zmdb/app/messaging` owns the broker-neutral contract and application lifecycle, while each adapter owns only its
+The adapters and peers are opt-in; `npm add zmdb@1.0.0-beta.1` installs none of them. `@zmdb/app/messaging` owns the broker-neutral contract and application lifecycle, while each adapter owns only its
 protocol client, framing, subscriptions, replies, and settlement.
 
 ## The strategy boundary
@@ -44,9 +44,9 @@ Capability order is `redelivery / deadLetter / requestResponse`. Redis and core 
 The neutral `@zmdb/app/messaging` entry imports no broker client. Install the optional peer alongside the adapter you use:
 
 ```bash
-npm add @zmdb/transport-redis@alpha redis@^6.2.1
-npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0
-npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1
+npm add @zmdb/transport-redis@1.0.0-beta.1 redis@^6.2.1
+npm add @zmdb/transport-nats@1.0.0-beta.1 @nats-io/transport-node@^3.4.0
+npm add @zmdb/transport-rabbitmq@1.0.0-beta.1 amqplib@^2.0.1
 ```
 
 ```ts {"mode":"compile","id":"example-002"}
@@ -146,8 +146,8 @@ See also: [Microservices](./web-microservices.html) · [Custom Transports](./web
 
 ## SQS standard queues
 
-Install `@zmdb/transport-sqs@alpha`, `@zmdb/app@alpha` and `@aws-sdk/client-sqs@3.1127.0`. Supply a caller-owned `SQSClient`, distinct source and dead-letter queue URLs, and the explicit polling,
-visibility, concurrency and timeout options documented in the package SPEC. Attach `createSqsStrategy(options)` with `transportExtension`.
+Install `@zmdb/transport-sqs@1.0.0-beta.1`, `@zmdb/app@1.0.0-beta.1` and `@aws-sdk/client-sqs@3.1127.0`. Supply a caller-owned `SQSClient`, distinct source and dead-letter queue URLs, and the explicit
+polling, visibility, concurrency and timeout options documented in the package SPEC. Attach `createSqsStrategy(options)` with `transportExtension`.
 
 Successful dispatch deletes the current receipt. Retry changes visibility; dead-letter handling waits for the destination send before deleting the source. Closing stops polling and drains accepted
 work within its grace period; the caller destroys the client after app shutdown. This event transport advertises `true / true / false` capabilities and refuses FIFO and request/response. Standard

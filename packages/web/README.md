@@ -11,10 +11,10 @@ boundary needs HTTP without the full product facade.
 ## Advanced: install HTTP alone
 
 ```bash
-npm add @zmdb/web@alpha
+npm add @zmdb/web@1.0.0-beta.1
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
 ## Entry points
 
@@ -27,11 +27,11 @@ other.
 
 Typed gRPC servers and clients ship from `@zmdb/transport-grpc`, core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, and Redis Pub/Sub ships from
 `@zmdb/transport-redis`; none of their old web subpaths forwards. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`. Queues, workers, scheduling,
-and leases live in `@zmdb/jobs`; SQLite durable and memory storage lives in the separately selected `@zmdb/jobs-sqlite`. The removed web paths do not forward. Install `@zmdb/jobs-postgres@alpha` with
-`pg@^8.23.0` when those jobs use a caller-owned PostgreSQL pool or client.
+and leases live in `@zmdb/jobs`; SQLite durable and memory storage lives in the separately selected `@zmdb/jobs-sqlite`. The removed web paths do not forward. Install
+`@zmdb/jobs-postgres@1.0.0-beta.1` with `pg@^8.23.0` when those jobs use a caller-owned PostgreSQL pool or client.
 
 Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install
-`@zmdb/otel@alpha` with `@opentelemetry/api@^1.9.1` to adapt caller-owned tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
+`@zmdb/otel@1.0.0-beta.1` with `@opentelemetry/api@^1.9.1` to adapt caller-owned tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
 
 `@zmdb/web/versioning` provides version decorators and the path, header, and media-type strategies used by the router and OpenAPI generator.
 

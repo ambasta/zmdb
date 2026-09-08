@@ -604,8 +604,8 @@ The release surfaces that consume the shared catalog/policy-derived model, and m
 PUBLISHING.md
 ```
 
-`.github/scripts/repoint-dist.mjs` consumes the shared release plan and must not grow another list. Establishing Trusted Publisher access for a new npm name follows PUBLISHING.md's one-time setup and
-is an admission prerequisite, not permission for a partial product release. Once admitted, all nine packages use one version, root changelog section, exact tag and policy-derived publish order.
+`.github/scripts/publish-package.mjs` consumes the shared release plan and must not grow another list. Establishing Trusted Publisher access for a new npm name follows PUBLISHING.md's one-time setup
+and is an admission prerequisite, not permission for a partial product release. Once admitted, all nine packages use one version, root changelog section, exact tag and policy-derived publish order.
 
 The release gate installs only tarballs outside the workspace and proves:
 

@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/jobs",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Portable typed queues, workers, scheduling, leases, and application lifecycle integration.",
   "keywords": [
     "cron",
@@ -35,7 +35,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",

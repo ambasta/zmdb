@@ -1,18 +1,12 @@
 name: Publish @zmdb packages to npm
 
-# Publishes conventional dist (.js + .d.ts) to npm using TRUSTED PUBLISHING
-# (OIDC) — no NPM_TOKEN. Requires: (1) a Trusted Publisher configured for each
-# @zmdb package on npmjs.com pointing at this repo + workflow file `publish.yml`,
-# (2) npm CLI >= 11.5.1 (installed below). See PUBLISHING.md.
-#
-# Trigger: manual dispatch (dry-run only) or one release-unit tag.
 on:
   workflow_dispatch:
     inputs:
       release:
-        description: core or one independent catalog id
+        description: all, core or one independent catalog id
         required: true
-        default: core
+        default: all
         type: string
       version:
         description: Exact prepared release version
@@ -20,62 +14,33 @@ on:
         type: string
   push:
     tags:
+      - 'v*'
       - 'core-v*'
       - '*-v*'
 
 permissions:
-  id-token: write # REQUIRED for OIDC trusted publishing
+  id-token: write
   contents: read
+  actions: read
 
 jobs:
   publish:
-    runs-on: ubuntu-latest # OIDC trusted publishing requires GitHub-hosted runners
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_DB: bench
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d bench"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-      nats:
-        image: nats:2.12-alpine
-        ports:
-          - 4222:4222
-      rabbitmq:
-        image: rabbitmq:4.1-alpine
-        ports:
-          - 5672:5672
-        options: >-
-          --health-cmd "rabbitmq-diagnostics -q ping"
-          --health-interval 5s
-          --health-timeout 10s
-          --health-retries 30
-      redis:
-        image: redis:8-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Pre-publish Secret Scanning (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+      - name: Require successful CI for the tagged commit
+        if: github.event_name == 'push'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --status success \
+            --limit 1 --json databaseId --jq 'length')
+          test "$count" -eq 1
 
-      - name: Enable Corepack (yarn 4)
+      - name: Enable Corepack (Yarn 4)
         run: corepack enable
 
       - uses: actions/setup-node@v4
@@ -84,196 +49,56 @@ jobs:
           cache: 'yarn'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Upgrade npm to a trusted-publishing-capable version (>= 11.5.1)
-        run: npm install -g npm@latest && npm --version
+      - name: Upgrade npm for trusted publishing
+        env:
+          COREPACK_ENABLE_PROJECT_SPEC: '0'
+        run: npm install -g npm@latest
 
-      - name: Add PostgreSQL tools for temporary test databases
-        run: echo "$(pg_config --bindir)" >> "$GITHUB_PATH"
-
-      - name: Install (yarn, immutable)
+      - name: Install
         run: yarn install --immutable
 
-      - name: Start CockroachDB 26.2.2
-        run: |
-          docker run --detach --name zmdb-cockroach-publish \
-            --entrypoint /cockroach/cockroach \
-            --publish 26257:26257 --publish 8080:8080 \
-            cockroachdb/cockroach:v26.2.2 \
-            start-single-node --insecure \
-            --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080
-          for attempt in $(seq 1 30); do
-            if docker exec zmdb-cockroach-publish cockroach sql --insecure --execute 'SELECT 1' >/dev/null 2>&1; then
-              exit 0
-            fi
-            sleep 2
-          done
-          docker logs zmdb-cockroach-publish
-          exit 1
-
-      - name: Pre-publish Dependency Vulnerability Audit
-        # Metro 0.87.0 is a dev-only fixture dependency. Its image-size range
-        # has no non-vulnerable published target yet: even current 2.0.2 is
-        # covered by advisories 1138808 and 1138809. Ignore only those IDs;
-        # every other high advisory still blocks publication.
-        run: >
-          yarn npm audit --all --recursive --severity high --no-deprecations
-          --ignore 1138808 --ignore 1138809
-
-      - name: Resolve the selected release target
+      - name: Resolve the prepared release
         env:
           REQUESTED_RELEASE: ${{ inputs.release }}
           REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            RELEASE_TAG="${REQUESTED_RELEASE}-v${REQUESTED_VERSION}"
+            if [ "$REQUESTED_RELEASE" = "all" ]; then
+              RELEASE_TAG="v${REQUESTED_VERSION}"
+            else
+              RELEASE_TAG="${REQUESTED_RELEASE}-v${REQUESTED_VERSION}"
+            fi
           else
             RELEASE_TAG="$GITHUB_REF_NAME"
           fi
-          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
-
-      - name: Test
-        run: yarn vitest run
-
-      # `yarn build` follows the canonical architecture and release dependency DAG,
-      # which the build requires: a package resolves its `@zmdb/*` imports to the
-      # sibling's `dist/*.d.ts` (see tsconfig.build.json). It also discovers private
-      # build workspaces instead of copying a package list into this workflow.
-      - name: Build dist for every package (topological)
-        run: yarn build
-
-      # Pack, install into a throwaway project and import + typecheck every published subpath from
-      # outside the repo. This is the only check that sees what a consumer sees; every other
-      # gate runs inside a workspace where `node_modules/@zmdb/*` is a symlink.
-      - name: Verify the packages install and load as published
-        run: yarn verify:publish
-
-      - name: Verify installed optional server integrations against live peers
-        env:
-          ZMDB_COCKROACH_URL: postgresql://root@127.0.0.1:26257/defaultdb?sslmode=disable
-          ZMDB_NATS_URL: nats://127.0.0.1:4222
-          ZMDB_PG: postgres://postgres:postgres@127.0.0.1:5432/bench
-          ZMDB_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672
-          ZMDB_REDIS_URL: redis://127.0.0.1:6379
-        run: |
-          yarn verify:server-integrations
-          yarn verify:database-cockroach
-
-      - name: Start strict utf8mb4 MySQL for the packed @zmdb/mysql consumer
-        run: |
-          docker run --detach --name zmdb-issue-671-mysql-publish \
-            --env MYSQL_ROOT_PASSWORD=zmdb671 \
-            --env MYSQL_DATABASE=zmdb671 \
-            --publish 3306:3306 \
-            mysql:8.4.11 \
-            --character-set-server=utf8mb4 \
-            --collation-server=utf8mb4_0900_ai_ci \
-            --sql-mode=STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION
-          for attempt in $(seq 1 60); do
-            if docker exec zmdb-issue-671-mysql-publish mysqladmin ping --password=zmdb671 --silent; then
-              exit 0
-            fi
-            sleep 1
-          done
-          docker logs zmdb-issue-671-mysql-publish
-          exit 1
-
-      - name: Verify the packed MySQL consumer against the real server
-        env:
-          ZMDB_MYSQL_URL: mysql://root:zmdb671@127.0.0.1:3306/zmdb671
-        run: yarn verify:mysql-live
-
-      - name: Remove the issue 671 MySQL service
-        if: always()
-        run: docker rm --force zmdb-issue-671-mysql-publish || true
-
-      - name: Start the official SingleStore Dev Image
-        run: |
-          docker volume create zmdb-issue-674-singlestore-publish-data
-          docker run --detach --name zmdb-issue-674-singlestore-publish \
-            --env ROOT_PASSWORD=zmdb674 \
-            --publish 3306:3306 \
-            --volume zmdb-issue-674-singlestore-publish-data:/var/lib/memsql \
-            ghcr.io/singlestore-labs/singlestoredb-dev@sha256:7ad84887a8a3e0bb1574e38886ff9893b01a4906414bfd105850e740306422fa
-          for attempt in $(seq 1 90); do
-            if docker exec zmdb-issue-674-singlestore-publish \
-              bash -lc "singlestore -uroot -pzmdb674 -e 'SELECT 1'" >/dev/null 2>&1; then
-              docker exec zmdb-issue-674-singlestore-publish \
-                bash -lc "singlestore -uroot -pzmdb674 -e 'CREATE DATABASE IF NOT EXISTS zmdb674'"
-              exit 0
-            fi
-            sleep 2
-          done
-          docker logs zmdb-issue-674-singlestore-publish
-          exit 1
-
-      - name: Verify the packed SingleStore consumer against the real server
-        env:
-          ZMDB_SINGLESTORE_URL: mysql://root:zmdb674@127.0.0.1:3306/zmdb674
-        run: yarn verify:singlestore-live
-
-      - name: Remove the issue 674 SingleStore service and volume
-        if: always()
-        run: |
-          docker rm --force zmdb-issue-674-singlestore-publish || true
-          docker volume rm --force zmdb-issue-674-singlestore-publish-data || true
-
-      - name: Materialize the verified release plan
-        run: |
           node scripts/release/plan.mjs --tag "$RELEASE_TAG" --json > "$RUNNER_TEMP/zmdb-release-plan.json"
           node scripts/release/plan.mjs --tag "$RELEASE_TAG" --publish-tsv > "$RUNNER_TEMP/zmdb-publish-order.tsv"
 
-      - name: Repoint package.json → dist (publish manifest)
-        run: node .github/scripts/repoint-dist.mjs --tag "$RELEASE_TAG"
+      - name: Build packages
+        run: yarn build
 
-      - name: Publish via OIDC (or dry-run) each package
+      - name: Publish staged packages (or pack on manual dispatch)
         env:
-          # Bypass the root "packageManager: yarn" enforcement so the npm CLI runs.
           COREPACK_ENABLE_PROJECT_SPEC: '0'
         run: |
           set -euo pipefail
           VER=$(node -e "const fs=require('node:fs'); console.log(JSON.parse(fs.readFileSync(process.argv[1], 'utf8')).version)" "$RUNNER_TEMP/zmdb-release-plan.json")
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then DRY=true; else DRY=false; fi
-          # Manual dispatch always packs. Only an exact verified release-unit tag publishes.
-          # The TSV is the selected policy-owned release unit in architecture-derived order.
-          # No token: npm detects the GitHub OIDC environment.
-          #
-          # Tag policy (implements: latest = highest of stable>rc>beta>alpha):
-          # per package, decide-dist-tag.mjs checks the registry and tells us if
-          # THIS version becomes the highest-precedence version. If so we publish
-          # it under --tag latest (the only way to move `latest` under OIDC, since
-          # `npm dist-tag` is not OIDC-authorized). Otherwise we publish under its
-          # channel tag (alpha/beta/rc).
+          CHANNEL=$(node --input-type=module -e 'import { releaseChannel } from "./scripts/release/lib.mjs"; console.log(releaseChannel(process.argv[1]))' "$VER")
           while IFS=$'\t' read -r directory package_name; do
-            echo "=== $directory ($package_name) ==="
-            eval "$(node .github/scripts/decide-dist-tag.mjs "$package_name" "$VER")"
-            if [ "$LATEST" = "yes" ]; then TAG=latest; else TAG="$CHANNEL"; fi
-            echo "version=$VER → publishing $package_name under --tag $TAG (channel=$CHANNEL, becomes-latest=$LATEST)"
-            if [ "$DRY" = "true" ]; then
-              node .github/scripts/publish-package.mjs \
-                --directory "$directory" \
-                --package "$package_name" \
-                --version "$VER" \
-                --tag "$TAG" \
-                --dry-run
+            args=(--directory "$directory" --package "$package_name" --version "$VER"
+              --pack-destination "$RUNNER_TEMP/zmdb-release-tarballs")
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+              node .github/scripts/publish-package.mjs "${args[@]}" --tag "$CHANNEL" --dry-run
             else
-              node .github/scripts/publish-package.mjs \
-                --directory "$directory" \
-                --package "$package_name" \
-                --version "$VER" \
-                --tag "$TAG" \
-                --pack-destination "$RUNNER_TEMP/zmdb-release-tarballs"
+              eval "$(node .github/scripts/decide-dist-tag.mjs "$package_name" "$VER")"
+              if [ "$LATEST" = "yes" ]; then TAG=latest; else TAG="$CHANNEL"; fi
+              node .github/scripts/publish-package.mjs "${args[@]}" --tag "$TAG"
             fi
           done < "$RUNNER_TEMP/zmdb-publish-order.tsv"
 
-      - name: Stop CockroachDB
+      - name: Retain prepared packages
         if: always()
-        run: docker rm --force zmdb-cockroach-publish || true
-
-      # NOTE: `npm dist-tag` is NOT authorized by OIDC/trusted publishing (only
-      # `npm publish` is). So `latest` is managed by the publish itself:
-      #   - a STABLE version publishes with --tag latest (npm moves `latest`),
-      #   - prereleases publish under alpha/beta/rc and never touch `latest`.
-      # The desired policy (latest = stable if present, else newest prerelease)
-      # therefore holds automatically once a stable release exists. To repoint
-      # `latest` onto a prerelease (e.g. while only alphas exist), run
-      # `node .github/scripts/set-latest-tag.mjs` locally with a logged-in npm.
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-release-packages
+          path: ${{ runner.temp }}/zmdb-release-tarballs/*.tgz

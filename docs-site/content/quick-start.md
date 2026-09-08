@@ -7,7 +7,7 @@ issued a typed query. Continue with the [blog API tutorial](./tutorial-blog-api.
 ## 1. Install
 
 ```bash
-npm add zmdb@alpha
+npm add zmdb@1.0.0-beta.1
 ```
 
 `zmdb` includes SQLite and exposes its driver through `zmdb/sqlite`. (Prefer granular installs? See [Installation](./installation.html).) Then wire the transformer once — see

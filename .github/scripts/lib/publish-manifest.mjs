@@ -1,10 +1,8 @@
 // The one description of what a published zmdb package looks like.
 //
-// Three boundaries need it and must not disagree: `repoint-dist.mjs` writes it into
-// the working tree in CI right before `npm publish`, `verify-publish.mjs` stages it
-// into a throwaway `node_modules`, and `verify-package-metadata.mjs` checks the pure
-// source-to-publish transform before any build. If they drifted, the gate would be
-// checking a manifest nobody publishes.
+// Publish staging and consumer verification use this transform for installed entry
+// points and dependency ranges. Source manifests remain suitable for workspace
+// development. Metadata validation checks these same transformations before build.
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

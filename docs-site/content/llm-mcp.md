@@ -1,4 +1,5 @@
-> **Install:** `npm add @zmdb/ai@alpha @zmdb/mcp@alpha @zmdb/aot-validator@alpha`. `@zmdb/mcp` depends only on `@zmdb/ai`, has no external peer, and does not install an MCP or provider SDK.
+> **Install:** `npm add @zmdb/ai@1.0.0-beta.1 @zmdb/mcp@1.0.0-beta.1 @zmdb/aot-validator@1.0.0-beta.1`. `@zmdb/mcp` depends only on `@zmdb/ai`, has no external peer, and does not install an MCP or
+> provider SDK.
 
 `@zmdb/mcp` turns the validator-linked registry from `@zmdb/ai/chat` into a pure MCP server and provides a bounded client for remote MCP tools. Your application still owns stdio or HTTP framing.
 

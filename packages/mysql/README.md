@@ -6,7 +6,7 @@ driver contracts come from `@zmdb/orm`. `mysqlVertical` pairs this dialect with 
 ## Install
 
 ```bash
-npm add @zmdb/mysql@1.0.0-alpha.4 @zmdb/sql@1.0.0-alpha.4 @zmdb/migrations@1.0.0-alpha.4 mysql2@^3.24.3
+npm add @zmdb/mysql@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/migrations@1.0.0-beta.1 mysql2@^3.24.3
 ```
 
 For the TypeScript snippets, install the declaration inputs used by the packed consumer:

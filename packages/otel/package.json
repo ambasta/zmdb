@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/otel",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.",
   "keywords": [
     "adapter",
@@ -33,7 +33,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
@@ -47,7 +47,7 @@
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.1",
-    "@zmdb/app": "1.0.0-alpha.4"
+    "@zmdb/app": "1.0.0-beta.1"
   },
   "engines": {
     "node": ">=26"

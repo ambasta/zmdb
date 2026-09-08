@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/ai-anthropic",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.",
   "keywords": [
     "ai",
@@ -33,14 +33,14 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/ai": "workspace:1.0.0-alpha.4"
+    "@zmdb/ai": "workspace:1.0.0-beta.1"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "0.124.0",

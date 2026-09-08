@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/sveltekit",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.",
   "keywords": [
     "client",
@@ -34,15 +34,15 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-alpha.4",
-    "@zmdb/svelte": "workspace:1.0.0-alpha.4"
+    "@zmdb/client": "workspace:1.0.0-beta.1",
+    "@zmdb/svelte": "workspace:1.0.0-beta.1"
   },
   "devDependencies": {
     "@sveltejs/kit": "2.70.3",

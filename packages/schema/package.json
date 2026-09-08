@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/schema",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.",
   "keywords": [
     "dto",
@@ -43,7 +43,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",

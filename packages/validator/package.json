@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/validator",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/validate/equals/random, unions, transforms, and generated-code errors.",
   "keywords": [
     "aot",
@@ -37,7 +37,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",

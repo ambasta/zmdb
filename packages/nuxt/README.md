@@ -6,10 +6,10 @@
 ## Install
 
 ```bash
-npm add @zmdb/nuxt@alpha @zmdb/vue@alpha nuxt@^4.5 vue@^3.5
+npm add @zmdb/nuxt@1.0.0-beta.1 @zmdb/vue@1.0.0-beta.1 nuxt@^4.5 vue@^3.5
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+**, is **ESM-only**, and declares Nuxt and Vue as required peers.
+> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+**, is **ESM-only**, and declares Nuxt and Vue as required peers.
 
 ## Create the typed integration
 

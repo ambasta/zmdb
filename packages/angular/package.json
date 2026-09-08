@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/angular",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Angular dependency-injection, signal, lifecycle, and Observable bindings for generated zmdb clients.",
   "keywords": [
     "angular",
@@ -34,7 +34,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",

@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/mssql",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural node-mssql execution, catalog introspection, and capability metadata.",
   "keywords": [
     "database",
@@ -33,14 +33,14 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
+    "@zmdb/migrations": "workspace:1.0.0-beta.1"
   },
   "devDependencies": {
     "@types/mssql": "^12.3.0",
@@ -50,8 +50,8 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/orm": "1.0.0-alpha.4",
-    "@zmdb/sql": "1.0.0-alpha.4",
+    "@zmdb/orm": "1.0.0-beta.1",
+    "@zmdb/sql": "1.0.0-beta.1",
     "mssql": "^12.7.0"
   },
   "peerDependenciesMeta": {

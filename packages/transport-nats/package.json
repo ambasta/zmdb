@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/transport-nats",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.",
   "keywords": [
     "messaging",
@@ -33,7 +33,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
@@ -46,7 +46,7 @@
   },
   "peerDependencies": {
     "@nats-io/transport-node": "^3.4.0",
-    "@zmdb/app": "1.0.0-alpha.4"
+    "@zmdb/app": "1.0.0-beta.1"
   },
   "engines": {
     "node": ">=26"

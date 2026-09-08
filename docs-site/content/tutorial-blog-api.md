@@ -8,7 +8,7 @@ boundaries with a real Node listener and an optional worker.
 ## 1. Create the project
 
 ```bash
-npx zmdb@alpha new project blog
+npx zmdb@1.0.0-beta.1 new project blog
 cd blog
 npm install
 ```

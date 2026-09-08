@@ -4,7 +4,7 @@
 // Dependency order comes from package manifests. This file
 // owns only release units and the exact ranges promised across those units.
 
-const BASELINE = '1.0.0-alpha.4';
+const BASELINE = '1.0.0-beta.1';
 
 const freezeArray = values => Object.freeze([...values]);
 

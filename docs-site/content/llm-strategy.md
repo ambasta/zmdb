@@ -5,13 +5,13 @@
 
 Provider schema dialects live in `@zmdb/ai`. Provider clients and framework adapters live only in the selected integration package:
 
-| Capability                                            | Install                                                      | Public import                                                                              | External peer cost                   |
-| ----------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------ |
-| Provider-neutral tools, chat, HTTP, shared invocation | `npm add @zmdb/ai@alpha`                                     | `@zmdb/ai`, `@zmdb/ai/chat`, `@zmdb/ai/http`, `@zmdb/ai/compiler`, `@zmdb/ai/tool-runtime` | none                                 |
-| Anthropic Messages API chat driver                    | `npm add @zmdb/ai-anthropic@alpha @anthropic-ai/sdk@0.124.0` | `@zmdb/ai-anthropic`                                                                       | optional `@anthropic-ai/sdk@0.124.0` |
-| LangChain structured-tool adapter                     | `npm add @zmdb/ai-langchain@alpha @langchain/core@^1.2.9`    | `@zmdb/ai-langchain`                                                                       | optional `@langchain/core@^1.2.9`    |
-| Vercel AI SDK tool adapter                            | `npm add @zmdb/ai-vercel@alpha ai@^7.0.93`                   | `@zmdb/ai-vercel`                                                                          | optional `ai@^7.0.93`                |
-| Transport-neutral MCP client/server cores             | `npm add @zmdb/ai@alpha @zmdb/mcp@alpha`                     | `@zmdb/mcp`                                                                                | none; no MCP SDK                     |
+| Capability                                            | Install                                                             | Public import                                                                              | External peer cost                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Provider-neutral tools, chat, HTTP, shared invocation | `npm add @zmdb/ai@1.0.0-beta.1`                                     | `@zmdb/ai`, `@zmdb/ai/chat`, `@zmdb/ai/http`, `@zmdb/ai/compiler`, `@zmdb/ai/tool-runtime` | none                                 |
+| Anthropic Messages API chat driver                    | `npm add @zmdb/ai-anthropic@1.0.0-beta.1 @anthropic-ai/sdk@0.124.0` | `@zmdb/ai-anthropic`                                                                       | optional `@anthropic-ai/sdk@0.124.0` |
+| LangChain structured-tool adapter                     | `npm add @zmdb/ai-langchain@1.0.0-beta.1 @langchain/core@^1.2.9`    | `@zmdb/ai-langchain`                                                                       | optional `@langchain/core@^1.2.9`    |
+| Vercel AI SDK tool adapter                            | `npm add @zmdb/ai-vercel@1.0.0-beta.1 ai@^7.0.93`                   | `@zmdb/ai-vercel`                                                                          | optional `ai@^7.0.93`                |
+| Transport-neutral MCP client/server cores             | `npm add @zmdb/ai@1.0.0-beta.1 @zmdb/mcp@1.0.0-beta.1`              | `@zmdb/mcp`                                                                                | none; no MCP SDK                     |
 
 `@zmdb/ai` itself depends only on `@zmdb/schema` and has no external peer. Each integration depends inward on `@zmdb/ai`; installing the provider-neutral package or MCP does not install Anthropic,
 LangChain, Vercel AI, or an MCP SDK.

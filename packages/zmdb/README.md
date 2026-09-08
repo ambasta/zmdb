@@ -8,10 +8,10 @@ concern subpaths expose the larger APIs without requiring package-first imports.
 ## Install
 
 ```bash
-npm add zmdb@alpha
+npm add zmdb@1.0.0-beta.1
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
 ## Build a SQLite HTTP application
 
@@ -61,7 +61,7 @@ The [generated package reference](https://ambasta.github.io/zmdb/docs/package-re
 Background jobs are a first-party selected capability:
 
 ```bash
-npm add @zmdb/jobs@alpha
+npm add @zmdb/jobs@1.0.0-beta.1
 ```
 
 Import queues, workers, schedules, and `jobsExtension` from `@zmdb/jobs`. The default product neither installs jobs nor exposes a `zmdb/jobs` facade; the selected package still composes through the

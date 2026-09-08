@@ -51,10 +51,10 @@ describe('@zmdb/jobs-sqlite explicit storage owner', () => {
     expect(jobs).toHaveProperty('exports', { '.': './src/index.ts', './schedule': './src/schedule/index.ts' });
     expect(jobs).not.toHaveProperty('peerDependencies');
     expect(jobs).not.toHaveProperty('optionalDependencies');
-    expect(provider).toHaveProperty('dependencies', { '@zmdb/sqlite': 'workspace:1.0.0-alpha.4' });
+    expect(provider).toHaveProperty('dependencies', { '@zmdb/sqlite': 'workspace:1.0.0-beta.1' });
     expect(provider).toHaveProperty('devDependencies.@zmdb/jobs', 'workspace:^');
     expect(provider).toHaveProperty('exports', { '.': './src/index.ts' });
-    expect(provider).toHaveProperty('peerDependencies', { '@zmdb/jobs': '1.0.0-alpha.4' });
+    expect(provider).toHaveProperty('peerDependencies', { '@zmdb/jobs': '1.0.0-beta.1' });
     expect(provider).not.toHaveProperty('peerDependenciesMeta');
   });
 

@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@zmdb/orm": "1.0.0-alpha.4",
-    "@zmdb/schema": "1.0.0-alpha.4",
-    "@zmdb/sql": "1.0.0-alpha.4",
-    "@zmdb/validator": "1.0.0-alpha.4"
+    "@zmdb/orm": "1.0.0-beta.1",
+    "@zmdb/schema": "1.0.0-beta.1",
+    "@zmdb/sql": "1.0.0-beta.1",
+    "@zmdb/validator": "1.0.0-beta.1"
   }
 }

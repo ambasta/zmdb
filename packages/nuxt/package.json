@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/nuxt",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-beta.1",
   "description": "Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.",
   "keywords": [
     "client",
@@ -36,15 +36,15 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "alpha"
+    "tag": "beta"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-alpha.4",
-    "@zmdb/vue": "workspace:1.0.0-alpha.4"
+    "@zmdb/client": "workspace:1.0.0-beta.1",
+    "@zmdb/vue": "workspace:1.0.0-beta.1"
   },
   "devDependencies": {
     "nuxt": "4.5.2",

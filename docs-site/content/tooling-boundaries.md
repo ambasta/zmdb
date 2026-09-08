@@ -16,14 +16,14 @@ output and process cleanup handled for you.
 | Apply bundle-resident SQLite migrations                | `@zmdb/migrations/embedded`                                     |
 
 The product facade offers curated APIs through `zmdb/compiler`, `zmdb/config`, `zmdb/migrations` and `zmdb/cli`. The direct packages are also independently installable. Only `@zmdb/cli` declares a
-binary; installing `zmdb@alpha` includes that same executable.
+binary; installing `zmdb@1.0.0-beta.1` includes that same executable.
 
 ## Install the selected tooling
 
 For the command workflow:
 
 ```bash
-npm add --save-dev @zmdb/cli@alpha typescript@^7.0.2
+npm add --save-dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
 npx zmdb --help
 npx zmdb codegen --project tsconfig.json
 npx zmdb codegen --project tsconfig.json --check
@@ -32,13 +32,13 @@ npx zmdb codegen --project tsconfig.json --check
 For a compiler integration that owns its build process:
 
 ```bash
-npm add --save-dev @zmdb/compiler@alpha typescript@^7.0.2
+npm add --save-dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
 ```
 
 For a migration library using SQLite:
 
 ```bash
-npm add @zmdb/migrations@alpha @zmdb/sqlite@alpha
+npm add @zmdb/migrations@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
 ```
 
 The packages require Node.js 26 or later. TypeScript is a required peer of the compiler and CLI. Metro, Metro's Babel transformer and Oxlint are selected compiler peers; `@zmdb/app`, `@zmdb/web` and
