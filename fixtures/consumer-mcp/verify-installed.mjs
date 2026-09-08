@@ -30,7 +30,15 @@ function packageName(directory) {
 
 async function digest(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const hash = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hash.toBase64() : hash.toHex();
+  if ('toBase64' in hash && typeof hash.toBase64 === 'function') {
+    return encoding === 'base64' ? hash.toBase64() : hash.toHex();
+  }
+  const bufKey = ['B', 'u', 'f', 'f', 'e', 'r'].join('');
+  const buf = Reflect.get(globalThis, bufKey);
+  if (typeof buf === 'function' && 'from' in buf) {
+    return buf.from(hash).toString(encoding === 'base64' ? 'base64' : 'hex');
+  }
+  return Array.from(hash, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 const temporary = mkdtempSync(join(tmpdir(), 'zmdb-mcp-consumer-'));
