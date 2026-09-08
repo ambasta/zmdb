@@ -20,8 +20,8 @@ const TYPES = { typescript: '7.0.2', '@types/node': '26.4.1' };
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
   return encoding === 'hex'
-    ? Buffer.from(digest).toString('hex')
-    : Buffer.from(digest).toString('base64');
+    ? globalThis.Buffer.from(digest).toString('hex')
+    : globalThis.Buffer.from(digest).toString('base64');
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

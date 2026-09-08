@@ -58,7 +58,12 @@ export {
 } from './application.js';
 export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from './lifecycle.js';
 
-export { defineStateTransitions, createStateUpdatePayload, defineEntityStateMachine } from './state-transitions.js';
+export {
+  defineStateTransitions,
+  createStateUpdatePayload,
+  defineEntityStateMachine,
+  ValidationError,
+} from './state-transitions.js';
 export type {
   StateTransitions,
   AllowedTargetStates,

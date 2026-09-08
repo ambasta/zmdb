@@ -124,6 +124,7 @@ describe('product facade runtime identities', () => {
         ],
         excluded: new Set([
           'TAG_NAMES',
+          'ValidationError',
           'discriminantOf',
           'expectedForConstraint',
           'expectedForDiscriminant',
