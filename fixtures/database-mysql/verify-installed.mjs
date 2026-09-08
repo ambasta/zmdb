@@ -9,7 +9,7 @@ import { publishCatalog, publishManifest, readManifest } from '../../.github/scr
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(FIXTURE, '../..');
 const PUBLISH_PACKAGES = await publishCatalog(ROOT);
-const PACKAGE_DIRS = ['sql', 'schema', 'ai', 'validator', 'orm', 'mysql'];
+const PACKAGE_DIRS = ['sql', 'schema', 'ai', 'validator', 'orm', 'migrations', 'mysql'];
 
 function run(command, argumentsList, options = {}) {
   const result = spawnSync(command, argumentsList, {
@@ -77,12 +77,7 @@ try {
         type: 'module',
         dependencies: {
           '@types/node': '^26.4.1',
-          '@zmdb/validator': `file:${tarballs['@zmdb/validator']}`,
-          '@zmdb/ai': `file:${tarballs['@zmdb/ai']}`,
-          '@zmdb/mysql': `file:${tarballs['@zmdb/mysql']}`,
-          '@zmdb/sql': `file:${tarballs['@zmdb/sql']}`,
-          '@zmdb/orm': `file:${tarballs['@zmdb/orm']}`,
-          '@zmdb/schema': `file:${tarballs['@zmdb/schema']}`,
+          ...Object.fromEntries(Object.entries(tarballs).map(([name, path]) => [name, `file:${path}`])),
           mysql2: '3.24.3',
           typescript: '7.0.2',
         },
