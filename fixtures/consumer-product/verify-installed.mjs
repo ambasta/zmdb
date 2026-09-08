@@ -9,8 +9,13 @@ const source = dirname(fileURLToPath(import.meta.url));
 const root = resolve(source, '../..');
 const hash = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const input = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
-  const digest = Buffer.from(await crypto.subtle.digest(algorithm, input));
-  return digest.toString(encoding === 'base64' ? 'base64' : 'hex');
+  const digest = new Uint8Array(await crypto.subtle.digest(algorithm, input));
+  if (encoding === 'base64') {
+    return typeof digest.toBase64 === 'function' ? digest.toBase64() : globalThis.btoa(String.fromCharCode(...digest));
+  }
+  return typeof digest.toHex === 'function'
+    ? digest.toHex()
+    : Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);
