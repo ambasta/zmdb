@@ -531,7 +531,25 @@ describe('the platform under these tests', () => {
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
     expect(mac.length).toBe(32);
-    const encoded = mac.toBase64({ alphabet: 'base64url', omitPadding: true });
+    const formatB64 = (bytes: Uint8Array): string => {
+      const candidate = bytes as unknown as {
+        toBase64?: (options?: { alphabet?: string; omitPadding?: boolean }) => string;
+      };
+      if (typeof candidate.toBase64 === 'function') {
+        return candidate.toBase64({ alphabet: 'base64url', omitPadding: true });
+      }
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      let res = '';
+      let i = 0;
+      for (; i + 2 < bytes.length; i += 3) {
+        res += chars[(bytes[i] ?? 0) >> 2];
+        res += chars[(((bytes[i] ?? 0) & 3) << 4) | ((bytes[i + 1] ?? 0) >> 4)];
+        res += chars[(((bytes[i + 1] ?? 0) & 15) << 2) | ((bytes[i + 2] ?? 0) >> 6)];
+        res += chars[(bytes[i + 2] ?? 0) & 63];
+      }
+      return res;
+    };
+    const encoded = formatB64(mac);
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(encoded).not.toContain('=');
     // Deterministic under the same key and message, which is what makes double-HMAC a comparison
@@ -539,7 +557,8 @@ describe('the platform under these tests', () => {
     const again = new Uint8Array(
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
-    expect(again.toBase64({ alphabet: 'base64url', omitPadding: true })).toBe(encoded);
+    const againEncoded = formatB64(again);
+    expect(againEncoded).toBe(encoded);
     // And the nonce source §3 needs, with no `node:crypto`.
     expect(globalThis.crypto.getRandomValues(new Uint8Array(16)).length).toBe(16);
     expect(typeof globalThis.crypto.randomUUID()).toBe('string');

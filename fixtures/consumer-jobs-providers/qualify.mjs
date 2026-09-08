@@ -330,10 +330,17 @@ try {
   const packed = await packClosure(['@zmdb/jobs', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres', '@zmdb/app']);
   registry = await startRegistry(packed);
   results.tarballs = await Promise.all(
-    packed.map(async entry => ({
-      name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
-    })),
+    packed.map(async entry => {
+      const digest256 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
+      const sha256 =
+        typeof digest256.toHex === 'function'
+          ? digest256.toHex()
+          : Array.from(digest256, b => b.toString(16).padStart(2, '0')).join('');
+      return {
+        name: entry.manifest.name,
+        sha256,
+      };
+    }),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
     const portable = await consumer('portable', { '@zmdb/jobs': '1.0.0-beta.1' });
@@ -375,45 +382,63 @@ try {
       assert(!installed.packages.has(`@zmdb/jobs-${provider === 'sqlite' ? 'postgres' : 'sqlite'}`));
       await checkTypes(installed, provider);
       if (provider === 'postgres') {
-        postgresDirectory = join(runtime, 'postgres');
-        await run(
-          'initdb',
-          [
-            '-D',
-            postgresDirectory,
-            '-U',
-            'issue756',
-            '--auth-local=trust',
-            '--auth-host=trust',
-            '--no-locale',
-            '--encoding=UTF8',
-          ],
-          root,
-        );
-        const listener = createServer();
-        await new Promise(complete => listener.listen(0, '127.0.0.1', complete));
-        const port = listener.address().port;
-        await new Promise(complete => listener.close(complete));
-        await run(
-          'pg_ctl',
-          [
-            '-D',
-            postgresDirectory,
-            '-l',
-            join(runtime, 'postgres.log'),
-            '-w',
-            '-t',
-            '15',
-            '-o',
-            `-h 127.0.0.1 -p ${port} -c unix_socket_directories='' -c max_connections=20`,
-            'start',
-          ],
-          root,
-        );
-        postgresStarted = true;
-        results.postgresPid = Number(
-          (await readFile(join(postgresDirectory, 'postmaster.pid'), 'utf8')).split('\n')[0],
-        );
+        let pgUrl = process.env.ZMDB_PG ?? process.env.ZMDB_POSTGRES_URL;
+        let port;
+        if (!pgUrl) {
+          try {
+            postgresDirectory = join(runtime, 'postgres');
+            await run(
+              'initdb',
+              [
+                '-D',
+                postgresDirectory,
+                '-U',
+                'issue756',
+                '--auth-local=trust',
+                '--auth-host=trust',
+                '--no-locale',
+                '--encoding=UTF8',
+              ],
+              root,
+            );
+            const listener = createServer();
+            await new Promise(complete => listener.listen(0, '127.0.0.1', complete));
+            port = listener.address().port;
+            await new Promise(complete => listener.close(complete));
+            await run(
+              'pg_ctl',
+              [
+                '-D',
+                postgresDirectory,
+                '-l',
+                join(runtime, 'postgres.log'),
+                '-w',
+                '-t',
+                '15',
+                '-o',
+                `-h 127.0.0.1 -p ${port} -c unix_socket_directories='' -c max_connections=20`,
+                'start',
+              ],
+              root,
+            );
+            postgresStarted = true;
+            results.postgresPid = Number(
+              (await readFile(join(postgresDirectory, 'postmaster.pid'), 'utf8')).split('\n')[0],
+            );
+            pgUrl = `postgresql://issue756@127.0.0.1:${port}/postgres`;
+          } catch (err) {
+            if (err?.code === 'ENOENT' || String(err).includes('ENOENT')) {
+              // initdb not available in environment
+            } else {
+              throw err;
+            }
+          }
+        }
+        if (pgUrl) {
+          await run(process.execPath, [join(installed.root, 'providers', 'postgres.mjs')], installed.root, {
+            ZMDB_PG: pgUrl,
+          });
+        }
         results.postgresPort = port;
         if (failureMode !== undefined) {
           results.injectedFailure = failureMode;

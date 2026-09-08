@@ -48,8 +48,63 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+function uint8ToBase64Url(bytes: Uint8Array<ArrayBuffer>): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    result += chars[(bytes[i] ?? 0) >> 2];
+    result += chars[(((bytes[i] ?? 0) & 3) << 4) | ((bytes[i + 1] ?? 0) >> 4)];
+    result += chars[(((bytes[i + 1] ?? 0) & 15) << 2) | ((bytes[i + 2] ?? 0) >> 6)];
+    result += chars[(bytes[i + 2] ?? 0) & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[(bytes[i] ?? 0) >> 2];
+    if (i + 1 === bytes.length) {
+      result += chars[((bytes[i] ?? 0) & 3) << 4];
+    } else {
+      result += chars[(((bytes[i] ?? 0) & 3) << 4) | ((bytes[i + 1] ?? 0) >> 4)];
+      result += chars[((bytes[i + 1] ?? 0) & 15) << 2];
+    }
+  }
+  return result;
+}
+
+function base64UrlToUint8(str: string): Uint8Array<ArrayBuffer> | undefined {
+  const lookup = new Uint8Array(128);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  for (let i = 0; i < chars.length; i += 1) lookup[chars.charCodeAt(i)!] = i;
+  const len = str.length;
+  if (len % 4 === 1) return undefined;
+  const bytes = new Uint8Array(Math.floor((len * 3) / 4));
+  let p = 0;
+  for (let i = 0; i < len; i += 4) {
+    const c1 = lookup[str.charCodeAt(i)] ?? 0;
+    const c2 = lookup[str.charCodeAt(i + 1)] ?? 0;
+    const c3 = i + 2 < len ? (lookup[str.charCodeAt(i + 2)] ?? 0) : 0;
+    const c4 = i + 3 < len ? (lookup[str.charCodeAt(i + 3)] ?? 0) : 0;
+    bytes[p] = (c1 << 2) | (c2 >> 4);
+    p += 1;
+    if (i + 2 < len) {
+      bytes[p] = ((c2 & 15) << 4) | (c3 >> 2);
+      p += 1;
+    }
+    if (i + 3 < len) {
+      bytes[p] = ((c3 & 3) << 6) | c4;
+      p += 1;
+    }
+  }
+  return bytes.subarray(0, p);
+}
+
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  const candidate = value as unknown as {
+    toBase64?: (options?: { alphabet?: string; omitPadding?: boolean }) => string;
+  };
+  if (typeof candidate.toBase64 === 'function') {
+    return candidate.toBase64({ alphabet: 'base64url', omitPadding: true });
+  }
+  return uint8ToBase64Url(value);
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
@@ -57,7 +112,14 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
+    const uint8Class = Uint8Array as unknown as {
+      fromBase64?: (value: string, options?: { alphabet?: string }) => Uint8Array<ArrayBuffer>;
+    };
+    const decoded =
+      typeof uint8Class.fromBase64 === 'function'
+        ? uint8Class.fromBase64(value, { alphabet: 'base64url' })
+        : base64UrlToUint8(value);
+    if (!decoded) return undefined;
     return encodeBase64Url(decoded) === value ? decoded : undefined;
   } catch {
     return undefined;

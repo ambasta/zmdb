@@ -1,16 +1,45 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 
+function uint8ToBase64(bytes) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    result += chars[bytes[i] >> 2];
+    result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+    result += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
+    result += chars[bytes[i + 2] & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[bytes[i] >> 2];
+    if (i + 1 === bytes.length) {
+      result += chars[(bytes[i] & 3) << 4];
+      result += '==';
+    } else {
+      result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+      result += chars[(bytes[i + 1] & 15) << 2];
+      result += '=';
+    }
+  }
+  return result;
+}
+
 export async function startRegistry(packages) {
   const requests = [];
   const tarballs = new Map();
   for (const entry of packages) {
     const bytes = await readFile(entry.tarball);
+    const sha512 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes));
+    const sha1 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes));
+    const integrityB64 = typeof sha512.toBase64 === 'function' ? sha512.toBase64() : uint8ToBase64(sha512);
+    const shasumHex =
+      typeof sha1.toHex === 'function' ? sha1.toHex() : Array.from(sha1, b => b.toString(16).padStart(2, '0')).join('');
     tarballs.set(entry.manifest.name, {
       ...entry,
       bytes,
-      integrity: `sha512-${new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
-      shasum: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes)).toHex(),
+      integrity: `sha512-${integrityB64}`,
+      shasum: shasumHex,
     });
   }
   let origin;

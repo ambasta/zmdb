@@ -17,9 +17,38 @@ const DEPENDENCIES = {
   '@zmdb/orm': ['@zmdb/schema', '@zmdb/sql', '@zmdb/validator'],
 };
 const TYPES = { typescript: '7.0.2', '@types/node': '26.4.1' };
+function uint8ToBase64(bytes) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    result += chars[bytes[i] >> 2];
+    result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+    result += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
+    result += chars[bytes[i + 2] & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[bytes[i] >> 2];
+    if (i + 1 === bytes.length) {
+      result += chars[(bytes[i] & 3) << 4];
+      result += '==';
+    } else {
+      result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+      result += chars[(bytes[i + 1] & 15) << 2];
+      result += '=';
+    }
+  }
+  return result;
+}
+
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'hex' ? digest.toHex() : digest.toBase64();
+  if (encoding === 'base64') {
+    return typeof digest.toBase64 === 'function' ? digest.toBase64() : uint8ToBase64(digest);
+  }
+  return typeof digest.toHex === 'function'
+    ? digest.toHex()
+    : Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

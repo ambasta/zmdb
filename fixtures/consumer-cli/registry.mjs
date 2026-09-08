@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { cp, lstat, mkdir, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -53,9 +54,38 @@ const groupAlive = pid => {
     throw error;
   }
 };
+function uint8ToBase64(bytes) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    result += chars[bytes[i] >> 2];
+    result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+    result += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
+    result += chars[bytes[i + 2] & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[bytes[i] >> 2];
+    if (i + 1 === bytes.length) {
+      result += chars[(bytes[i] & 3) << 4];
+      result += '==';
+    } else {
+      result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+      result += chars[(bytes[i + 1] & 15) << 2];
+      result += '=';
+    }
+  }
+  return result;
+}
+
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  if (encoding === 'base64') {
+    return typeof digest.toBase64 === 'function' ? digest.toBase64() : uint8ToBase64(digest);
+  }
+  return typeof digest.toHex === 'function'
+    ? digest.toHex()
+    : Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {
@@ -293,12 +323,14 @@ export async function createFixture() {
       for (const [name, record] of selected) {
         process.stderr.write(`CLI fixture build ${name}\n`);
         const label = name.replaceAll(/[/@]/g, '_');
-        await command(process.execPath, [join(root, 'scripts/build-package.mjs')], {
-          cwd: record.directory,
-          timeout: 600_000,
-          expected: 0,
-          log: join(evidence, `build-${label}.json`),
-        });
+        if (!existsSync(join(record.directory, 'dist'))) {
+          await command(process.execPath, [join(root, 'scripts/build-package.mjs')], {
+            cwd: record.directory,
+            timeout: 600_000,
+            expected: 0,
+            log: join(evidence, `build-${label}.json`),
+          });
+        }
         const payload = join(payloads, label);
         await mkdir(payload);
         for (const member of ['dist', 'src', 'README.md', 'LICENSE']) {
