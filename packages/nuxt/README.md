@@ -6,7 +6,7 @@
 ## Install
 
 ```bash
-npm add @zmdb/nuxt@1.0.0-beta.1 @zmdb/vue@1.0.0-beta.1 nuxt@^4.5 vue@^3.5
+yarn add @zmdb/nuxt@1.0.0-beta.1 @zmdb/vue@1.0.0-beta.1 nuxt@^4.5 vue@^3.5
 ```
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+**, is **ESM-only**, and declares Nuxt and Vue as required peers.

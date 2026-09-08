@@ -10,12 +10,12 @@ document stays on stdout and warnings go to stderr.
 The SQLite fixture produced this staging run and clean CI check. Only its temporary directory was shortened to `/workspace/shop`:
 
 ```text
-$ npx zmdb pull
+$ yarn zmdb pull
 /workspace/shop/zmdb.config.ts
 wrote .zmdb/introspected/users.ts
 wrote .zmdb/introspected/index.ts
 
-$ npx zmdb pull --check --json
+$ yarn zmdb pull --check --json
 {"ok":true,"command":"pull","config":"/workspace/shop/zmdb.config.ts","result":{"files":[{"path":".zmdb/introspected/users.ts","tables":["users"]}],"skipped":[]}}
 ```
 

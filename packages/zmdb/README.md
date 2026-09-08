@@ -8,7 +8,7 @@ concern subpaths expose the larger APIs without requiring package-first imports.
 ## Install
 
 ```bash
-npm add zmdb@1.0.0-beta.1
+yarn add zmdb@1.0.0-beta.1
 ```
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
@@ -23,10 +23,10 @@ application imports only `zmdb` and public `zmdb/*` concerns. Use those files in
 
 ```bash
 export ZMDB_PRODUCT_DATABASE="$PWD/product.sqlite"
-npx zmdb codegen
-npx zmdb generate --name create_orders
-npx zmdb migrate
-npx zmdb check
+yarn zmdb codegen
+yarn zmdb generate --name create_orders
+yarn zmdb migrate
+yarn zmdb check
 node build.mjs src/main.ts dist/main.mjs
 node dist/main.mjs
 ```
@@ -61,7 +61,7 @@ The [generated package reference](https://ambasta.github.io/zmdb/docs/package-re
 Background jobs are a first-party selected capability:
 
 ```bash
-npm add @zmdb/jobs@1.0.0-beta.1
+yarn add @zmdb/jobs@1.0.0-beta.1
 ```
 
 Import queues, workers, schedules, and `jobsExtension` from `@zmdb/jobs`. The default product neither installs jobs nor exposes a `zmdb/jobs` facade; the selected package still composes through the
@@ -78,8 +78,8 @@ install `@zmdb/postgres` and `pg`; neither is pulled into the default product de
 Configure exported HTTP contracts and both output files in `zmdb.config.ts`, then run:
 
 ```bash
-npx zmdb client generate
-npx zmdb client generate --check
+yarn zmdb client generate
+yarn zmdb client generate --check
 ```
 
 One contract load feeds the OpenAPI document and generated typed client as sibling outputs. `--check` writes nothing and fails when either committed output is stale; `--watch` regenerates when a

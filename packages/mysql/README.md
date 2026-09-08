@@ -6,13 +6,13 @@ driver contracts come from `@zmdb/orm`. `mysqlVertical` pairs this dialect with 
 ## Install
 
 ```bash
-npm add @zmdb/mysql@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/migrations@1.0.0-beta.1 mysql2@^3.24.3
+yarn add @zmdb/mysql@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/migrations@1.0.0-beta.1 mysql2@^3.24.3
 ```
 
 For the TypeScript snippets, install the declaration inputs used by the packed consumer:
 
 ```bash
-npm add -D typescript@7.0.2 @types/node@26.4.1
+yarn add --dev typescript@7.0.2 @types/node@26.4.1
 ```
 
 Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `zmdb` adds its selected

@@ -6,7 +6,7 @@ The package adds no cache, retry, polling, request encoding, or response handlin
 ## Install
 
 ```bash
-npm add @zmdb/react@1.0.0-beta.1 react@19
+yarn add @zmdb/react@1.0.0-beta.1 react@19
 ```
 
 React is a required peer. TypeScript applications also need React's matching declaration package.

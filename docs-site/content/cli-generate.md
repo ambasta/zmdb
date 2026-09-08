@@ -13,7 +13,7 @@ Note what is _not_ in that diagram: the database. Generation never connects, so 
 ## The command
 
 ```bash
-npx zmdb generate --name add_slug
+yarn zmdb generate --name add_slug
 ```
 
 The command loads [the project config](./config-file.html), reflects every exported tagged table in its concrete schema file set, then passes the resulting schemas through the existing `snapshot()`,
@@ -22,11 +22,11 @@ The command loads [the project config](./config-file.html), reflects every expor
 This transcript was captured from the SQLite fixture; only its temporary directory was shortened to `/workspace/shop`:
 
 ```text
-$ npx zmdb generate --name initial
+$ yarn zmdb generate --name initial
 /workspace/shop/zmdb.config.ts
 wrote /workspace/shop/migrations/20260905012413_initial.sql (1 operations)
 
-$ npx zmdb generate --name ignored
+$ yarn zmdb generate --name ignored
 /workspace/shop/zmdb.config.ts
 no changes; no migration written
 ```
@@ -68,8 +68,8 @@ For an existing database you are adopting, do the opposite: write the snapshot w
 The configured dialect selects the emitter. Use separate config files and output directories when one declaration set targets several dialects:
 
 ```bash
-npx zmdb generate --config zmdb.postgres.config.ts --name add_slug
-npx zmdb generate --config zmdb.sqlite.config.ts --name add_slug
+yarn zmdb generate --config zmdb.postgres.config.ts --name add_slug
+yarn zmdb generate --config zmdb.sqlite.config.ts --name add_slug
 ```
 
 The snapshots remain dialect-independent; the generated SQL does not.

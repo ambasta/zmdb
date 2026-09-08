@@ -1,30 +1,30 @@
 ## Applying migrations
 
 ```bash
-npx zmdb migrate
-npx zmdb status
-npx zmdb rollback
-npx zmdb rollback --to 20260904010101
+yarn zmdb migrate
+yarn zmdb status
+yarn zmdb rollback
+yarn zmdb rollback --to 20260904010101
 ```
 
 This SQLite transcript was captured through the package bin; only its temporary directory was shortened to `/workspace/shop`:
 
 ```text
-$ npx zmdb status
+$ yarn zmdb status
 /workspace/shop/zmdb.config.ts
 [ ] 20260905012413 initial
 
-$ npx zmdb migrate
+$ yarn zmdb migrate
 /workspace/shop/zmdb.config.ts
 apply 20260905012413 initial
 CREATE TABLE "users" ("email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY);
 applied 20260905012413
 
-$ npx zmdb migrate
+$ yarn zmdb migrate
 /workspace/shop/zmdb.config.ts
 nothing to apply; 0 pending migrations
 
-$ npx zmdb rollback
+$ yarn zmdb rollback
 /workspace/shop/zmdb.config.ts
 revert 20260905012413 initial
 DROP TABLE "users";
@@ -71,7 +71,7 @@ Run migrations in a release step before the new application version starts:
 ```toml
 # fly.toml
 [deploy]
-  release_command = "npx zmdb migrate"
+  release_command = "yarn zmdb migrate"
 ```
 
 During a rolling deploy, old code runs briefly against the new schema. Additive changes are the easy case. A column removal normally takes two releases: first stop reading it, then drop it after the

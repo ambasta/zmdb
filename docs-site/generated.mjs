@@ -205,23 +205,23 @@ function packageManifest(manifests, directory) {
 function installCommand(row, manifest, productManifest) {
   const version = typeof manifest.version === 'string' ? manifest.version : 'missing';
   if (row.optionality?.kind === 'tooling') {
-    return `npm add --save-dev ${String(manifest.name ?? row.npmName)}@${version}`;
+    return `yarn add --dev ${String(manifest.name ?? row.npmName)}@${version}`;
   }
   if (row.optionality?.kind === 'integration' || row.optionality?.kind === 'provider') {
     const peers = requiredPeerEntries(manifest).map(([name, range]) =>
       shellArgument(`${name}@${manifestValue(range)}`),
     );
-    return `npm add ${[`${String(manifest.name ?? row.npmName)}@${version}`, ...peers].join(' ')}`;
+    return `yarn add ${[`${String(manifest.name ?? row.npmName)}@${version}`, ...peers].join(' ')}`;
   }
   if (row.optionality?.kind === 'capability') {
-    return `npm add ${String(manifest.name ?? row.npmName)}@${version}`;
+    return `yarn add ${String(manifest.name ?? row.npmName)}@${version}`;
   }
   const productVersion = typeof productManifest.version === 'string' ? productManifest.version : 'missing';
   const productDependencies = productManifest.dependencies ?? {};
   if (row.npmName === 'zmdb' || Object.hasOwn(productDependencies, row.npmName)) {
-    return `npm add zmdb@${productVersion}`;
+    return `yarn add zmdb@${productVersion}`;
   }
-  return `npm add ${String(manifest.name ?? row.npmName)}@${version}`;
+  return `yarn add ${String(manifest.name ?? row.npmName)}@${version}`;
 }
 
 export function renderPackageReferenceRows(rows, manifests, releasePolicy) {

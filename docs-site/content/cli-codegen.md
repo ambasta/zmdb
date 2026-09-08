@@ -1,10 +1,10 @@
 `zmdb codegen` compiles validators and schemas ahead of time **without a bundler**. The single executable comes from `@zmdb/cli` and delegates to `@zmdb/compiler`.
 
 ```bash
-npm add --save-dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
-npx zmdb codegen --project tsconfig.json
-npx zmdb codegen --project tsconfig.json --check
-npx zmdb codegen --project tsconfig.json --watch
+yarn add --dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
+yarn zmdb codegen --project tsconfig.json
+yarn zmdb codegen --project tsconfig.json --check
+yarn zmdb codegen --project tsconfig.json --watch
 ```
 
 `--check` writes nothing and exits with code `1` when artifacts are stale. `--watch` retains one compiler session until interruption; it cannot be combined with `--check` or `--json`. Config is

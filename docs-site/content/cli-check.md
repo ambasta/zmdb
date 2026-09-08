@@ -1,8 +1,8 @@
 ## Run it in CI
 
 ```bash
-npx zmdb check
-npx zmdb check --json
+yarn zmdb check
+yarn zmdb check --json
 ```
 
 Exit codes keep invocation failures separate from findings:
@@ -16,7 +16,7 @@ Under `--json`, stdout is one `CliResult` document. Finding kinds belong in the 
 The clean SQLite fixture produced:
 
 ```text
-$ npx zmdb check
+$ yarn zmdb check
 /workspace/shop/zmdb.config.ts
 check passed
 ```
@@ -37,7 +37,7 @@ clean.
 After adding one database-only column, the same measured fixture returned one JSON document and exit 1. The temporary directory is shortened here:
 
 ```text
-$ npx zmdb check --json
+$ yarn zmdb check --json
 /workspace/shop/zmdb.config.ts
 {"ok":false,"command":"check","config":"/workspace/shop/zmdb.config.ts","result":{"findings":[{"kind":"drift","message":"live database differs from the stored snapshot: 1 database-only and 1 declaration-only operations","subject":"/workspace/shop/zmdb.config.ts"}],"skipped":[]}}
 $ echo $?
@@ -45,7 +45,7 @@ $ echo $?
 ```
 
 ```yaml
-- run: npx zmdb check --json
+- run: yarn zmdb check --json
 ```
 
 ## What it does not prove

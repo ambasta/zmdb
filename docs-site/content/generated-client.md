@@ -173,9 +173,9 @@ export default defineConfig({
 ```
 
 ```bash
-npx zmdb client generate
-npx zmdb client generate --check
-npx zmdb client generate --watch
+yarn zmdb client generate
+yarn zmdb client generate --check
+yarn zmdb client generate --watch
 ```
 
 One command load feeds both emitters and verifies that their operation-ID sets are identical before writing. Normal generation atomically replaces only byte-different files. `--check` writes nothing

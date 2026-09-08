@@ -40,23 +40,23 @@ verification.
 Install the CLI and its required TypeScript peer, or install `zmdb@1.0.0-beta.1` for the product that includes the same CLI. Command help comes from the installed version:
 
 ```bash
-npm add --save-dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
-npx zmdb --help
-npx zmdb codegen --help
+yarn add --dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
+yarn zmdb --help
+yarn zmdb codegen --help
 ```
 
 The database workflow uses that one entry point:
 
 ```bash
-npx zmdb codegen --check
-npx zmdb generate --name add_slug
-npx zmdb embed
-npx zmdb migrate
-npx zmdb check --json
-npx zmdb export > schema.sql
-npx zmdb pull --dry-run
-npx zmdb client generate --check
-npx zmdb new controller posts
+yarn zmdb codegen --check
+yarn zmdb generate --name add_slug
+yarn zmdb embed
+yarn zmdb migrate
+yarn zmdb check --json
+yarn zmdb export > schema.sql
+yarn zmdb pull --dry-run
+yarn zmdb client generate --check
+yarn zmdb new controller posts
 ```
 
 The schema and HTTP-generation commands accept `--config <path>` and `--project <tsconfig>`. `client generate` writes both configured artifacts, `--check` reports stale output without writing, and

@@ -6,7 +6,7 @@ policy, or generated-client metadata layer.
 ## Install
 
 ```bash
-npm add @zmdb/client@1.0.0-beta.1 @zmdb/angular@1.0.0-beta.1 @angular/core@">=22.1.5 <23.0.0" rxjs@">=7.8.2 <8.0.0"
+yarn add @zmdb/client@1.0.0-beta.1 @zmdb/angular@1.0.0-beta.1 @angular/core@">=22.1.5 <23.0.0" rxjs@">=7.8.2 <8.0.0"
 ```
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**.

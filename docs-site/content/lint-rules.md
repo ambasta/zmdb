@@ -7,7 +7,7 @@ not ship as a noisy approximation.
 ## Install with Oxlint
 
 ```bash
-npm add --save-dev @zmdb/compiler oxlint@1.81 typescript@^7
+yarn add --dev @zmdb/compiler oxlint@1.81 typescript@^7
 ```
 
 Load the published subpath and spell out the recommended severities in `.oxlintrc.json`:

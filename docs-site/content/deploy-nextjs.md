@@ -8,7 +8,7 @@ Next.js and zmdb divide cleanly: Next owns rendering and routing, while zmdb own
 Install the request-scoped adapter and framework peers:
 
 ```bash
-npm add @zmdb/next@1.0.0-beta.1 next@16 react@19 react-dom@19
+yarn add @zmdb/next@1.0.0-beta.1 next@16 react@19 react-dom@19
 ```
 
 The server entry reads the current Next header and cookie stores only while creating a request scope. Nothing is forwarded by default:

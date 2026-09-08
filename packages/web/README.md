@@ -11,7 +11,7 @@ boundary needs HTTP without the full product facade.
 ## Advanced: install HTTP alone
 
 ```bash
-npm add @zmdb/web@1.0.0-beta.1
+yarn add @zmdb/web@1.0.0-beta.1
 ```
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.

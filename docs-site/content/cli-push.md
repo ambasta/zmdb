@@ -3,7 +3,7 @@
 `zmdb push` reflects the configured declarations, introspects the live database, diffs the two snapshots, and prints the actual SQL before executing any of it:
 
 ```bash
-npx zmdb push
+yarn zmdb push
 ```
 
 It is an incremental development workflow, not a full-schema create script. When there is no difference it exits successfully and applies nothing.
@@ -13,7 +13,7 @@ It is an incremental development workflow, not a full-schema create script. When
 Dropping a table or column and a known narrowing type change require explicit permission:
 
 ```bash
-npx zmdb push --force --yes
+yarn zmdb push --force --yes
 ```
 
 `--force` permits the destructive plan. `--yes` declines the confirmation prompt. They are separate flags: in a non-TTY process, a destructive push with only one of them refuses instead of hanging or
@@ -22,7 +22,7 @@ guessing.
 The fixture database below had one extra `legacy` column. The transcript is verbatim apart from shortening the temporary directory to `/workspace/shop`:
 
 ```text
-$ npx zmdb push
+$ yarn zmdb push
 /workspace/shop/zmdb.config.ts
 ALTER TABLE "users" DROP COLUMN "legacy";
 zmdb push: --force is required for destructive SQL:
@@ -30,7 +30,7 @@ ALTER TABLE "users" DROP COLUMN "legacy";
 $ echo $?
 2
 
-$ npx zmdb push --force --yes
+$ yarn zmdb push --force --yes
 /workspace/shop/zmdb.config.ts
 ALTER TABLE "users" DROP COLUMN "legacy";
 applied 1 statements

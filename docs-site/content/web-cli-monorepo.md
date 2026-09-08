@@ -16,7 +16,7 @@ package.json          # workspaces: ["apps/*"]
 an untargeted scaffold is an exit-2 usage error:
 
 ```text
-$ npx zmdb new controller posts
+$ yarn zmdb new controller posts
 zmdb new: refusing to guess a workspace package; pass --package <name>. Candidates:
   @acme/api (apps/api)
   @acme/worker (apps/worker)
@@ -30,7 +30,7 @@ One explicit flag is cheaper than finding that file later.
 Use either its package name or its workspace-relative path:
 
 ```text
-$ npx zmdb new controller posts --package @acme/api
+$ yarn zmdb new controller posts --package @acme/api
 created src/posts.controller.ts
 created src/posts.controller.spec.ts
 
@@ -54,7 +54,7 @@ apps/
 This spelling is equivalent when the path is unique:
 
 ```bash
-npx zmdb new controller posts --package apps/api
+yarn zmdb new controller posts --package apps/api
 ```
 
 ## Invocation inside a package
@@ -63,7 +63,7 @@ When the current directory is inside exactly one discovered workspace package, t
 
 ```text
 $ cd apps/worker
-$ npx zmdb new module jobs
+$ yarn zmdb new module jobs
 created src/jobs.module.ts
 created src/jobs.module.spec.ts
 

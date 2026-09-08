@@ -90,13 +90,13 @@ the database and require the newer application instead.
 Generation happens on your machine, in Node, at build time — not on the device:
 
 ```bash
-npx zmdb embed --out src/generated/migrations.ts
+yarn zmdb embed --out src/generated/migrations.ts
 ```
 
 The command reads the configured migration directory in version order, copies each `-- zmdb:up` section verbatim, computes its SHA-256 checksum in Node, and writes a formatter-clean TypeScript array.
 Without `--out`, it writes `embedded.ts` beside the SQL files. `--with-down` includes down sections for a development harness; the device runner does not use them.
 
-Commit the generated module and run `npx zmdb check` in CI. It reports `stale-embedded` when the configured migration files and the module no longer match.
+Commit the generated module and run `yarn zmdb check` in CI. It reports `stale-embedded` when the configured migration files and the module no longer match.
 
 The device imports only the finished array and `@zmdb/migrations/embedded`. That leaf entry imports nothing, so the diff engine and DDL emitter do not enter the bundle. This is enforced structurally,
 not left to tree-shaking: the permanent `does not pull the diff engine into the embedded runner's import graph` test resolves the public subpath and requires its graph to contain exactly that one

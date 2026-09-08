@@ -14,7 +14,7 @@ const database = new DatabaseSync(databasePath);
 const orders = defineRepository(schemaOf<Order>(), sqliteDriver(database), { dialect: sqlite });
 ```
 
-SQLite is included in `npm add zmdb@1.0.0-beta.1`. `schemaOf<Order>()` is compiled by the public AOT plugin, and `zmdb generate` / `zmdb migrate` supply and apply the table definition before startup.
+SQLite is included in `yarn add zmdb@1.0.0-beta.1`. `schemaOf<Order>()` is compiled by the public AOT plugin, and `zmdb generate` / `zmdb migrate` supply and apply the table definition before startup.
 The caller owns the database handle. A repository's returned rows are plain objects; changing a property does not persist it.
 
 ## Validate the HTTP input before writing

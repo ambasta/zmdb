@@ -29,21 +29,21 @@ Advanced dependency boundaries are explained in the [runtime foundation](./docs-
 Create a formatter-clean SQLite project with the packaged CLI:
 
 ```bash
-npx zmdb@1.0.0-beta.1 new project blog
+yarn dlx zmdb@1.0.0-beta.1 new project blog
 cd blog
-npm install
-npm run check
-npm run build
-npm start
+yarn install
+yarn check
+yarn build
+yarn start
 ```
 
 The generated project includes a strict TypeScript config, AOT build adapter, health route and behavioural test, and `zmdb.config.ts`. Add a table declaration, then generate and apply its reviewed
 migration through the same executable:
 
 ```bash
-npx zmdb new schema user
-npx zmdb generate --name initial
-npx zmdb migrate
+yarn zmdb new schema user
+yarn zmdb generate --name initial
+yarn zmdb migrate
 ```
 
 ```typescript
@@ -78,8 +78,8 @@ You can also install individual packages or subclass `BaseRepository` from `zmdb
 
 ## One HTTP contract, two public artifacts
 
-An explicit `@zmdb/web/contract` declaration drives runtime routing, OpenAPI, and generated client code. `npx zmdb client generate` emits OpenAPI JSON and a typed TypeScript client as sibling outputs;
-`--check` rejects stale committed bytes and `--watch` follows the compiled contract dependency set.
+An explicit `@zmdb/web/contract` declaration drives runtime routing, OpenAPI, and generated client code. `yarn zmdb client generate` emits OpenAPI JSON and a typed TypeScript client as sibling
+outputs; `--check` rejects stale committed bytes and `--watch` follows the compiled contract dependency set.
 
 The generated module imports only the dependency-free `@zmdb/client` runtime, accepts caller-supplied authentication and cancellation, and runs in browser or Node bundles. The
 [generated-client guide](https://ambasta.github.io/zmdb/docs/generated-client.html) covers the complete journey and the separate low-level manual `@zmdb/client` path.

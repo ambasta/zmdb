@@ -41,7 +41,7 @@ registry lookup, build, tag or publish.
 
 ### Selecting versions and upgrading
 
-Start an application with the product, for example `npm install zmdb@1.0.0-beta.1`. Select an integration only when the application uses it. Independent versioning lets an integration release without
+Start an application with the product, for example `yarn add zmdb@1.0.0-beta.1`. Select an integration only when the application uses it. Independent versioning lets an integration release without
 forcing a core release; it does not mean every integration version works with every core version. Its published peer and dependency ranges must admit the installed core and SDK versions.
 
 Read the generated [package reference](./docs-site/content/package-reference.md) for membership and the [release policy](./scripts/release/policy.mjs) for these distinct promises:

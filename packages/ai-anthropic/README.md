@@ -6,7 +6,7 @@ without reading credentials, constructing a client, or making a request during i
 ## Install
 
 ```bash
-npm add @zmdb/ai-anthropic@1.0.0-beta.1 @anthropic-ai/sdk@0.124.0
+yarn add @zmdb/ai-anthropic@1.0.0-beta.1 @anthropic-ai/sdk@0.124.0
 ```
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. The adapter depends on `@zmdb/ai`; the Anthropic SDK is an optional peer so importing the adapter does not resolve or

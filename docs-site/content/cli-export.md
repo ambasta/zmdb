@@ -1,13 +1,13 @@
 ## Printing the full schema
 
 ```bash
-npx zmdb export > schema.sql
+yarn zmdb export > schema.sql
 ```
 
 Without redirection, the measured SQLite fixture printed:
 
 ```text
-$ npx zmdb export
+$ yarn zmdb export
 -- zmdb config: /workspace/shop/zmdb.config.ts
 CREATE TABLE "users" ("email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY);
 ```
@@ -23,8 +23,8 @@ and `statements`; errors and other human-readable text stay on stderr.
 Use separate configs to compare dialects:
 
 ```bash
-npx zmdb export --config zmdb.postgres.config.ts > schema.postgres.sql
-npx zmdb export --config zmdb.sqlite.config.ts > schema.sqlite.sql
+yarn zmdb export --config zmdb.postgres.config.ts > schema.postgres.sql
+yarn zmdb export --config zmdb.sqlite.config.ts > schema.sqlite.sql
 ```
 
 ## What it is for
@@ -43,7 +43,7 @@ COPY schema.sql /docker-entrypoint-initdb.d/01-schema.sql
 surprisingly effective review aid.
 
 ```yaml
-- run: npx zmdb export > schema.sql
+- run: yarn zmdb export > schema.sql
 - run: git diff --exit-code schema.sql # fails if it was not regenerated
 ```
 

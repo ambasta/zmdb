@@ -2,12 +2,12 @@ Typed gRPC services, exhaustive bindings and clients ship through `@zmdb/transpo
 `.proto` at runtime.
 
 ```bash
-npm add @zmdb/protobuf@1.0.0-beta.1 @zmdb/transport-grpc@1.0.0-beta.1 @grpc/grpc-js@^1.14.4
-npm add @zmdb/aot-validator@1.0.0-beta.1
-npm add --save-dev @zmdb/compiler@1.0.0-beta.1
+yarn add @zmdb/protobuf@1.0.0-beta.1 @zmdb/transport-grpc@1.0.0-beta.1 @grpc/grpc-js@^1.14.4
+yarn add @zmdb/aot-validator@1.0.0-beta.1
+yarn add --dev @zmdb/compiler@1.0.0-beta.1
 ```
 
-None of these optional packages or grpc-js is installed by `npm add zmdb@1.0.0-beta.1`. `@zmdb/protobuf` owns the service calls and generated artifact types; `@zmdb/compiler` owns reflection and
+None of these optional packages or grpc-js is installed by `yarn add zmdb@1.0.0-beta.1`. `@zmdb/protobuf` owns the service calls and generated artifact types; `@zmdb/compiler` owns reflection and
 emission; `@zmdb/validator` owns the generated validation-helper ABI; and `@zmdb/transport-grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by
 `createGrpcClient` is caller-owned and must be closed.
 

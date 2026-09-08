@@ -3,7 +3,7 @@
 Use the packaged command:
 
 ```bash
-npx zmdb migrate
+yarn zmdb migrate
 ```
 
 The public runner keeps `up` as its library verb:
@@ -26,9 +26,9 @@ ledger write in one transaction.
 The executable exposes the other two runner operations under explicit names:
 
 ```bash
-npx zmdb status
-npx zmdb rollback
-npx zmdb rollback --to 20260904010101
+yarn zmdb status
+yarn zmdb rollback
+yarn zmdb rollback --to 20260904010101
 ```
 
 `rollback` without `--to` reverts the highest applied version. With `--to`, it reverts every newer version and leaves the target applied.
@@ -36,7 +36,7 @@ npx zmdb rollback --to 20260904010101
 ## Upgrading a stored snapshot
 
 ```bash
-npx zmdb upgrade
+yarn zmdb upgrade
 ```
 
 Snapshot format version 1 is the only format this build knows. Running `upgrade` against it returns `changed: false` and does not touch the file's mtime. A snapshot from a newer build is an invocation
@@ -45,11 +45,11 @@ error rather than an attempted downgrade. No older snapshot shape is frozen yet,
 The current-format fixture and the deliberately refused alias produced:
 
 ```text
-$ npx zmdb upgrade
+$ yarn zmdb upgrade
 /workspace/shop/zmdb.config.ts
 snapshot is already at version 1
 
-$ npx zmdb up
+$ yarn zmdb up
 zmdb up: `up` is not a command; use `migrate` to apply migrations or `upgrade` to rewrite a stored snapshot
 $ echo $?
 2

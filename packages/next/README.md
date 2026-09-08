@@ -6,7 +6,7 @@ its browser entry is the existing `@zmdb/react` provider and hooks under a Next-
 ## Install
 
 ```bash
-npm add @zmdb/next@1.0.0-beta.1 next@16 react@19 react-dom@19
+yarn add @zmdb/next@1.0.0-beta.1 next@16 react@19 react-dom@19
 ```
 
 ## Server components and route handlers

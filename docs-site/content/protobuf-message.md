@@ -4,8 +4,8 @@
 ## Install and ownership
 
 ```bash
-npm add @zmdb/protobuf@1.0.0-beta.1
-npm add --save-dev @zmdb/compiler@1.0.0-beta.1
+yarn add @zmdb/protobuf@1.0.0-beta.1
+yarn add --dev @zmdb/compiler@1.0.0-beta.1
 ```
 
 `@zmdb/protobuf` has no runtime dependency or peer dependency and is not part of the `zmdb` default install. It owns the source calls, typed gRPC service artifacts, and generated-code wire ABI.

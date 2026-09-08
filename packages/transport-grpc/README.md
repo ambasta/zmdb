@@ -6,14 +6,14 @@ application shutdown without parsing `.proto` files at runtime.
 ## Install
 
 ```bash
-npm add @zmdb/app@1.0.0-beta.1 @zmdb/protobuf@1.0.0-beta.1 @zmdb/transport-grpc@1.0.0-beta.1 @grpc/grpc-js@^1.14.4
-npm add @zmdb/validator@1.0.0-beta.1
-npm add --save-dev @zmdb/compiler@1.0.0-beta.1
+yarn add @zmdb/app@1.0.0-beta.1 @zmdb/protobuf@1.0.0-beta.1 @zmdb/transport-grpc@1.0.0-beta.1 @grpc/grpc-js@^1.14.4
+yarn add @zmdb/validator@1.0.0-beta.1
+yarn add --dev @zmdb/compiler@1.0.0-beta.1
 ```
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-The sole peer is `@grpc/grpc-js@^1.14.4`. The package is not installed by `npm add zmdb@1.0.0-beta.1`; `@zmdb/protobuf` supplies the source-level service artifact, `@zmdb/compiler` emits it at build
+The sole peer is `@grpc/grpc-js@^1.14.4`. The package is not installed by `yarn add zmdb@1.0.0-beta.1`; `@zmdb/protobuf` supplies the source-level service artifact, `@zmdb/compiler` emits it at build
 time, and the generated validators import the `@zmdb/validator` runtime ABI.
 
 ## Usage

@@ -40,7 +40,7 @@ config is present. The configured plugin from `@zmdb/compiler` or `zmdb/compiler
 Commands print the absolute selected config before human-readable database work. This transcript came from the SQLite fixture; only its temporary directory was shortened to `/workspace/shop`:
 
 ```text
-$ npx zmdb check
+$ yarn zmdb check
 /workspace/shop/zmdb.config.ts
 check passed
 ```

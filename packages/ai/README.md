@@ -9,7 +9,7 @@ It is part of [zmdb](https://github.com/ambasta/zmdb). The root, chat, HTTP, com
 ## Install
 
 ```bash
-npm add @zmdb/ai@1.0.0-beta.1
+yarn add @zmdb/ai@1.0.0-beta.1
 ```
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
@@ -26,10 +26,10 @@ The only runtime dependency is `@zmdb/schema`. This package has no external depe
 
 ## Optional integrations
 
-- Anthropic chat driver: `npm add @zmdb/ai-anthropic@1.0.0-beta.1 @anthropic-ai/sdk@0.124.0`
-- LangChain tool adapter: `npm add @zmdb/ai-langchain@1.0.0-beta.1 @langchain/core@^1.2.9`
-- Vercel AI SDK tool adapter: `npm add @zmdb/ai-vercel@1.0.0-beta.1 ai@^7.0.93`
-- MCP client and server cores: `npm add @zmdb/mcp@1.0.0-beta.1`
+- Anthropic chat driver: `yarn add @zmdb/ai-anthropic@1.0.0-beta.1 @anthropic-ai/sdk@0.124.0`
+- LangChain tool adapter: `yarn add @zmdb/ai-langchain@1.0.0-beta.1 @langchain/core@^1.2.9`
+- Vercel AI SDK tool adapter: `yarn add @zmdb/ai-vercel@1.0.0-beta.1 ai@^7.0.93`
+- MCP client and server cores: `yarn add @zmdb/mcp@1.0.0-beta.1`
 
 The three SDK/framework packages declare their external dependency as an optional peer. Applications that install only `@zmdb/ai` or `@zmdb/mcp` do not install an Anthropic, LangChain, Vercel AI, or
 MCP SDK.

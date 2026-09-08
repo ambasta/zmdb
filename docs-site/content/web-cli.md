@@ -6,7 +6,7 @@ filesystem-free TypeScript module.
 This transcript is from the real package bin:
 
 ```text
-$ npx zmdb new project blog
+$ yarn zmdb new project blog
 created blog/package.json
 created blog/tsconfig.json
 created blog/scripts/build.mjs
@@ -44,10 +44,10 @@ After installing dependencies, the generated scripts exercise the same classes o
 
 ```bash
 cd blog
-npm install
-npm run check
-npm run build
-npm start
+yarn install
+yarn check
+yarn build
+yarn start
 ```
 
 `check` runs formatting, TypeScript, lint, the AOT test build, and Vitest.
@@ -57,32 +57,32 @@ npm start
 The six scaffold kinds are `project`, `schema`, `controller`, `module`, `repository`, and `command`:
 
 ```text
-$ npx zmdb new schema post
+$ yarn zmdb new schema post
 created src/post.ts
 created src/post.spec.ts
 
-$ npx zmdb new controller posts
+$ yarn zmdb new controller posts
 created src/posts.controller.ts
 created src/posts.controller.spec.ts
 
 add to src/app.module.ts, in @Module({ controllers: [ … ] }):
   PostsController,
 
-$ npx zmdb new module billing
+$ yarn zmdb new module billing
 created src/billing.module.ts
 created src/billing.module.spec.ts
 
 add to src/app.module.ts, in @Module({ imports: [ … ] }):
   BillingModule,
 
-$ npx zmdb new repository post
+$ yarn zmdb new repository post
 created src/post.repository.ts
 created src/post.repository.spec.ts
 
 add to src/app.module.ts, in @Module({ providers: [ … ] }):
   postRepositoryProvider(driver),
 
-$ npx zmdb new command import-posts
+$ yarn zmdb new command import-posts
 created src/import-posts.command.ts
 created src/import-posts.command.spec.ts
 
@@ -141,12 +141,12 @@ derive from it rather than becoming more generated files.
 The same bin also owns migrations, checks, catalog pull, DDL export, module inspection, the REPL, and the read-only Studio:
 
 ```bash
-npx zmdb --help
-npx zmdb generate --name add_posts
-npx zmdb embed
-npx zmdb migrate
-npx zmdb check
-npx zmdb studio
+yarn zmdb --help
+yarn zmdb generate --name add_posts
+yarn zmdb embed
+yarn zmdb migrate
+yarn zmdb check
+yarn zmdb studio
 ```
 
 See the [CLI overview](./cli-overview.html) for the complete command and exit-code reference.

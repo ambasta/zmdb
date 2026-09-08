@@ -188,7 +188,7 @@ describe('optional server integration documentation (#664)', { timeout: TEST_TIM
           .map(([name, peerRange]) => `${name}@${peerRange}`)
           .join(' ');
         expect(packageReference, integration.packageName).toContain(
-          `npm add ${integration.packageName}@${String(packageManifest.version)} ${installPeers}`,
+          `yarn add ${integration.packageName}@${String(packageManifest.version)} ${installPeers}`,
         );
       }
     }

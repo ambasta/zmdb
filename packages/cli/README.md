@@ -4,9 +4,9 @@
 standalone tooling, or install `zmdb@1.0.0-beta.1` for the complete product facade and the same executable.
 
 ```sh
-npm add --save-dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
-npx zmdb --help
-npx zmdb codegen --project tsconfig.json
+yarn add --dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
+yarn zmdb --help
+yarn zmdb codegen --project tsconfig.json
 ```
 
 Requires Node.js 26 or later. The CLI delegates reflection and AOT emission to `@zmdb/compiler`, and schema plans, files and ledger execution to `@zmdb/migrations`. Those packages remain usable

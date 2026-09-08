@@ -3,7 +3,7 @@
 SQS standard-queue events for `@zmdb/app/messaging`.
 
 ```sh
-npm add @zmdb/transport-sqs@1.0.0-beta.1 @zmdb/app@1.0.0-beta.1 @aws-sdk/client-sqs@3.1127.0
+yarn add @zmdb/transport-sqs@1.0.0-beta.1 @zmdb/app@1.0.0-beta.1 @aws-sdk/client-sqs@3.1127.0
 ```
 
 ```ts

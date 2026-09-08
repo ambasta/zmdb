@@ -4,7 +4,7 @@ module and `@zmdb/client` own URL construction, authentication patches, transpor
 ## Install
 
 ```bash
-npm add @zmdb/client@1.0.0-beta.1 @zmdb/vue@1.0.0-beta.1 @zmdb/nuxt@1.0.0-beta.1 nuxt@^4.5 vue@^3.5
+yarn add @zmdb/client@1.0.0-beta.1 @zmdb/vue@1.0.0-beta.1 @zmdb/nuxt@1.0.0-beta.1 nuxt@^4.5 vue@^3.5
 ```
 
 ## Provide

@@ -6,11 +6,11 @@ introspector. The library does not discover a TypeScript project or depend on th
 Most projects should use the CLI so config discovery, atomic files, checksums, exit codes, and driver cleanup stay uniform:
 
 ```bash
-npx zmdb generate --name add_slug
+yarn zmdb generate --name add_slug
 git diff -- migrations/
-npx zmdb migrate
-npx zmdb status
-npx zmdb check
+yarn zmdb migrate
+yarn zmdb status
+yarn zmdb check
 ```
 
 `generate` writes one reviewed up/down SQL file plus `snapshot.json`. `migrate` applies pending versions and records their checksums; `status` shows the ledger; `check` reports uncommitted schema,
@@ -23,7 +23,7 @@ Use the library sections below when an application owns snapshots or migration a
 Install the library and the database package that owns the dialect:
 
 ```bash
-npm add @zmdb/migrations@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
+yarn add @zmdb/migrations@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
 ```
 
 This complete example builds snapshots and a plan from schema data without connecting to a database:

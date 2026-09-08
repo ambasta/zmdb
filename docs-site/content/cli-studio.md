@@ -17,7 +17,7 @@ Do not point Studio at a production database expecting an authorization layer, g
 The selected config must declare the same `driver` thunk used by migration and push commands. This transcript was captured from the built executable against a generated SQLite project:
 
 ```text
-$ npx zmdb studio --port 4545
+$ yarn zmdb studio --port 4545
 http://127.0.0.1:4545
 ```
 

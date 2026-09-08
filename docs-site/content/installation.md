@@ -5,7 +5,7 @@ application; the [package reference](./package-reference.html) lists the indepen
 ## Recommended: one product install
 
 ```bash
-npm add zmdb@1.0.0-beta.1
+yarn add zmdb@1.0.0-beta.1
 ```
 
 ```ts {"mode":"compile","id":"example-001"}
@@ -33,19 +33,19 @@ compares all nine official packages, and links to their framework-native lifecyc
 
 ## Optional server integrations
 
-`npm add zmdb@1.0.0-beta.1` installs none of the packages or peers below. Add only the integration selected by the application:
+`yarn add zmdb@1.0.0-beta.1` installs none of the packages or peers below. Add only the integration selected by the application:
 
-| Capability         | Install                                                                                       | Lifecycle and ownership                                                          |
-| ------------------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Protobuf artifacts | `npm add @zmdb/protobuf@1.0.0-beta.1 && npm add --save-dev @zmdb/compiler@1.0.0-beta.1`       | no runtime peer or external resource; compiler emits the artifacts               |
-| Typed gRPC         | `npm add @zmdb/protobuf@1.0.0-beta.1 @zmdb/transport-grpc@1.0.0-beta.1 @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                                 |
-| Core NATS          | `npm add @zmdb/transport-nats@1.0.0-beta.1 @nats-io/transport-node@^3.4.0`                    | app starts, drains, and closes the strategy connection                           |
-| RabbitMQ           | `npm add @zmdb/transport-rabbitmq@1.0.0-beta.1 amqplib@^2.0.1`                                | app owns connection, channels, retry, and dead-letter topology                   |
-| Redis Pub/Sub      | `npm add @zmdb/transport-redis@1.0.0-beta.1 redis@^6.2.1`                                     | app owns publisher/subscriber clients and bounded drain                          |
-| Background jobs    | `npm add @zmdb/jobs@1.0.0-beta.1`                                                             | app starts and drains explicit workers/schedulers through `jobsExtension`        |
-| SQLite jobs        | `npm add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1`                              | explicit persistent stores borrow a database; memory stores own and close theirs |
-| PostgreSQL jobs    | `npm add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-postgres@1.0.0-beta.1 pg@^8.23.0`                 | caller owns and closes/releases the pool or client                               |
-| OpenTelemetry      | `npm add @zmdb/otel@1.0.0-beta.1 @opentelemetry/api@^1.9.0`                                   | caller owns providers, exporters, tracers, meters, and shutdown                  |
+| Capability         | Install                                                                                        | Lifecycle and ownership                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Protobuf artifacts | `yarn add @zmdb/protobuf@1.0.0-beta.1 && yarn add --dev @zmdb/compiler@1.0.0-beta.1`           | no runtime peer or external resource; compiler emits the artifacts               |
+| Typed gRPC         | `yarn add @zmdb/protobuf@1.0.0-beta.1 @zmdb/transport-grpc@1.0.0-beta.1 @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                                 |
+| Core NATS          | `yarn add @zmdb/transport-nats@1.0.0-beta.1 @nats-io/transport-node@^3.4.0`                    | app starts, drains, and closes the strategy connection                           |
+| RabbitMQ           | `yarn add @zmdb/transport-rabbitmq@1.0.0-beta.1 amqplib@^2.0.1`                                | app owns connection, channels, retry, and dead-letter topology                   |
+| Redis Pub/Sub      | `yarn add @zmdb/transport-redis@1.0.0-beta.1 redis@^6.2.1`                                     | app owns publisher/subscriber clients and bounded drain                          |
+| Background jobs    | `yarn add @zmdb/jobs@1.0.0-beta.1`                                                             | app starts and drains explicit workers/schedulers through `jobsExtension`        |
+| SQLite jobs        | `yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1`                              | explicit persistent stores borrow a database; memory stores own and close theirs |
+| PostgreSQL jobs    | `yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-postgres@1.0.0-beta.1 pg@^8.23.0`                 | caller owns and closes/releases the pool or client                               |
+| OpenTelemetry      | `yarn add @zmdb/otel@1.0.0-beta.1 @opentelemetry/api@^1.9.0`                                   | caller owns providers, exporters, tracers, meters, and shutdown                  |
 
 The package owns the adapter; the peer owns the external protocol client. `@zmdb/app` owns transport-neutral messaging and observability ports, while `@zmdb/jobs` owns queue and worker behavior.
 `@zmdb/compiler` owns TypeScript reflection and emission; `@zmdb/protobuf` owns the calls, service-artifact types, and generated wire runtime that emitted code imports.
@@ -73,8 +73,8 @@ compatibility facade or automatically install jobs.
 Choose runtime dependencies separately from the build tools. For example, a standalone SQLite data layer can use:
 
 ```bash
-npm add @zmdb/schema@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/validator@1.0.0-beta.1 @zmdb/orm@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
-npm add --save-dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
+yarn add @zmdb/schema@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/validator@1.0.0-beta.1 @zmdb/orm@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
+yarn add --dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
 ```
 
 Install `@zmdb/cli@1.0.0-beta.1` with TypeScript instead when you want the single `zmdb` command; it includes the compiler and migrations engines. Install `@zmdb/migrations@1.0.0-beta.1` directly when
@@ -86,115 +86,115 @@ Install only what you need:
 
 ```bash
 # Schema definition + type derivation
-npm install @zmdb/schema
+yarn add @zmdb/schema
 
 # Query builder (SELECT/INSERT/UPDATE/DELETE)
-npm install @zmdb/sql
+yarn add @zmdb/sql
 
 # Schema snapshots, migration plans, runners, introspection, and declaration emission
-npm add @zmdb/migrations@1.0.0-beta.1
+yarn add @zmdb/migrations@1.0.0-beta.1
 
 # Runtime validation + serialization
-npm install @zmdb/validator
+yarn add @zmdb/validator
 
 # TypeScript reflection, AOT emission, build adapters, and lint rules
-npm add --save-dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
 
 # The single zmdb executable for codegen, migrations and application commands
-npm add --save-dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
 
 # Repository with CRUD + transactions
-npm install @zmdb/orm
+yarn add @zmdb/orm
 
 # Complete SQLite dialect + migrations + introspection + node:sqlite driver
-npm install @zmdb/sqlite
+yarn add @zmdb/sqlite
 
 # Complete SQL Server vertical plus the application-selected client
-npm install @zmdb/mssql mssql
+yarn add @zmdb/mssql mssql
 
 # Complete PostgreSQL dialect + migrations + introspection + structural pg driver
-npm install @zmdb/postgres pg
+yarn add @zmdb/postgres pg
 
 # Complete MySQL vertical + consumer-selected client
-npm install @zmdb/mysql mysql2
+yarn add @zmdb/mysql mysql2
 
 # Protocol-neutral application kernel
-npm install @zmdb/app
+yarn add @zmdb/app
 
 # HTTP framework over the application kernel
-npm install @zmdb/web
+yarn add @zmdb/web
 
 # Portable queues, workers, and scheduling with explicit storage providers
-npm install @zmdb/jobs
+yarn add @zmdb/jobs
 
 # SQLite persistence or an owned memory store
-npm install @zmdb/jobs @zmdb/jobs-sqlite
+yarn add @zmdb/jobs @zmdb/jobs-sqlite
 
 # Optional PostgreSQL jobs adapter
-npm install @zmdb/jobs @zmdb/jobs-postgres pg@^8.23.0
+yarn add @zmdb/jobs @zmdb/jobs-postgres pg@^8.23.0
 
 # Dependency-free generated-client runtime
-npm install @zmdb/client
+yarn add @zmdb/client
 
 # React generated-client lifecycle bindings
-npm install @zmdb/react react@19
+yarn add @zmdb/react react@19
 
 # React Native AppState, connectivity, and credential-store lifecycle
-npm install @zmdb/react-native react@19 react-native@0.87
+yarn add @zmdb/react-native react@19 react-native@0.87
 
 # Angular dependency injection, signals, and Observable cancellation
-npm install @zmdb/angular @angular/core@22 rxjs@7
+yarn add @zmdb/angular @angular/core@22 rxjs@7
 
 # Vue plugin and lifecycle composables
-npm install @zmdb/vue vue@^3.5
+yarn add @zmdb/vue vue@^3.5
 
 # Svelte context and lifecycle-aware stores
-npm install @zmdb/svelte svelte@^5.57
+yarn add @zmdb/svelte svelte@^5.57
 
 # SvelteKit request-local server/client loads and navigation cancellation
-npm install @zmdb/sveltekit @sveltejs/kit@^2.70 svelte@^5.57
+yarn add @zmdb/sveltekit @sveltejs/kit@^2.70 svelte@^5.57
 
 # Next App Router request scopes and browser bindings
-npm install @zmdb/next next@16 react@19 react-dom@19
+yarn add @zmdb/next next@16 react@19 react-dom@19
 
 # Solid context, resources, and owner-lifetime cancellation
-npm install @zmdb/solid solid-js@1
+yarn add @zmdb/solid solid-js@1
 
 # Nuxt module, request-scoped Nitro transport, and Vue hydration
-npm install @zmdb/nuxt nuxt@^4.5 vue@^3.5
+yarn add @zmdb/nuxt nuxt@^4.5 vue@^3.5
 
 # Dependency-free protobuf and typed gRPC artifacts
-npm install @zmdb/protobuf
+yarn add @zmdb/protobuf
 
 # Typed gRPC server and client adapter
-npm install @zmdb/protobuf @zmdb/transport-grpc @grpc/grpc-js@^1.14.0
+yarn add @zmdb/protobuf @zmdb/transport-grpc @grpc/grpc-js@^1.14.0
 
 # Core NATS transport strategy
-npm install @zmdb/transport-nats @nats-io/transport-node@^3.4.0
+yarn add @zmdb/transport-nats @nats-io/transport-node@^3.4.0
 
 # RabbitMQ transport strategy
-npm install @zmdb/transport-rabbitmq amqplib@^2.0.1
+yarn add @zmdb/transport-rabbitmq amqplib@^2.0.1
 
 # Redis Pub/Sub transport strategy
-npm install @zmdb/transport-redis redis@^6.2.1
+yarn add @zmdb/transport-redis redis@^6.2.1
 
 # Provider-neutral AI tools + bounded chat
-npm install @zmdb/ai
+yarn add @zmdb/ai
 
 # Optional Anthropic chat driver
-npm install @zmdb/ai-anthropic @anthropic-ai/sdk@0.124.0
+yarn add @zmdb/ai-anthropic @anthropic-ai/sdk@0.124.0
 
 # LangChain structured-tool integration
-npm install @zmdb/ai @zmdb/ai-langchain @langchain/core@^1.2.9
+yarn add @zmdb/ai @zmdb/ai-langchain @langchain/core@^1.2.9
 
 # Vercel AI SDK tool adapter
-npm install @zmdb/ai @zmdb/ai-vercel ai@^7.0.93
+yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.93
 
 # Transport-neutral MCP client/server core
-npm install @zmdb/ai @zmdb/mcp
+yarn add @zmdb/ai @zmdb/mcp
 
 # OpenTelemetry API adapter
-npm install @zmdb/otel @opentelemetry/api@^1.9.0
+yarn add @zmdb/otel @opentelemetry/api@^1.9.0
 ```
 
 > [!NOTE] Workspace packages declare their direct `@zmdb/*` runtime dependencies. Provider, framework, broker, database-client, and telemetry peers remain opt-in at their integration boundaries.

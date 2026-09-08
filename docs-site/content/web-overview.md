@@ -6,8 +6,8 @@ Requires Node.js 26+, TypeScript 7+, ESM and Stage-3 decorators. Set `experiment
 ## Start with the product
 
 ```bash
-npm add zmdb@1.0.0-beta.1
-npm add --save-dev typescript@7.0.2 @types/node@26.4.1 esbuild@0.28.2
+yarn add zmdb@1.0.0-beta.1
+yarn add --dev typescript@7.0.2 @types/node@26.4.1 esbuild@0.28.2
 ```
 
 SQLite is included. Use `zmdb` for the common vocabulary and focused concerns such as `zmdb/app`, `zmdb/web`, `zmdb/orm` and `zmdb/sqlite` when needed. The [quick start](./quick-start.html) introduces
@@ -20,9 +20,9 @@ and [public AOT build](https://github.com/ambasta/zmdb/blob/main/fixtures/consum
 Generate the migration from the schema before starting the application:
 
 ```bash
-npx zmdb codegen
-npx zmdb generate --name create_orders
-npx zmdb migrate
+yarn zmdb codegen
+yarn zmdb generate --name create_orders
+yarn zmdb migrate
 ```
 
 The example configuration takes its database filename from `ZMDB_PRODUCT_DATABASE`. The CLI and application must receive the same filename. Migration generation supplies the SQL; the application does
@@ -51,7 +51,7 @@ repository boundary.
 ## Add a selected worker to the same application
 
 ```bash
-npm add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1
+yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1
 ```
 
 The core jobs package supplies queues, workers, schedules and provider ports. `@zmdb/jobs-sqlite` supplies both durable SQLite storage and the memory store used by this runnable example. Jobs are

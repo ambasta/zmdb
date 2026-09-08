@@ -28,15 +28,15 @@ export default defineConfig({
 ```
 
 ```bash
-npx zmdb client generate
-npx zmdb client generate --check
+yarn zmdb client generate
+yarn zmdb client generate --check
 ```
 
 The command opens the configured TypeScript project once, loads each configured contract export once, and feeds the same compiled `HttpContractIR` to the OpenAPI and client emitters. OpenAPI is the
 client's sibling output, never its input. The command verifies exact operation-ID parity before writing either file and emits repository-formatter-clean JSON. Equal bytes preserve both mtimes;
 `--check` writes nothing and exits non-zero when either committed artifact is missing or stale.
 
-During development, `npx zmdb client generate --watch` retains the reflection session and regenerates only after a source in the compiled contract's dependency set changes. Base URLs, credentials,
+During development, `yarn zmdb client generate --watch` retains the reflection session and regenerates only after a source in the compiled contract's dependency set changes. Base URLs, credentials,
 authentication providers, retries, and timeouts remain runtime values and are not written to project config.
 
 The generated result is stable for the same contract and generator version. Each operation gets an exact input type, exact successful-status result type, typed documented errors, request encoding,

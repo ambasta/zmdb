@@ -6,7 +6,7 @@ runs a caller-owned validator before the handler, and serializes tool results wi
 ## Install
 
 ```bash
-npm add @zmdb/ai@1.0.0-beta.1 @zmdb/ai-langchain@1.0.0-beta.1 @langchain/core@^1.2.9
+yarn add @zmdb/ai@1.0.0-beta.1 @zmdb/ai-langchain@1.0.0-beta.1 @langchain/core@^1.2.9
 ```
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. `@langchain/core` is an optional peer used by applications that construct a real LangChain tool.

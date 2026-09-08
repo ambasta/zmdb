@@ -8,9 +8,9 @@ boundaries with a real Node listener and an optional worker.
 ## 1. Create the project
 
 ```bash
-npx zmdb@1.0.0-beta.1 new project blog
+yarn dlx zmdb@1.0.0-beta.1 new project blog
 cd blog
-npm install
+yarn install
 ```
 
 The CLI supplies the strict TypeScript configuration, AOT build and application scripts. Keep that build configuration: `schemaOf<T>()` and `assert<T>()` require the transform. See
@@ -57,9 +57,9 @@ export default defineConfig({
 ```
 
 ```bash
-npx zmdb codegen
-npx zmdb generate --name create_posts
-npx zmdb migrate
+yarn zmdb codegen
+yarn zmdb generate --name create_posts
+yarn zmdb migrate
 ```
 
 Review and commit the generated migration and snapshot. Subsequent schema changes use the same generation and ledger workflow. The [migration guide](./migrations.html) covers reviewing plans and
@@ -119,9 +119,9 @@ try {
 ```
 
 ```bash
-npm run check
-npm run build
-npm start
+yarn check
+yarn build
+yarn start
 ```
 
 The example dispatches standard HTTP `Request` objects through the application, prints the responses and exits after closing its resources. To serve requests over a Node listener, follow the
@@ -136,8 +136,8 @@ Follow [Generated HTTP client](./generated-client.html) to declare the operation
 client outputs in `zmdb.config.ts`. Use the post entity and create DTO as the application's response and request types.
 
 ```bash
-npx zmdb client generate
-npx zmdb client generate --check
+yarn zmdb client generate
+yarn zmdb client generate --check
 ```
 
 Run these commands after adding the HTTP contract and output configuration. The same compiled operation model supplies runtime registration, OpenAPI and client generation. The generated client accepts

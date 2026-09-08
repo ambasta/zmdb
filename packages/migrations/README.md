@@ -9,7 +9,7 @@ Applications that install the product package can import the curated lifecycle s
 ## Install
 
 ```bash
-npm add @zmdb/migrations@1.0.0-beta.1
+yarn add @zmdb/migrations@1.0.0-beta.1
 ```
 
 Install the selected database package separately when planning dialect-specific SQL or connecting to a database, for example `@zmdb/sqlite@1.0.0-beta.1`. The application supplies the driver or

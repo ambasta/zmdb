@@ -4,7 +4,7 @@ construction, authentication patches, transport, response validation, and stable
 ## Install
 
 ```bash
-npm add @zmdb/client@1.0.0-beta.1 @zmdb/svelte@1.0.0-beta.1 svelte@^5
+yarn add @zmdb/client@1.0.0-beta.1 @zmdb/svelte@1.0.0-beta.1 svelte@^5
 ```
 
 ## Provide

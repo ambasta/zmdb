@@ -5,9 +5,9 @@ The packaged migration commands and the public runner use the same ledger and or
 With migrations in the configured output directory:
 
 ```bash
-npx zmdb migrate
-npx zmdb status
-npx zmdb rollback
+yarn zmdb migrate
+yarn zmdb status
+yarn zmdb rollback
 ```
 
 The executable loads `zmdb.config.ts`, opens its `driver`, parses each `<YYYYMMDDHHMMSS>_<name>.sql` file, and delegates to the runner. It prints the resolved config and SQL before database mutation.
