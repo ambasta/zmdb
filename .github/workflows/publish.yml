@@ -87,6 +87,9 @@ jobs:
       - name: Upgrade npm to a trusted-publishing-capable version (>= 11.5.1)
         run: npm install -g npm@latest && npm --version
 
+      - name: Add PostgreSQL tools for temporary test databases
+        run: echo "$(pg_config --bindir)" >> "$GITHUB_PATH"
+
       - name: Install (yarn, immutable)
         run: yarn install --immutable
 

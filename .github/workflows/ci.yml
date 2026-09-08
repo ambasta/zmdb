@@ -27,6 +27,9 @@ jobs:
           node-version: '26'
           cache: 'yarn'
 
+      - name: Add PostgreSQL tools for temporary test databases
+        run: echo "$(pg_config --bindir)" >> "$GITHUB_PATH"
+
       - name: Install
         run: yarn install --immutable
 
