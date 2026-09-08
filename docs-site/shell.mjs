@@ -76,7 +76,7 @@ aside{position:sticky;top:var(--topbar);height:calc(100vh - var(--topbar));overf
   padding:18px 12px 48px;border-right:1px solid var(--line);background:var(--panel);overscroll-behavior:contain}
 aside::-webkit-scrollbar,.toc::-webkit-scrollbar{width:8px}
 aside::-webkit-scrollbar-thumb,.toc::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
-main{padding:34px 52px 72px;max-width:880px;min-width:0}
+main{padding:34px 52px 72px;min-width:0}
 .toc{position:sticky;top:var(--topbar);height:calc(100vh - var(--topbar));overflow-y:auto;padding:34px 18px 48px;
   font-size:13px;border-left:1px solid var(--line)}
 

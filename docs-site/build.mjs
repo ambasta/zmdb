@@ -248,7 +248,7 @@ const LANDING_CSS = `
 :root{--grad1:var(--accent);--grad2:#a371f7;--grad3:var(--ok)}
 :root[data-theme=light]{--grad2:#8250df}
 body{font-size:16px}
-.hero{max-width:1080px;margin:0 auto;padding:64px 6vw 40px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.hero{margin:0 auto;padding:64px 6vw 40px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
 .hero .pill{display:inline-block;font-size:12px;font-weight:600;color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent);border:1px solid color-mix(in srgb,var(--ok) 25%,transparent);padding:4px 12px;border-radius:20px;margin-bottom:18px}
 .hero h1{font-size:52px;line-height:1.05;margin:0 0 16px;letter-spacing:-.03em}
 .hero h1 .g{background:linear-gradient(90deg,var(--grad1),var(--grad2) 60%,var(--grad3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
@@ -258,7 +258,7 @@ body{font-size:16px}
 .cta a{display:inline-block;padding:12px 20px;border-radius:10px;border:1px solid var(--line);font-weight:600;font-size:15px;color:var(--fg)}
 .cta a.primary{background:linear-gradient(90deg,var(--grad1),var(--grad2));color:#fff;border:none}
 .cta a:hover{text-decoration:none;border-color:var(--accent)}
-.section{max-width:1080px;margin:0 auto;padding:48px 6vw}
+.section{margin:0 auto;padding:48px 6vw}
 .section h2{font-size:30px;letter-spacing:-.02em;text-align:center;margin:0 0 6px;border:none;padding:0}
 .section .lead{color:var(--muted);text-align:center;max-width:62ch;margin:0 auto 32px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
