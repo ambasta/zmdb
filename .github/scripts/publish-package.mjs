@@ -53,8 +53,9 @@ export function isRegistryMiss(result) {
 }
 
 async function fileIntegrity(path) {
-  const digest = await globalThis.crypto.subtle.digest('SHA-512', readFileSync(path));
-  return `sha512-${new Uint8Array(digest).toBase64()}`;
+  const digestBytes = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', readFileSync(path)));
+  const base64 = typeof digestBytes.toBase64 === 'function' ? digestBytes.toBase64() : globalThis.btoa(String.fromCharCode(...digestBytes));
+  return `sha512-${base64}`;
 }
 
 function parseArguments(argv) {

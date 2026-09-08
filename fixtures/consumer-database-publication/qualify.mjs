@@ -180,10 +180,12 @@ try {
       tarballs.set(entry.npmName, { manifest, tarball });
     }
   });
+const toBase64 = bytes => typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.btoa(String.fromCharCode(...bytes));
+
   const integrities = {};
   for (const [name, record] of tarballs) {
     const bytes = await readFile(record.tarball);
-    integrities[name] = `sha512-${new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)).toBase64()}`;
+    integrities[name] = `sha512-${toBase64(new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)))}`;
     report.packages.push({ name, version: record.manifest.version, integrity: integrities[name] });
   }
   registry = await startRegistry([...tarballs.values()]);

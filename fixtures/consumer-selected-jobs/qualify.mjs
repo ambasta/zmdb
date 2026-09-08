@@ -74,13 +74,16 @@ export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
       assert(packages.has(name), `missing packed input ${name}`);
     }
     const integrities = new Map();
+const toBase64 = bytes => typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.btoa(String.fromCharCode(...bytes));
+const toHex = bytes => typeof bytes.toHex === 'function' ? bytes.toHex() : Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+
     report.tarballs = [];
     for (const entry of tarballs) {
       const bytes = await readFile(entry.tarball);
-      const sha256 = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)).toHex();
+      const sha256 = toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
       integrities.set(
         entry.manifest.name,
-        `sha512-${new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
+        `sha512-${toBase64(new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)))}`,
       );
       report.tarballs.push({ name: entry.manifest.name, version: entry.manifest.version, sha256 });
     }
