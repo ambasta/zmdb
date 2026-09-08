@@ -1,0 +1,3643 @@
+{
+  "sourceRevision": "07b3ec8019360ca7f23827379047831d69da0055",
+  "environment": {
+    "cpu": "AMD Ryzen 7 7840U",
+    "physicalCores": 8,
+    "node": "26.8.1",
+    "bun": "1.4.0",
+    "deno": "2.9.6",
+    "typescript": "7.0.2",
+    "appCpu": 4,
+    "postgres": {
+      "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+      "settings": {
+        "effective_cache_size": "524288",
+        "fsync": "on",
+        "full_page_writes": "on",
+        "jit": "on",
+        "max_connections": "100",
+        "port": "55438",
+        "shared_buffers": "16384",
+        "shared_preload_libraries": "pg_stat_statements",
+        "synchronous_commit": "on",
+        "track_io_timing": "on"
+      },
+      "image_digest": "sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280",
+      "cpu_affinity": "6-11",
+      "network": "host, listen 127.0.0.1:55438",
+      "memory_limit_bytes": 2147483648
+    }
+  },
+  "database": {
+    "cleanIndexComparisons": [
+      {
+        "label": "index0-clean-r1",
+        "indexed": false,
+        "round": 1,
+        "rps": 2952.4000598660537,
+        "latencyMs": {
+          "med": 134.043325,
+          "p(90)": 158.9984872,
+          "p(95)": 167.1374095,
+          "p(99)": 183.5242563,
+          "max": 233.412056,
+          "avg": 134.3201688346396,
+          "min": 11.398914
+        },
+        "failedRate": 0
+      },
+      {
+        "label": "index0-clean-r2",
+        "indexed": false,
+        "round": 2,
+        "rps": 2678.0816579155958,
+        "latencyMs": {
+          "max": 255.731234,
+          "avg": 148.2078134565866,
+          "min": 7.92662,
+          "med": 147.68964549999998,
+          "p(90)": 174.63939449999998,
+          "p(95)": 184.58938475,
+          "p(99)": 202.38163849999995
+        },
+        "failedRate": 0
+      },
+      {
+        "label": "index1-clean-r1",
+        "indexed": true,
+        "round": 1,
+        "rps": 15672.811988216577,
+        "latencyMs": {
+          "max": 131.524994,
+          "avg": 25.114346601208624,
+          "min": 1.633414,
+          "med": 25.044435,
+          "p(90)": 28.8099212,
+          "p(95)": 32.02844859999999,
+          "p(99)": 48.38235347999999
+        },
+        "failedRate": 0
+      },
+      {
+        "label": "index1-clean-r2",
+        "indexed": true,
+        "round": 2,
+        "rps": 15286.756915236705,
+        "latencyMs": {
+          "avg": 25.858807631426842,
+          "min": 1.710099,
+          "med": 25.626191,
+          "p(90)": 29.514322700000005,
+          "p(95)": 33.185145999999996,
+          "p(99)": 48.82049167000001,
+          "max": 263.742541
+        },
+        "failedRate": 0
+      }
+    ],
+    "diagnostics": [
+      {
+        "indexed": false,
+        "count": 35533,
+        "note": "Instrumented pool spans; query roundtrip includes network, server, decoding and JS scheduling. Warmup included.",
+        "poolWaitMs": {
+          "mean": 92.61038879134794,
+          "p50": 127.67877200000112,
+          "p95": 164.8063259999999,
+          "p99": 185.57928600000014
+        },
+        "queryRoundtripMs": {
+          "mean": 4.433143179860973,
+          "p50": 0.9420129999998608,
+          "p95": 28.83944800000063,
+          "p99": 41.047545000000355
+        },
+        "totalMs": {
+          "mean": 97.04353197120922,
+          "p50": 131.22848300000078,
+          "p95": 175.71550299999944,
+          "p99": 195.94090700000015
+        }
+      },
+      {
+        "indexed": true,
+        "count": 166051,
+        "note": "Instrumented pool spans; query roundtrip includes network, server, decoding and JS scheduling. Warmup included.",
+        "poolWaitMs": {
+          "mean": 17.16753024575572,
+          "p50": 22.83507599999939,
+          "p95": 32.410163999998986,
+          "p99": 49.26875899999868
+        },
+        "queryRoundtripMs": {
+          "mean": 0.9287620997886314,
+          "p50": 0.7368089999999938,
+          "p95": 1.8104690000000119,
+          "p99": 6.016482999999425
+        },
+        "totalMs": {
+          "mean": 18.096292345544253,
+          "p50": 23.60849800000142,
+          "p95": 33.37851299999966,
+          "p99": 50.804534000000785
+        }
+      }
+    ],
+    "beforePlans": {
+      "search-customer": [
+        {
+          "Plan": {
+            "Node Type": "Seq Scan",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "customers",
+            "Alias": "customers",
+            "Startup Cost": 0,
+            "Total Cost": 2860,
+            "Plan Rows": 50,
+            "Plan Width": 154,
+            "Actual Startup Time": 14.423,
+            "Actual Total Time": 14.423,
+            "Actual Rows": 0,
+            "Actual Loops": 1,
+            "Disabled": false,
+            "Filter": "(to_tsvector('english'::regconfig, company_name) @@ '''ltd'''::tsquery)",
+            "Rows Removed by Filter": 10000,
+            "Shared Hit Blocks": 235,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0
+          },
+          "Planning": {
+            "Shared Hit Blocks": 138,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0
+          },
+          "Planning Time": 0.616,
+          "Triggers": [],
+          "Execution Time": 14.435
+        }
+      ],
+      "search-product": [
+        {
+          "Plan": {
+            "Node Type": "Seq Scan",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "products",
+            "Alias": "products",
+            "Startup Cost": 0,
+            "Total Cost": 1372.5,
+            "Plan Rows": 25,
+            "Plan Width": 63,
+            "Actual Startup Time": 7.743,
+            "Actual Total Time": 7.743,
+            "Actual Rows": 0,
+            "Actual Loops": 1,
+            "Disabled": false,
+            "Filter": "(to_tsvector('english'::regconfig, name) @@ '''chai'''::tsquery)",
+            "Rows Removed by Filter": 5000,
+            "Shared Hit Blocks": 60,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0
+          },
+          "Planning": {
+            "Shared Hit Blocks": 134,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0
+          },
+          "Planning Time": 0.569,
+          "Triggers": [],
+          "Execution Time": 7.757
+        }
+      ],
+      "customer-by-id": [
+        {
+          "Plan": {
+            "Node Type": "Index Scan",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Forward",
+            "Index Name": "customers_pkey",
+            "Relation Name": "customers",
+            "Alias": "customers",
+            "Startup Cost": 0.29,
+            "Total Cost": 8.3,
+            "Plan Rows": 1,
+            "Plan Width": 154,
+            "Actual Startup Time": 0.006,
+            "Actual Total Time": 0.007,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Disabled": false,
+            "Index Cond": "(id = 1)",
+            "Rows Removed by Index Recheck": 0,
+            "Index Searches": 1,
+            "Shared Hit Blocks": 3,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0
+          },
+          "Planning": {
+            "Shared Hit Blocks": 126,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0
+          },
+          "Planning Time": 0.224,
+          "Triggers": [],
+          "Execution Time": 0.03
+        }
+      ]
+    },
+    "afterPlans": {
+      "search-customer": [
+        {
+          "Plan": {
+            "Node Type": "Bitmap Heap Scan",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "customers",
+            "Alias": "customers",
+            "Startup Cost": 13.06,
+            "Total Cost": 149.13,
+            "Plan Rows": 50,
+            "Plan Width": 154,
+            "Actual Startup Time": 0.011,
+            "Actual Total Time": 0.012,
+            "Actual Rows": 0,
+            "Actual Loops": 1,
+            "Disabled": false,
+            "Recheck Cond": "(to_tsvector('english'::regconfig, company_name) @@ '''ltd'''::tsquery)",
+            "Rows Removed by Index Recheck": 0,
+            "Exact Heap Blocks": 0,
+            "Lossy Heap Blocks": 0,
+            "Shared Hit Blocks": 3,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Index Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Index Name": "rca_customers_search_gin",
+                "Startup Cost": 0,
+                "Total Cost": 13.05,
+                "Plan Rows": 50,
+                "Plan Width": 0,
+                "Actual Startup Time": 0.009,
+                "Actual Total Time": 0.009,
+                "Actual Rows": 0,
+                "Actual Loops": 1,
+                "Disabled": false,
+                "Index Cond": "(to_tsvector('english'::regconfig, company_name) @@ '''ltd'''::tsquery)",
+                "Index Searches": 1,
+                "Shared Hit Blocks": 3,
+                "Shared Read Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Shared I/O Read Time": 0,
+                "Shared I/O Write Time": 0,
+                "Local I/O Read Time": 0,
+                "Local I/O Write Time": 0,
+                "Temp I/O Read Time": 0,
+                "Temp I/O Write Time": 0
+              }
+            ]
+          },
+          "Planning": {
+            "Shared Hit Blocks": 166,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0
+          },
+          "Planning Time": 0.705,
+          "Triggers": [],
+          "Execution Time": 0.03
+        }
+      ],
+      "search-product": [
+        {
+          "Plan": {
+            "Node Type": "Bitmap Heap Scan",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "products",
+            "Alias": "products",
+            "Startup Cost": 8.68,
+            "Total Cost": 61.97,
+            "Plan Rows": 25,
+            "Plan Width": 63,
+            "Actual Startup Time": 0.007,
+            "Actual Total Time": 0.007,
+            "Actual Rows": 0,
+            "Actual Loops": 1,
+            "Disabled": false,
+            "Recheck Cond": "(to_tsvector('english'::regconfig, name) @@ '''chai'''::tsquery)",
+            "Rows Removed by Index Recheck": 0,
+            "Exact Heap Blocks": 0,
+            "Lossy Heap Blocks": 0,
+            "Shared Hit Blocks": 3,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Index Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Index Name": "rca_products_search_gin",
+                "Startup Cost": 0,
+                "Total Cost": 8.67,
+                "Plan Rows": 25,
+                "Plan Width": 0,
+                "Actual Startup Time": 0.005,
+                "Actual Total Time": 0.005,
+                "Actual Rows": 0,
+                "Actual Loops": 1,
+                "Disabled": false,
+                "Index Cond": "(to_tsvector('english'::regconfig, name) @@ '''chai'''::tsquery)",
+                "Index Searches": 1,
+                "Shared Hit Blocks": 3,
+                "Shared Read Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Shared I/O Read Time": 0,
+                "Shared I/O Write Time": 0,
+                "Local I/O Read Time": 0,
+                "Local I/O Write Time": 0,
+                "Temp I/O Read Time": 0,
+                "Temp I/O Write Time": 0
+              }
+            ]
+          },
+          "Planning": {
+            "Shared Hit Blocks": 162,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Shared I/O Read Time": 0,
+            "Shared I/O Write Time": 0,
+            "Local I/O Read Time": 0,
+            "Local I/O Write Time": 0,
+            "Temp I/O Read Time": 0,
+            "Temp I/O Write Time": 0
+          },
+          "Planning Time": 0.712,
+          "Triggers": [],
+          "Execution Time": 0.027
+        }
+      ]
+    }
+  },
+  "validation": {
+    "versions": {
+      "typia": "14.0.5",
+      "ttsc": "0.29.0",
+      "typescript": "7.0.2",
+      "ajv": "8.20.0",
+      "fast-json-stringify": "7.0.1",
+      "typebox": "1.3.29"
+    },
+    "semantics": {
+      "shape": "seven required root fields, three required nested fields; all four numbers bounded inclusively \u00b11000000",
+      "booleans": "non-mutating boolean checks, no coercion/defaults/copy; loose permits extras, strict rejects root and nested extras; own plain enumerable JSON objects only",
+      "errorCost": "Ajv boolean calls also maintain their normal first-error field; no detailed-error or throwing rankings",
+      "serialization": "valid exact-shape finite plain JSON only; byte-equal property order and escapes; no validation/copy/getters/toJSON/excess-key or invalid-input equivalence claim",
+      "formats": "no string format constraint",
+      "sink": "rotating 32 input objects; every result contributes to checked checksum; serialized strings escape into retained ring"
+    },
+    "results": [
+      {
+        "id": "loose-valid/zmdb-aot",
+        "medianNsPerOp": 17.39920370142702,
+        "minNsPerOp": 17.389437746747166,
+        "maxNsPerOp": 17.496710510982485
+      },
+      {
+        "id": "loose-late-invalid/zmdb-aot",
+        "medianNsPerOp": 17.397257390328125,
+        "minNsPerOp": 17.295970353776156,
+        "maxNsPerOp": 17.697020894663172
+      },
+      {
+        "id": "strict-valid/zmdb-aot",
+        "medianNsPerOp": 27.590724909148108,
+        "minNsPerOp": 27.354703533115842,
+        "maxNsPerOp": 28.352093989890577
+      },
+      {
+        "id": "strict-excess-invalid/zmdb-aot",
+        "medianNsPerOp": 27.35057113419735,
+        "minNsPerOp": 27.11071326067186,
+        "maxNsPerOp": 28.491513387439316
+      },
+      {
+        "id": "loose-valid/typia-aot",
+        "medianNsPerOp": 15.040481222728491,
+        "minNsPerOp": 14.876503509676358,
+        "maxNsPerOp": 15.88511742026678
+      },
+      {
+        "id": "loose-late-invalid/typia-aot",
+        "medianNsPerOp": 14.985913734982098,
+        "minNsPerOp": 14.910277078498385,
+        "maxNsPerOp": 15.785529432625575
+      },
+      {
+        "id": "strict-valid/typia-aot",
+        "medianNsPerOp": 33.075197792483586,
+        "minNsPerOp": 32.7047418866835,
+        "maxNsPerOp": 33.50213567307001
+      },
+      {
+        "id": "strict-excess-invalid/typia-aot",
+        "medianNsPerOp": 41.87075613839321,
+        "minNsPerOp": 41.24540007516244,
+        "maxNsPerOp": 58.062176248301334
+      },
+      {
+        "id": "loose-valid/typebox-compiled",
+        "medianNsPerOp": 20.17307689724464,
+        "minNsPerOp": 20.08639752113669,
+        "maxNsPerOp": 20.389959300841326
+      },
+      {
+        "id": "loose-late-invalid/typebox-compiled",
+        "medianNsPerOp": 20.72628434544086,
+        "minNsPerOp": 20.471400255597622,
+        "maxNsPerOp": 20.83874859002704
+      },
+      {
+        "id": "strict-valid/typebox-compiled",
+        "medianNsPerOp": 38.417675717338696,
+        "minNsPerOp": 38.1811135609945,
+        "maxNsPerOp": 39.167914569059015
+      },
+      {
+        "id": "strict-excess-invalid/typebox-compiled",
+        "medianNsPerOp": 36.58386687090865,
+        "minNsPerOp": 35.924416336358725,
+        "maxNsPerOp": 36.798849846785075
+      },
+      {
+        "id": "loose-valid/ajv-compiled",
+        "medianNsPerOp": 22.782644411268002,
+        "minNsPerOp": 22.435513226215562,
+        "maxNsPerOp": 22.867451255667604
+      },
+      {
+        "id": "loose-late-invalid/ajv-compiled",
+        "medianNsPerOp": 30.36671236089524,
+        "minNsPerOp": 30.209008236480834,
+        "maxNsPerOp": 31.316576574602536
+      },
+      {
+        "id": "strict-valid/ajv-compiled",
+        "medianNsPerOp": 38.21446609497045,
+        "minNsPerOp": 37.823109105689944,
+        "maxNsPerOp": 38.89251854691635
+      },
+      {
+        "id": "strict-excess-invalid/ajv-compiled",
+        "medianNsPerOp": 45.63186588642786,
+        "minNsPerOp": 44.2053307223036,
+        "maxNsPerOp": 45.874377822877065
+      },
+      {
+        "id": "serialize-plain/zmdb-runtime-stringify",
+        "medianNsPerOp": 833.8210856119805,
+        "minNsPerOp": 827.3292168511236,
+        "maxNsPerOp": 850.2828030056481
+      },
+      {
+        "id": "serialize-escaped/zmdb-runtime-stringify",
+        "medianNsPerOp": 1052.2646745954203,
+        "minNsPerOp": 1028.5653320312467,
+        "maxNsPerOp": 1055.4037039620498
+      },
+      {
+        "id": "serialize-plain/typia-aot-stringify",
+        "medianNsPerOp": 477.5240872290732,
+        "minNsPerOp": 472.30416870117085,
+        "maxNsPerOp": 529.2706298828149
+      },
+      {
+        "id": "serialize-escaped/typia-aot-stringify",
+        "medianNsPerOp": 774.0446841591329,
+        "minNsPerOp": 759.0848632812674,
+        "maxNsPerOp": 875.8245634191109
+      },
+      {
+        "id": "serialize-plain/fast-json-stringify",
+        "medianNsPerOp": 498.0227457682377,
+        "minNsPerOp": 496.87124430338366,
+        "maxNsPerOp": 508.5027065934779
+      },
+      {
+        "id": "serialize-escaped/fast-json-stringify",
+        "medianNsPerOp": 810.0183683696565,
+        "minNsPerOp": 793.4753546463909,
+        "maxNsPerOp": 911.2622213924641
+      },
+      {
+        "id": "serialize-plain/native-json-stringify",
+        "medianNsPerOp": 368.9655364990218,
+        "minNsPerOp": 358.8496540348708,
+        "maxNsPerOp": 379.99672601161615
+      },
+      {
+        "id": "serialize-escaped/native-json-stringify",
+        "medianNsPerOp": 520.4735275794689,
+        "minNsPerOp": 513.4061363483308,
+        "maxNsPerOp": 530.920510428293
+      }
+    ],
+    "ablation": [
+      {
+        "id": "loose-valid/zmdb-aot",
+        "medianNsPerOp": 18.41556844279994,
+        "minNsPerOp": 18.261953465519948,
+        "maxNsPerOp": 18.545120123368267
+      },
+      {
+        "id": "loose-late-invalid/zmdb-aot",
+        "medianNsPerOp": 18.01328601884024,
+        "minNsPerOp": 17.87149613543253,
+        "maxNsPerOp": 18.1039663809317
+      },
+      {
+        "id": "strict-valid/zmdb-aot",
+        "medianNsPerOp": 27.942924804687493,
+        "minNsPerOp": 27.477097872044688,
+        "maxNsPerOp": 28.040102314994744
+      },
+      {
+        "id": "strict-excess-invalid/zmdb-aot",
+        "medianNsPerOp": 28.0289479359614,
+        "minNsPerOp": 27.806288080378366,
+        "maxNsPerOp": 28.290577774342413
+      },
+      {
+        "id": "loose-valid/zmdb-no-nan-prototype",
+        "medianNsPerOp": 16.38220678574552,
+        "minNsPerOp": 16.212828104474887,
+        "maxNsPerOp": 16.636444126436412
+      },
+      {
+        "id": "loose-late-invalid/zmdb-no-nan-prototype",
+        "medianNsPerOp": 16.559317757988957,
+        "minNsPerOp": 16.3193905836755,
+        "maxNsPerOp": 16.734888503540642
+      },
+      {
+        "id": "strict-valid/zmdb-no-nan-prototype",
+        "medianNsPerOp": 26.349008447177944,
+        "minNsPerOp": 25.909322246645885,
+        "maxNsPerOp": 26.542102095009753
+      },
+      {
+        "id": "strict-excess-invalid/zmdb-no-nan-prototype",
+        "medianNsPerOp": 26.434036722269074,
+        "minNsPerOp": 26.115008947471065,
+        "maxNsPerOp": 26.873653649410453
+      },
+      {
+        "id": "serialize-plain/zmdb-runtime-stringify",
+        "medianNsPerOp": 847.8807644314239,
+        "minNsPerOp": 840.2910359700502,
+        "maxNsPerOp": 851.3361070421086
+      },
+      {
+        "id": "serialize-escaped/zmdb-runtime-stringify",
+        "medianNsPerOp": 1028.8375081380252,
+        "minNsPerOp": 1026.8895914713546,
+        "maxNsPerOp": 1049.827427455356
+      },
+      {
+        "id": "serialize-plain/zmdb-no-replacer-prototype",
+        "medianNsPerOp": 377.7914600861378,
+        "minNsPerOp": 371.8345733642575,
+        "maxNsPerOp": 384.6232565855376
+      },
+      {
+        "id": "serialize-escaped/zmdb-no-replacer-prototype",
+        "medianNsPerOp": 513.5842832367998,
+        "minNsPerOp": 506.6645381532821,
+        "maxNsPerOp": 527.2223161969871
+      }
+    ]
+  },
+  "http": {
+    "source": "measure-2026-09-08T16-21-11.837Z/result.json",
+    "settings": {
+      "candidates": [
+        "zmdb-node",
+        "fastify-node",
+        "raw-node",
+        "zmdb-bun",
+        "elysia-bun",
+        "raw-bun",
+        "zmdb-deno",
+        "hono-deno"
+      ],
+      "bundle": "zmdb",
+      "workloads": ["parameter", "validation"],
+      "serverCpu": "4",
+      "clientCpu": "10,12,14",
+      "passes": 3,
+      "seconds": 8,
+      "warmup": 2,
+      "connections": 64,
+      "processes": 1,
+      "http": "1.1",
+      "keepalive": true,
+      "load": "closed loop maximum throughput; latency is not coordinated-omission corrected"
+    },
+    "cleaned": true,
+    "error": null,
+    "samples": 48,
+    "summary": [
+      {
+        "candidate": "zmdb-node",
+        "workload": "parameter",
+        "medianRps": 79435.05343414693,
+        "rangeRps": [78345.24418916042, 86542.03702227659],
+        "medianP99Milliseconds": 1.507172,
+        "rangeP99Milliseconds": [1.41519, 1.652272]
+      },
+      {
+        "candidate": "zmdb-node",
+        "workload": "validation",
+        "medianRps": 61798.596700520146,
+        "rangeRps": [58814.57948003854, 63971.06921408319],
+        "medianP99Milliseconds": 2.194545,
+        "rangeP99Milliseconds": [2.151781, 2.48172]
+      },
+      {
+        "candidate": "fastify-node",
+        "workload": "parameter",
+        "medianRps": 89739.08629948045,
+        "rangeRps": [85409.82732212603, 112498.72703633015],
+        "medianP99Milliseconds": 0.9761289999999999,
+        "rangeP99Milliseconds": [0.905372, 1.131403]
+      },
+      {
+        "candidate": "fastify-node",
+        "workload": "validation",
+        "medianRps": 61939.67131518109,
+        "rangeRps": [56872.059363703454, 70388.21798084836],
+        "medianP99Milliseconds": 1.406284,
+        "rangeP99Milliseconds": [1.265348, 1.623726]
+      },
+      {
+        "candidate": "raw-node",
+        "workload": "parameter",
+        "medianRps": 107704.52229330553,
+        "rangeRps": [100417.02416323558, 109798.40468305461],
+        "medianP99Milliseconds": 0.892532,
+        "rangeP99Milliseconds": [0.891603, 0.9295249999999999]
+      },
+      {
+        "candidate": "raw-node",
+        "workload": "validation",
+        "medianRps": 84705.84865318763,
+        "rangeRps": [78275.56523197121, 86355.14318402215],
+        "medianP99Milliseconds": 1.152102,
+        "rangeP99Milliseconds": [1.14241, 1.235902]
+      },
+      {
+        "candidate": "zmdb-bun",
+        "workload": "parameter",
+        "medianRps": 122316.99024435176,
+        "rangeRps": [121253.30352522341, 127288.37693889548],
+        "medianP99Milliseconds": 0.815759,
+        "rangeP99Milliseconds": [0.764436, 0.854994]
+      },
+      {
+        "candidate": "zmdb-bun",
+        "workload": "validation",
+        "medianRps": 55252.37008491371,
+        "rangeRps": [55176.35996828271, 56117.113189950855],
+        "medianP99Milliseconds": 1.986949,
+        "rangeP99Milliseconds": [1.944683, 2.018403]
+      },
+      {
+        "candidate": "elysia-bun",
+        "workload": "parameter",
+        "medianRps": 211273.8973367018,
+        "rangeRps": [209462.09356235206, 212421.69601057522],
+        "medianP99Milliseconds": 0.585258,
+        "rangeP99Milliseconds": [0.584536, 0.588085]
+      },
+      {
+        "candidate": "elysia-bun",
+        "workload": "validation",
+        "medianRps": 132037.37767866848,
+        "rangeRps": [131458.8123640617, 135172.24749793694],
+        "medianP99Milliseconds": 0.886582,
+        "rangeP99Milliseconds": [0.828126, 0.888818]
+      },
+      {
+        "candidate": "raw-bun",
+        "workload": "parameter",
+        "medianRps": 184692.1511638407,
+        "rangeRps": [181142.06419667645, 186025.8006769571],
+        "medianP99Milliseconds": 0.5624669999999999,
+        "rangeP99Milliseconds": [0.529783, 0.5699299999999999]
+      },
+      {
+        "candidate": "raw-bun",
+        "workload": "validation",
+        "medianRps": 145690.0731659653,
+        "rangeRps": [144522.94830840902, 148087.37869933306],
+        "medianP99Milliseconds": 0.65,
+        "rangeP99Milliseconds": [0.637297, 0.690154]
+      },
+      {
+        "candidate": "zmdb-deno",
+        "workload": "parameter",
+        "medianRps": 106576.17744205189,
+        "rangeRps": [100754.96484209216, 109694.0605363356],
+        "medianP99Milliseconds": 1.217866,
+        "rangeP99Milliseconds": [1.2095529999999999, 1.314666]
+      },
+      {
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "medianRps": 69779.60054240552,
+        "rangeRps": [69511.32620808872, 71112.66516500362],
+        "medianP99Milliseconds": 2.699789,
+        "rangeP99Milliseconds": [2.6528150000000004, 2.7486450000000002]
+      },
+      {
+        "candidate": "hono-deno",
+        "workload": "parameter",
+        "medianRps": 210334.16632224154,
+        "rangeRps": [207822.98055487373, 211133.92780582941],
+        "medianP99Milliseconds": 0.38522300000000004,
+        "rangeP99Milliseconds": [0.369033, 0.39586200000000005]
+      },
+      {
+        "candidate": "hono-deno",
+        "workload": "validation",
+        "medianRps": 153718.9279587947,
+        "rangeRps": [146504.51118710902, 153732.1145505153],
+        "medianP99Milliseconds": 0.49721399999999993,
+        "rangeP99Milliseconds": [0.49603099999999994, 0.6275970000000001]
+      }
+    ]
+  },
+  "orm": {
+    "revision": "07b3ec8019360ca7f23827379047831d69da0055",
+    "versions": {
+      "pg": "8.23.0",
+      "drizzle-orm": "0.45.2",
+      "kysely": "0.29.5"
+    },
+    "results": [
+      {
+        "key": "lookup/1/pg",
+        "rounds": 3,
+        "throughputMedian": 23512.343237329558,
+        "throughputMin": 23169.18224045772,
+        "throughputMax": 24785.588664406983,
+        "p50Median": 0.04087700000673067,
+        "p99Median": 0.06582399999024346,
+        "p99Min": 0.0611149999999725,
+        "p99Max": 0.06826899998122826,
+        "serverMeanPerOperationMs": 0.00219558647144508
+      },
+      {
+        "key": "lookup/1/drizzle",
+        "rounds": 3,
+        "throughputMedian": 13529.145815430455,
+        "throughputMin": 13491.045802903489,
+        "throughputMax": 14923.45845904641,
+        "p50Median": 0.07001200001104735,
+        "p99Median": 0.12878199998522177,
+        "p99Min": 0.10968600000069273,
+        "p99Max": 0.13248899998143315,
+        "serverMeanPerOperationMs": 0.0024335850458539364
+      },
+      {
+        "key": "lookup/1/kysely",
+        "rounds": 3,
+        "throughputMedian": 20859.01922624075,
+        "throughputMin": 20260.48494220586,
+        "throughputMax": 21232.90862417774,
+        "p50Median": 0.045885999978054315,
+        "p99Median": 0.07601299998350441,
+        "p99Min": 0.07373899999947753,
+        "p99Max": 0.07908900000620633,
+        "serverMeanPerOperationMs": 0.0022037756510835246
+      },
+      {
+        "key": "lookup/1/zmdb-builder",
+        "rounds": 3,
+        "throughputMedian": 20968.471323774047,
+        "throughputMin": 20648.54556907472,
+        "throughputMax": 21061.941553112192,
+        "p50Median": 0.045406000019283965,
+        "p99Median": 0.07807600000523962,
+        "p99Min": 0.07584299999871291,
+        "p99Max": 0.08451900000000023,
+        "serverMeanPerOperationMs": 0.002248727839236196
+      },
+      {
+        "key": "lookup/1/repository",
+        "rounds": 3,
+        "throughputMedian": 19881.45098228257,
+        "throughputMin": 19314.821178556962,
+        "throughputMax": 20294.510306612392,
+        "p50Median": 0.047789999982342124,
+        "p99Median": 0.08288599998923019,
+        "p99Min": 0.08007100000031642,
+        "p99Max": 0.08662300001014955,
+        "serverMeanPerOperationMs": 0.0022468271257344526
+      },
+      {
+        "key": "nested/1/pg",
+        "rounds": 3,
+        "throughputMedian": 1945.2459265664072,
+        "throughputMin": 1931.9131778898723,
+        "throughputMax": 2005.5085838959506,
+        "p50Median": 0.5035180000122637,
+        "p99Median": 0.7803590000257827,
+        "p99Min": 0.7562240000006568,
+        "p99Max": 0.7806200000050012,
+        "serverMeanPerOperationMs": 0.08620484040091358
+      },
+      {
+        "key": "nested/1/drizzle",
+        "rounds": 3,
+        "throughputMedian": 1075.8393341538338,
+        "throughputMin": 1064.9855513410232,
+        "throughputMax": 1127.058712214187,
+        "p50Median": 0.9045230000047013,
+        "p99Median": 1.2793579999706708,
+        "p99Min": 1.1458659999989322,
+        "p99Max": 1.352736000000732,
+        "serverMeanPerOperationMs": 0.09332773990609956
+      },
+      {
+        "key": "nested/1/kysely",
+        "rounds": 3,
+        "throughputMedian": 1822.9556976191554,
+        "throughputMin": 1793.3373604414355,
+        "throughputMax": 1854.154294581317,
+        "p50Median": 0.5387449999980163,
+        "p99Median": 0.8353320000023814,
+        "p99Min": 0.8298519999952987,
+        "p99Max": 0.8493690000032075,
+        "serverMeanPerOperationMs": 0.0863950150850172
+      },
+      {
+        "key": "nested/1/zmdb-builder",
+        "rounds": 3,
+        "throughputMedian": 1867.161452668849,
+        "throughputMin": 1818.610940369091,
+        "throughputMax": 1893.1766001233318,
+        "p50Median": 0.526121000002604,
+        "p99Median": 0.8072999999858439,
+        "p99Min": 0.7996750000020256,
+        "p99Max": 0.8477459999849088,
+        "serverMeanPerOperationMs": 0.08602608153700256
+      },
+      {
+        "key": "nested/1/repository",
+        "rounds": 3,
+        "throughputMedian": 1398.1281810915816,
+        "throughputMin": 1368.8333787569723,
+        "throughputMax": 1405.0666672525265,
+        "p50Median": 0.6932849999866448,
+        "p99Median": 1.0129769999766722,
+        "p99Min": 0.9821789999841712,
+        "p99Max": 1.328750000000582,
+        "serverMeanPerOperationMs": 0.09022675383491761
+      },
+      {
+        "key": "nested/1/deferred",
+        "rounds": 3,
+        "throughputMedian": 1351.8274013810503,
+        "throughputMin": 1347.0300283125955,
+        "throughputMax": 1390.953546324412,
+        "p50Median": 0.7178819999680854,
+        "p99Median": 1.0153519999876153,
+        "p99Min": 0.9684930000003078,
+        "p99Max": 1.01550199999474,
+        "serverMeanPerOperationMs": 0.09100702052513245
+      },
+      {
+        "key": "nested/1/drizzle-relational",
+        "rounds": 3,
+        "throughputMedian": 1272.8165104536513,
+        "throughputMin": 1255.4726391709041,
+        "throughputMax": 1276.3627246362405,
+        "p50Median": 0.7742680000374094,
+        "p99Median": 1.0086090000040713,
+        "p99Min": 0.96169100003317,
+        "p99Max": 1.0354090000037104,
+        "serverMeanPerOperationMs": 0.31486741555381914
+      },
+      {
+        "key": "lookup/48/pg",
+        "rounds": 3,
+        "throughputMedian": 78095.6104014243,
+        "throughputMin": 76640.86069904541,
+        "throughputMax": 78855.71746306228,
+        "p50Median": 0.5990579999925103,
+        "p99Median": 1.2406150000169873,
+        "p99Min": 1.2292430000015884,
+        "p99Max": 1.2737990000168793,
+        "serverMeanPerOperationMs": 0.005349197806166162
+      },
+      {
+        "key": "lookup/48/drizzle",
+        "rounds": 3,
+        "throughputMedian": 22425.329655839174,
+        "throughputMin": 22055.68261985792,
+        "throughputMax": 23143.57305372114,
+        "p50Median": 1.9096849999914411,
+        "p99Median": 3.5916819999984,
+        "p99Min": 3.506800999995903,
+        "p99Max": 3.6183730000047944,
+        "serverMeanPerOperationMs": 0.0035027656104688956
+      },
+      {
+        "key": "lookup/48/kysely",
+        "rounds": 3,
+        "throughputMedian": 49791.690231114255,
+        "throughputMin": 49671.41118180659,
+        "throughputMax": 51598.97963632679,
+        "p50Median": 0.857735000026878,
+        "p99Median": 1.748090000008233,
+        "p99Min": 1.6759350000065751,
+        "p99Max": 1.8278409999911673,
+        "serverMeanPerOperationMs": 0.0036687979095604705
+      },
+      {
+        "key": "lookup/48/zmdb-builder",
+        "rounds": 3,
+        "throughputMedian": 59034.282035069606,
+        "throughputMin": 57921.90825677914,
+        "throughputMax": 59362.64706382629,
+        "p50Median": 0.7498220000125002,
+        "p99Median": 1.3921510000072885,
+        "p99Min": 1.3848569999681786,
+        "p99Max": 1.4470339999970747,
+        "serverMeanPerOperationMs": 0.0038324689028980887
+      },
+      {
+        "key": "lookup/48/repository",
+        "rounds": 3,
+        "throughputMedian": 49751.303250701814,
+        "throughputMin": 49149.71708100686,
+        "throughputMax": 49910.057605108304,
+        "p50Median": 0.8603099999891128,
+        "p99Median": 1.8000690000480972,
+        "p99Min": 1.777025000017602,
+        "p99Max": 1.8552530000015395,
+        "serverMeanPerOperationMs": 0.0037062501758436507
+      },
+      {
+        "key": "nested/48/pg",
+        "rounds": 3,
+        "throughputMedian": 3579.328107776938,
+        "throughputMin": 3570.9841478161215,
+        "throughputMax": 3600.869920815148,
+        "p50Median": 13.128681999995024,
+        "p99Median": 16.94650299998466,
+        "p99Min": 16.896715000038967,
+        "p99Max": 17.76183299999684,
+        "serverMeanPerOperationMs": 0.12609930354025492
+      },
+      {
+        "key": "nested/48/drizzle",
+        "rounds": 3,
+        "throughputMedian": 1446.9607290205952,
+        "throughputMin": 1431.0506171814923,
+        "throughputMax": 1498.6533940860293,
+        "p50Median": 32.75200799999584,
+        "p99Median": 39.08574999999837,
+        "p99Min": 37.852914000017336,
+        "p99Max": 40.980492000002414,
+        "serverMeanPerOperationMs": 0.11540922314323016
+      },
+      {
+        "key": "nested/48/kysely",
+        "rounds": 3,
+        "throughputMedian": 3182.6773397285892,
+        "throughputMin": 3177.7504788246774,
+        "throughputMax": 3212.4357351888575,
+        "p50Median": 14.833161000002292,
+        "p99Median": 19.31149999999616,
+        "p99Min": 19.04467700002715,
+        "p99Max": 19.418428000004496,
+        "serverMeanPerOperationMs": 0.11950668921643594
+      },
+      {
+        "key": "nested/48/zmdb-builder",
+        "rounds": 3,
+        "throughputMedian": 3315.56705644349,
+        "throughputMin": 3261.7717539467417,
+        "throughputMax": 3328.7898754362986,
+        "p50Median": 14.243124000000535,
+        "p99Median": 19.929753999982495,
+        "p99Min": 18.0388400000229,
+        "p99Max": 21.900242999996408,
+        "serverMeanPerOperationMs": 0.1233414283749573
+      },
+      {
+        "key": "nested/48/repository",
+        "rounds": 3,
+        "throughputMedian": 1808.482891184163,
+        "throughputMin": 1783.9039306320162,
+        "throughputMax": 2017.6646500284346,
+        "p50Median": 25.86147699999856,
+        "p99Median": 33.328375000011874,
+        "p99Min": 29.913486999997986,
+        "p99Max": 33.53299700003117,
+        "serverMeanPerOperationMs": 0.11735054330125311
+      },
+      {
+        "key": "nested/48/deferred",
+        "rounds": 3,
+        "throughputMedian": 1851.2416664423497,
+        "throughputMin": 1849.9008777682266,
+        "throughputMax": 1858.2076886632788,
+        "p50Median": 25.30231100000674,
+        "p99Median": 31.87831400000141,
+        "p99Min": 31.72513399994932,
+        "p99Max": 33.724419999998645,
+        "serverMeanPerOperationMs": 0.1146682542327331
+      },
+      {
+        "key": "nested/48/drizzle-relational",
+        "rounds": 3,
+        "throughputMedian": 2013.947512822628,
+        "throughputMin": 1864.0600933522162,
+        "throughputMax": 2038.277254965414,
+        "p50Median": 23.576215000008233,
+        "p99Median": 33.128565999970306,
+        "p99Min": 30.585029000008944,
+        "p99Max": 41.387195000002976,
+        "serverMeanPerOperationMs": 0.39932012419871915
+      }
+    ],
+    "profiles": [
+      {
+        "path": "evidence/orm/cpu-0-48-nested-zmdb-builder.cpuprofile",
+        "samples": 8191,
+        "durationMs": 10072.181,
+        "topSelf": [
+          {
+            "function": "(garbage collector)",
+            "url": "",
+            "line": 0,
+            "selfUs": 2007658,
+            "inclusiveUs": 2007658,
+            "selfPercent": 19.932703751054515,
+            "inclusivePercent": 19.932703751054515
+          },
+          {
+            "function": "utf8Slice",
+            "url": "",
+            "line": 0,
+            "selfUs": 1576645,
+            "inclusiveUs": 1576645,
+            "selfPercent": 15.653461747758504,
+            "inclusivePercent": 15.653461747758504
+          },
+          {
+            "function": "toString",
+            "url": "node:buffer",
+            "line": 970,
+            "selfUs": 904487,
+            "inclusiveUs": 2505462,
+            "selfPercent": 8.980051093204143,
+            "inclusivePercent": 24.875069262555947
+          },
+          {
+            "function": "parseInteger",
+            "url": "file://evidence/orm/deps/node_modules/pg-types/lib/textParsers.js",
+            "line": 109,
+            "selfUs": 690980,
+            "inclusiveUs": 690980,
+            "selfPercent": 6.860281799939854,
+            "inclusivePercent": 6.860281799939854
+          },
+          {
+            "function": "parseRow",
+            "url": "file://evidence/orm/deps/node_modules/pg/lib/result.js",
+            "line": 63,
+            "selfUs": 511843,
+            "inclusiveUs": 1217306,
+            "selfPercent": 5.081749424479167,
+            "inclusivePercent": 12.085823318703268
+          },
+          {
+            "function": "",
+            "url": "file://source/benchmarks/rca/orm/run.mjs",
+            "line": 233,
+            "selfUs": 381152,
+            "inclusiveUs": 404376,
+            "selfPercent": 3.784205228242026,
+            "inclusivePercent": 4.0147809099141485
+          },
+          {
+            "function": "writev",
+            "url": "",
+            "line": 0,
+            "selfUs": 373488,
+            "inclusiveUs": 373488,
+            "selfPercent": 3.708114459023324,
+            "inclusivePercent": 3.708114459023324
+          },
+          {
+            "function": "emit",
+            "url": "node:events",
+            "line": 489,
+            "selfUs": 306557,
+            "inclusiveUs": 9192200,
+            "selfPercent": 3.0436009837392715,
+            "inclusivePercent": 91.26325271557371
+          },
+          {
+            "function": "(idle)",
+            "url": "",
+            "line": 0,
+            "selfUs": 231509,
+            "inclusiveUs": 231509,
+            "selfPercent": 2.298499202903522,
+            "inclusivePercent": 2.298499202903522
+          },
+          {
+            "function": "parse",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/parser.js",
+            "line": 26,
+            "selfUs": 183715,
+            "inclusiveUs": 6175572,
+            "selfPercent": 1.82398429893188,
+            "inclusivePercent": 61.313155512197405
+          },
+          {
+            "function": "parseDataRowMessage",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/parser.js",
+            "line": 228,
+            "selfUs": 173228,
+            "inclusiveUs": 2757267,
+            "selfPercent": 1.7198658364062362,
+            "inclusivePercent": 27.375073978515672
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 0,
+            "selfUs": 157344,
+            "inclusiveUs": 157344,
+            "selfPercent": 1.562164142999416,
+            "inclusivePercent": 1.562164142999416
+          },
+          {
+            "function": "",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/index.js",
+            "line": 12,
+            "selfUs": 141841,
+            "inclusiveUs": 6319530,
+            "selfPercent": 1.4082451457137237,
+            "inclusivePercent": 62.742418945807266
+          },
+          {
+            "function": "runMicrotasks",
+            "url": "",
+            "line": 0,
+            "selfUs": 136530,
+            "inclusiveUs": 1259202,
+            "selfPercent": 1.355515751752277,
+            "inclusivePercent": 12.501780895319495
+          },
+          {
+            "function": "cpuSpan",
+            "url": "file://source/benchmarks/rca/orm/run.mjs",
+            "line": 133,
+            "selfUs": 136318,
+            "inclusiveUs": 1030032,
+            "selfPercent": 1.3534109444617803,
+            "inclusivePercent": 10.226504070965364
+          },
+          {
+            "function": "(program)",
+            "url": "",
+            "line": 0,
+            "selfUs": 134244,
+            "inclusiveUs": 134244,
+            "selfPercent": 1.3328195750255083,
+            "inclusivePercent": 1.3328195750255083
+          },
+          {
+            "function": "parseParameterStatusMessage",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/parser.js",
+            "line": 238,
+            "selfUs": 108058,
+            "inclusiveUs": 108058,
+            "selfPercent": 1.072836161304091,
+            "inclusivePercent": 1.072836161304091
+          },
+          {
+            "function": "writeValues",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/serializer.js",
+            "line": 63,
+            "selfUs": 100330,
+            "inclusiveUs": 343448,
+            "selfPercent": 0.9961099785637291,
+            "inclusivePercent": 3.4098672372944847
+          },
+          {
+            "function": "handlePacket",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/parser.js",
+            "line": 91,
+            "selfUs": 97683,
+            "inclusiveUs": 3050811,
+            "selfPercent": 0.9698296724413511,
+            "inclusivePercent": 30.289477522296316
+          },
+          {
+            "function": "addFields",
+            "url": "file://evidence/orm/deps/node_modules/pg/lib/result.js",
+            "line": 82,
+            "selfUs": 94668,
+            "inclusiveUs": 100961,
+            "selfPercent": 0.939895738569432,
+            "inclusivePercent": 1.002374758753839
+          },
+          {
+            "function": "readInt32BE",
+            "url": "node:internal/buffer",
+            "line": 484,
+            "selfUs": 90578,
+            "inclusiveUs": 90578,
+            "selfPercent": 0.8992888432008915,
+            "inclusivePercent": 0.8992888432008915
+          },
+          {
+            "function": "renderPredicate",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 158,
+            "selfUs": 87657,
+            "inclusiveUs": 128421,
+            "selfPercent": 0.8702881729389097,
+            "inclusivePercent": 1.275006872890787
+          },
+          {
+            "function": "makeSelect",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 239,
+            "selfUs": 68388,
+            "inclusiveUs": 69435,
+            "selfPercent": 0.6789790612380774,
+            "inclusivePercent": 0.6893740293189727
+          },
+          {
+            "function": "",
+            "url": "file://evidence/orm/deps/node_modules/pg/lib/connection.js",
+            "line": 132,
+            "selfUs": 64732,
+            "inclusiveUs": 2923279,
+            "selfPercent": 0.6426810638132893,
+            "inclusivePercent": 29.023296940354825
+          },
+          {
+            "function": "quoteColumn",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 20,
+            "selfUs": 63854,
+            "inclusiveUs": 101228,
+            "selfPercent": 0.6339639845630256,
+            "inclusivePercent": 1.0050256245395113
+          },
+          {
+            "function": "post",
+            "url": "node:inspector",
+            "line": 115,
+            "selfUs": 61236,
+            "inclusiveUs": 61236,
+            "selfPercent": 0.6079716001926494,
+            "inclusivePercent": 0.6079716001926494
+          },
+          {
+            "function": "addInt32PrefixedString",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/buffer-writer.js",
+            "line": 63,
+            "selfUs": 56747,
+            "inclusiveUs": 201515,
+            "selfPercent": 0.5634032986500144,
+            "inclusivePercent": 2.0007086846433757
+          },
+          {
+            "function": "operation",
+            "url": "file://source/benchmarks/rca/orm/run.mjs",
+            "line": 249,
+            "selfUs": 47233,
+            "inclusiveUs": 1099063,
+            "selfPercent": 0.4689451073208474,
+            "inclusivePercent": 10.911867052428862
+          },
+          {
+            "function": "quoteIdentifier",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 10,
+            "selfUs": 45762,
+            "inclusiveUs": 45762,
+            "selfPercent": 0.4543405246589592,
+            "inclusivePercent": 0.4543405246589592
+          },
+          {
+            "function": "",
+            "url": "file://source/benchmarks/rca/orm/run.mjs",
+            "line": 192,
+            "selfUs": 43648,
+            "inclusiveUs": 488281,
+            "selfPercent": 0.43335202177165005,
+            "inclusivePercent": 4.847817965145781
+          }
+        ],
+        "topProjectInclusive": [
+          {
+            "function": "compile",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 293,
+            "selfUs": 36085,
+            "inclusiveUs": 348016,
+            "selfPercent": 0.35826401451681616,
+            "inclusivePercent": 3.455219877402918
+          },
+          {
+            "function": "whereClause",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 224,
+            "selfUs": 2238,
+            "inclusiveUs": 178344,
+            "selfPercent": 0.02221961658552403,
+            "inclusivePercent": 1.7706592047938774
+          },
+          {
+            "function": "predicateList",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 214,
+            "selfUs": 9422,
+            "inclusiveUs": 176106,
+            "selfPercent": 0.09354478439178168,
+            "inclusivePercent": 1.7484395882083534
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 216,
+            "selfUs": 38263,
+            "inclusiveUs": 166684,
+            "selfPercent": 0.3798879309257846,
+            "inclusivePercent": 1.6548948038165714
+          },
+          {
+            "function": "renderPredicate",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 158,
+            "selfUs": 87657,
+            "inclusiveUs": 128421,
+            "selfPercent": 0.8702881729389097,
+            "inclusivePercent": 1.275006872890787
+          },
+          {
+            "function": "quoteColumn",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 20,
+            "selfUs": 63854,
+            "inclusiveUs": 101228,
+            "selfPercent": 0.6339639845630256,
+            "inclusivePercent": 1.0050256245395113
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 298,
+            "selfUs": 11487,
+            "inclusiveUs": 82504,
+            "selfPercent": 0.11404679880157038,
+            "inclusivePercent": 0.8191274561090592
+          },
+          {
+            "function": "makeSelect",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 239,
+            "selfUs": 68388,
+            "inclusiveUs": 69435,
+            "selfPercent": 0.6789790612380774,
+            "inclusivePercent": 0.6893740293189727
+          },
+          {
+            "function": "next",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 240,
+            "selfUs": 18154,
+            "inclusiveUs": 58907,
+            "selfPercent": 0.18023901675317391,
+            "inclusivePercent": 0.584848505006016
+          },
+          {
+            "function": "quoteIdentifier",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 10,
+            "selfUs": 45762,
+            "inclusiveUs": 45762,
+            "selfPercent": 0.4543405246589592,
+            "inclusivePercent": 0.4543405246589592
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 23,
+            "selfUs": 0,
+            "inclusiveUs": 37374,
+            "selfPercent": 0,
+            "inclusivePercent": 0.3710616399764857
+          },
+          {
+            "function": "addWhere",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 241,
+            "selfUs": 4212,
+            "inclusiveUs": 35613,
+            "selfPercent": 0.0418181523942034,
+            "inclusivePercent": 0.3535778397945788
+          },
+          {
+            "function": "quoteTable",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 72,
+            "selfUs": 0,
+            "inclusiveUs": 30682,
+            "selfPercent": 0,
+            "inclusivePercent": 0.30462121361798405
+          },
+          {
+            "function": "selectFrom",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 677,
+            "selfUs": 1643,
+            "inclusiveUs": 30325,
+            "selfPercent": 0.01631225650134762,
+            "inclusivePercent": 0.3010767975674782
+          },
+          {
+            "function": "select",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 275,
+            "selfUs": 0,
+            "inclusiveUs": 27506,
+            "selfPercent": 0,
+            "inclusivePercent": 0.27308881760564074
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 202,
+            "selfUs": 6964,
+            "inclusiveUs": 19670,
+            "selfPercent": 0.06914093382555377,
+            "inclusivePercent": 0.19529037454747883
+          },
+          {
+            "function": "frozenQuery",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 282,
+            "selfUs": 16434,
+            "inclusiveUs": 16434,
+            "selfPercent": 0.16316227835857994,
+            "inclusivePercent": 0.16316227835857994
+          },
+          {
+            "function": "formatPlaceholder",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 83,
+            "selfUs": 13747,
+            "inclusiveUs": 14805,
+            "selfPercent": 0.1364848387851648,
+            "inclusivePercent": 0.1469890185650953
+          },
+          {
+            "function": "whereIn",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 281,
+            "selfUs": 0,
+            "inclusiveUs": 14607,
+            "selfPercent": 0,
+            "inclusivePercent": 0.1450232079824618
+          },
+          {
+            "function": "andWhere",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 258,
+            "selfUs": 0,
+            "inclusiveUs": 12560,
+            "selfPercent": 0,
+            "inclusivePercent": 0.12469990362563978
+          },
+          {
+            "function": "where",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 250,
+            "selfUs": 1065,
+            "inclusiveUs": 9511,
+            "selfPercent": 0.01057367813386197,
+            "inclusivePercent": 0.09442840632033916
+          },
+          {
+            "function": "splitTableSpec",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 36,
+            "selfUs": 6326,
+            "inclusiveUs": 6326,
+            "selfPercent": 0.06280665528151251,
+            "inclusivePercent": 0.06280665528151251
+          },
+          {
+            "function": "tailClause",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 265,
+            "selfUs": 3967,
+            "inclusiveUs": 3967,
+            "selfPercent": 0.039385710006601356,
+            "inclusivePercent": 0.039385710006601356
+          },
+          {
+            "function": "isAliasedColumn",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 156,
+            "selfUs": 3136,
+            "inclusiveUs": 3136,
+            "selfPercent": 0.031135262561306238,
+            "inclusivePercent": 0.031135262561306238
+          },
+          {
+            "function": "sqlOperator",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 136,
+            "selfUs": 553,
+            "inclusiveUs": 1616,
+            "selfPercent": 0.005490369960587483,
+            "inclusivePercent": 0.0160441914218976
+          },
+          {
+            "function": "isDistanceOp",
+            "url": "file://source/packages/sql/src/extensions/index.ts",
+            "line": 182,
+            "selfUs": 1063,
+            "inclusiveUs": 1063,
+            "selfPercent": 0.010553821461310118,
+            "inclusivePercent": 0.010553821461310118
+          },
+          {
+            "function": "dialectTraits",
+            "url": "file://source/packages/sql/src/dialects/index.ts",
+            "line": 66,
+            "selfUs": 1058,
+            "inclusiveUs": 1058,
+            "selfPercent": 0.010504179779930484,
+            "inclusivePercent": 0.010504179779930484
+          },
+          {
+            "function": "tailMethods",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 332,
+            "selfUs": 1047,
+            "inclusiveUs": 1047,
+            "selfPercent": 0.01039496808089529,
+            "inclusivePercent": 0.01039496808089529
+          }
+        ]
+      },
+      {
+        "path": "evidence/orm/cpu-0-48-nested-repository.cpuprofile",
+        "samples": 8410,
+        "durationMs": 10062.741,
+        "topSelf": [
+          {
+            "function": "(garbage collector)",
+            "url": "",
+            "line": 0,
+            "selfUs": 2148716,
+            "inclusiveUs": 2148716,
+            "selfPercent": 21.353187963398838,
+            "inclusivePercent": 21.353187963398838
+          },
+          {
+            "function": "childrenByParent",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1410,
+            "selfUs": 1137968,
+            "inclusiveUs": 1944454,
+            "selfPercent": 11.308727910218499,
+            "inclusivePercent": 19.323303660503637
+          },
+          {
+            "function": "utf8Slice",
+            "url": "",
+            "line": 0,
+            "selfUs": 954105,
+            "inclusiveUs": 954105,
+            "selfPercent": 9.481561733527673,
+            "inclusivePercent": 9.481561733527673
+          },
+          {
+            "function": "toString",
+            "url": "node:buffer",
+            "line": 970,
+            "selfUs": 561179,
+            "inclusiveUs": 1521445,
+            "selfPercent": 5.576800595384499,
+            "inclusivePercent": 15.11958819172629
+          },
+          {
+            "function": "loaderKey",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 478,
+            "selfUs": 493944,
+            "inclusiveUs": 709336,
+            "selfPercent": 4.908642684930477,
+            "inclusivePercent": 7.049133034428691
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1540,
+            "selfUs": 484838,
+            "inclusiveUs": 908781,
+            "selfPercent": 4.8181504423099035,
+            "inclusivePercent": 9.031147676363727
+          },
+          {
+            "function": "parseInteger",
+            "url": "file://evidence/orm/deps/node_modules/pg-types/lib/textParsers.js",
+            "line": 109,
+            "selfUs": 384324,
+            "inclusiveUs": 384324,
+            "selfPercent": 3.8192774712178323,
+            "inclusivePercent": 3.8192774712178323
+          },
+          {
+            "function": "parseRow",
+            "url": "file://evidence/orm/deps/node_modules/pg/lib/result.js",
+            "line": 63,
+            "selfUs": 282234,
+            "inclusiveUs": 669741,
+            "selfPercent": 2.8047427634279765,
+            "inclusivePercent": 6.655651775197235
+          },
+          {
+            "function": "writev",
+            "url": "",
+            "line": 0,
+            "selfUs": 244673,
+            "inclusiveUs": 244673,
+            "selfPercent": 2.4314746846808437,
+            "inclusivePercent": 2.4314746846808437
+          },
+          {
+            "function": "runMicrotasks",
+            "url": "",
+            "line": 0,
+            "selfUs": 243552,
+            "inclusiveUs": 3674303,
+            "selfPercent": 2.420334578819032,
+            "inclusivePercent": 36.51393790220776
+          },
+          {
+            "function": "populateRows",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1510,
+            "selfUs": 200381,
+            "inclusiveUs": 2582683,
+            "selfPercent": 1.9913162825118922,
+            "inclusivePercent": 25.66580020294669
+          },
+          {
+            "function": "emit",
+            "url": "node:events",
+            "line": 489,
+            "selfUs": 199867,
+            "inclusiveUs": 5710838,
+            "selfPercent": 1.9862083303147722,
+            "inclusivePercent": 56.75231032976005
+          },
+          {
+            "function": "(idle)",
+            "url": "",
+            "line": 0,
+            "selfUs": 181265,
+            "inclusiveUs": 181265,
+            "selfPercent": 1.8013481614999334,
+            "inclusivePercent": 1.8013481614999334
+          },
+          {
+            "function": "copyPopulatedRow",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 515,
+            "selfUs": 171937,
+            "inclusiveUs": 233936,
+            "selfPercent": 1.7086497605374122,
+            "inclusivePercent": 2.324774134602093
+          },
+          {
+            "function": "loaderKeyPart",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 466,
+            "selfUs": 167952,
+            "inclusiveUs": 167952,
+            "selfPercent": 1.6690482245344485,
+            "inclusivePercent": 1.6690482245344485
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 0,
+            "selfUs": 133742,
+            "inclusiveUs": 133742,
+            "selfPercent": 1.3290812115704855,
+            "inclusivePercent": 1.3290812115704855
+          },
+          {
+            "function": "parse",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/parser.js",
+            "line": 26,
+            "selfUs": 99384,
+            "inclusiveUs": 3782692,
+            "selfPercent": 0.9876434263785584,
+            "inclusivePercent": 37.59106986853781
+          },
+          {
+            "function": "(program)",
+            "url": "",
+            "line": 0,
+            "selfUs": 94558,
+            "inclusiveUs": 94558,
+            "selfPercent": 0.9396843265666879,
+            "inclusivePercent": 0.9396843265666879
+          },
+          {
+            "function": "",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/index.js",
+            "line": 12,
+            "selfUs": 87450,
+            "inclusiveUs": 3873310,
+            "selfPercent": 0.8690475090236347,
+            "inclusivePercent": 38.49159985336003
+          },
+          {
+            "function": "parseDataRowMessage",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/parser.js",
+            "line": 228,
+            "selfUs": 85862,
+            "inclusiveUs": 1648479,
+            "selfPercent": 0.853266520523583,
+            "inclusivePercent": 16.3820076458293
+          },
+          {
+            "function": "writeValues",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/serializer.js",
+            "line": 63,
+            "selfUs": 73194,
+            "inclusiveUs": 255987,
+            "selfPercent": 0.7273763679299706,
+            "inclusivePercent": 2.5439092589186187
+          },
+          {
+            "function": "addFields",
+            "url": "file://evidence/orm/deps/node_modules/pg/lib/result.js",
+            "line": 82,
+            "selfUs": 64938,
+            "inclusiveUs": 74553,
+            "selfPercent": 0.6453311279700034,
+            "inclusivePercent": 0.7408816345367529
+          },
+          {
+            "function": "handlePacket",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/parser.js",
+            "line": 91,
+            "selfUs": 62247,
+            "inclusiveUs": 1814454,
+            "selfPercent": 0.6185889113115403,
+            "inclusivePercent": 18.031409135940198
+          },
+          {
+            "function": "parseParameterStatusMessage",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/parser.js",
+            "line": 238,
+            "selfUs": 61964,
+            "inclusiveUs": 64082,
+            "selfPercent": 0.6157765563080676,
+            "inclusivePercent": 0.6368244994082627
+          },
+          {
+            "function": "renderPredicate",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 158,
+            "selfUs": 50423,
+            "inclusiveUs": 73491,
+            "selfPercent": 0.5010861354774012,
+            "inclusivePercent": 0.7303278500360886
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1547,
+            "selfUs": 47234,
+            "inclusiveUs": 224553,
+            "selfPercent": 0.46939496902484124,
+            "inclusivePercent": 2.2315291628791796
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 481,
+            "selfUs": 46381,
+            "inclusiveUs": 46381,
+            "selfPercent": 0.46091815341366726,
+            "inclusivePercent": 0.46091815341366726
+          },
+          {
+            "function": "readInt32BE",
+            "url": "node:internal/buffer",
+            "line": 484,
+            "selfUs": 42276,
+            "inclusiveUs": 42276,
+            "selfPercent": 0.4201240993880296,
+            "inclusivePercent": 0.4201240993880296
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 486,
+            "selfUs": 36280,
+            "inclusiveUs": 36280,
+            "selfPercent": 0.36053794885508833,
+            "inclusivePercent": 0.36053794885508833
+          },
+          {
+            "function": "addInt32PrefixedString",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/buffer-writer.js",
+            "line": 63,
+            "selfUs": 35016,
+            "inclusiveUs": 158114,
+            "selfPercent": 0.34797675901625613,
+            "inclusivePercent": 1.5712816219755632
+          }
+        ],
+        "topProjectInclusive": [
+          {
+            "function": "populateRows",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1510,
+            "selfUs": 200381,
+            "inclusiveUs": 2582683,
+            "selfPercent": 1.9913162825118922,
+            "inclusivePercent": 25.66580020294669
+          },
+          {
+            "function": "childrenByParent",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1410,
+            "selfUs": 1137968,
+            "inclusiveUs": 1944454,
+            "selfPercent": 11.308727910218499,
+            "inclusivePercent": 19.323303660503637
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1540,
+            "selfUs": 484838,
+            "inclusiveUs": 908781,
+            "selfPercent": 4.8181504423099035,
+            "inclusivePercent": 9.031147676363727
+          },
+          {
+            "function": "loaderKey",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 478,
+            "selfUs": 493944,
+            "inclusiveUs": 709336,
+            "selfPercent": 4.908642684930477,
+            "inclusivePercent": 7.049133034428691
+          },
+          {
+            "function": "find",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1608,
+            "selfUs": 8138,
+            "inclusiveUs": 512606,
+            "selfPercent": 0.08087259723767114,
+            "inclusivePercent": 5.094099112756653
+          },
+          {
+            "function": "compileRead",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1038,
+            "selfUs": 31954,
+            "inclusiveUs": 334897,
+            "selfPercent": 0.3175476741376927,
+            "inclusivePercent": 3.328089235328625
+          },
+          {
+            "function": "attachRelations",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1501,
+            "selfUs": 6585,
+            "inclusiveUs": 269018,
+            "selfPercent": 0.06543942649423254,
+            "inclusivePercent": 2.6734067785308198
+          },
+          {
+            "function": "compile",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 293,
+            "selfUs": 28562,
+            "inclusiveUs": 234980,
+            "selfPercent": 0.28383916469677595,
+            "inclusivePercent": 2.3351490413993563
+          },
+          {
+            "function": "copyPopulatedRow",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 515,
+            "selfUs": 171937,
+            "inclusiveUs": 233936,
+            "selfPercent": 1.7086497605374122,
+            "inclusivePercent": 2.324774134602093
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1547,
+            "selfUs": 47234,
+            "inclusiveUs": 224553,
+            "selfPercent": 0.46939496902484124,
+            "inclusivePercent": 2.2315291628791796
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 480,
+            "selfUs": 1059,
+            "inclusiveUs": 169011,
+            "selfPercent": 0.010523971550097534,
+            "inclusivePercent": 1.6795721960845458
+          },
+          {
+            "function": "loaderKeyPart",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 466,
+            "selfUs": 167952,
+            "inclusiveUs": 167952,
+            "selfPercent": 1.6690482245344485,
+            "inclusivePercent": 1.6690482245344485
+          },
+          {
+            "function": "whereClause",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 224,
+            "selfUs": 0,
+            "inclusiveUs": 114835,
+            "selfPercent": 0,
+            "inclusivePercent": 1.1411900594480173
+          },
+          {
+            "function": "predicateList",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 214,
+            "selfUs": 11184,
+            "inclusiveUs": 114835,
+            "selfPercent": 0.11114267971321133,
+            "inclusivePercent": 1.1411900594480173
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 216,
+            "selfUs": 30160,
+            "inclusiveUs": 103651,
+            "selfPercent": 0.2997195296987173,
+            "inclusivePercent": 1.0300473797348058
+          },
+          {
+            "function": "renderPredicate",
+            "url": "file://source/packages/sql/src/clauses.ts",
+            "line": 158,
+            "selfUs": 50423,
+            "inclusiveUs": 73491,
+            "selfPercent": 0.5010861354774012,
+            "inclusivePercent": 0.7303278500360886
+          },
+          {
+            "function": "resolvePopulateFilters",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1102,
+            "selfUs": 6600,
+            "inclusiveUs": 71045,
+            "selfPercent": 0.06558849124706677,
+            "inclusivePercent": 0.7060203576739181
+          },
+          {
+            "function": "relationKeyValues",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 485,
+            "selfUs": 26134,
+            "inclusiveUs": 62414,
+            "selfPercent": 0.2597105500380065,
+            "inclusivePercent": 0.6202484988930949
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 520,
+            "selfUs": 5382,
+            "inclusiveUs": 61999,
+            "selfPercent": 0.053484433316926275,
+            "inclusivePercent": 0.6161243740646808
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1613,
+            "selfUs": 4201,
+            "inclusiveUs": 58450,
+            "selfPercent": 0.0417480684437769,
+            "inclusivePercent": 0.580855653544099
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 298,
+            "selfUs": 15781,
+            "inclusiveUs": 53126,
+            "selfPercent": 0.15682605763181226,
+            "inclusivePercent": 0.5279476039381318
+          },
+          {
+            "function": "populatePlan",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 969,
+            "selfUs": 26933,
+            "inclusiveUs": 53083,
+            "selfPercent": 0.2676507325389772,
+            "inclusivePercent": 0.5275202849800069
+          },
+          {
+            "function": "quoteColumn",
+            "url": "file://source/packages/sql/src/quoting.ts",
+            "line": 20,
+            "selfUs": 26228,
+            "inclusiveUs": 47119,
+            "selfPercent": 0.26064468915576783,
+            "inclusivePercent": 0.46825213925311204
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 481,
+            "selfUs": 46381,
+            "inclusiveUs": 46381,
+            "selfPercent": 0.46091815341366726,
+            "inclusivePercent": 0.46091815341366726
+          },
+          {
+            "function": "compileWhere",
+            "url": "file://source/packages/orm/src/dto/index.ts",
+            "line": 106,
+            "selfUs": 11717,
+            "inclusiveUs": 41130,
+            "selfPercent": 0.11643944726392143,
+            "inclusivePercent": 0.4087355522714934
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 486,
+            "selfUs": 36280,
+            "inclusiveUs": 36280,
+            "selfPercent": 0.36053794885508833,
+            "inclusivePercent": 0.36053794885508833
+          },
+          {
+            "function": "resolveReadFilters",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1011,
+            "selfUs": 12817,
+            "inclusiveUs": 35914,
+            "selfPercent": 0.1273708624717659,
+            "inclusivePercent": 0.35690076888593275
+          },
+          {
+            "function": "",
+            "url": "file://source/packages/orm/src/index.ts",
+            "line": 1526,
+            "selfUs": 1056,
+            "inclusiveUs": 32812,
+            "selfPercent": 0.010494158599530684,
+            "inclusivePercent": 0.3260741779998114
+          },
+          {
+            "function": "executeOn",
+            "url": "file://source/packages/postgres/src/driver.ts",
+            "line": 95,
+            "selfUs": 20432,
+            "inclusiveUs": 32069,
+            "selfPercent": 0.20304606866061642,
+            "inclusivePercent": 0.3186905039094219
+          },
+          {
+            "function": "next",
+            "url": "file://source/packages/sql/src/index.ts",
+            "line": 240,
+            "selfUs": 11997,
+            "inclusiveUs": 31415,
+            "selfPercent": 0.11922198931682729,
+            "inclusivePercent": 0.3121912806858489
+          }
+        ]
+      },
+      {
+        "path": "evidence/orm/cpu-0-48-nested-drizzle-relational.cpuprofile",
+        "samples": 8568,
+        "durationMs": 10079.707,
+        "topSelf": [
+          {
+            "function": "is",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/entity.js",
+            "line": 3,
+            "selfUs": 2942679,
+            "inclusiveUs": 2942679,
+            "selfPercent": 29.194092645748533,
+            "inclusivePercent": 29.194092645748533
+          },
+          {
+            "function": "mapRelationalRow",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/relations.js",
+            "line": 260,
+            "selfUs": 1330838,
+            "inclusiveUs": 8358262,
+            "selfPercent": 13.2031417183059,
+            "inclusivePercent": 82.92167619554814
+          },
+          {
+            "function": "(garbage collector)",
+            "url": "",
+            "line": 0,
+            "selfUs": 1291473,
+            "inclusiveUs": 1291473,
+            "selfPercent": 12.812604572732125,
+            "inclusivePercent": 12.812604572732125
+          },
+          {
+            "function": "_parseRowAsArray",
+            "url": "file://evidence/orm/deps/node_modules/pg/lib/result.js",
+            "line": 50,
+            "selfUs": 1051118,
+            "inclusiveUs": 1070320,
+            "selfPercent": 10.428061053758805,
+            "inclusivePercent": 10.618562622901639
+          },
+          {
+            "function": "",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/sql/sql.js",
+            "line": 83,
+            "selfUs": 353471,
+            "inclusiveUs": 8761287,
+            "selfPercent": 3.5067586786004794,
+            "inclusivePercent": 86.92005630719225
+          },
+          {
+            "function": "",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/relations.js",
+            "line": 277,
+            "selfUs": 307526,
+            "inclusiveUs": 5209808,
+            "selfPercent": 3.0509418577345553,
+            "inclusivePercent": 51.68610555842545
+          },
+          {
+            "function": "buildQueryFromSourceParams",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/sql/sql.js",
+            "line": 70,
+            "selfUs": 248397,
+            "inclusiveUs": 9097322,
+            "selfPercent": 2.4643275841252135,
+            "inclusivePercent": 90.25383376719185
+          },
+          {
+            "function": "buildRelationalQueryWithoutPK",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/pg-core/dialect.js",
+            "line": 919,
+            "selfUs": 204678,
+            "inclusiveUs": 2097806,
+            "selfPercent": 2.030594738517697,
+            "inclusivePercent": 20.81217241731332
+          },
+          {
+            "function": "(idle)",
+            "url": "",
+            "line": 0,
+            "selfUs": 195368,
+            "inclusiveUs": 195368,
+            "selfPercent": 1.9382309426256141,
+            "inclusivePercent": 1.9382309426256141
+          },
+          {
+            "function": "get",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/alias.js",
+            "line": 11,
+            "selfUs": 190602,
+            "inclusiveUs": 192713,
+            "selfPercent": 1.890947822193641,
+            "inclusivePercent": 1.9118908912729309
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 0,
+            "selfUs": 133976,
+            "inclusiveUs": 133976,
+            "selfPercent": 1.3291656195958872,
+            "inclusivePercent": 1.3291656195958872
+          },
+          {
+            "function": "utf8Slice",
+            "url": "",
+            "line": 0,
+            "selfUs": 122737,
+            "inclusiveUs": 122737,
+            "selfPercent": 1.21766436266451,
+            "inclusivePercent": 1.21766436266451
+          },
+          {
+            "function": "writev",
+            "url": "",
+            "line": 0,
+            "selfUs": 117295,
+            "inclusiveUs": 117295,
+            "selfPercent": 1.163674698083982,
+            "inclusivePercent": 1.163674698083982
+          },
+          {
+            "function": "mergeQueries",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/sql/sql.js",
+            "line": 14,
+            "selfUs": 89749,
+            "inclusiveUs": 89749,
+            "selfPercent": 0.890392944953658,
+            "inclusivePercent": 0.890392944953658
+          },
+          {
+            "function": "toString",
+            "url": "node:buffer",
+            "line": 970,
+            "selfUs": 69193,
+            "inclusiveUs": 194047,
+            "selfPercent": 0.686458445667121,
+            "inclusivePercent": 1.9251254029507008
+          },
+          {
+            "function": "(program)",
+            "url": "",
+            "line": 0,
+            "selfUs": 66408,
+            "inclusiveUs": 66408,
+            "selfPercent": 0.6588286742858696,
+            "inclusivePercent": 0.6588286742858696
+          },
+          {
+            "function": "",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/pg-core/query-builders/query.js",
+            "line": 70,
+            "selfUs": 64948,
+            "inclusiveUs": 3519803,
+            "selfPercent": 0.6443441262727181,
+            "inclusivePercent": 34.9196955824212
+          },
+          {
+            "function": "post",
+            "url": "node:inspector",
+            "line": 115,
+            "selfUs": 61189,
+            "inclusiveUs": 61189,
+            "selfPercent": 0.607051375600501,
+            "inclusivePercent": 0.607051375600501
+          },
+          {
+            "function": "addFields",
+            "url": "file://evidence/orm/deps/node_modules/pg/lib/result.js",
+            "line": 82,
+            "selfUs": 60174,
+            "inclusiveUs": 67581,
+            "selfPercent": 0.5969816384543717,
+            "inclusivePercent": 0.6704659173128743
+          },
+          {
+            "function": "escapeName",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/pg-core/dialect.js",
+            "line": 73,
+            "selfUs": 54802,
+            "inclusiveUs": 54802,
+            "selfPercent": 0.5436864385046113,
+            "inclusivePercent": 0.5436864385046113
+          },
+          {
+            "function": "buildSelectQuery",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/pg-core/dialect.js",
+            "line": 240,
+            "selfUs": 48091,
+            "inclusiveUs": 560470,
+            "selfPercent": 0.4771071222605974,
+            "inclusivePercent": 5.560379880089768
+          },
+          {
+            "function": "buildSelection",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/pg-core/dialect.js",
+            "line": 142,
+            "selfUs": 43779,
+            "inclusiveUs": 184480,
+            "selfPercent": 0.43432810100531694,
+            "inclusivePercent": 1.8302119297713713
+          },
+          {
+            "function": "sql",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/sql/sql.js",
+            "line": 283,
+            "selfUs": 39070,
+            "inclusiveUs": 359772,
+            "selfPercent": 0.38761047320125475,
+            "inclusivePercent": 3.5692704162928544
+          },
+          {
+            "function": "runMicrotasks",
+            "url": "",
+            "line": 0,
+            "selfUs": 37708,
+            "inclusiveUs": 6446695,
+            "selfPercent": 0.37409817567117776,
+            "inclusivePercent": 63.95716661208506
+          },
+          {
+            "function": "getColumnCasing",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/casing.js",
+            "line": 26,
+            "selfUs": 27926,
+            "inclusiveUs": 35326,
+            "selfPercent": 0.2770517039830622,
+            "inclusivePercent": 0.350466536378488
+          },
+          {
+            "function": "",
+            "url": "file://evidence/orm/deps/node_modules/pg-protocol/dist/index.js",
+            "line": 12,
+            "selfUs": 27378,
+            "inclusiveUs": 1952977,
+            "selfPercent": 0.271615038016482,
+            "inclusivePercent": 19.375335017178575
+          },
+          {
+            "function": "",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/pg-core/dialect.js",
+            "line": 144,
+            "selfUs": 26219,
+            "inclusiveUs": 105999,
+            "selfPercent": 0.26011668791563086,
+            "inclusivePercent": 1.0516079485246943
+          },
+          {
+            "function": "_pulseQueue",
+            "url": "file://evidence/orm/deps/node_modules/pg-pool/index.js",
+            "line": 127,
+            "selfUs": 24879,
+            "inclusiveUs": 403147,
+            "selfPercent": 0.2468226506980808,
+            "inclusivePercent": 3.999590464286313
+          },
+          {
+            "function": "handleDataRow",
+            "url": "file://evidence/orm/deps/node_modules/pg/lib/query.js",
+            "line": 82,
+            "selfUs": 24274,
+            "inclusiveUs": 1097758,
+            "selfPercent": 0.2408204921035899,
+            "inclusivePercent": 10.890772916315921
+          },
+          {
+            "function": "buildJoins",
+            "url": "file://evidence/orm/deps/node_modules/drizzle-orm/pg-core/dialect.js",
+            "line": 191,
+            "selfUs": 23102,
+            "inclusiveUs": 114644,
+            "selfPercent": 0.22919316999988193,
+            "inclusivePercent": 1.1373743304244854
+          }
+        ],
+        "topProjectInclusive": []
+      }
+    ],
+    "numericKeyAblation": {
+      "kind": "evidence-only ABBA ablation",
+      "rows": [
+        {
+          "label": "1A",
+          "variant": "canonical",
+          "ops": 1938.7115382558966,
+          "p50": 23.119732000000113,
+          "p99": 48.762917000000016,
+          "cpu": 98.27501642392724
+        },
+        {
+          "label": "2B",
+          "variant": "numeric scalar fast path",
+          "ops": 2160.8239170014567,
+          "p50": 21.17894800000022,
+          "p99": 41.80870100000038,
+          "cpu": 98.14591681301359
+        },
+        {
+          "label": "3B",
+          "variant": "numeric scalar fast path",
+          "ops": 2186.008241575274,
+          "p50": 20.77884300000005,
+          "p99": 38.15892699999995,
+          "cpu": 98.10194429788152
+        },
+        {
+          "label": "4A",
+          "variant": "canonical",
+          "ops": 1854.980859941716,
+          "p50": 24.26911700000028,
+          "p99": 50.000548999999864,
+          "cpu": 98.25658194386084
+        }
+      ],
+      "pairedChanges": [0.11456700719147572, 0.1784532599673072]
+    },
+    "fairness": {
+      "sharedPool": 12,
+      "rows": {
+        "users": 2000,
+        "posts": 8000,
+        "comments": 24000
+      },
+      "sharedIndexes": ["primary keys", "users(tenant_id,id)", "posts(user_id)", "comments(post_id)"],
+      "nativeDrizzleStrategy": "One lateral JSON aggregation query, native row mapper. Other graph lanes issue three batched queries.",
+      "builderBoundary": "The pg/Drizzle/Kysely/zmdb-builder lanes use common pg transport and manual graph assembly; repository and deferred use the actual public repository.",
+      "timing": "Clean intervals include latency-array allocation, consistently across lanes; CPU profiles omit those arrays."
+    }
+  },
+  "httpBodyAblation": {
+    "order": ["zmdb", "zmdb-native-body", "zmdb-native-body", "zmdb"],
+    "cells": [
+      {
+        "file": "evidence/http/measure-2026-09-08T16-34-44.734Z/result.json",
+        "bundle": "zmdb",
+        "pass": 1,
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "rps": 77330.32866837153,
+        "p99Milliseconds": 2.4416339999999996,
+        "meanMilliseconds": 0.8264043214477336,
+        "bytes": 25371456,
+        "cleaned": true,
+        "error": null
+      },
+      {
+        "file": "evidence/http/measure-2026-09-08T16-34-58.117Z/result.json",
+        "bundle": "zmdb-native-body",
+        "pass": 1,
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "rps": 71858.68219856758,
+        "p99Milliseconds": 2.537144,
+        "meanMilliseconds": 0.889230386805456,
+        "bytes": 23576681,
+        "cleaned": true,
+        "error": null
+      },
+      {
+        "file": "evidence/http/measure-2026-09-08T16-35-11.490Z/result.json",
+        "bundle": "zmdb-native-body",
+        "pass": 1,
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "rps": 73638.15515151605,
+        "p99Milliseconds": 2.475227,
+        "meanMilliseconds": 0.8673053937762305,
+        "bytes": 24160849,
+        "cleaned": true,
+        "error": null
+      },
+      {
+        "file": "evidence/http/measure-2026-09-08T16-35-24.846Z/result.json",
+        "bundle": "zmdb",
+        "pass": 1,
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "rps": 75067.52883773544,
+        "p99Milliseconds": 2.639556,
+        "meanMilliseconds": 0.851150067485949,
+        "bytes": 24628823,
+        "cleaned": true,
+        "error": null
+      }
+    ],
+    "baselineMeanRps": 76198.92875305348,
+    "nativeMeanRps": 72748.41867504182,
+    "gainPercent": -4.528292109189779,
+    "baselineP99ms": 2.5405949999999997,
+    "nativeP99ms": 2.5061855,
+    "interpretation": "One diagnostic only: announced and post-read size checks preserved, early bounded streaming enforcement not preserved. It retains the existing body-null getter check; no claim that full native request parsing or the wider Fetch gap has been isolated."
+  },
+  "httpProfiles": [
+    {
+      "file": "profile-2026-09-08T16-30-46.434Z/1-zmdb-node.cpuprofile",
+      "profileDurationMicroseconds": 12380319,
+      "allSampleMicroseconds": 12379957,
+      "idleSampleMicroseconds": 1620833,
+      "nonIdleSampleMicroseconds": 10759124,
+      "interpretation": "These are sampled intervals, not a measured hardware CPU-time ledger. Non-idle includes warmup and response checks (Node also startup); saved profiles do not mark the clean timed interval, so hot-only CPU time is not claimed.",
+      "top": [
+        {
+          "functionName": "writevGeneric",
+          "scriptId": "106",
+          "url": "node:internal/stream_base_commons",
+          "lineNumber": 120,
+          "columnNumber": 22,
+          "microseconds": 4061464,
+          "percentAllSamples": 32.80676984580803,
+          "percentNonIdleSamples": 37.74902120284142
+        },
+        {
+          "functionName": "(program)",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 1129271,
+          "percentAllSamples": 9.121768355092025,
+          "percentNonIdleSamples": 10.495938145150108
+        },
+        {
+          "functionName": "handle",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5271,
+          "columnNumber": 16,
+          "microseconds": 539089,
+          "percentAllSamples": 4.3545304721171485,
+          "percentNonIdleSamples": 5.01052873821326
+        },
+        {
+          "functionName": "processTicksAndRejections",
+          "scriptId": "33",
+          "url": "node:internal/process/task_queues",
+          "lineNumber": 71,
+          "columnNumber": 34,
+          "microseconds": 486668,
+          "percentAllSamples": 3.931096045002418,
+          "percentNonIdleSamples": 4.5233050571775175
+        },
+        {
+          "functionName": "(garbage collector)",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 395118,
+          "percentAllSamples": 3.1915942842127802,
+          "percentNonIdleSamples": 3.6723993514713653
+        },
+        {
+          "functionName": "nextTick",
+          "scriptId": "33",
+          "url": "node:internal/process/task_queues",
+          "lineNumber": 112,
+          "columnNumber": 17,
+          "microseconds": 281567,
+          "percentAllSamples": 2.2743778512316317,
+          "percentNonIdleSamples": 2.617006737723257
+        },
+        {
+          "functionName": "createRequestData",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 4329,
+          "columnNumber": 26,
+          "microseconds": 269095,
+          "percentAllSamples": 2.173634367227608,
+          "percentNonIdleSamples": 2.501086519683201
+        },
+        {
+          "functionName": "tagged",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 4816,
+          "columnNumber": 15,
+          "microseconds": 232294,
+          "percentAllSamples": 1.8763716222923876,
+          "percentNonIdleSamples": 2.15904194430699
+        },
+        {
+          "functionName": "_addHeaderLine",
+          "scriptId": "113",
+          "url": "node:_http_incoming",
+          "lineNumber": 445,
+          "columnNumber": 23,
+          "microseconds": 184179,
+          "percentAllSamples": 1.4877192222880904,
+          "percentNonIdleSamples": 1.7118401089159303
+        },
+        {
+          "functionName": "parserOnIncoming",
+          "scriptId": "115",
+          "url": "node:_http_server",
+          "lineNumber": 1266,
+          "columnNumber": 25,
+          "microseconds": 143632,
+          "percentAllSamples": 1.1601978908327388,
+          "percentNonIdleSamples": 1.3349785726049817
+        },
+        {
+          "functionName": "popAsyncContext",
+          "scriptId": "11",
+          "url": "node:internal/async_hooks",
+          "lineNumber": 562,
+          "columnNumber": 24,
+          "microseconds": 136797,
+          "percentAllSamples": 1.1049876829135998,
+          "percentNonIdleSamples": 1.271451095832709
+        },
+        {
+          "functionName": "parserOnHeadersComplete",
+          "scriptId": "111",
+          "url": "node:_http_common",
+          "lineNumber": 76,
+          "columnNumber": 32,
+          "microseconds": 134632,
+          "percentAllSamples": 1.087499738488591,
+          "percentNonIdleSamples": 1.2513286397665833
+        },
+        {
+          "functionName": "_storeHeader",
+          "scriptId": "114",
+          "url": "node:_http_outgoing",
+          "lineNumber": 437,
+          "columnNumber": 21,
+          "microseconds": 112597,
+          "percentAllSamples": 0.9095104288326689,
+          "percentNonIdleSamples": 1.0465257208672378
+        },
+        {
+          "functionName": "_addListener",
+          "scriptId": "23",
+          "url": "node:events",
+          "lineNumber": 544,
+          "columnNumber": 21,
+          "microseconds": 94979,
+          "percentAllSamples": 0.767199756832758,
+          "percentNonIdleSamples": 0.882776330117582
+        },
+        {
+          "functionName": "createWriteWrap",
+          "scriptId": "106",
+          "url": "node:internal/stream_base_commons",
+          "lineNumber": 107,
+          "columnNumber": 24,
+          "microseconds": 92538,
+          "percentAllSamples": 0.7474824024025285,
+          "percentNonIdleSamples": 0.860088609444412
+        },
+        {
+          "functionName": "resOnFinish",
+          "scriptId": "115",
+          "url": "node:_http_server",
+          "lineNumber": 1195,
+          "columnNumber": 20,
+          "microseconds": 73947,
+          "percentAllSamples": 0.5973122523769671,
+          "percentNonIdleSamples": 0.6872957315112271
+        },
+        {
+          "functionName": "writeOrBuffer",
+          "scriptId": "100",
+          "url": "node:internal/streams/writable",
+          "lineNumber": 549,
+          "columnNumber": 22,
+          "microseconds": 70520,
+          "percentAllSamples": 0.5696304114788121,
+          "percentNonIdleSamples": 0.6554436959737614
+        },
+        {
+          "functionName": "exchange",
+          "scriptId": "22",
+          "url": "node:internal/async_context_frame",
+          "lineNumber": 27,
+          "columnNumber": 17,
+          "microseconds": 68456,
+          "percentAllSamples": 0.5529583018745542,
+          "percentNonIdleSamples": 0.6362599780428221
+        },
+        {
+          "functionName": "clearIncoming",
+          "scriptId": "115",
+          "url": "node:_http_server",
+          "lineNumber": 1182,
+          "columnNumber": 22,
+          "microseconds": 65426,
+          "percentAllSamples": 0.5284832572520244,
+          "percentNonIdleSamples": 0.6080978339872279
+        },
+        {
+          "functionName": "socketListenerWrap",
+          "scriptId": "115",
+          "url": "node:_http_server",
+          "lineNumber": 1443,
+          "columnNumber": 36,
+          "microseconds": 64430,
+          "percentAllSamples": 0.520437995059272,
+          "percentNonIdleSamples": 0.5988405747531119
+        },
+        {
+          "functionName": "dispatch",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5473,
+          "columnNumber": 17,
+          "microseconds": 61698,
+          "percentAllSamples": 0.49837006703658177,
+          "percentNonIdleSamples": 0.573448172918167
+        },
+        {
+          "functionName": "emit",
+          "scriptId": "23",
+          "url": "node:events",
+          "lineNumber": 488,
+          "columnNumber": 43,
+          "microseconds": 59232,
+          "percentAllSamples": 0.47845077329428526,
+          "percentNonIdleSamples": 0.5505280913204458
+        },
+        {
+          "functionName": "insert",
+          "scriptId": "10",
+          "url": "node:internal/timers",
+          "lineNumber": 425,
+          "columnNumber": 15,
+          "microseconds": 57898,
+          "percentAllSamples": 0.467675291602386,
+          "percentNonIdleSamples": 0.5381293123863987
+        },
+        {
+          "functionName": "flattenHeaders",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5678,
+          "columnNumber": 23,
+          "microseconds": 56717,
+          "percentAllSamples": 0.45813567850033726,
+          "percentNonIdleSamples": 0.5271525823106045
+        },
+        {
+          "functionName": "matchCompiled",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 609,
+          "columnNumber": 22,
+          "microseconds": 56648,
+          "percentAllSamples": 0.45757832599903214,
+          "percentNonIdleSamples": 0.5265112661588434
+        },
+        {
+          "functionName": "compileForInternalLoader",
+          "scriptId": "6",
+          "url": "node:internal/bootstrap/realm",
+          "lineNumber": 391,
+          "columnNumber": 26,
+          "microseconds": 53897,
+          "percentAllSamples": 0.4353569240991709,
+          "percentNonIdleSamples": 0.5009422700212397
+        },
+        {
+          "functionName": "clearBuffer",
+          "scriptId": "100",
+          "url": "node:internal/streams/writable",
+          "lineNumber": 745,
+          "columnNumber": 20,
+          "microseconds": 51683,
+          "percentAllSamples": 0.41747317862251054,
+          "percentNonIdleSamples": 0.4803643865429936
+        },
+        {
+          "functionName": "onwrite",
+          "scriptId": "100",
+          "url": "node:internal/streams/writable",
+          "lineNumber": 616,
+          "columnNumber": 16,
+          "microseconds": 50704,
+          "percentAllSamples": 0.4095652351619638,
+          "percentNonIdleSamples": 0.4712651327375723
+        },
+        {
+          "functionName": "byteLength",
+          "scriptId": "25",
+          "url": "node:buffer",
+          "lineNumber": 905,
+          "columnNumber": 19,
+          "microseconds": 49126,
+          "percentAllSamples": 0.3968188257842899,
+          "percentNonIdleSamples": 0.45659851117990646
+        },
+        {
+          "functionName": "emitReadable",
+          "scriptId": "95",
+          "url": "node:internal/streams/readable",
+          "lineNumber": 841,
+          "columnNumber": 21,
+          "microseconds": 45392,
+          "percentAllSamples": 0.3666571701339512,
+          "percentNonIdleSamples": 0.4218930834889532
+        },
+        {
+          "functionName": "_write",
+          "scriptId": "100",
+          "url": "node:internal/streams/writable",
+          "lineNumber": 451,
+          "columnNumber": 15,
+          "microseconds": 45263,
+          "percentAllSamples": 0.3656151632836851,
+          "percentNonIdleSamples": 0.4206941011182695
+        },
+        {
+          "functionName": "writeHead",
+          "scriptId": "115",
+          "url": "node:_http_server",
+          "lineNumber": 410,
+          "columnNumber": 18,
+          "microseconds": 43678,
+          "percentAllSamples": 0.35281221089863235,
+          "percentNonIdleSamples": 0.4059624185017293
+        },
+        {
+          "functionName": "writeNodeHead",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5516,
+          "columnNumber": 22,
+          "microseconds": 41813,
+          "percentAllSamples": 0.3377475382184284,
+          "percentNonIdleSamples": 0.3886282935302168
+        },
+        {
+          "functionName": "send",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5491,
+          "columnNumber": 13,
+          "microseconds": 37916,
+          "percentAllSamples": 0.30626923825341235,
+          "percentNonIdleSamples": 0.3524078726111903
+        },
+        {
+          "functionName": "addListener",
+          "scriptId": "23",
+          "url": "node:events",
+          "lineNumber": 614,
+          "columnNumber": 57,
+          "microseconds": 36176,
+          "percentAllSamples": 0.29221426213354373,
+          "percentNonIdleSamples": 0.33623555226243323
+        },
+        {
+          "functionName": "routeCandidates",
+          "scriptId": "203",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 4848,
+          "columnNumber": 26,
+          "microseconds": 34798,
+          "percentAllSamples": 0.28108336725240646,
+          "percentNonIdleSamples": 0.32342781810117627
+        },
+        {
+          "functionName": "callback",
+          "scriptId": "100",
+          "url": "node:internal/streams/writable",
+          "lineNumber": 765,
+          "columnNumber": 62,
+          "microseconds": 34714,
+          "percentAllSamples": 0.28040485116386105,
+          "percentNonIdleSamples": 0.32264708539468456
+        },
+        {
+          "functionName": "end",
+          "scriptId": "114",
+          "url": "node:_http_outgoing",
+          "lineNumber": 1142,
+          "columnNumber": 44,
+          "microseconds": 34509,
+          "percentAllSamples": 0.278748948804911,
+          "percentNonIdleSamples": 0.32074172581336546
+        },
+        {
+          "functionName": "write_",
+          "scriptId": "114",
+          "url": "node:_http_outgoing",
+          "lineNumber": 940,
+          "columnNumber": 15,
+          "microseconds": 34265,
+          "percentAllSamples": 0.27677802111913635,
+          "percentNonIdleSamples": 0.3184738831897467
+        },
+        {
+          "functionName": "EventEmitter.init",
+          "scriptId": "23",
+          "url": "node:events",
+          "lineNumber": 331,
+          "columnNumber": 28,
+          "microseconds": 33984,
+          "percentAllSamples": 0.2745082232515024,
+          "percentNonIdleSamples": 0.31586214639779225
+        }
+      ]
+    },
+    {
+      "file": "profile-2026-09-08T16-31-38.893Z/1-zmdb-deno.cpuprofile",
+      "profileDurationMicroseconds": 12252551,
+      "allSampleMicroseconds": 12252146,
+      "idleSampleMicroseconds": 4085811,
+      "nonIdleSampleMicroseconds": 8166335,
+      "interpretation": "These are sampled intervals, not a measured hardware CPU-time ledger. Non-idle includes warmup and response checks (Node also startup); saved profiles do not mark the clean timed interval, so hot-only CPU time is not claimed.",
+      "top": [
+        {
+          "functionName": "(garbage collector)",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 838501,
+          "percentAllSamples": 6.843707216678613,
+          "percentNonIdleSamples": 10.267776181114295
+        },
+        {
+          "functionName": "",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5606,
+          "columnNumber": 23,
+          "microseconds": 814337,
+          "percentAllSamples": 6.646484623999747,
+          "percentNonIdleSamples": 9.97187844975745
+        },
+        {
+          "functionName": "readFetchBody",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5637,
+          "columnNumber": 28,
+          "microseconds": 621128,
+          "percentAllSamples": 5.069544551623855,
+          "percentNonIdleSamples": 7.605957874615724
+        },
+        {
+          "functionName": "",
+          "scriptId": "213",
+          "url": "ext:deno_fetch/20_headers.js",
+          "lineNumber": 0,
+          "columnNumber": 3917,
+          "microseconds": 590683,
+          "percentAllSamples": 4.82105747025868,
+          "percentNonIdleSamples": 7.233146815554346
+        },
+        {
+          "functionName": "get stream",
+          "scriptId": "207",
+          "url": "ext:deno_fetch/22_body.js",
+          "lineNumber": 0,
+          "columnNumber": 1760,
+          "microseconds": 406997,
+          "percentAllSamples": 3.3218425572140586,
+          "percentNonIdleSamples": 4.983839139589547
+        },
+        {
+          "functionName": "handle",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5271,
+          "columnNumber": 16,
+          "microseconds": 386834,
+          "percentAllSamples": 3.1572754683138773,
+          "percentNonIdleSamples": 4.736935234716675
+        },
+        {
+          "functionName": "(program)",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 361675,
+          "percentAllSamples": 2.95193184932664,
+          "percentNonIdleSamples": 4.428853335064016
+        },
+        {
+          "functionName": "parseJson",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5670,
+          "columnNumber": 18,
+          "microseconds": 345939,
+          "percentAllSamples": 2.8234972061220946,
+          "percentNonIdleSamples": 4.236159795061065
+        },
+        {
+          "functionName": "createDefaultIterator",
+          "scriptId": "17",
+          "url": "ext:deno_webidl/00_webidl.js",
+          "lineNumber": 1,
+          "columnNumber": 51,
+          "microseconds": 288079,
+          "percentAllSamples": 2.351253404913719,
+          "percentNonIdleSamples": 3.527641224613
+        },
+        {
+          "functionName": "get body",
+          "scriptId": "206",
+          "url": "ext:deno_http/00_serve.ts",
+          "lineNumber": 0,
+          "columnNumber": 5780,
+          "microseconds": 205837,
+          "percentAllSamples": 1.680007730890572,
+          "percentNonIdleSamples": 2.5205554266387553
+        },
+        {
+          "functionName": "get headerList",
+          "scriptId": "206",
+          "url": "ext:deno_http/00_serve.ts",
+          "lineNumber": 0,
+          "columnNumber": 6392,
+          "microseconds": 191938,
+          "percentAllSamples": 1.5665663794734408,
+          "percentNonIdleSamples": 2.3503566777507903
+        },
+        {
+          "functionName": "createRequestData",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 4329,
+          "columnNumber": 26,
+          "microseconds": 171140,
+          "percentAllSamples": 1.3968165250397766,
+          "percentNonIdleSamples": 2.0956769468800878
+        },
+        {
+          "functionName": "parseSimpleSpecialUrl",
+          "scriptId": "25",
+          "url": "ext:deno_web/00_url.js",
+          "lineNumber": 1,
+          "columnNumber": 1622,
+          "microseconds": 146390,
+          "percentAllSamples": 1.1948110967662318,
+          "percentNonIdleSamples": 1.7926034138937479
+        },
+        {
+          "functionName": "op_http_try_take_full_request_body",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 145822,
+          "percentAllSamples": 1.1901751742102975,
+          "percentNonIdleSamples": 1.7856480293791523
+        },
+        {
+          "functionName": "op_http_get_request_header",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 144329,
+          "percentAllSamples": 1.1779895538299985,
+          "percentNonIdleSamples": 1.7673656542377945
+        },
+        {
+          "functionName": "jsonResponse",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 4809,
+          "columnNumber": 21,
+          "microseconds": 132198,
+          "percentAllSamples": 1.078978327551761,
+          "percentNonIdleSamples": 1.6188167641910356
+        },
+        {
+          "functionName": "fillHeaders",
+          "scriptId": "213",
+          "url": "ext:deno_fetch/20_headers.js",
+          "lineNumber": 0,
+          "columnNumber": 1308,
+          "microseconds": 127440,
+          "percentAllSamples": 1.0401443143103257,
+          "percentNonIdleSamples": 1.5605531734860252
+        },
+        {
+          "functionName": "fetchHeaders",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5760,
+          "columnNumber": 21,
+          "microseconds": 108859,
+          "percentAllSamples": 0.8884892491486798,
+          "percentNonIdleSamples": 1.3330214839337353
+        },
+        {
+          "functionName": "op_http_set_response_body_static_with_content_type",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 108421,
+          "percentAllSamples": 0.8849143652058994,
+          "percentNonIdleSamples": 1.3276580008045225
+        },
+        {
+          "functionName": "op_http_get_request_url",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 103588,
+          "percentAllSamples": 0.845468214303029,
+          "percentNonIdleSamples": 1.268476005454099
+        },
+        {
+          "functionName": "header",
+          "scriptId": "206",
+          "url": "ext:deno_http/00_serve.ts",
+          "lineNumber": 0,
+          "columnNumber": 6551,
+          "microseconds": 93086,
+          "percentAllSamples": 0.7597526180311596,
+          "percentNonIdleSamples": 1.1398748643057137
+        },
+        {
+          "functionName": "op_encoding_decode_utf8",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 67426,
+          "percentAllSamples": 0.5503199194655369,
+          "percentNonIdleSamples": 0.8256580216216944
+        },
+        {
+          "functionName": "assertBranded",
+          "scriptId": "17",
+          "url": "ext:deno_webidl/00_webidl.js",
+          "lineNumber": 0,
+          "columnNumber": 14264,
+          "microseconds": 66480,
+          "percentAllSamples": 0.5425988230959703,
+          "percentNonIdleSamples": 0.8140738776942166
+        },
+        {
+          "functionName": "uponPromise",
+          "scriptId": "210",
+          "url": "ext:deno_web/06_streams.js",
+          "lineNumber": 0,
+          "columnNumber": 3479,
+          "microseconds": 63558,
+          "percentAllSamples": 0.5187499398064633,
+          "percentNonIdleSamples": 0.7782928327089202
+        },
+        {
+          "functionName": "op_http_get_request_headers",
+          "scriptId": "0",
+          "url": "",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "microseconds": 63255,
+          "percentAllSamples": 0.5162769036542659,
+          "percentNonIdleSamples": 0.7745824779414511
+        },
+        {
+          "functionName": "routeCandidates",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 4848,
+          "columnNumber": 26,
+          "microseconds": 62435,
+          "percentAllSamples": 0.5095841985559101,
+          "percentNonIdleSamples": 0.7645412538182673
+        },
+        {
+          "functionName": "",
+          "scriptId": "17",
+          "url": "ext:deno_webidl/00_webidl.js",
+          "lineNumber": 0,
+          "columnNumber": 9504,
+          "microseconds": 60019,
+          "percentAllSamples": 0.48986520402221784,
+          "percentNonIdleSamples": 0.7349563788406916
+        },
+        {
+          "functionName": "setUpReadableStreamDefaultController",
+          "scriptId": "210",
+          "url": "ext:deno_web/06_streams.js",
+          "lineNumber": 0,
+          "columnNumber": 47031,
+          "microseconds": 56047,
+          "percentAllSamples": 0.45744639347262106,
+          "percentNonIdleSamples": 0.6863176688196112
+        },
+        {
+          "functionName": "isByteString",
+          "scriptId": "17",
+          "url": "ext:deno_webidl/00_webidl.js",
+          "lineNumber": 0,
+          "columnNumber": 5230,
+          "microseconds": 55079,
+          "percentAllSamples": 0.44954573672236686,
+          "percentNonIdleSamples": 0.6744641261961455
+        },
+        {
+          "functionName": "isSimpleSpecialHostCanonical",
+          "scriptId": "25",
+          "url": "ext:deno_web/00_url.js",
+          "lineNumber": 1,
+          "columnNumber": 543,
+          "microseconds": 54667,
+          "percentAllSamples": 0.44618306050221734,
+          "percentNonIdleSamples": 0.6694190233440093
+        },
+        {
+          "functionName": "url",
+          "scriptId": "206",
+          "url": "ext:deno_http/00_serve.ts",
+          "lineNumber": 0,
+          "columnNumber": 4888,
+          "microseconds": 52610,
+          "percentAllSamples": 0.42939416490792714,
+          "percentNonIdleSamples": 0.6442302452691446
+        },
+        {
+          "functionName": "",
+          "scriptId": "17",
+          "url": "ext:deno_webidl/00_webidl.js",
+          "lineNumber": 0,
+          "columnNumber": 13326,
+          "microseconds": 50734,
+          "percentAllSamples": 0.41408256153656675,
+          "percentNonIdleSamples": 0.6212578837385436
+        },
+        {
+          "functionName": "omitHeaders",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5736,
+          "columnNumber": 20,
+          "microseconds": 48092,
+          "percentAllSamples": 0.39251899218308367,
+          "percentNonIdleSamples": 0.5889055494294564
+        },
+        {
+          "functionName": "hasBinaryContentType",
+          "scriptId": "205",
+          "url": "file://evidence/http/artifacts/zmdb.mjs",
+          "lineNumber": 5703,
+          "columnNumber": 29,
+          "microseconds": 43997,
+          "percentAllSamples": 0.35909627586873355,
+          "percentNonIdleSamples": 0.5387606557898984
+        },
+        {
+          "functionName": "Headers",
+          "scriptId": "213",
+          "url": "ext:deno_fetch/20_headers.js",
+          "lineNumber": 0,
+          "columnNumber": 4420,
+          "microseconds": 40552,
+          "percentAllSamples": 0.33097875262015325,
+          "percentNonIdleSamples": 0.49657526907725436
+        },
+        {
+          "functionName": "initializeAResponse",
+          "scriptId": "212",
+          "url": "ext:deno_fetch/23_response.js",
+          "lineNumber": 0,
+          "columnNumber": 6331,
+          "microseconds": 39498,
+          "percentAllSamples": 0.32237617801812024,
+          "percentNonIdleSamples": 0.48366862246038156
+        },
+        {
+          "functionName": "resolve",
+          "scriptId": "210",
+          "url": "ext:deno_web/06_streams.js",
+          "lineNumber": 0,
+          "columnNumber": 2559,
+          "microseconds": 38646,
+          "percentAllSamples": 0.31542229418421885,
+          "percentNonIdleSamples": 0.4732355456884882
+        },
+        {
+          "functionName": "get",
+          "scriptId": "207",
+          "url": "ext:deno_fetch/22_body.js",
+          "lineNumber": 0,
+          "columnNumber": 3614,
+          "microseconds": 36179,
+          "percentAllSamples": 0.29528704604075073,
+          "percentNonIdleSamples": 0.4430261555520316
+        },
+        {
+          "functionName": "next",
+          "scriptId": "17",
+          "url": "ext:deno_webidl/00_webidl.js",
+          "lineNumber": 0,
+          "columnNumber": 14915,
+          "microseconds": 35562,
+          "percentAllSamples": 0.29025119354601225,
+          "percentNonIdleSamples": 0.4354707466690994
+        },
+        {
+          "functionName": "finishOrReturnMaybePromise",
+          "scriptId": "206",
+          "url": "ext:deno_http/00_serve.ts",
+          "lineNumber": 0,
+          "columnNumber": 13251,
+          "microseconds": 35373,
+          "percentAllSamples": 0.2887086066391961,
+          "percentNonIdleSamples": 0.4331563669626583
+        }
+      ]
+    }
+  ],
+  "httpBodyNoGetterAblation": {
+    "order": ["zmdb", "zmdb-native-body-no-getter", "zmdb-native-body-no-getter", "zmdb"],
+    "cells": [
+      {
+        "file": "evidence/http/measure-2026-09-08T16-52-09.241Z/result.json",
+        "bundle": "zmdb",
+        "pass": 1,
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "rps": 58761.786985110746,
+        "p99Milliseconds": 4.009741,
+        "meanMilliseconds": 1.087537193586614,
+        "bytes": 19277052,
+        "checks": [
+          {
+            "candidate": "zmdb-deno",
+            "requests": 6,
+            "passed": true
+          },
+          {
+            "candidate": "zmdb-deno",
+            "requests": 6,
+            "passed": true
+          }
+        ],
+        "cleaned": true,
+        "error": null
+      },
+      {
+        "file": "evidence/http/measure-2026-09-08T16-52-22.651Z/result.json",
+        "bundle": "zmdb-native-body-no-getter",
+        "pass": 1,
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "rps": 66351.55481410424,
+        "p99Milliseconds": 3.192783,
+        "meanMilliseconds": 0.9629192446838118,
+        "bytes": 21773665,
+        "checks": [
+          {
+            "candidate": "zmdb-deno",
+            "requests": 6,
+            "passed": true
+          },
+          {
+            "candidate": "zmdb-deno",
+            "requests": 6,
+            "passed": true
+          }
+        ],
+        "cleaned": true,
+        "error": null
+      },
+      {
+        "file": "evidence/http/measure-2026-09-08T16-52-36.069Z/result.json",
+        "bundle": "zmdb-native-body-no-getter",
+        "pass": 1,
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "rps": 65635.62267699724,
+        "p99Milliseconds": 3.330674,
+        "meanMilliseconds": 0.9737418866917253,
+        "bytes": 21538448,
+        "checks": [
+          {
+            "candidate": "zmdb-deno",
+            "requests": 6,
+            "passed": true
+          },
+          {
+            "candidate": "zmdb-deno",
+            "requests": 6,
+            "passed": true
+          }
+        ],
+        "cleaned": true,
+        "error": null
+      },
+      {
+        "file": "evidence/http/measure-2026-09-08T16-52-49.475Z/result.json",
+        "bundle": "zmdb",
+        "pass": 1,
+        "candidate": "zmdb-deno",
+        "workload": "validation",
+        "rps": 57624.51623665343,
+        "p99Milliseconds": 4.147569,
+        "meanMilliseconds": 1.1086618159954553,
+        "bytes": 18906330,
+        "checks": [
+          {
+            "candidate": "zmdb-deno",
+            "requests": 6,
+            "passed": true
+          },
+          {
+            "candidate": "zmdb-deno",
+            "requests": 6,
+            "passed": true
+          }
+        ],
+        "cleaned": true,
+        "error": null
+      }
+    ],
+    "baseline": {
+      "meanRps": 58193.15161088209,
+      "rangeRps": [57624.51623665343, 58761.786985110746],
+      "p99Milliseconds": [4.009741, 4.147569]
+    },
+    "variant": {
+      "meanRps": 65993.58874555075,
+      "rangeRps": [65635.62267699724, 66351.55481410424],
+      "p99Milliseconds": [3.192783, 3.330674]
+    },
+    "gainPercent": 13.40439023964115,
+    "interpretation": "Diagnostic only; early streaming size enforcement lost. The body-null getter is removed; null/empty bodies still map to undefined through the existing zero-byte check. Sample ranges must be considered; this four-cell probe alone does not establish a production improvement.",
+    "controlLimit": "The final control is the original bounded reader, not the native-reader-with-getter variant. The13.4% result measures the combined native-reader/no-eager-getter diagnostic, not the isolated effect of the getter alone. Do not compare the two sessions as if temperature/runtime state were fixed."
+  },
+  "limitations": [
+    "One development laptop with ordinary desktop services still running; no universal winner is established.",
+    "HTTP is closed-loop throughput; p99 is not corrected for coordinated omission or an open-loop SLO.",
+    "Index comparison is zmdb versus itself, not an advantage applied against unindexed peers.",
+    "Profile shares are observations, not independently additive speedups.",
+    "Trace instrumentation perturbs timing; it is excluded from clean rankings.",
+    "All ablations are unshipped diagnostics. The native body-reader ablations lose early streaming memory-limit enforcement.",
+    "No TLS, multicore HTTP, remote DB, ORM on Bun/Deno, large bodies, wide unions/arrays or all frameworks/dialects were measured."
+  ]
+}
