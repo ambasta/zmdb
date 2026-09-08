@@ -30,8 +30,7 @@ function packageName(directory) {
 
 async function digest(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const hash = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  if (encoding === 'base64') return typeof hash.toBase64 === 'function' ? hash.toBase64() : Buffer.from(hash).toString('base64');
-  return typeof hash.toHex === 'function' ? hash.toHex() : Buffer.from(hash).toString('hex');
+  return encoding === 'base64' ? hash.toBase64() : hash.toHex();
 }
 
 const temporary = mkdtempSync(join(tmpdir(), 'zmdb-mcp-consumer-'));

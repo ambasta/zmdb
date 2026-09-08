@@ -184,7 +184,7 @@ try {
   for (const [name, record] of tarballs) {
     const bytes = await readFile(record.tarball);
     const digest512 = new Uint8Array(await crypto.subtle.digest('SHA-512', bytes));
-    integrities[name] = `sha512-${typeof digest512.toBase64 === 'function' ? digest512.toBase64() : Buffer.from(digest512).toString('base64')}`;
+    integrities[name] = `sha512-${digest512.toBase64()}`;
     report.packages.push({ name, version: record.manifest.version, integrity: integrities[name] });
   }
   registry = await startRegistry([...tarballs.values()]);

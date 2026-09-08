@@ -334,7 +334,7 @@ try {
       const digest256 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
       return {
         name: entry.manifest.name,
-        sha256: typeof digest256.toHex === 'function' ? digest256.toHex() : Buffer.from(digest256).toString('hex'),
+        sha256: digest256.toHex(),
       };
     }),
   );

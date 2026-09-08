@@ -11,8 +11,8 @@ export async function startRegistry(packages) {
     tarballs.set(entry.manifest.name, {
       ...entry,
       bytes,
-      integrity: `sha512-${typeof digest512.toBase64 === 'function' ? digest512.toBase64() : Buffer.from(digest512).toString('base64')}`,
-      shasum: typeof digest1.toHex === 'function' ? digest1.toHex() : Buffer.from(digest1).toString('hex'),
+      integrity: `sha512-${digest512.toBase64()}`,
+      shasum: digest1.toHex(),
     });
   }
   let origin;
