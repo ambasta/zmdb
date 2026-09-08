@@ -126,7 +126,7 @@ export type _PublishedWebApplicationOwnKeys = Expect<
 export type _PublishedWebOptionsOwnKeys = Expect<
   Equal<
     keyof WebPackageApplicationOptions,
-    keyof AppPackageApplicationOptions | 'guardRegistry' | 'versioning' | 'maxBodyBytes'
+    keyof AppPackageApplicationOptions | 'cors' | 'guardRegistry' | 'maxBodyBytes' | 'security' | 'versioning'
   >
 >;
 export type _PublishedCreateAppParameters = Expect<

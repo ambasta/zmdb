@@ -8,9 +8,11 @@ import {
   createRouter,
   toFetchHandler,
   type AdapterOptions,
+  type CorsOptions,
   type GuardRegistry,
   type Router,
   type RouterOptions,
+  type SecurityHeadersOptions,
   type WebRequest,
   type WebResponse,
 } from '../pipeline/index.js';
@@ -23,7 +25,9 @@ export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '@zmdb/app
  * Protocol integrations attach through `ApplicationOptions.extensions`.
  */
 export interface WebApplicationOptions extends ApplicationOptions, Partial<Pick<AdapterOptions, 'maxBodyBytes'>> {
+  readonly cors?: CorsOptions | boolean;
   readonly guardRegistry?: GuardRegistry;
+  readonly security?: SecurityHeadersOptions | boolean;
   readonly versioning?: VersionStrategy;
 }
 
@@ -74,7 +78,9 @@ function routerOptions(options: WebApplicationOptions): RouterOptions {
   const observability = options.observability ?? {};
   return {
     ...observability,
+    ...(options.cors === undefined ? {} : { cors: options.cors }),
     ...(options.guardRegistry === undefined ? {} : { guardRegistry: options.guardRegistry }),
+    ...(options.security === undefined ? {} : { security: options.security }),
     ...(options.versioning === undefined ? {} : { versioning: options.versioning }),
   };
 }
