@@ -15,7 +15,23 @@
 // The IR bindings below are types. With verbatimModuleSyntax, the named import
 // clause remains an empty runtime import of the IR module.
 import { type ExtensionType, type SchemaIR } from './ir/index.js';
-import { ValidationError, type ValidationIssue } from '@zmdb/validator';
+export interface ValidationIssue {
+  readonly path: string;
+  readonly message: string;
+  readonly expected?: string;
+  readonly value?: unknown;
+}
+
+class ValidationError extends Error {
+  readonly issues: readonly ValidationIssue[];
+
+  constructor(message: string, issues: readonly ValidationIssue[] = []) {
+    super(message);
+    this.name = 'ValidationError';
+    this.issues = issues;
+  }
+}
+import type { DeclaredTable, UpdateDTO } from './derive/index.js';
 
 export type SqlType =
   | 'serial'

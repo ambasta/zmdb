@@ -2,9 +2,9 @@ import {
   defineStateTransitions,
   defineEntityStateMachine,
   createStateUpdatePayload,
-  ValidationError,
   type StateUpdateDTO,
 } from '@zmdb/app';
+import { ValidationError } from '@zmdb/validator';
 import { schemasFrom } from '@zmdb/compiler/testing';
 import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 import { describe, it, expect } from 'vitest';
