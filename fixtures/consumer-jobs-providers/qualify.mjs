@@ -145,12 +145,12 @@ async function packClosure(roots) {
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
     packageIntegrities.set(
       manifest.name,
-      `sha512-${new Uint8Array(
+      `sha512-${Buffer.from(
         await globalThis.crypto.subtle.digest(
           'SHA-512',
           await readFile(join(tarballs, packedInfo[manifest.name].filename)),
         ),
-      ).toBase64()}`,
+      ).toString('base64')}`,
     );
   }
   return packed;
@@ -332,7 +332,7 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => ({
       name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
+      sha256: Buffer.from(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toString('hex'),
     })),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
