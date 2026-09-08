@@ -475,15 +475,30 @@ function loaderKeyPart(value: unknown): string {
 }
 
 /** Length-prefix each tagged part so composite-key boundaries are unambiguous. */
+function scalarLoaderKey(value: unknown): string {
+  const part = typeof value === 'number' ? `n:${String(value)}` : loaderKeyPart(value);
+  return `${part.length}:${part}`;
+}
+
 function loaderKey(parts: readonly unknown[]): string {
-  return parts
-    .map(value => loaderKeyPart(value))
-    .map(part => `${part.length}:${part}`)
-    .join('');
+  if (parts.length === 1) return scalarLoaderKey(parts[0]);
+  let key = '';
+  for (const value of parts) key += scalarLoaderKey(value);
+  return key;
 }
 
 function relationKeyValues(row: object, columns: readonly string[]): readonly unknown[] {
   return columns.map(column => Reflect.get(row, column));
+}
+
+function relationRowKey(row: object, columns: readonly string[]): string | undefined {
+  let key = '';
+  for (const column of columns) {
+    const value: unknown = Reflect.get(row, column);
+    if (value === null || value === undefined) return undefined;
+    key += scalarLoaderKey(value);
+  }
+  return key;
 }
 
 function hasNullishKeyPart(values: readonly unknown[]): boolean {
@@ -1433,7 +1448,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     if (ids.length === 0) return new Map();
     const limit = this.dialectTraits.paramLimit;
     const chunks = chunkArray(ids, Math.max(1, Math.floor(limit / childKeys.length)));
-    const children: Record<string, unknown>[] = [];
+    const byParent = new Map<string, Record<string, unknown>[]>();
     const physicalTable = names?.schema.table ?? childTable;
     const physicalKeys =
       names === undefined ? childKeys : childKeys.map(childKey => this.physicalColumn(childKey, names));
@@ -1471,16 +1486,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         ...(filters === undefined ? {} : { resolvedFilters: filters }),
       });
       const res = await this.executeRead(query, options?.signal);
-      children.push(...res);
-    }
-    const byParent = new Map<string, Record<string, unknown>[]>();
-    for (const c of children) {
-      const values = childKeys.map(childKey => c[childKey]);
-      if (hasNullishKeyPart(values)) continue;
-      const key = loaderKey(values);
-      const list = byParent.get(key) ?? [];
-      list.push(c);
-      byParent.set(key, list);
+      for (const child of res) {
+        const key = relationRowKey(child, childKeys);
+        if (key === undefined) continue;
+        const list = byParent.get(key);
+        if (list === undefined) byParent.set(key, [child]);
+        else list.push(child);
+      }
     }
     return byParent;
   }
@@ -1515,7 +1527,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   ): Promise<readonly Record<string, unknown>[]> {
     options?.signal?.throwIfAborted();
     if (parents.length === 0) return [];
-    let current: Record<string, unknown>[] = parents.map(parent => ({ ...parent }));
+    const current: Record<string, unknown>[] = parents.map(parent => ({ ...parent }));
 
     for (const node of nodes) {
       const { relation: rel, target } = node;
@@ -1537,17 +1549,21 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           offset += group.length;
         }
       }
-      current = current.map(parent => {
-        const parentKey = relationKeyValues(parent, rel.parentKey);
-        if (hasNullishKeyPart(parentKey)) {
-          return { ...parent, [name]: rel.toMany ? [] : null };
+      const property: PropertyDescriptor = { configurable: true, enumerable: true, writable: true };
+      current.forEach(parent => {
+        const key = relationRowKey(parent, rel.parentKey);
+        if (key === undefined) {
+          property.value = rel.toMany ? [] : null;
+        } else {
+          const list = byParent.get(key) ?? [];
+          if (rel.toMany) {
+            property.value = list.map(child => copyPopulatedRow(child, node.children));
+          } else {
+            const first = list[0];
+            property.value = first ? copyPopulatedRow(first, node.children) : null;
+          }
         }
-        const list = byParent.get(loaderKey(parentKey)) ?? [];
-        if (rel.toMany) {
-          return { ...parent, [name]: list.map(child => copyPopulatedRow(child, node.children)) };
-        }
-        const first = list[0];
-        return { ...parent, [name]: first ? copyPopulatedRow(first, node.children) : null };
+        Object.defineProperty(parent, name, property);
       });
     }
 
