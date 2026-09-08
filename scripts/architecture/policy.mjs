@@ -463,7 +463,18 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/zmdb',
     zone: 'facade',
     ring: 5,
-    allowedWorkspaceDependencies: ['app', 'validator', 'cli', 'compiler', 'migrations', 'sql', 'orm', 'schema', 'web'],
+    allowedWorkspaceDependencies: [
+      'app',
+      'validator',
+      'cli',
+      'compiler',
+      'migrations',
+      'sql',
+      'sqlite',
+      'orm',
+      'schema',
+      'web',
+    ],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@zmdb/cockroach': ['./cockroach'],
@@ -471,7 +482,6 @@ export const PACKAGE_POLICY = Object.freeze({
       '@zmdb/mssql': ['./mssql'],
       '@zmdb/postgres': ['./postgres'],
       '@zmdb/singlestore': ['./singlestore'],
-      '@zmdb/sqlite': ['./sqlite'],
     },
     toolingEntries: [
       // CLI orchestration, scaffolding, embedding, and application loading.

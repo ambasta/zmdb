@@ -38,13 +38,15 @@ describe('database boundary verifier (#667)', () => {
     expect(vendorFindings).toEqual([]);
   });
 
-  it('a default zmdb install does not install pg mysql2 or mssql', () => {
+  it('a default zmdb install includes SQLite without pg mysql2 or mssql', () => {
     const runtimeClients = report.findings.filter(finding => finding.kind === 'generic-client-dependency');
     const manifest = JSON.parse(readFileSync(join(ROOT, 'packages', 'zmdb', 'package.json'), 'utf8')) as {
       readonly dependencies: Readonly<Record<string, string>>;
     };
 
     expect(runtimeClients).toEqual([]);
+    expect(manifest.dependencies).toHaveProperty('@zmdb/sqlite');
+    expect(packedProof.defaultImported).toEqual(['zmdb', 'zmdb/sqlite']);
     expect(Object.keys(manifest.dependencies)).not.toEqual(
       expect.arrayContaining(['pg', 'mysql2', 'mssql', '@zmdb/postgres', '@zmdb/mysql', '@zmdb/mssql']),
     );

@@ -1,9 +1,13 @@
-import { readFile } from 'node:fs/promises';
+import assertNode from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 
 import {
   Controller,
+  Delete,
+  Get,
   Module,
+  Patch,
   Post,
   assert,
   createApp,
@@ -11,159 +15,143 @@ import {
   schemaOf,
   type CreateDTO,
   type Ctx,
+  type Entity,
+  type UpdateDTO,
 } from 'zmdb';
-import { loadConfig } from 'zmdb/config';
-import { sqlite } from 'zmdb/sqlite';
-import { bodyText } from 'zmdb/web';
+import { sqlite, sqliteDriver } from 'zmdb/sqlite';
 
 import type { Order } from './schema.js';
 
-interface EmbeddedMigration {
-  readonly version: number;
-  readonly name: string;
-  readonly up: string;
-  readonly checksum: string;
-}
-
-interface EmbeddedConnection {
-  exec(sql: string): Promise<void>;
-  run(sql: string, params: readonly (string | number | null)[]): Promise<void>;
-  rows(sql: string, params: readonly (string | number | null)[]): Promise<readonly Record<string, unknown>[]>;
-}
-
-function connection(database: DatabaseSync): EmbeddedConnection {
-  return {
-    async exec(sql) {
-      database.exec(sql);
-    },
-    async run(sql, params) {
-      database.prepare(sql).run(...params);
-    },
-    async rows(sql, params) {
-      return database.prepare(sql).all(...params);
-    },
-  };
-}
-
-async function applyEmbeddedMigrations(
-  module: unknown,
-  database: EmbeddedConnection,
-  migrations: readonly EmbeddedMigration[],
-): Promise<readonly number[]> {
-  if (typeof module !== 'object' || module === null) throw new TypeError('zmdb/migrations did not load');
-  const runEmbedded = Reflect.get(module, 'runEmbedded');
-  if (typeof runEmbedded !== 'function') throw new TypeError('zmdb/migrations does not export runEmbedded');
-  const applied: unknown = await Reflect.apply(runEmbedded, module, [database, migrations]);
-  if (!Array.isArray(applied) || applied.some(version => typeof version !== 'number')) {
-    throw new TypeError('runEmbedded did not return migration versions');
-  }
-  return applied;
-}
-
-function applyDecorator(decorator: unknown, ...args: readonly unknown[]): void {
-  if (typeof decorator !== 'function') throw new TypeError('web decorator is not callable');
-  Reflect.apply(decorator, undefined, args);
-}
-
-const loaded = await loadConfig({ cwd: process.cwd() });
 const databasePath = process.env.ZMDB_PRODUCT_DATABASE;
 if (databasePath === undefined) throw new Error('ZMDB_PRODUCT_DATABASE is required');
-
-const migrationSource = await readFile(
-  new URL('../migrations/20260905000100_create_orders.sql', import.meta.url),
-  'utf8',
-);
-const up = migrationSource.split('-- zmdb:down')[0]?.replace('-- zmdb:up', '').trim();
-if (up === undefined || up.length === 0) throw new Error('fixture migration has no up section');
-
-// A variable keeps this a runtime package-boundary probe instead of letting the
-// bundler fold the migration facade into the application bundle.
-const migrationsEntry: string = 'zmdb/migrations';
-const migrationModule: unknown = await import(migrationsEntry);
 const database = new DatabaseSync(databasePath);
-const applied = await applyEmbeddedMigrations(migrationModule, connection(database), [
-  {
-    version: 20260905000100,
-    name: 'create_orders',
-    up,
-    checksum: 'sha256:consumer-product-create-orders-v1',
-  },
-]);
+const orders = defineRepository(schemaOf<Order>(), sqliteDriver(database), { dialect: sqlite });
+let shutdowns = 0;
 
-const configuredDriver = await loaded.driver?.();
-if (configuredDriver === undefined) throw new Error('canonical config did not provide the SQLite driver');
-const OrderSchema = schemaOf<Order>();
-const orders = defineRepository(OrderSchema, configuredDriver, { dialect: sqlite });
-
-class OrdersController {
-  async create(ctx: Ctx<Record<never, string>, CreateDTO<Order>>) {
+@Controller('/orders')
+export class OrdersController {
+  @Post()
+  async create(ctx: Ctx<Record<never, string>, CreateDTO<Order>>): Promise<Entity<Order>> {
     return orders.create(assert<CreateDTO<Order>>(ctx.body));
+  }
+
+  @Get('/:id')
+  async read(ctx: Ctx<{ id: string }>): Promise<Entity<Order> | undefined> {
+    return orders.findOne({ id: Number(ctx.params.id) });
+  }
+
+  @Patch('/:id')
+  async update(ctx: Ctx<{ id: string }, UpdateDTO<Order>>): Promise<Entity<Order> | undefined> {
+    return orders.update(Number(ctx.params.id), assert<UpdateDTO<Order>>(ctx.body));
+  }
+
+  @Delete('/:id')
+  async remove(ctx: Ctx<{ id: string }>): Promise<boolean> {
+    return orders.delete(Number(ctx.params.id));
+  }
+
+  onShutdown(): void {
+    shutdowns++;
   }
 }
 
-const controllerMetadata: DecoratorMetadata = Object.create(null);
-applyDecorator(Post(), OrdersController.prototype.create, {
-  kind: 'method',
-  name: 'create',
-  metadata: controllerMetadata,
-});
-applyDecorator(Controller('/orders'), OrdersController, {
-  kind: 'class',
-  name: 'OrdersController',
-  metadata: controllerMetadata,
-});
-Object.defineProperty(OrdersController, Symbol.metadata, { value: controllerMetadata });
-
-class ProductModule {
-  readonly product = 'consumer-product';
-}
-
-const moduleMetadata: DecoratorMetadata = Object.create(null);
-applyDecorator(Module({ controllers: [OrdersController] }), ProductModule, {
-  kind: 'class',
-  name: 'ProductModule',
-  metadata: moduleMetadata,
-});
-Object.defineProperty(ProductModule, Symbol.metadata, { value: moduleMetadata });
+@Module({ controllers: [OrdersController] })
+class ProductModule {}
 
 const app = createApp(ProductModule);
-const invalid = await app.fetch(
-  new Request('http://product.test/orders', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: '' }),
-  }),
-);
-const afterInvalid = database.prepare('SELECT COUNT(*) AS count FROM orders').get();
-
-const valid = await app.fetch(
-  new Request('http://product.test/orders', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: 'first order' }),
-  }),
-);
-const created = JSON.parse(
-  await bodyText({ status: valid.status, headers: {}, body: { kind: 'text', value: await valid.text() } }),
-);
-const stored = database.prepare('SELECT id, name FROM orders ORDER BY id').all();
-const ledger = database.prepare('SELECT version, name, checksum FROM _zmdb_migrations ORDER BY version').all();
-
-await app[Symbol.asyncDispose]();
-database.close();
-
-if (invalid.status === 200) throw new Error('invalid request was accepted');
-if (valid.status !== 200) throw new Error(`valid request returned ${String(valid.status)}`);
-if (stored.length !== 1) throw new Error(`expected one stored row, received ${String(stored.length)}`);
-
-process.stdout.write(
-  `${JSON.stringify({
-    config: loaded.configPath,
-    applied,
+let origin = '';
+const server = createServer((request, response) => {
+  void (async () => {
+    request.setEncoding('utf8');
+    let body = '';
+    for await (const chunk of request) {
+      if (typeof chunk !== 'string') throw new TypeError('HTTP decoder returned a non-text chunk');
+      body += chunk;
+    }
+    const headers = new Headers();
+    for (const [name, value] of Object.entries(request.headers)) {
+      if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(', ') : value);
+    }
+    const reply = await app.fetch(
+      new Request(`${origin}${request.url ?? '/'}`, {
+        method: request.method ?? 'GET',
+        headers,
+        ...(body.length === 0 ? {} : { body }),
+      }),
+    );
+    response.writeHead(reply.status, Object.fromEntries(reply.headers));
+    response.end(await reply.text());
+  })().catch(error => {
+    response.writeHead(500);
+    response.end(String(error));
+  });
+});
+let report;
+let port = 0;
+try {
+  await app.init();
+  await new Promise<void>((accept, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', accept);
+  });
+  const address = server.address();
+  assertNode(address !== null && typeof address === 'object');
+  assertNode.equal(address.address, '127.0.0.1');
+  port = address.port;
+  origin = `http://127.0.0.1:${String(port)}`;
+  const send = async (path: string, method: string, body?: unknown) => {
+    const response = await fetch(`${origin}${path}`, {
+      method,
+      headers: { 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    return { status: response.status, contentType: response.headers.get('content-type'), body: await response.json() };
+  };
+  const invalid = await send('/orders', 'POST', { name: '' });
+  const afterInvalid = database.prepare('SELECT COUNT(*) AS count FROM orders').get();
+  const valid = await send('/orders', 'POST', { name: 'first order' });
+  const stored = database.prepare('SELECT id, name FROM orders ORDER BY id').all();
+  const read = await send('/orders/1', 'GET');
+  const update = await send('/orders/1', 'PATCH', { name: 'updated order' });
+  const readUpdated = await send('/orders/1', 'GET');
+  const remove = await send('/orders/1', 'DELETE');
+  const afterDelete = database.prepare('SELECT COUNT(*) AS count FROM orders').get();
+  const ledger = database.prepare('SELECT version, name, checksum FROM _zmdb_migrations ORDER BY version').all();
+  report = {
+    loopback: address.address === '127.0.0.1',
     invalidStatus: invalid.status,
-    afterInvalid,
-    created,
-    ledger,
+    invalidBody: invalid.body,
+    rowsAfterInvalid: afterInvalid?.count,
+    validStatus: valid.status,
+    contentType: valid.contentType,
+    created: valid.body,
     stored,
-  })}\n`,
-);
+    read,
+    update,
+    readUpdated,
+    remove,
+    rowsAfterDelete: afterDelete?.count,
+    ledger,
+    columns: database
+      .prepare('PRAGMA table_info(orders)')
+      .all()
+      .map(row => ({ name: row.name, type: row.type, pk: row.pk })),
+  };
+} finally {
+  if (server.listening) await server[Symbol.asyncDispose]();
+  try {
+    await app[Symbol.asyncDispose]();
+  } finally {
+    database.close();
+  }
+}
+assertNode.equal(server.listening, false);
+assertNode.equal(shutdowns, 1);
+assertNode.throws(() => database.prepare('SELECT 1'), /not open|closed/i);
+const probe = createServer();
+await new Promise<void>((accept, reject) => {
+  probe.once('error', reject);
+  probe.listen(port, '127.0.0.1', accept);
+});
+await probe[Symbol.asyncDispose]();
+process.stdout.write(`${JSON.stringify({ ...report, closed: true, shutdowns })}\n`);

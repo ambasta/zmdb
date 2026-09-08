@@ -1,5 +1,3 @@
-import { join } from 'node:path';
-
 import { Module as ownerModule } from '@zmdb/app/modules';
 import { defineConfig as ownerDefineConfig } from '@zmdb/compiler/config/contract';
 import {
@@ -43,16 +41,10 @@ import {
   REQUIRED_PRODUCT_SUBPATHS,
   TARGET_ROOT_TYPES,
   TARGET_ROOT_VALUES,
-  inspectProductConsumerFixture,
   inspectProductFacade,
   readFacadeOwnership,
-  runPackedProductConsumer,
   verifyFacadeSource,
 } from '../../../.github/scripts/verify-product-facade.mjs';
-import {
-  PACKED_BUILD_TEST_TIMEOUT_MS,
-  withPackedBuildLock,
-} from '../../../fixtures/client-adapters/src/packed-project.js';
 import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
 import {
   AssertError,
@@ -88,7 +80,6 @@ const RELEASE =
     throw new Error('governance snapshot has no release model');
   })();
 const PRODUCT_CATALOG = ARCHITECTURE.catalog;
-const PRODUCT_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
 
 function expectedPackageCount(): 39 | 40 {
   const cli = ARCHITECTURE.packages.find(pkg => pkg.npmName === '@zmdb/cli');
@@ -119,36 +110,6 @@ let measuredCatalog: ReturnType<typeof inspectProductCatalog> | undefined;
 function catalogReport(): ReturnType<typeof inspectProductCatalog> {
   measuredCatalog ??= inspectProductCatalog(ROOT, { architecture: ARCHITECTURE, release: RELEASE });
   return measuredCatalog;
-}
-
-let measuredPacked: ReturnType<typeof runPackedProductConsumer> | undefined;
-function packedReport(): ReturnType<typeof runPackedProductConsumer> {
-  measuredPacked ??= withPackedBuildLock(ROOT, () =>
-    runPackedProductConsumer(ROOT, PRODUCT_FIXTURE, { architecture: ARCHITECTURE }),
-  );
-  return measuredPacked;
-}
-
-function expectPackedProductJourney(): void {
-  expect(inspectProductConsumerFixture(PRODUCT_FIXTURE)).toEqual([]);
-
-  const result = packedReport();
-  expect(result.status, `${result.stage}\n${result.stdout}\n${result.stderr}`).toBe(0);
-  const output: unknown = JSON.parse(result.stdout.trim());
-  expect(output).toMatchObject({
-    applied: [20260905000100],
-    invalidStatus: 400,
-    afterInvalid: { count: 0 },
-    created: { id: 1, name: 'first order' },
-    ledger: [
-      {
-        version: 20260905000100,
-        name: 'create_orders',
-        checksum: 'sha256:consumer-product-create-orders-v1',
-      },
-    ],
-    stored: [{ id: 1, name: 'first order' }],
-  });
 }
 
 describe('the one-product facade and catalog (#619, #620, #622)', () => {
@@ -654,22 +615,4 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     }
     expect(Reflect.set(PRODUCT_CATALOG[0] ?? {}, 'version', '9.9.9')).toBe(false);
   });
-
-  // The fixture itself is a real external project: one registry dependency,
-  // no workspace protocol, no paths, no skipLibCheck and no @zmdb/* import.
-  it(
-    'installs only zmdb and serves a validated SQLite-backed HTTP request from packed tarballs',
-    () => {
-      expectPackedProductJourney();
-    },
-    PACKED_BUILD_TEST_TIMEOUT_MS,
-  );
-
-  it(
-    'builds the documented application using only the zmdb root and documented subpaths',
-    () => {
-      expectPackedProductJourney();
-    },
-    PACKED_BUILD_TEST_TIMEOUT_MS,
-  );
 });

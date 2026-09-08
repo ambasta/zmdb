@@ -304,5 +304,14 @@ A consumer fixture must install packed tarballs outside the workspace and:
 3. assert runtime identity between direct package, concern facade, and curated-root values;
 4. serve one HTTP request and run one command with no jobs package installed;
 5. assert `zmdb/jobs*`, old `zmdb/drivers/*` paths, and optional integration names do not resolve;
-6. inspect the installed dependency tree and prove the default product has no jobs or database-package edge;
+6. inspect the installed dependency tree and prove the default product has no jobs edge and selects SQLite as its only required database package;
 7. separately pack `@zmdb/jobs`, typecheck its package-owned entries, and run `jobsExtension` through the real application lifecycle.
+
+## 10. Default SQLite installed journey (#623)
+
+The `zmdb` manifest installs `@zmdb/sqlite` as an ordinary dependency so an application can use `zmdb/sqlite` after installing only the product. SQLite remains behind that explicit subpath and is not
+eagerly imported from the root. Other database and technology integrations retain their optional peers. The historical baseline tables above remain historical.
+
+`fixtures/consumer-product` proves the default journey with actual published archives and npm install/ci: strict public types, canonical config, CLI-generated migration, the public AOT compiler, real
+loopback HTTP CRUD and owned-resource cleanup. Its eight named assertions share one installed run. It does not manually extract packages, link workspace tools, or substitute a handwritten migration.
+Optional integrations are qualified by their independent children.

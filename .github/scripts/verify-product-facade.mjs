@@ -1,28 +1,16 @@
 #!/usr/bin/env node
-// Read-only product-facade and packed-consumer probes for issues #619, #620, and #651.
+// Read-only product-facade probes and consumer source checks.
 //
 // This file deliberately contains no facade implementation. It measures the
 // public package in a fresh process, records the modules that process resolves,
-// validates the external fixture's hygiene, and can run that fixture against
-// real tarballs.
+// and validates the external fixture's hygiene. The consumer-product runner
+// owns real archive installation and the HTTP application journey.
 
 import { spawnSync } from 'node:child_process';
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-
-import { publishManifest } from './lib/publish-manifest.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -532,139 +520,6 @@ export function inspectProductConsumerFixture(fixture) {
     }
   }
   return problems.toSorted();
-}
-
-function installLink(root, app, name) {
-  const target = join(root, 'node_modules', name);
-  if (!existsSync(target)) return;
-  const link = join(app, 'node_modules', name);
-  if (existsSync(link)) return;
-  mkdirSync(dirname(link), { recursive: true });
-  symlinkSync(target, link, 'dir');
-}
-
-function failure(stage, result) {
-  return {
-    stage,
-    status: result.status,
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-  };
-}
-
-function packedConsumerBuildSource() {
-  return `import { readFile } from 'node:fs/promises';
-
-import { build } from 'esbuild';
-import { zmdbAot } from 'zmdb/compiler';
-
-const [entry, outfile] = process.argv.slice(2);
-if (entry === undefined || outfile === undefined) {
-  throw new Error('usage: node build.mjs <entry> <outfile>');
-}
-
-const compiler = await zmdbAot({ cwd: process.cwd() });
-await build({
-  entryPoints: [entry],
-  outfile,
-  bundle: true,
-  format: 'esm',
-  packages: 'external',
-  platform: 'node',
-  target: 'node26',
-  logLevel: 'silent',
-  plugins: [{
-    name: compiler.name,
-    setup(esbuild) {
-      esbuild.onLoad({ filter: /\\.[cm]?tsx?$/ }, async ({ path }) => {
-        const code = await readFile(path, 'utf8');
-        const transformed = await compiler.transform(code, path);
-        return {
-          contents: transformed?.code ?? code,
-          loader: path.endsWith('x') ? 'tsx' : 'ts',
-        };
-      });
-      esbuild.onEnd(() => compiler.buildEnd?.());
-    },
-  }],
-});
-`;
-}
-
-export function runPackedProductConsumer(
-  root = ROOT,
-  fixture = join(root, 'fixtures', 'consumer-product'),
-  options = {},
-) {
-  const { architecture } = options;
-  if (architecture === undefined) {
-    throw new TypeError('runPackedProductConsumer requires architecture from loadGovernanceSnapshot({ root })');
-  }
-  const build = spawnSync('yarn', ['build'], { cwd: root, encoding: 'utf8' });
-  if (build.status !== 0) return failure('build', build);
-  const temporary = mkdtempSync(join(tmpdir(), 'zmdb-product-consumer-'));
-  const stage = join(temporary, 'stage');
-  const app = join(temporary, 'app');
-  mkdirSync(stage, { recursive: true });
-  cpSync(fixture, app, { recursive: true });
-  mkdirSync(join(app, 'node_modules'), { recursive: true });
-
-  try {
-    for (const packageRecord of architecture.packages) {
-      const source = packageRecord.directoryPath;
-      const staged = join(stage, packageRecord.id);
-      cpSync(source, staged, {
-        recursive: true,
-        dereference: true,
-        filter: path => !path.includes(join(source, 'node_modules')),
-      });
-      const manifest = publishManifest(packageRecord.manifest);
-      writeFileSync(join(staged, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-
-      const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', temporary], {
-        cwd: staged,
-        encoding: 'utf8',
-        env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },
-      });
-      if (packed.status !== 0) return failure(`pack:${manifest.name}`, packed);
-      const report = JSON.parse(packed.stdout);
-      const entry = Array.isArray(report) ? report[0] : Object.values(report)[0];
-      const destination = join(app, 'node_modules', manifest.name);
-      mkdirSync(destination, { recursive: true });
-      const extracted = spawnSync(
-        'tar',
-        ['-xzf', join(temporary, entry.filename), '-C', destination, '--strip-components=1'],
-        { encoding: 'utf8' },
-      );
-      if (extracted.status !== 0) return failure(`extract:${manifest.name}`, extracted);
-    }
-
-    for (const peer of ['typescript', 'esbuild', 'oxfmt', '@types/node']) {
-      installLink(root, app, peer);
-    }
-
-    mkdirSync(join(app, 'dist'), { recursive: true });
-    const database = join(app, 'product.sqlite');
-    const buildScript = join(app, 'build.mjs');
-    const entry = join(app, 'src', 'main.ts');
-    const output = join(app, 'dist', 'main.mjs');
-    writeFileSync(buildScript, packedConsumerBuildSource());
-    const bundled = spawnSync(process.execPath, [buildScript, entry, output], {
-      cwd: app,
-      encoding: 'utf8',
-      env: { ...process.env, ZMDB_PRODUCT_DATABASE: database },
-    });
-    if (bundled.status !== 0) return failure('bundle', bundled);
-
-    const executed = spawnSync(process.execPath, [output], {
-      cwd: app,
-      encoding: 'utf8',
-      env: { ...process.env, ZMDB_PRODUCT_DATABASE: database },
-    });
-    return failure('execute', executed);
-  } finally {
-    rmSync(temporary, { recursive: true, force: true });
-  }
 }
 
 async function main() {

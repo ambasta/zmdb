@@ -4,5 +4,9 @@
   "type": "module",
   "dependencies": {
     "zmdb": "1.0.0-alpha.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "typescript": "7.0.2"
   }
 }

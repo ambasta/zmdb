@@ -10,10 +10,10 @@
 
 ## Product and packages
 
-Install `zmdb` for the cohesive schema, validation, typed ORM, migration, HTTP, configuration, and CLI product facade, then add the selected database vertical explicitly. SQLite applications install
-`@zmdb/sqlite`; MySQL applications install `@zmdb/mysql` with `mysql2`. The other independently installable `@zmdb/*` packages are advanced dependency firebreaks, integrations, and tooling rather than
-a second beginner setup. Their membership, product roles, facade exposure, documentation ownership, and external-consumer evidence come from the
-[canonical product catalog](./scripts/product/catalog.mjs); the [package reference](./docs-site/content/package-reference.md) renders that inventory.
+Install `zmdb` for the cohesive schema, validation, typed ORM, migration, HTTP, configuration, and CLI product facade with SQLite included. Select other database verticals explicitly; MySQL
+applications install `@zmdb/mysql` with `mysql2`. The other independently installable `@zmdb/*` packages are advanced dependency firebreaks, integrations, and tooling rather than a second beginner
+setup. Their membership, product roles, facade exposure, documentation ownership, and external-consumer evidence come from the [canonical product catalog](./scripts/product/catalog.mjs); the
+[package reference](./docs-site/content/package-reference.md) renders that inventory.
 
 CockroachDB is selected through `@zmdb/cockroach`, a one-way child of `@zmdb/postgres` that owns Cockroach-specific types, migrations, catalog normalization, retries, and its real-server acceptance.
 SingleStore is selected through `@zmdb/singlestore`, a one-way child of `@zmdb/mysql` that owns storage/distribution DDL, catalog normalization, conservative refusals, and mandatory packed real-server

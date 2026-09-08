@@ -1,0 +1,50 @@
+{
+  "directZmdbDependencies": ["zmdb"],
+  "invalidStatus": 400,
+  "validStatus": 200,
+  "rowsAfterInvalid": 0,
+  "created": {
+    "id": 1,
+    "name": "first order"
+  },
+  "stored": [
+    {
+      "id": 1,
+      "name": "first order"
+    }
+  ],
+  "commands": ["codegen", "generate", "migrate", "check"],
+  "updated": {
+    "id": 1,
+    "name": "updated order"
+  },
+  "rowsAfterDelete": 0,
+  "readStatus": 200,
+  "updateStatus": 200,
+  "deleteStatus": 200,
+  "shutdowns": 1,
+  "publicImports": [
+    "zmdb",
+    "zmdb/cli",
+    "zmdb/compiler",
+    "zmdb/config",
+    "zmdb/migrations",
+    "zmdb/orm",
+    "zmdb/schema",
+    "zmdb/sqlite",
+    "zmdb/validator",
+    "zmdb/web"
+  ],
+  "columns": [
+    {
+      "name": "id",
+      "type": "INTEGER",
+      "pk": 1
+    },
+    {
+      "name": "name",
+      "type": "TEXT",
+      "pk": 0
+    }
+  ]
+}

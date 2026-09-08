@@ -11,5 +11,8 @@ export default defineConfig({
   dialect: sqlite,
   project: './tsconfig.consumer.json',
   out: './migrations',
-  driver: () => sqliteDriver(new DatabaseSync(databasePath)),
+  driver: () => {
+    const database = new DatabaseSync(databasePath);
+    return Object.assign(sqliteDriver(database), { [Symbol.dispose]: () => database.close() });
+  },
 });

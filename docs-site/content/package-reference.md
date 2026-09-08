@@ -1120,6 +1120,7 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `@zmdb/orm` → `workspace:^`
   - `@zmdb/schema` → `workspace:^`
   - `@zmdb/sql` → `workspace:^`
+  - `@zmdb/sqlite` → `workspace:1.0.0-alpha.4`
   - `@zmdb/validator` → `workspace:^`
   - `@zmdb/web` → `workspace:^`
   - `esbuild` → `^0.28.2`
@@ -1131,7 +1132,6 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `@zmdb/mysql` → `1.0.0-alpha.4`
   - `@zmdb/postgres` → `1.0.0-alpha.4`
   - `@zmdb/singlestore` → `1.0.0-alpha.4`
-  - `@zmdb/sqlite` → `1.0.0-alpha.4`
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`

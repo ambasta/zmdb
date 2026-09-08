@@ -14,7 +14,7 @@ const DATABASE_PACKAGES = [
   '@zmdb/singlestore',
 ];
 const OPTIONAL_DATABASE_INSTALLS = [
-  ...DATABASE_PACKAGES,
+  ...DATABASE_PACKAGES.filter(name => name !== '@zmdb/sqlite'),
   'pg',
   'mysql2',
   'mssql',
@@ -172,7 +172,12 @@ export async function runPackedDatabasePackageProofs(root) {
 
     const defaultApp = join(scratch, 'default-app');
     installPackedApp(defaultApp, archives, defaultClosure);
-    importPackages(defaultApp, ['zmdb']);
+    const defaultManifest = JSON.parse(readFileSync(join(defaultApp, 'node_modules', 'zmdb', 'package.json'), 'utf8'));
+    if (typeof defaultManifest.dependencies?.['@zmdb/sqlite'] !== 'string') {
+      throw new Error('default zmdb installation does not require @zmdb/sqlite');
+    }
+    const defaultImported = ['zmdb', 'zmdb/sqlite'];
+    importPackages(defaultApp, defaultImported);
     const absent = OPTIONAL_DATABASE_INSTALLS.filter(
       name => !existsSync(join(defaultApp, 'node_modules', ...name.split('/'))),
     );
@@ -185,6 +190,7 @@ export async function runPackedDatabasePackageProofs(root) {
 
     return {
       imported: DATABASE_PACKAGES,
+      defaultImported,
       defaultAbsent: absent,
     };
   } finally {

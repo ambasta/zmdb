@@ -45,6 +45,7 @@ const DEFAULT_CLOSURE = [
   '@zmdb/orm',
   '@zmdb/schema',
   '@zmdb/sql',
+  '@zmdb/sqlite',
   '@zmdb/validator',
   '@zmdb/web',
   'zmdb',
@@ -818,14 +819,25 @@ afterAll(() => {
 });
 
 describe('default dependency graph and opt-in identity boundaries (#754)', () => {
-  it('keeps the packed product graph free of database and jobs edges when SQLite is selected explicitly', () => {
+  it('keeps SQLite in the packed default product graph without jobs or other databases', () => {
     const rootPackage = matrix.defaultConsumer.graph.packages.get('zmdb');
     if (rootPackage === undefined) throw new Error('packed default consumer omitted zmdb');
+    expect(rootPackage.manifest.dependencies).toHaveProperty('@zmdb/sqlite');
     expect(matrix.defaultConsumer.graph.closure.filter(official).toSorted()).toEqual(
       expectedDefaultClosure(rootPackage.manifest),
     );
     expect(selectionDiagnostics(matrix.defaultConsumer.graph)).toEqual([]);
-    for (const name of [...JOBS_PACKAGES, 'pg']) {
+    for (const name of [
+      ...JOBS_PACKAGES,
+      '@zmdb/postgres',
+      '@zmdb/mysql',
+      '@zmdb/mssql',
+      '@zmdb/cockroach',
+      '@zmdb/singlestore',
+      'pg',
+      'mysql2',
+      'mssql',
+    ]) {
       expect(matrix.defaultConsumer.graph.closure, name).not.toContain(name);
     }
   });
