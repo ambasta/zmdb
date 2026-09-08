@@ -136,6 +136,8 @@ mkdirSync(join(OUT, 'benchmarks'), { recursive: true });
 const BENCH_DATA = [
   'optimizations-2026-09-09.json',
   'optimizations-2026-09-09-samples.json.gz',
+  'app-startup.json',
+  'observability.json',
   'engineering.json',
   'engineering-raw.json.gz',
   'validation.json',
