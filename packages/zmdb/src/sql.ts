@@ -6,6 +6,7 @@ export {
   EXPR,
   OP_MAP,
   QueryCompilerError,
+  SnapshotMismatchError,
   UnsupportedFeatureError,
   appendComment,
   coalesce,
