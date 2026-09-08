@@ -1,6 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 
+const toHex = bytes => Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, '0')).join('');
+const toBase64 = bytes => {
+  const arr = new Uint8Array(bytes);
+  let bin = '';
+  for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+  return globalThis.btoa(bin);
+};
+
 export async function startRegistry(packages) {
   const requests = [];
   const tarballs = new Map();
@@ -9,8 +17,8 @@ export async function startRegistry(packages) {
     tarballs.set(entry.manifest.name, {
       ...entry,
       bytes,
-      integrity: `sha512-${new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
-      shasum: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes)).toHex(),
+      integrity: `sha512-${toBase64(await globalThis.crypto.subtle.digest('SHA-512', bytes))}`,
+      shasum: toHex(await globalThis.crypto.subtle.digest('SHA-1', bytes)),
     });
   }
   let origin;
