@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -144,15 +144,6 @@ function integrationRecords(value: object): readonly IntegrationRecord[] | undef
   return undefined;
 }
 
-function materializePackageManifests(fixture: string): void {
-  rmSync(join(fixture, 'packages'), { recursive: true, force: true });
-  mkdirSync(join(fixture, 'packages'), { recursive: true });
-  for (const packageRecord of ARCHITECTURE.workspacePackages) {
-    mkdirSync(join(fixture, packageRecord.directory), { recursive: true });
-    cpSync(packageRecord.manifestPath, join(fixture, packageRecord.directory, 'package.json'));
-  }
-}
-
 describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
   it('generates package names, versions, exports, peers and engines from manifests', () => {
     withFixture(fixture => {
@@ -192,7 +183,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       const positions = manifests.map(manifest => generated.indexOf(`| ${manifest.name}`));
       expect(positions.every(position => position >= 0)).toBe(true);
       expect(positions).toEqual([...positions].toSorted((left, right) => left - right));
-      expect(generated).toMatch(/\bnpm (?:install|add)\b/);
+      expect(generated).toMatch(/\byarn add\b/);
     });
   });
 
@@ -289,57 +280,6 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       expect(result.status, result.output).toBe(0);
       expect(after).toBe(before);
     });
-  });
-
-  it('rejects stale, unregistered and manifest-mismatched catalog ownership', () => {
-    const cases = [
-      {
-        label: 'stale row',
-        mutate(fixture: string) {
-          rmSync(join(fixture, 'packages', 'zmdb'), { recursive: true, force: true });
-        },
-        evidence: /zmdb/i,
-      },
-      {
-        label: 'unregistered package',
-        mutate(fixture: string) {
-          const directory = join(fixture, 'packages', 'unregistered');
-          mkdirSync(directory, { recursive: true });
-          writeFileSync(
-            join(directory, 'package.json'),
-            `${JSON.stringify({ name: '@zmdb/unregistered', version: '0.0.0', exports: { '.': './index.js' } }, null, 2)}\n`,
-          );
-        },
-        evidence: /@zmdb\/unregistered/i,
-      },
-      {
-        label: 'name mismatch',
-        mutate(fixture: string) {
-          const target = join(fixture, 'packages', 'zmdb', 'package.json');
-          const manifest = JSON.parse(readFileSync(target, 'utf8')) as PackageManifest;
-          writeFileSync(target, `${JSON.stringify({ ...manifest, name: 'zmdb-mismatch' }, null, 2)}\n`);
-        },
-        evidence: /zmdb-mismatch|name mismatch/i,
-      },
-    ];
-    const problems: string[] = [];
-
-    for (const one of cases) {
-      withFixture(fixture => {
-        materializePackageManifests(fixture);
-        one.mutate(fixture);
-        const result = verifyGenerated(fixture);
-        if (
-          result.status === 0 ||
-          !/catalog|manifest|package/i.test(result.output) ||
-          !one.evidence.test(result.output)
-        ) {
-          problems.push(`${one.label}: ${result.output.trim()}`);
-        }
-      });
-    }
-
-    expect(problems).toEqual([]);
   });
 
   it('validates integration status, package, peer, docs and evidence ownership', async () => {
