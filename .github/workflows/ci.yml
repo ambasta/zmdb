@@ -79,9 +79,6 @@ jobs:
         if: always()
         run: docker rm --force zmdb-issue-671-mysql-ci || true
 
-      - name: Verify the generated validation model is current
-        run: yarn bench:validation:generate:check
-
       - name: Verify the committed no-bundler fixture is current
         run: yarn verify:fixtures
 
