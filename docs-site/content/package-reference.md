@@ -594,8 +594,10 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `node` → `>=26`
 - **License:** `MPL-2.0`
 - **Facade exposure:**
+  - `CreateGraphDTO`
   - `Driver`
   - `IncompleteKeyError`
+  - `UpdateGraphDTO`
   - `UpdatePatch`
   - `ValidationError`
   - `defineRepository`

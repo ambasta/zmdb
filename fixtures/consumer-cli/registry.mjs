@@ -53,9 +53,42 @@ const groupAlive = pid => {
     throw error;
   }
 };
+function uint8ToBase64(bytes) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    result += chars[bytes[i] >> 2];
+    result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+    result += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
+    result += chars[bytes[i + 2] & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[bytes[i] >> 2];
+    if (i + 1 < bytes.length) {
+      result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+      result += chars[(bytes[i + 1] & 15) << 2];
+      result += '=';
+    } else {
+      result += chars[(bytes[i] & 3) << 4];
+      result += '==';
+    }
+  }
+  return result;
+}
+
+function uint8ToHex(bytes) {
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  if (encoding === 'base64') {
+    if (typeof digest.toBase64 === 'function') return digest.toBase64();
+    return uint8ToBase64(digest);
+  }
+  if (typeof digest.toHex === 'function') return digest.toHex();
+  return uint8ToHex(digest);
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {
