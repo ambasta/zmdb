@@ -15,6 +15,7 @@ const INTEGRATIONS = [
     packageName: '@zmdb/protobuf',
     directory: 'protobuf',
     peer: undefined,
+    ownership: ['reflector/emitter', 'owns no compiler process'],
   },
   {
     packageName: '@zmdb/transport-grpc',
