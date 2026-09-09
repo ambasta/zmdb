@@ -447,9 +447,6 @@ function isQueryTelemetry(val: unknown): val is QueryTelemetry {
 }
 
 /** Every `compile()` in this package returns this shape, frozen at both levels. */
-export function frozenQuery(
-  text: string,
-  params: readonly unknown[],
 function isQueryEffects(val: unknown): val is QueryEffects {
   return (
     typeof val === 'object' &&

@@ -24,7 +24,7 @@ const DIALECT_OBJECTS = {
   mssql: mssqlDialect,
 } as const;
 
-type Golden = Readonly<Record<ExpressionDialect, Pick<CompiledQuery, 'text' | 'parameters'>>>;
+type Golden = Readonly<Record<ExpressionDialect, Partial<CompiledQuery>>>;
 
 function createQueryCompiler(dialect: ExpressionDialect) {
   return createCompiler(DIALECT_OBJECTS[dialect]);
@@ -32,8 +32,7 @@ function createQueryCompiler(dialect: ExpressionDialect) {
 
 function expectAcrossDialects(build: (dialect: ExpressionDialect) => CompiledQuery, golden: Golden): void {
   for (const dialect of DIALECTS) {
-    const { text, parameters } = build(dialect);
-    expect({ text, parameters }, dialect).toEqual(golden[dialect]);
+    expect(build(dialect), dialect).toMatchObject(golden[dialect]);
   }
 }
 

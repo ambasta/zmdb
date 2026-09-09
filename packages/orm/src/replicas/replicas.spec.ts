@@ -24,8 +24,15 @@ describe('read replicas (#128)', () => {
     expect(isWrite('WITH moved AS (DELETE FROM old_users RETURNING *) INSERT INTO new_users SELECT * FROM moved')).toBe(
       true,
     );
-    expect(isWrite({ text: 'SELECT * FROM users', parameters: [], isWrite: false })).toBe(false);
-    expect(isWrite({ text: 'SELECT * FROM users', parameters: [], isWrite: true })).toBe(true);
+    expect(isWrite({ text: 'SELECT * FROM users', parameters: [], isWrite: false, effects: read })).toBe(false);
+    expect(
+      isWrite({
+        text: 'SELECT * FROM users',
+        parameters: [],
+        isWrite: true,
+        effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+      }),
+    ).toBe(true);
   });
 
   it('routes write CTEs, DDL, and locking reads to primary based on metadata or SQL inspection', async () => {
@@ -40,24 +47,28 @@ describe('read replicas (#128)', () => {
       parameters: [],
       isWrite: true,
       operation: 'insert' as const,
+      effects: { operation: 'INSERT' as const, requiresPrimary: true as const, returnsRows: false as const },
     };
     const ddlQuery = {
       text: 'CREATE TABLE logs (id INT)',
       parameters: [],
       isWrite: true,
       operation: 'ddl' as const,
+      effects: { operation: 'DDL' as const, requiresPrimary: true as const, returnsRows: false as const },
     };
     const lockingQuery = {
       text: 'SELECT * FROM accounts WHERE id = $1 FOR UPDATE',
       parameters: [1],
       isWrite: true,
       operation: 'select' as const,
+      effects: { operation: 'SELECT' as const, requiresPrimary: true as const, returnsRows: true as const },
     };
     const readCte = {
       text: 'WITH active AS (SELECT * FROM users WHERE active = true) SELECT * FROM active',
       parameters: [],
       isWrite: false,
       operation: 'select' as const,
+      effects: read,
     };
 
     await d.execute(writeCte);
@@ -147,8 +158,10 @@ describe('read replicas (#128)', () => {
 
   it('keeps transactions on the primary driver', async () => {
     const log: string[] = [];
+    const pDriver = tagDriver('P', log);
     const primary: TransactionalDriver = {
-      ...tagDriver('P', log),
+      dialect: postgresDialect,
+      execute: pDriver.execute,
       transaction: async run => run(tagDriver('TX', log)),
     };
     const driver = withReplicas({ primary, replicas: [tagDriver('R', log)] });

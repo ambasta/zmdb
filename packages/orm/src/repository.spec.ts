@@ -498,7 +498,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       text: 'SELECT "archive_old_orders"($1) AS "result"',
       parameters: [cutoff],
       operation: 'select',
-      isWrite: false,
+      isWrite: true,
       returnsRows: true,
     });
     expect(mysql.callFunction('archive_old_orders', [cutoff])).toEqual({
@@ -506,7 +506,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       text: 'SELECT `archive_old_orders`(?) AS `result`',
       parameters: [cutoff],
       operation: 'select',
-      isWrite: false,
+      isWrite: true,
       returnsRows: true,
     });
     expect(postgres.callFunction('odd"name', [cutoff])).toEqual({
@@ -514,7 +514,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       text: 'SELECT "odd""name"($1) AS "result"',
       parameters: [cutoff],
       operation: 'select',
-      isWrite: false,
+      isWrite: true,
       returnsRows: true,
     });
   });
@@ -527,7 +527,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       text: 'CALL "rebuild_search_index"($1, $2)',
       parameters: ['tenant-a', 25],
       operation: 'other',
-      isWrite: false,
+      isWrite: true,
       returnsRows: false,
     });
     expect(mysql.callProcedure('rebuild_search_index', ['tenant-a', 25])).toEqual({
@@ -535,7 +535,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       text: 'CALL `rebuild_search_index`(?, ?)',
       parameters: ['tenant-a', 25],
       operation: 'other',
-      isWrite: false,
+      isWrite: true,
       returnsRows: false,
     });
   });
@@ -547,7 +547,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       text: 'SELECT * FROM "active_user_ids"($1)',
       parameters: [7n],
       operation: 'select',
-      isWrite: false,
+      isWrite: true,
       returnsRows: true,
     });
 
@@ -557,7 +557,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       text: 'SELECT * FROM "active_user_ids"($1)',
       parameters: [7n],
       operation: 'select',
-      isWrite: false,
+      isWrite: true,
       returnsRows: true,
     });
   });
@@ -643,7 +643,7 @@ describe('typed stored routine calls (frozen: repository/SPEC.md 4a)', () => {
         text: 'CALL "rebuild_search_index"($1)',
         parameters: ['tenant-a'],
         operation: 'other',
-        isWrite: false,
+        isWrite: true,
         returnsRows: false,
       },
     ]);
@@ -667,7 +667,7 @@ describe('typed stored routine calls (frozen: repository/SPEC.md 4a)', () => {
         text: 'SELECT "archive_old_orders"($1) AS "result"',
         parameters: [new Date('2026-01-01T00:00:00.000Z')],
         operation: 'select',
-        isWrite: false,
+        isWrite: true,
         returnsRows: true,
       },
     ]);

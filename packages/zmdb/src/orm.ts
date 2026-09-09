@@ -65,7 +65,7 @@ export {
   type OutboxWriter,
 } from '@zmdb/orm/outbox';
 
-export { withReplicas } from '@zmdb/orm/replicas';
+export { isWrite, withReplicas } from '@zmdb/orm/replicas';
 export { type ReplicaOptions } from '@zmdb/orm/replicas';
 
 export { makeEndpoint } from '@zmdb/web/integrations';
