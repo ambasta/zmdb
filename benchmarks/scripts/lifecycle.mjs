@@ -56,9 +56,18 @@ const environment = { ...process.env, NODE_OPTIONS: '', NODE_PATH: '' };
 for (const key of Object.keys(environment)) {
   if (/^npm_config_/i.test(key)) delete environment[key];
 }
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  return encoding === 'base64' ? toBase64(digest) : toHex(digest);
 };
 
 async function run(label, executable, args, cwd, env = {}, timeout = 600_000) {

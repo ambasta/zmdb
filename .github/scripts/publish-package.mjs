@@ -52,9 +52,15 @@ export function isRegistryMiss(result) {
   return result.status !== 0 && /\bE404\b|404 Not Found|is not in this registry/i.test(output(result));
 }
 
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 async function fileIntegrity(path) {
-  const digest = await globalThis.crypto.subtle.digest('SHA-512', readFileSync(path));
-  return `sha512-${new Uint8Array(digest).toBase64()}`;
+  const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', readFileSync(path)));
+  return `sha512-${toBase64(digest)}`;
 }
 
 function parseArguments(argv) {

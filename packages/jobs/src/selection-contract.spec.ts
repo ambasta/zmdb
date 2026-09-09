@@ -986,7 +986,7 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
         '@zmdb/jobs': workspaceVersion(matrix.workspace, '@zmdb/jobs'),
       },
     }));
-    expect(selectionDiagnostics(mutation.graph())).toContain('SELECTION_DEFAULT_LEAK: zmdb -> @zmdb/jobs');
+    expect(selectionDiagnostics(mutation.graph())).toContain('SELECTION_DEFAULT_LEAK: @zmdb/core -> @zmdb/jobs');
   });
 
   it('rejects a portable jobs provider edge with SELECTION_PROVIDER_LEAK', () => {

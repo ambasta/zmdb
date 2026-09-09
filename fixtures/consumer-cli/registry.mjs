@@ -53,9 +53,18 @@ const groupAlive = pid => {
     throw error;
   }
 };
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  return encoding === 'base64' ? toBase64(digest) : toHex(digest);
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {

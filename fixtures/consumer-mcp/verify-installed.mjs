@@ -28,9 +28,18 @@ function packageName(directory) {
   return JSON.parse(readFileSync(join(PACKAGES, directory, 'package.json'), 'utf8')).name;
 }
 
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 async function digest(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const hash = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hash.toBase64() : hash.toHex();
+  return encoding === 'base64' ? toBase64(hash) : toHex(hash);
 }
 
 const temporary = mkdtempSync(join(tmpdir(), 'zmdb-mcp-consumer-'));

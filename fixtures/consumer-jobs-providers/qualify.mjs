@@ -88,6 +88,15 @@ async function installedPackages(directory) {
   return found;
 }
 
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 async function packClosure(roots) {
   for (const entry of await readdir(join(root, 'packages'), { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
@@ -145,12 +154,7 @@ async function packClosure(roots) {
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
     packageIntegrities.set(
       manifest.name,
-      `sha512-${new Uint8Array(
-        await globalThis.crypto.subtle.digest(
-          'SHA-512',
-          await readFile(join(tarballs, packedInfo[manifest.name].filename)),
-        ),
-      ).toBase64()}`,
+      `sha512-${toBase64(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', await readFile(join(tarballs, packedInfo[manifest.name].filename)))))}`,
     );
   }
   return packed;
@@ -332,7 +336,7 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => ({
       name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
+      sha256: toHex(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)))),
     })),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {

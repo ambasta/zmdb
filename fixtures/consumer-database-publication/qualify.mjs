@@ -180,10 +180,17 @@ try {
       tarballs.set(entry.npmName, { manifest, tarball });
     }
   });
+  /* eslint-disable no-restricted-globals, no-restricted-properties */
+  function toBase64(bytes) {
+    return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+  }
+  /* eslint-enable no-restricted-globals, no-restricted-properties */
+
   const integrities = {};
   for (const [name, record] of tarballs) {
     const bytes = await readFile(record.tarball);
-    integrities[name] = `sha512-${new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)).toBase64()}`;
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-512', bytes));
+    integrities[name] = `sha512-${toBase64(d)}`;
     report.packages.push({ name, version: record.manifest.version, integrity: integrities[name] });
   }
   registry = await startRegistry([...tarballs.values()]);

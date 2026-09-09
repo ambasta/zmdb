@@ -17,9 +17,18 @@ const DEPENDENCIES = {
   '@zmdb/orm': ['@zmdb/schema', '@zmdb/sql', '@zmdb/validator'],
 };
 const TYPES = { typescript: '7.0.2', '@types/node': '26.4.1' };
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'hex' ? digest.toHex() : digest.toBase64();
+  return encoding === 'hex' ? toHex(digest) : toBase64(digest);
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

@@ -71,6 +71,12 @@ for (const name of Object.keys(peers)) {
   versions[name] = manifest.version;
 }
 const hashes = {};
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 for (const relative of [
   'benchmarks/rca/http/workload.ts',
   'benchmarks/rca/http/prepare.mjs',
@@ -83,9 +89,8 @@ for (const relative of [
   'packages/web/src/pipeline/index.ts',
   'packages/app/src/data/index.ts',
 ]) {
-  hashes[relative] = new Uint8Array(
-    await crypto.subtle.digest('SHA-256', await readFile(path.join(root, relative))),
-  ).toHex();
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', await readFile(path.join(root, relative))));
+  hashes[relative] = toHex(digest);
 }
 await writeFile(
   path.join(out, 'tsconfig.workload.json'),

@@ -279,9 +279,18 @@ export async function withCompatibilityWorkspace(parent, run) {
   }
 }
 
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 async function digest(bytes, algorithm, encoding = 'hex') {
   const value = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? value.toBase64() : value.toHex();
+  return encoding === 'base64' ? toBase64(value) : toHex(value);
 }
 
 async function sourceIdentity(directory) {

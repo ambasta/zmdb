@@ -7,10 +7,19 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const source = dirname(fileURLToPath(import.meta.url));
 const root = resolve(source, '../..');
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
 const hash = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const input = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, input));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  return encoding === 'base64' ? toBase64(digest) : toHex(digest);
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

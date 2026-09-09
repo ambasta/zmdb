@@ -14,10 +14,19 @@ await mkdir(evidence, { recursive: true });
 const directory = await mkdtemp(join(dirname(ROOT), 'zmdb-760-packed-'));
 let registry, fixtures;
 const result = { commands: [], archives: [], roots: {}, processes: [], cleaned: false };
-const digest = async (algorithm, bytes, encoding = 'hex') =>
-  encoding === 'base64'
-    ? new Uint8Array(await crypto.subtle.digest(algorithm, bytes)).toBase64()
-    : new Uint8Array(await crypto.subtle.digest(algorithm, bytes)).toHex();
+/* eslint-disable no-restricted-globals, no-restricted-properties */
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function' ? bytes.toHex() : globalThis.Buffer.from(bytes).toString('hex');
+}
+function toBase64(bytes) {
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.Buffer.from(bytes).toString('base64');
+}
+/* eslint-enable no-restricted-globals, no-restricted-properties */
+
+const digest = async (algorithm, bytes, encoding = 'hex') => {
+  const d = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
+  return encoding === 'base64' ? toBase64(d) : toHex(d);
+};
 const groupAlive = pid => {
   try {
     process.kill(-pid, 0);
