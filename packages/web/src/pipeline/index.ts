@@ -1548,14 +1548,6 @@ function typeOfFailure(error: unknown): string {
 
 // ---- Adapters (structurally typed; no hard node:http / Hono dependency) ----
 
-/** Options for server adapters (e.g. body size guardrails). */
-export interface AdapterOptions {
-  /** Maximum allowed request body size in bytes. */
-  readonly maxBodySize?: number;
-  /** Maximum allowed request body size in bytes. */
-  readonly maxBodyBytes?: number;
-}
-
 // The subset of node:http we touch. `setEncoding` and `writeHead` are optional
 // because this adapter is structurally typed — a hand-rolled req/res that lacks
 // them still works, it just takes the slower path.
@@ -1566,8 +1558,6 @@ interface NodeReqLike {
   readonly socket?: { readonly encrypted?: boolean };
   on(event: string, listener: (chunk: unknown) => void): void;
   setEncoding?(encoding: string): void;
-  destroy?: (error?: Error) => void;
-  pause?: () => void;
 }
 interface NodeResLike {
   statusCode: number;
@@ -1579,6 +1569,11 @@ interface NodeResLike {
   end(body?: string | Uint8Array<ArrayBuffer>): void;
 }
 
+/** Request-body limits shared by the Node and Fetch adapters. */
+export interface AdapterOptions {
+  readonly maxBodyBytes: number;
+}
+
 /**
  * Adapt a router to a node:http `(req, res)` handler.
  *
@@ -1588,9 +1583,11 @@ interface NodeResLike {
  * median of 5) the adapter served 294,067 req/s against the hand-written app's
  * 395,983 — 1.35x slower, entirely in the four things below.
  */
-export function toNodeHandler(router: Router, options?: AdapterOptions): (req: NodeReqLike, res: NodeResLike) => void {
-  const maxBodyBytes = options?.maxBodyBytes ?? options?.maxBodySize ?? DEFAULT_MAX_BODY_BYTES;
-  validateMaxBodyBytes(maxBodyBytes);
+export function toNodeHandler(
+  router: Router,
+  options: AdapterOptions = { maxBodyBytes: DEFAULT_MAX_BODY_BYTES },
+): (req: NodeReqLike, res: NodeResLike) => void {
+  validateMaxBodyBytes(options.maxBodyBytes);
   return function (req: NodeReqLike, res: NodeResLike): void {
     // A request with no body needs no 'data'/'end' listeners, no accumulator and
     // no extra event-loop turn — and per RFC 9112 a request with neither
@@ -1600,7 +1597,7 @@ export function toNodeHandler(router: Router, options?: AdapterOptions): (req: N
     // straight away instead of registering two closures and waiting a tick.
     if (hasRequestBody(req)) {
       const announcedLength = requestContentLength(req);
-      if (announcedLength !== undefined && announcedLength > maxBodyBytes) {
+      if (announcedLength !== undefined && announcedLength > options.maxBodyBytes) {
         rejectOversizedRequest(res);
         return;
       }
@@ -1624,17 +1621,17 @@ export function toNodeHandler(router: Router, options?: AdapterOptions): (req: N
         if (binary) {
           const chunkValue = chunkBytes(chunk);
           size += chunkValue.byteLength;
-          if (size <= maxBodyBytes) {
+          if (size <= options.maxBodyBytes) {
             byteChunks.push(chunkValue);
           }
         } else {
           const chunkValue = String(chunk);
           size += new TextEncoder().encode(chunkValue).byteLength;
-          if (size <= maxBodyBytes) {
+          if (size <= options.maxBodyBytes) {
             raw += chunkValue;
           }
         }
-        if (size > maxBodyBytes) {
+        if (size > options.maxBodyBytes) {
           exceeded = true;
           rejectOversizedRequest(res);
         }
@@ -1817,24 +1814,19 @@ function nodeDrain(res: NodeResLike): Promise<void> {
 }
 
 /** Adapt a router to a Fetch `(Request) => Promise<Response>` handler. */
-export function toFetchHandler(router: Router, options?: AdapterOptions): (request: Request) => Promise<Response> {
-  const maxBodyBytes = options?.maxBodyBytes ?? options?.maxBodySize ?? DEFAULT_MAX_BODY_BYTES;
-  validateMaxBodyBytes(maxBodyBytes);
+export function toFetchHandler(
+  router: Router,
+  options: AdapterOptions = { maxBodyBytes: DEFAULT_MAX_BODY_BYTES },
+): (request: Request) => Promise<Response> {
+  validateMaxBodyBytes(options.maxBodyBytes);
   return async function (request: Request): Promise<Response> {
     const url = new URL(request.url);
     const raw =
       request.method === 'GET' || request.method === 'HEAD'
         ? { ok: true as const, value: undefined }
-        : await readFetchBody(request, maxBodyBytes);
+        : await readFetchBody(request, options.maxBodyBytes);
     if (!raw.ok) {
-      const errResp = jsonResponse(413, { error: 'Payload Too Large' });
-      return new Response(
-        errResp.body.kind === TEXT_BODY_KIND ? errResp.body.value : JSON.stringify({ error: 'Payload Too Large' }),
-        {
-          status: 413,
-          headers: { 'content-type': 'application/json' },
-        },
-      );
+      return new Response(null, { status: 413 });
     }
     const response = await router.handle({
       method: request.method,
@@ -1977,8 +1969,8 @@ function joinBytes(chunks: readonly Uint8Array<ArrayBuffer>[], size: number): Ui
 }
 
 function rejectOversizedRequest(res: NodeResLike): void {
-  send(res, jsonResponse(413, { error: 'Payload Too Large' }), 'POST');
-  res.destroy?.(new Error('Payload Too Large'));
+  send(res, jsonResponse(413, { error: 'request body exceeds maxBodyBytes' }), 'POST');
+  res.destroy(new Error('request body exceeds maxBodyBytes'));
 }
 
 function withoutTransferEncoding(headers: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
