@@ -178,6 +178,7 @@ function executeSample(directory, sample) {
     process.execPath,
     [
       '--permission',
+      '--import=data:text/javascript,import net from "node:net"; net.connect = net.Socket.prototype.connect = () => { throw new Error("network access blocked"); }; globalThis.fetch = () => { throw new Error("network access blocked"); };',
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
       `--allow-fs-read=${realpathSync(join(root, 'packages'))}`,
