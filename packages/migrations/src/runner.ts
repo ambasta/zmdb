@@ -12,6 +12,7 @@ import {
   formatPlaceholder,
   frozenQuery,
   quoteTable,
+  trustedTable,
   type DialectTarget,
   type Driver,
   type MigrationDriver as DialectMigrationDriver,
@@ -188,7 +189,7 @@ export function driverMigrationConnection(
       );
     },
     async recordReverted(version: number): Promise<void> {
-      const query = qb.deleteFrom(qualifiedTableName).where('version', '=', version);
+      const query = qb.deleteFrom(trustedTable(qualifiedTableName)).where('version', '=', version);
       await driver.execute(query.compile());
     },
     async ensureVersionTable(): Promise<void> {

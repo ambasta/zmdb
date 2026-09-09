@@ -59,13 +59,15 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
     const compiler = createQueryCompiler(mssql);
     const aliased = [{ column: 'created_at', alias: 'createdAt' }] as const;
 
-    expect(compiler.insertInto(trustedTable('users')).values({ email: 'a@b.com' }).returning(['id']).compile()).toEqual({
-      text: 'INSERT INTO [users] ([email]) OUTPUT INSERTED.[id] VALUES (@p1)',
-      parameters: ['a@b.com'],
-      returnsRows: true,
-      operation: 'insert',
-      isWrite: true,
-    });
+    expect(compiler.insertInto(trustedTable('users')).values({ email: 'a@b.com' }).returning(['id']).compile()).toEqual(
+      {
+        text: 'INSERT INTO [users] ([email]) OUTPUT INSERTED.[id] VALUES (@p1)',
+        parameters: ['a@b.com'],
+        returnsRows: true,
+        operation: 'insert',
+        isWrite: true,
+      },
+    );
     expect(
       compiler
         .updateTable(trustedTable('users'))

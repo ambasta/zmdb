@@ -124,7 +124,7 @@ describe('jobs provider resource lifecycle (#756)', () => {
     });
     const budgets: number[] = [];
     const application = createApplication(Root, {
-      graceMs: 10,
+      graceMs: 1,
       extensions: [
         jobsExtension({
           workers: [worker('hung', events, () => hanging)],

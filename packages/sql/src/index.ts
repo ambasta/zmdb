@@ -219,8 +219,7 @@ export interface Driver<Name extends string = string> {
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
-  compile(): CompiledQuery;
-}
+
 interface RuntimeUpdateBuilder {
   set(row: Record<string, unknown>): RuntimeUpdateBuilder;
   where(col: string, op: Operator, value: unknown): RuntimeUpdateBuilder;
