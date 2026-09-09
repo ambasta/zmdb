@@ -2850,7 +2850,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           if (isRecord(childData)) {
             const cleanChild = this.sanitizePayload(childData);
             const inserted = await this.driver.execute(
-              this.qb.insertInto(rel.target).values(cleanChild).returning(['*']).compile(),
+              this.qb.insertInto(trustedTable(rel.target)).values(cleanChild).returning(['*']).compile(),
             );
             const childRow = inserted[0];
             if (childRow) {
@@ -2891,7 +2891,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                     [childFk]: parentId,
                   });
                   await this.driver.execute(
-                    this.qb.insertInto(childTable).values(childPayload).returning(['*']).compile(),
+                    this.qb.insertInto(trustedTable(childTable)).values(childPayload).returning(['*']).compile(),
                   );
                 }
               }
@@ -2902,7 +2902,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                 ...relValue,
                 [childFk]: parentId,
               });
-              await this.driver.execute(this.qb.insertInto(childTable).values(childPayload).returning(['*']).compile());
+              await this.driver.execute(
+                this.qb.insertInto(trustedTable(childTable)).values(childPayload).returning(['*']).compile(),
+              );
             }
           }
         } else if (rel.relation === 'manyToMany') {
@@ -2915,7 +2917,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
               if (isRecord(childItem)) {
                 const cleanChild = this.sanitizePayload(childItem);
                 const insertedChild = await this.driver.execute(
-                  this.qb.insertInto(childTable).values(cleanChild).returning(['*']).compile(),
+                  this.qb.insertInto(trustedTable(childTable)).values(cleanChild).returning(['*']).compile(),
                 );
                 const childRow = insertedChild[0];
                 const childPk = isRecord(childRow) ? (childRow.id ?? childRow.userId) : undefined;
@@ -2924,7 +2926,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                   const targetFkCol = `${childTable.replace(/s$/, '')}Id`;
                   await this.driver.execute(
                     this.qb
-                      .insertInto(through)
+                      .insertInto(trustedTable(through))
                       .values({ [baseFkCol]: parentId, [targetFkCol]: childPk })
                       .compile(),
                   );
@@ -2993,7 +2995,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           if (rel.relation === 'oneToMany') {
             if (Array.isArray(relValue)) {
               const existingChildren = await this.driver.execute(
-                this.qb.selectFrom(childTable).where(childFk, '=', parentId).compile(),
+                this.qb.selectFrom(trustedTable(childTable)).where(childFk, '=', parentId).compile(),
               );
               const childPkCol = 'id';
               const existingChildIds = new Set(
@@ -3012,7 +3014,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                     if (Object.keys(updateData).length > 0) {
                       await this.driver.execute(
                         this.qb
-                          .updateTable(childTable)
+                          .updateTable(trustedTable(childTable))
                           .set(updateData)
                           .where(childPkCol, '=', childId)
                           .where(childFk, '=', parentId)
@@ -3023,7 +3025,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                   } else {
                     const cleanChild = this.sanitizePayload(childObj);
                     const inserted = await this.driver.execute(
-                      this.qb.insertInto(childTable).values(cleanChild).returning(['*']).compile(),
+                      this.qb.insertInto(trustedTable(childTable)).values(cleanChild).returning(['*']).compile(),
                     );
                     const newRow = inserted[0];
                     if (newRow && newRow[childPkCol] !== undefined) {
@@ -3037,7 +3039,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                 if (!keptChildIds.has(oldId)) {
                   await this.driver.execute(
                     this.qb
-                      .deleteFrom(childTable)
+                      .deleteFrom(trustedTable(childTable))
                       .where(childPkCol, '=', oldId)
                       .where(childFk, '=', parentId)
                       .compile(),
@@ -3050,7 +3052,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
             if (isRecord(relValue)) {
               const childObj = { ...relValue, [childFk]: parentId };
               const existingChild = (
-                await this.driver.execute(this.qb.selectFrom(childTable).where(childFk, '=', parentId).compile())
+                await this.driver.execute(
+                  this.qb.selectFrom(trustedTable(childTable)).where(childFk, '=', parentId).compile(),
+                )
               )[0];
 
               if (existingChild) {
@@ -3059,15 +3063,23 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                 delete updateData[childPkCol];
                 if (Object.keys(updateData).length > 0) {
                   await this.driver.execute(
-                    this.qb.updateTable(childTable).set(updateData).where(childPkCol, '=', existingChildId).compile(),
+                    this.qb
+                      .updateTable(trustedTable(childTable))
+                      .set(updateData)
+                      .where(childPkCol, '=', existingChildId)
+                      .compile(),
                   );
                 }
               } else {
                 const cleanChild = this.sanitizePayload(childObj);
-                await this.driver.execute(this.qb.insertInto(childTable).values(cleanChild).returning(['*']).compile());
+                await this.driver.execute(
+                  this.qb.insertInto(trustedTable(childTable)).values(cleanChild).returning(['*']).compile(),
+                );
               }
             } else if (relValue === null) {
-              await this.driver.execute(this.qb.deleteFrom(childTable).where(childFk, '=', parentId).compile());
+              await this.driver.execute(
+                this.qb.deleteFrom(trustedTable(childTable)).where(childFk, '=', parentId).compile(),
+              );
             }
           }
         }
@@ -3104,14 +3116,18 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           const parentId = existingRec[parentKey] ?? id;
 
           if (childTable && childFk) {
-            await this.driver.execute(this.qb.deleteFrom(childTable).where(childFk, '=', parentId).compile());
+            await this.driver.execute(
+              this.qb.deleteFrom(trustedTable(childTable)).where(childFk, '=', parentId).compile(),
+            );
           }
         } else if (rel.relation === 'manyToMany') {
           const through = rel.via;
           const parentId = existingRec[this.pkColumn] ?? id;
           if (through) {
             const baseFkCol = `${this.tableName.replace(/s$/, '')}Id`;
-            await this.driver.execute(this.qb.deleteFrom(through).where(baseFkCol, '=', parentId).compile());
+            await this.driver.execute(
+              this.qb.deleteFrom(trustedTable(through)).where(baseFkCol, '=', parentId).compile(),
+            );
           }
         }
       }
