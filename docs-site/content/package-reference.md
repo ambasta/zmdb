@@ -1,7 +1,6 @@
 # Package reference
 
-> [!NOTE] The section below is generated from the read-only product catalog and current package manifests. `build:docs` refreshes it, while `verify:docs-generated` and `verify:product-catalog` compare
-> its bytes without changing this file.
+> [!NOTE] The section below is generated from the read-only product catalog and current package manifests. `build:docs` refreshes it.
 
 zmdb is installed as one product; use the manifest-derived command in the generated table below.
 
@@ -279,7 +278,7 @@ Dependency-free HTTP client runtime for generated and manually declared zmdb ope
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
-- **External proof:** fixtures/consumer-http-client
+- **External proof:** packages/client/src/runtime.spec.ts
 
 ### `@zmdb/cockroach`
 
@@ -485,7 +484,7 @@ Explicit SQLite persistence and owned memory storage for portable zmdb jobs.
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
-- **External proof:** fixtures/consumer-jobs-providers
+- **External proof:** packages/jobs-sqlite/src/index.spec.ts
 
 ### `@zmdb/mcp`
 

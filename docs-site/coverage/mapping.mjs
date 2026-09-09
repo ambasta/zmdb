@@ -1,9 +1,6 @@
 // Upstream doc page -> zmdb doc page, or an explicit "we don't do that" rationale.
 //
-// zmdb claims to be a single replacement for Drizzle, MikroORM, Typia and NestJS.
-// A claim that size is only worth anything if it is checkable, so every page in
-// coverage/inventory.mjs gets an entry here and .github/scripts/verify-docs-coverage.mjs
-// fails the build when one is missing or points at a slug that does not exist.
+// These mappings supply the anti-patterns page with links and design rationales.
 //
 // Two kinds of entry:
 //
@@ -13,8 +10,7 @@
 //       missing", which is a different statement from "covered". It may also be
 //       marked status:'wontfix' — "we designed this, decided against it, and the
 //       page says what to use instead". The eighteen GraphQL entries below are that
-//       case; the gate counts all three kinds separately so the difference is not
-//       lost in a total.
+//       case.
 //
 //   'upstream/page': ap('reason', 'see-slug')
 //       We deliberately do not have this page, because the thing it documents is

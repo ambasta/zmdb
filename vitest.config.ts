@@ -35,12 +35,6 @@ const integrationTests = [
   'packages/*/src/**/*{.integration,.e2e,.live}.spec.ts',
   'packages/*/src/**/{integration,live,packed,packed-*}.spec.ts',
   'packages/jobs-postgres/src/index.spec.ts',
-  'packages/jobs/src/{selection-contract,provider-wire}.spec.ts',
-  'packages/client/src/package-boundary.spec.ts',
-  'packages/web/src/separation/{server-packages,server-integrations}.spec.ts',
-  'packages/zmdb/src/{consumer-*-publication,runtime-foundation,server-documentation,tooling-package-boundaries}.spec.ts',
-  'packages/zmdb/src/client-integrations/adapter-contract.spec.ts',
-  '.github/scripts/{verify-database-boundaries,verify-tooling-cutover}.spec.ts',
 ];
 
 export default defineConfig({

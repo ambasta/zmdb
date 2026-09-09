@@ -14,8 +14,7 @@ This specification freezes:
 - the ten top-level groups and the canonical owner of every page;
 - the GraphQL consolidation and redirect policy;
 - which package and integration facts are generated and where they come from;
-- the structured framework-integration record;
-- the metadata and verification semantics of TypeScript documentation samples.
+- the structured framework-integration record.
 
 The original #713 freeze did **not** rewrite page prose, implement navigation, generate content, compile samples, or emit redirect files. #686 owns the generated-client prose and sample proof. #701
 owns the Client Applications overview, nine framework guides, support metadata, catalog ownership, and packed compilation of every canonical framework example.
@@ -50,26 +49,7 @@ At that measured baseline, the renderer:
 
 At that baseline, the three indented samples rendered as prose and the two four-backtick samples acquired a literal `` `ts `` language class and closed at the nested three-backtick text.
 
-The renderer now shares `fences.mjs` with `verify:docs-samples`: indentation and delimiter length determine fence boundaries, while the language and JSON metadata are parsed separately. Rendering
-strips the metadata; sample verification applies the compilation and execution rules below. A green docs build alone is not sample correctness evidence.
-
-### 2.1 Current documentation inventory
-
-Measured on 2026-09-08 at `1a0a3b6c` using `NAV` and `PAGE_META` from `pages.mjs`, `LEGACY_REDIRECTS` from `navigation-plan.mjs`, and the shared parser in `fences.mjs`:
-
-| Surface                                     | Measured result                                                                           |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Page registry                               | 289 unique pages in 10 groups                                                             |
-| Page statuses                               | 273 `supported`, 3 `todo`, 13 `wontfix`                                                   |
-| Retained GraphQL pages                      | 12 permanently wontfix pages; their 68 typed fences are excluded from sample verification |
-| Typed fences in all registered source pages | 1,348                                                                                     |
-| Classified sample corpus                    | 1,280 fences across 263 non-GraphQL pages                                                 |
-| Sample modes                                | 233 `compile`, 1 `expect-error`, 1,046 `illustrative`                                     |
-| Compiler inputs                             | 231 groups containing 234 files                                                           |
-| Declared environments                       | 3 fences declare `node`; 1,277 omit an environment                                        |
-
-These are source-inventory measurements, not counts of executed examples or supported platforms. An illustrative fence does not supply runtime or API acceptance evidence. The sample verifier reports
-its current measured corpus on each run; update this snapshot and the README documentation inventory when page registration or sample metadata changes.
+The renderer uses `fences.mjs` for CommonMark-style fence boundaries and strips any info-string metadata from rendered code.
 
 ## 3. The ten-group product journey
 
@@ -215,111 +195,19 @@ guide and `PUBLISHING.md` retain their executable release commands. The checker 
 independently-versionable-package claim, and a copied publish loop in release documentation. Graph output may change only by changing the catalog, policy or admitted manifests and regenerating with
 `node docs-site/generated.mjs`.
 
-## 6. Documentation sample contract
+## 6. Documentation samples
 
-### 6.1 Fence parsing and metadata syntax
-
-The parser accepts CommonMark-style backtick fences with zero to three leading spaces and an opening delimiter of three or more backticks. A closing delimiter has at least the opening length and no
-info string. Rendering and sample verification use the same parser for these boundaries.
-
-Every retained `ts`, `typescript` or `tsx` fence carries one JSON metadata object after the language:
-
-````text
-```ts {"mode":"compile","id":"quick-start-schema"}
-```
-````
-
-The JSON is one line, contains no comments or trailing comma, and is decoded without a shell-like or ad-hoc token grammar.
-
-```ts
-export type DocSampleMode = 'compile' | 'expect-error' | 'illustrative';
-export type DocSampleEnvironment = 'node' | 'browser' | 'react-native';
-
-export interface DocSampleMeta {
-  readonly mode: DocSampleMode;
-  readonly id: string;
-  readonly file?: string;
-  readonly group?: string;
-  readonly reason?: string;
-  readonly diagnostics?: readonly string[];
-  readonly run?: boolean;
-  readonly environment?: DocSampleEnvironment;
-}
-```
-
-`id` and `group` use lower-case kebab case. An `id` is unique within its page, making `<slug>:<id>` the stable repository identity. `file` is a relative POSIX path with no empty, absolute, `.` or `..`
-segment.
-
-### 6.2 `compile`
-
-- The sample must typecheck with no diagnostics under the repository's strict TypeScript baseline.
-- It resolves official packages through packed/public exports, never workspace path aliases or `packages/*/src`.
-- No JavaScript runs by default.
-- `diagnostics` and `reason` are forbidden.
-- `run: true` is explicit opt-in after a successful compile. `environment` is then required.
-- Runtime samples execute in a fresh temporary consumer with bounded time and output. Network, databases, credentials and other external state require an issue-owned fixture; they are never silently
-  mocked or contacted.
-
-### 6.3 `expect-error`
-
-- Compilation must fail.
-- `diagnostics` is required and non-empty. Each entry is either a TypeScript code such as `TS2345` or an exact diagnostic substring.
-- Every declared diagnostic must occur and every emitted error must be accounted for.
-- A sample that unexpectedly compiles fails verification.
-- `run` and `reason` are forbidden.
-
-### 6.4 `illustrative`
-
-- The sample is deliberately incomplete or depends on context that cannot form a truthful standalone program.
-- `reason` is required and must explain the missing context; labels such as “example only” are insufficient.
-- `diagnostics` and `run` are forbidden.
-- Illustrative samples are reported separately and cannot support a compatibility, platform or API claim.
-
-### 6.5 Multi-file examples
-
-- Fences on the same page with the same `group` form one temporary project.
-- Every member has a unique `file`, and `file` is mandatory when `group` is present.
-- All members use the same `mode` and `environment`.
-- Relative imports may resolve only within the group. Package imports still resolve through public, packed exports.
-- The group compiles once. For `expect-error`, the union of declared diagnostics must exactly account for the group diagnostics.
-- A fence without `group` is a single-file project; omitted `file` defaults to `index.ts` or `index.tsx` according to the fence language.
-
-### 6.6 Classification scope
-
-All TypeScript/TSX fences on canonical pages must be classified. The twelve permanently wontfix GraphQL pages remain unchanged and are excluded from sample verification. New canonical prose is
-classified in the issue that introduces it.
-
-The sample verifier reports, at minimum:
-
-- total typed fences and pages;
-- counts by mode and environment;
-- illustrative reasons;
-- compiled groups and files;
-- expected and unexpected diagnostics;
-- private-source import violations.
-
-The docs renderer and sample verifier share one fence parser. A fence cannot render as code while being invisible to verification, or be verified while rendering as prose.
+Documentation samples use ordinary fenced code blocks. Keep examples concise, use public package exports, and verify behavior with the package tests that own the API when a documentation change alters
+an executable contract. The docs renderer handles CommonMark-style fence boundaries and syntax highlighting.
 
 ## 7. Required verification
 
-The existing documentation checks enforce these statements:
+The documentation build and focused renderer tests cover these behaviors:
 
-- every canonical page belongs to exactly one of the ten groups;
-- all current non-GraphQL slugs remain stable;
-- all twelve existing GraphQL source pages remain permanently wontfix and excluded from sample verification;
-- package and integration output is deterministic and sourced as specified;
-- architecture graph, rings and entry assignments are deterministic and sourced from catalog, policy and manifests;
-- package admission and the target-scoped core/integration release commands remain present, the release-group contract is linked as executable policy, and copied package inventories remain absent;
-- every retained typed fence is classified;
-- compile samples compile, expected-error samples fail for their declared diagnostics, and illustrative samples carry a reason.
+- the site emits its landing page, documentation, benchmark dashboard and OpenAPI artifacts;
+- malformed or missing benchmark inputs render an explicit unavailable state;
+- search indexing, ranking and snippets work and escape page content; and
+- theme, offline search and keyboard interaction remain functional.
 
-The contributor workflow is [CONTRIBUTING.md](../CONTRIBUTING.md#documentation-changes). Local verification uses the existing commands:
-
-- `yarn verify:docs-generated` checks the generated package, integration and architecture projections;
-- `yarn verify:docs-samples` checks classified sample groups and expected diagnostics;
-- `yarn verify:docs-coverage` checks the upstream documentation mapping; and
-- `yarn build:docs` emits the site, including its OpenAPI artifact.
-
-CI and Pages run all three checks before the canonical build command. A final documentation delivery runs the build twice and compares every emitted relative path and content hash, with no generated
-source changes on the second build. Focused sample/compiler and installed-consumer proofs may be reused when their inputs are unchanged; documentation-only delivery does not require another runtime or
-benchmark campaign.
+The contributor workflow is [CONTRIBUTING.md](../CONTRIBUTING.md#documentation-changes). Run `yarn build:docs` to emit the site, including its OpenAPI artifact. Run
+`yarn vitest run --project unit docs-site/build.spec.ts docs-site/shell.spec.ts` for focused build and renderer behavior.

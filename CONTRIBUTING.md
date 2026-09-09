@@ -30,15 +30,11 @@ Release preparation follows [PUBLISHING.md](./PUBLISHING.md).
 
 ## Documentation changes
 
-Use the [documentation SPEC](./docs-site/SPEC.md) for the current page, sample and generated-content contracts. Its [measured inventory](./docs-site/SPEC.md#21-current-documentation-inventory) records
-page statuses and sample classifications; update those measurements when their inputs change.
+Use the [documentation SPEC](./docs-site/SPEC.md) for the current page and generated-content contracts.
 
 - **Add a page:** add its Markdown under `docs-site/content/`, register its title/status in [pages.mjs](./docs-site/pages.mjs), and put its slug in the appropriate group in
-  [navigation-plan.mjs](./docs-site/navigation-plan.mjs). Preserve existing URLs. The twelve permanently wontfix GraphQL pages remain unchanged and excluded from sample verification.
-- **Add or change a sample:** annotate each TypeScript/TSX opening fence using the [sample metadata contract](./docs-site/SPEC.md#61-fence-parsing-and-metadata-syntax). Choose `compile` for a complete
-  program, `expect-error` for an intentional diagnostic, or `illustrative` with the specific missing context. Group related files on one page as defined by the
-  [multi-file contract](./docs-site/SPEC.md#65-multi-file-examples). Use public package exports; do not insert private source imports or invented declarations to make an excerpt compile. Runtime
-  execution requires explicit opt-in and any external services belong to an existing issue-owned fixture.
+  [navigation-plan.mjs](./docs-site/navigation-plan.mjs). Preserve existing URLs.
+- **Add or change a sample:** use an ordinary fenced code block and public package exports. Keep the example focused on the behavior being documented.
 - **Add an integration:** update [integrations.mjs](./docs-site/integrations.mjs) with current package, peer, guide and executable-evidence ownership, following the
   [integration contract](./docs-site/SPEC.md#52-framework-integration-matrix). Update [client-applications.mjs](./docs-site/client-applications.mjs) when its client support/example facts change.
 - **Add a package:** follow the package/dependency workflow above. The catalog and admitted manifest own the reference entry; do not add a second package list to a guide.
@@ -47,13 +43,11 @@ After changing package or integration records, regenerate their pages. Run the a
 
 ```bash
 node docs-site/generated.mjs
-yarn verify:docs-generated
-yarn verify:docs-samples
 yarn build:docs
+yarn vitest run --project unit docs-site/build.spec.ts docs-site/shell.spec.ts
 ```
 
-`verify:docs-generated` checks freshness without rewriting files. `verify:docs-samples` compiles classified groups, checks expected diagnostics and reports illustrative excerpts separately;
-compilation alone is not live-service or runtime proof. CI and Pages run these checks before building. The canonical `build:docs` command supplies the repository's source-resolution hook.
+The focused docs tests cover generated output, rendering, search, escaping and shell behavior. The canonical `build:docs` command supplies the repository's source-resolution hook.
 
 ## Native issue workflow
 

@@ -223,9 +223,8 @@ from every export — a tooling entry must not be reachable from an ordinary app
 A lint plugin is loaded by a linter and never by an application, so `./lint` is a policy tooling entry and the isolation the separate package would buy is enforced by CI instead of by a
 `package.json`.
 
-`package.json` exports `"./lint": "./src/lint/index.ts"`, which `it('declares every export as a source path the build mirrors', …)` in `../plugin/packaging.spec.ts` covers; the build-time export
-assertion names the subpath explicitly, and the optional-peer assignment excludes `./lint`, so the reachability gate rejects any path from that entry to `typescript` and keeps the rules independent of
-the transformer/compiler runtime.
+`lint.spec.ts` loads the lint module and exercises its exported rules and configurations. The optional-peer assignment excludes `./lint`, so the reachability gate rejects any path from that entry to
+`typescript` and keeps the rules independent of the transformer/compiler runtime.
 
 Against the new package: one more artifact to version, publish and changelog, for rules that are a few hundred lines and share this package's vocabulary.
 

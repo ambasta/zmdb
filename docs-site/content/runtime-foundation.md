@@ -59,8 +59,7 @@ string name. SQLite and PostgreSQL, as well as the other admitted database packa
 `@zmdb/ai` composes the schema and validator owners. Anthropic, LangChain and Vercel AI SDK integrations remain separate packages with declared SDK peers; provider SDKs are absent from foundation
 imports. The [AI integration guide](./llm-strategy.md) explains those choices.
 
-## Existing consumer proof
+## Verification
 
-The committed [foundation consumer](https://github.com/ambasta/zmdb/tree/main/fixtures/consumer-runtime-foundation) installs real packed packages outside the workspace and checks standalone schema,
-SQL, validator and ORM lanes, plus application and generated-code composition. The central publication verifier requires its complete successful report. The normal product has its separate installed
-SQLite/CLI/AOT/HTTP journey. These are different dependency boundaries; passing the application journey alone does not establish the standalone foundation guarantee.
+Package-local unit and type tests cover the schema, SQL, validator and ORM behavior described above. `yarn verify:publish` checks the installable package archives, their public exports and emitted
+declarations.

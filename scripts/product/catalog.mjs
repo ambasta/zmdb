@@ -140,7 +140,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'generated HTTP clients' },
     docsOwner: 'generated-client',
-    consumer: { fixture: 'fixtures/consumer-http-client' },
+    consumer: { fixture: 'packages/client/src/runtime.spec.ts' },
   }),
   productPackage({
     id: 'cockroach',
@@ -205,7 +205,7 @@ export const PRODUCT_CATALOG = Object.freeze([
       includedInDefault: false,
     },
     docsOwner: 'web-queues',
-    consumer: { fixture: 'fixtures/consumer-jobs-providers' },
+    consumer: { fixture: 'packages/jobs-sqlite/src/index.spec.ts' },
   }),
   productPackage({
     id: 'mcp',

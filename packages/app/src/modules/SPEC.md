@@ -380,7 +380,7 @@ is what makes a lazy module testable.
     errors and still one call.
 11. A never-loaded module's `onShutdown` does not run; a loaded module's runs before the eager provider it injects. `[Symbol.asyncDispose]` during an in-flight load waits for it, and a request
     arriving after dispose began gets the shutting-down error rather than a load.
-12. `moduleDefOf` and `injectionsOf` are exported and reachable from `@zmdb/app/modules` and `@zmdb/app/di` — checked by `yarn verify:exports`, not by an import in a test.
+12. `moduleDefOf` and `injectionsOf` are exported and reachable from `@zmdb/app/modules` and `@zmdb/app/di`.
 
 ### Non-goals (rejected in this amendment)
 

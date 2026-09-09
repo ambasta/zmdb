@@ -59,7 +59,7 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
       typescript: peer('>=7.0.2 <8.0.0', '7.0.2', 'fixtures/consumer-cli'),
     },
   ),
-  client: releasePackage('integration', 'fixtures/consumer-http-client'),
+  client: releasePackage('integration', 'packages/client/src/runtime.spec.ts'),
   cockroach: releasePackage('integration', 'fixtures/database-cockroach', ['migrations', 'orm', 'postgres', 'sql']),
   compiler: releasePackage('tooling', 'fixtures/consumer-compiler', ['ai', 'schema', 'sql', 'validator'], {
     metro: peer('>=0.87.0 <0.88.0', '0.87.0', 'fixtures/consumer-metro'),
@@ -67,11 +67,11 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
     oxlint: peer('>=1.81.0 <1.82.0', '1.81.0', 'fixtures/consumer-compiler'),
     typescript: peer('>=7.0.2 <8.0.0', '7.0.2', 'fixtures/consumer-compiler'),
   }),
-  jobs: releasePackage('core', 'fixtures/consumer-jobs-providers'),
-  'jobs-postgres': releasePackage('integration', 'fixtures/consumer-jobs-providers', ['jobs', 'postgres'], {
-    pg: peer('^8.23.0', '8.23.0', 'fixtures/consumer-jobs-providers'),
+  jobs: releasePackage('core', 'packages/jobs/src/provider-lifecycle.spec.ts'),
+  'jobs-postgres': releasePackage('integration', 'packages/jobs-postgres/src/index.spec.ts', ['jobs', 'postgres'], {
+    pg: peer('^8.23.0', '8.23.0', 'packages/jobs-postgres/src/index.spec.ts'),
   }),
-  'jobs-sqlite': releasePackage('integration', 'fixtures/consumer-jobs-providers', ['jobs', 'sqlite']),
+  'jobs-sqlite': releasePackage('integration', 'packages/jobs-sqlite/src/index.spec.ts', ['jobs', 'sqlite']),
   mcp: releasePackage('integration', 'fixtures/consumer-mcp', ['ai']),
   migrations: releasePackage('tooling', PUBLISH, ['schema', 'sql']),
   mssql: releasePackage('integration', 'fixtures/database-mssql', ['migrations', 'orm', 'sql'], {

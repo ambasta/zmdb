@@ -67,7 +67,7 @@ These are not preferences; they are invariants. A change that violates one is re
    metadata, together with the reason for each exception. It fails when another metadata reader appears or an existing exception is no longer needed.
 
 10. **The source runs as-is; the build only mirrors it.** In the repo every `exports` target is a `.ts` file and Node reads it directly, stripping the types. Tests, local development, and consumer
-    fixtures use those source exports, and `yarn verify:exports` imports every published subpath that way.
+    fixtures use those source exports. `yarn verify:publish` checks the built entries after installing their tarballs.
 
     Relative imports still use NodeNext-style `.js` specifiers. Node does not resolve those to source `.ts` files, so source entry points load the small `scripts/ts-specifier-hook.mjs` resolver. The
     hook only substitutes a `.ts` sibling when the requested `.js` file does not exist. Real JavaScript files, including generated files and `dist`, are left alone. Source modules must also avoid

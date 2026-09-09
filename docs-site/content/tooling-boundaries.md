@@ -77,14 +77,10 @@ artifacts use `@zmdb/protobuf/wire`. Install the runtime owners used by the appl
 Embedded migrations are a separate runtime use case. `zmdb embed` produces migration data during the build; the application imports `runEmbedded` from `@zmdb/migrations/embedded` and supplies a SQLite
 connection implementing `exec`, `run` and `rows`. That entry does not import a filesystem API, a database driver or the compiler. See [Web and Mobile Migrations](./migrations-web-mobile.html).
 
-## Standalone consumer proof
+## Verification
 
-The repository's [tooling publication fixture](https://github.com/ambasta/zmdb/tree/main/fixtures/consumer-tooling-publication) builds and packs the public packages, installs separate npm consumers,
-and checks their emitted declarations and public exports. It exercises project compilation, configured and direct plugins, a real Metro build, synchronous Metro configuration on the Node.js 26 floor,
-SQLite migration planning and introspection, embedded execution and the installed CLI workflows.
-
-Those consumers resolve the installed archives without workspace aliases. This is the executable reference for the ownership and installation routes above. Publication rules and the emitted `dist`
-entries are described in [PUBLISHING.md](https://github.com/ambasta/zmdb/blob/main/PUBLISHING.md).
+Package-local integration tests cover the tooling behavior described above. `yarn verify:publish` checks the installable package archives, their public exports and emitted declarations;
+`packages/cli/src/packed-cli.spec.ts` covers the installed CLI executable. Publication rules are described in [PUBLISHING.md](https://github.com/ambasta/zmdb/blob/main/PUBLISHING.md).
 
 ---
 

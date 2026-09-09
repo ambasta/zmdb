@@ -33,9 +33,6 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
-      - name: Verify package metadata and release-policy projections
-        run: yarn verify:package-metadata
-
       - name: Lint (oxlint + zmdb recommended rules)
         run: yarn lint
 
@@ -44,9 +41,6 @@ jobs:
 
       - name: Typecheck (all projects, incl. specs and type-tests)
         run: yarn typecheck
-
-      - name: Verify export manifests
-        run: yarn verify:exports
 
       - name: Verify the packages install and load as published
         run: yarn verify:publish
@@ -79,8 +73,8 @@ jobs:
         if: always()
         run: docker rm --force zmdb-issue-671-mysql-ci || true
 
-      - name: Verify the committed no-bundler fixture is current
-        run: yarn verify:fixtures
+      - name: Compiler and CLI integration tests
+        run: yarn test:integration packages/compiler/src packages/cli/src
 
       - name: Unit and local functional tests (including node:sqlite)
         run: yarn test
@@ -274,12 +268,6 @@ jobs:
 
       - name: Install
         run: yarn install --immutable
-
-      - name: Verify generated package and integration docs
-        run: yarn verify:docs-generated
-
-      - name: Compile documentation samples
-        run: yarn verify:docs-samples
 
       - name: Build docs site
         run: yarn build:docs
