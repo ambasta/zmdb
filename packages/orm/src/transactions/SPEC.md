@@ -64,9 +64,12 @@ await db.transaction(
 );
 ```
 
-`maxRetries` counts retries after the first attempt. Delays use capped exponential backoff; the defaults are 10 ms and 1,000 ms. Only a direct driver error code listed in the selected dialect's
-`retryableCodes` is retried: Postgres has `40001` and `40P01`, while Cockroach narrows that to `40001`. Each retry issues a new `BEGIN`; a failed attempt rolls back before waiting. Savepoints do not
-retry independently.
+`maxRetries` counts retries after the first attempt. Delays use capped exponential backoff; the defaults are 10 ms and 1,000 ms. Only a driver error whose identifier is listed in the selected
+dialect's `retryableCodes` is retried: Postgres has `40001` and `40P01`, while Cockroach narrows that to `40001`. Each retry issues a new `BEGIN`; a failed attempt rolls back before waiting.
+Savepoints do not retry independently.
+
+The identifier is read from `code`, `errno`, `number` and `errcode`, because only `pg` puts the database's own code on `code` — mysql2 numbers the error on `errno`, `mssql` on `number`, and
+`node:sqlite` on `errcode`. A dialect lists whichever spellings its drivers use; see `@zmdb/sql`'s `src/dialects/SPEC.md` §4.4.
 
 The opt-in is the safety boundary. The callback is run again in full, so an HTTP call, message publish, file write or other external side effect inside it may happen more than once. The default
 remains one attempt, and callers enable retry only for a unit of work whose non-database effects are idempotent or kept outside the callback.

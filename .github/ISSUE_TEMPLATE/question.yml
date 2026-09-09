@@ -1,0 +1,39 @@
+name: Question
+description: Ask how something works, or how to do something with zmdb.
+labels: ['question']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discussions are not enabled, so questions belong here — and an answer in an issue is searchable by the next person with the same one. Check [SUPPORT.md](https://github.com/ambasta/zmdb/blob/main/SUPPORT.md)
+        for where the written answers live.
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+      description: What you are trying to do, and what you have already read or tried.
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Relevant code
+      description: The table interface, query or configuration involved. A type-level question is very hard to answer without the declarations.
+      render: ts
+    validations:
+      required: false
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: zmdb, Node and TypeScript versions. Behaviour differs across TypeScript versions, so this matters more here than in most projects.
+      placeholder: zmdb 1.0.0-beta.2 / node v26.0.0 / tsc 7.0.2
+    validations:
+      required: true
+  - type: checkboxes
+    id: conduct
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's [Code of Conduct](https://github.com/ambasta/zmdb/blob/main/CODE_OF_CONDUCT.md).
+          required: true

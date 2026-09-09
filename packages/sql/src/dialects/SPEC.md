@@ -203,7 +203,7 @@ mssql: {
     sequences: true, schemas: true, partialIndex: true,
     generatedColumns: true, transactionalDdl: true, foreignKeys: true,
   },
-  retryableCodes: ['1205'],
+  retryableCodes: ['1205', '3960'],
 }
 ```
 
@@ -511,6 +511,11 @@ it; a driver sees statements and has no idea which ones belonged together.
 
 What the driver contributes is the code, and what the dialect contributes is which codes are retryable — hence `retryableCodes` on the traits record, where `postgres` carries `['40001', '40P01']`
 (serialization failure and deadlock, both reachable under `SERIALIZABLE`) and Cockroach narrows it to `['40001']`.
+
+**An entry is matched against every identifier the driver exposes, not against `code` alone.** Only `pg` puts the database's own code there: mysql2 puts an error name on `code` and the number on
+`errno`, `mssql` puts `'EREQUEST'` on `code` and the number on `number`, and `node:sqlite` puts `'ERR_SQLITE_ERROR'` on `code` and the SQLite result code on `errcode`. A dialect therefore lists
+whichever spellings its supported drivers use — MySQL carries both `'ER_LOCK_DEADLOCK'` and `'1213'` — and the retry wrapper in `@zmdb/orm` compares against `code`, `errno`, `number` and `errcode`.
+Reading `code` alone is what left MySQL, SingleStore, SQLite and MSSQL with retry policies that could never fire.
 
 A dialect table in the query compiler holding driver error codes needs a justification, and the precedent is exact: `DIALECT_PARAM_LIMITS` at `../index.ts:39` is a _driver_ limit living in the
 compiler, for the same reason — it is per-dialect knowledge with no SQL in it, and the alternative is a second per-dialect table in a package that already imports this one.

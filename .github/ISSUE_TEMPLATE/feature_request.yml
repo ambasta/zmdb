@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose something zmdb does not do yet.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Several frequently requested features are deliberately out of scope, and the [documentation](https://ambasta.github.io/zmdb/) has a page for each one giving the reasoning — GraphQL and
+        decorator-driven middleware among them. Reading the relevant page first usually turns a request into a better one, or shows you a supported arrangement that already works.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and where zmdb stops you. Describe the situation before the solution — a problem statement survives a redesign of the API, a proposed signature does not.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do today
+      description: The workaround you are using, and what it costs. "Nothing works" and "it takes one extra wrapper" lead to different answers.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape
+      description: |
+        The API you would want, if you have one in mind. zmdb's constraint is that the TypeScript type is the schema, so a proposal has to be expressible in the type system and resolvable at build
+        time — say which part you are unsure about.
+      render: ts
+    validations:
+      required: false
+  - type: input
+    id: scope
+    attributes:
+      label: Which package
+      description: The package that would own this, if you know.
+      placeholder: '@zmdb/sql'
+    validations:
+      required: false
+  - type: checkboxes
+    id: conduct
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's [Code of Conduct](https://github.com/ambasta/zmdb/blob/main/CODE_OF_CONDUCT.md).
+          required: true

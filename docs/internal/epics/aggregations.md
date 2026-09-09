@@ -3,7 +3,7 @@
 ## Motivation (from real benchmarks)
 
 zmdb returns **DNF (HTTP 501)** on the aggregate routes of the drizzle-benchmarks suite because `@zmdb/query-compiler` has **no aggregate / GROUP BY / computed- column builder**
-([benchmarks/RESULTS.md](../../benchmarks/RESULTS.md)):
+([benchmarks/RESULTS.md](../../../benchmarks/RESULTS.md)):
 
 | route                  | why DNF                                                          |
 | ---------------------- | ---------------------------------------------------------------- |

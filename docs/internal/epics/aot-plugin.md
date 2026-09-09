@@ -5,8 +5,8 @@
 
 ## Motivation (from real benchmarks)
 
-Our headline design claim is **AOT-inlined validation faster than runtime parsers**. The comparative benchmark ([benchmarks/RESULTS.md](../../benchmarks/RESULTS.md)) shows we have **NOT proven this**:
-when this epic was filed, zmdb ran its **runtime** validator (`is`/`equals` walking a `TypeDescriptor`) because the transform was not wired as a build plugin.
+Our headline design claim is **AOT-inlined validation faster than runtime parsers**. The comparative benchmark ([benchmarks/RESULTS.md](../../../benchmarks/RESULTS.md)) shows we have **NOT proven
+this**: when this epic was filed, zmdb ran its **runtime** validator (`is`/`equals` walking a `TypeDescriptor`) because the transform was not wired as a build plugin.
 
 Filing-time numbers (moltar runner, ops/s):
 

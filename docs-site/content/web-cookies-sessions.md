@@ -1,5 +1,4 @@
-Cookies can be **read** in a handler, from `ctx.headers.cookie`. They cannot be **set** from a handler — the router controls the response headers — so `set-cookie` goes in your adapter. There is no
-session middleware; a session store is a provider you inject.
+Cookies are **read** in a handler from `ctx.headers.cookie`, and **set** by returning a response that carries `set-cookie`. There is no session middleware; a session store is a provider you inject.
 
 ## Reading a cookie
 
@@ -29,38 +28,26 @@ debug.
 
 ## Setting one
 
-In the Node adapter:
+Return the cookie from the login handler. `json`, `text` and `respond` all take response headers, and the router passes a response they built through untouched:
 
-```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies app, createServer, pendingCookieFor, webRequest; this excerpt does not repeat those declarations."}
-import { bodyText } from '@zmdb/web';
-
-createServer(async (req, res) => {
-  const out = await app.handle(await webRequest(req));
-  const body = await bodyText(out);
-
-  const cookie = pendingCookieFor(req); // however your login route signals it
-  const headers = cookie === undefined ? out.headers : { ...out.headers, 'set-cookie': cookie };
-
-  res.writeHead(out.status, headers).end(body);
-});
-```
-
-`webRequest(req)` is the `WebRequest` build the adapter does itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html). Note that it
-consumes the request stream, so a login `POST` body reaches the handler only if the adapter reads it there rather than after `app.handle`.
-
-Getting the value from the handler to the adapter is the awkward part, since there is no response object to attach it to. The workable arrangement is to have the login route return the session id in
-its body and let the adapter turn that into a cookie for that one path:
-
-```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies body, headers, out, req; this excerpt does not repeat those declarations."}
-const path = (req.url ?? '/').split('?')[0];
-if (path === '/auth/login' && out.status === 200) {
-  const { sid } = JSON.parse(body) as { sid: string };
-  headers['set-cookie'] = `sid=${sid}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`;
+```ts {"mode":"illustrative","id":"example-003","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
+@Post('/login')
+async login(ctx: Ctx<Record<never, string>, Credentials>) {
+  const sid = await this.sessions.create(await this.users.authenticate(ctx.body));
+  return json({ ok: true }, {
+    headers: { 'set-cookie': `sid=${sid}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800` },
+  });
 }
 ```
 
-Ugly, and clear about the limitation. If cookies are central to your application, a bearer token in the `Authorization` header avoids this entirely and is the shape the framework is built for. The
-custom cookie adapter buffers a streamed body; the login response is deliberately a small JSON text response.
+Log out the same way, with an expired cookie: `sid=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`. The attributes on the clearing cookie must match the ones it replaces, or the browser keeps
+both.
+
+**One `set-cookie` per response.** `WebResponse.headers` is a `Record<string, string>`, and `set-cookie` is the one header that cannot be safely folded into a single comma-separated value. If a
+response genuinely needs to set two cookies, the adapter has to append the second — but the case is rare enough that reaching for it is usually a sign the second value belongs in the session record
+instead.
+
+A bearer token in the `Authorization` header remains a reasonable alternative, and avoids [CSRF](./web-csrf.html) entirely rather than mitigating it with `SameSite`.
 
 ## The attributes, and why each one
 
@@ -83,7 +70,7 @@ escalation. If you must, sign it and verify the signature with `timingSafeEqual`
 
 ## A session store as a provider
 
-```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Session; this excerpt does not repeat those declarations."}
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Session; this excerpt does not repeat those declarations."}
 import { createToken } from '@zmdb/app/di';
 
 export interface SessionStore {
@@ -95,7 +82,7 @@ export interface SessionStore {
 export const SESSIONS = createToken<SessionStore>('SESSIONS');
 ```
 
-```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies AuthController, Module, RedisSessionStore, SESSIONS, env; this excerpt does not repeat those declarations."}
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AuthController, Module, RedisSessionStore, SESSIONS, env; this excerpt does not repeat those declarations."}
 @Module({
   providers: [{ token: SESSIONS, useFactory: () => new RedisSessionStore(env.REDIS_URL) }],
   controllers: [AuthController],
@@ -103,7 +90,7 @@ export const SESSIONS = createToken<SessionStore>('SESSIONS');
 export class AuthModule {}
 ```
 
-```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Controller, Inject, SESSIONS, SessionStore; this excerpt does not repeat those declarations."}
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Controller, Inject, SESSIONS, SessionStore; this excerpt does not repeat those declarations."}
 @Controller('/auth')
 export class AuthController {
   @Inject(SESSIONS) private readonly sessions!: SessionStore;
@@ -114,13 +101,13 @@ export class AuthController {
 
 Behind a token, so a test substitutes an in-memory store:
 
-```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies AppModule, MemoryStore, SESSIONS, createTestApp; this excerpt does not repeat those declarations."}
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies AppModule, MemoryStore, SESSIONS, createTestApp; this excerpt does not repeat those declarations."}
 createTestApp(AppModule, { overrides: [{ token: SESSIONS, useValue: new MemoryStore() }] });
 ```
 
 ## Session ids
 
-```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies randomBytes; this excerpt does not repeat those declarations."}
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies randomBytes; this excerpt does not repeat those declarations."}
 const sid = randomBytes(32).toString('base64url');
 ```
 
@@ -134,7 +121,7 @@ Set an absolute expiry as well as an idle one. A session that refreshes forever 
 
 If you already have Postgres, you do not need Redis:
 
-```ts {"mode":"compile","id":"example-010"}
+```ts {"mode":"compile","id":"example-009"}
 import type { PrimaryKey, References, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Session extends Table<'sessions'> {

@@ -70,8 +70,11 @@ const status = out.status === 400 && isNotFound(body) ? 404 : out.status;
 res.writeHead(status, { ...out.headers }).end(text);
 ```
 
-Ugly, and the description of where the framework is today. Everything downstream of it — [status codes](./web-exception-filters.html), [cookies](./web-cookies-sessions.html), [CORS](./web-cors.html),
-[caching headers](./web-caching.html), [redirects](./web-request-lifecycle.html) — needs the same wrapper.
+Ugly, and the description of where thrown-error mapping is today: a `ValidationError` that escapes the handler becomes a 400 before you get to choose.
+
+Response _headers_ are a different matter and no longer need a wrapper. A handler returning `json`, `text` or `respond` chooses its own status and headers, which is enough for
+[caching headers](./web-caching.html), a single [cookie](./web-cookies-sessions.html) and redirects; and [CORS](./web-cors.html) with [security headers](./web-security-headers.html) are router-level
+`policy` options that also decorate error responses. What still needs the wrapper above is mapping an error your handler _threw_ onto a status other than 400.
 
 ## Route matching is first-match, in registration order
 

@@ -29,7 +29,7 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
       booleanNot: 'bitwise',
       types: MSSQL_TYPES,
       paramLimit: 2000,
-      retryableCodes: ['1205'],
+      retryableCodes: ['1205', '3960'],
       functions: false,
       procedures: false,
       tableFunctions: false,

@@ -75,7 +75,9 @@ createServer(async (req, res) => {
 });
 ```
 
-Note the header: an adapter _can_ set response headers, where a handler cannot. Security headers, CORS and cookies all belong here for that reason. See [CORS](./web-cors.html).
+The adapter is the right place for the _timing_, because it sees every request including the unmatched ones. It is no longer the only place that can set a response header: a handler chooses its own
+through `json`, `text` and `respond`, and [CORS](./web-cors.html) with [security headers](./web-security-headers.html) are router-level `policy` options that cover error responses too. Set the header
+in the adapter only when it must apply to requests the router never matched.
 
 ## And for data access, the driver
 

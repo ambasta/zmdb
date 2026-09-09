@@ -1,0 +1,84 @@
+name: Bug report
+description: Something behaves differently from what the docs or the owning SPEC say.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search the [open and closed issues](https://github.com/ambasta/zmdb/issues?q=is%3Aissue) first. If the behaviour is a security vulnerability, do **not** file it here — use
+        [private vulnerability reporting](https://github.com/ambasta/zmdb/security/advisories/new) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed, and what you expected instead. Paste the exact error or diagnostic text rather than paraphrasing it.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: |
+        The smallest code that shows the problem — the table interface, the query, and the call. A link to a repository or a branch is better still. Most zmdb bugs depend on the exact type
+        declarations, so a description of the schema is usually not enough to reproduce.
+      render: ts
+    validations:
+      required: true
+  - type: input
+    id: zmdb-version
+    attributes:
+      label: zmdb version
+      description: The version of `zmdb` or the `@zmdb/*` package involved. `yarn why zmdb` if you are unsure which one is installed.
+      placeholder: 1.0.0-beta.2
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Node and TypeScript versions
+      description: Output of `node --version` and `tsc --version`. zmdb requires Node 26+ and TypeScript 7.0+, and both floors are enforced.
+      placeholder: v26.0.0 / 7.0.2
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      options:
+        - Build-time transform or plugin (@zmdb/compiler)
+        - Query building or SQL emitted (@zmdb/sql, @zmdb/orm)
+        - A driver (@zmdb/postgres, mysql, sqlite, mssql, …)
+        - Migrations (@zmdb/migrations)
+        - HTTP, DI or routing (@zmdb/web, @zmdb/app)
+        - Validation or schema (@zmdb/validator, @zmdb/schema)
+        - A framework integration (next, nuxt, angular, react, vue, svelte, solid, …)
+        - CLI (@zmdb/cli)
+        - Documentation
+        - Something else, or not sure
+    validations:
+      required: true
+  - type: textarea
+    id: build-setup
+    attributes:
+      label: Build setup
+      description: |
+        How the AOT transform is wired in — the bundler and its version, the `@zmdb/compiler/unplugin` or `@zmdb/compiler/metro` configuration, or `tsc` with the transform applied directly. Paste the
+        relevant part of the config. `schemaOf<T>()` resolving to nothing at runtime is almost always this.
+      render: js
+    validations:
+      required: false
+  - type: input
+    id: database
+    attributes:
+      label: Database and version
+      description: Only if a driver or SQL is involved.
+      placeholder: PostgreSQL 17.2
+    validations:
+      required: false
+  - type: checkboxes
+    id: conduct
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's [Code of Conduct](https://github.com/ambasta/zmdb/blob/main/CODE_OF_CONDUCT.md).
+          required: true

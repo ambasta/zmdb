@@ -3,7 +3,7 @@
 ## Motivation (from real benchmarks)
 
 zmdb returns **DNF (HTTP 501)** on the search routes of drizzle-benchmarks because `@zmdb/query-compiler` has **no full-text-search predicate builder**
-([benchmarks/RESULTS.md](../../benchmarks/RESULTS.md)):
+([benchmarks/RESULTS.md](../../../benchmarks/RESULTS.md)):
 
 | route              | why DNF                                         |
 | ------------------ | ----------------------------------------------- |

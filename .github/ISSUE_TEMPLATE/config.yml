@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://ambasta.github.io/zmdb/
+    about: Guides, the FAQ, and a page for each design that was considered and rejected.
+  - name: Security vulnerability
+    url: https://github.com/ambasta/zmdb/security/advisories/new
+    about: Report it privately instead of opening an issue. See SECURITY.md.
+  - name: Getting help
+    url: https://github.com/ambasta/zmdb/blob/main/SUPPORT.md
+    about: What support exists before 1.0, and where the written answers live.

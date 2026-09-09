@@ -12,6 +12,16 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## Deciding whether to use it
+
+- **[Why zmdb](./docs-site/content/why-zmdb.md)** — what it replaces, and the four-metadata-systems problem it exists to remove. Names Zod, Typia, Drizzle, MikroORM and `@nestjs/swagger` rather than
+  arguing against a straw man.
+- **[Anti-patterns](./docs-site/content/anti-patterns.md)** — the design's sharp edges, and the quickest way to decide zmdb is _not_ for you.
+- **Already using an ORM:** [Drizzle](./docs-site/content/migrate-from-drizzle.md) · [Prisma](./docs-site/content/migrate-from-prisma.md) · [TypeORM](./docs-site/content/migrate-from-typeorm.md) ·
+  [Sequelize](./docs-site/content/migrate-from-sequelize.md) · [MikroORM](./docs-site/content/migrate-from-mikro-orm.md). Each guide maps the concepts, not just the API names.
+- **[FAQ](./docs-site/content/faq.md)** — licensing under MPL-2.0, what LLM authorship means for the code you would depend on, and the questions that come up before adoption.
+- **[Getting help](./SUPPORT.md)** — one maintainer, GitHub Issues, no support commitment before 1.0.
+
 ## Build one application
 
 Install `@zmdb/core` to define a schema, generate its migration, validate requests and persist typed records behind an HTTP controller. SQLite is included. Start with the
@@ -25,7 +35,7 @@ installation commands, peer requirements and support evidence. The [integration 
 Advanced dependency boundaries are explained in the [runtime foundation](./docs-site/content/runtime-foundation.md) and [tooling](./docs-site/content/tooling-boundaries.md) guides.
 
 > The workspace publishes **42 packages** across **182 export-map entry points**. Vitest discovers runtime tests from the workspace. The compatibility inventory covers 504 of 742 upstream API suites
-> and explains why the other 238 are out of scope. Documentation contains **289 pages** and **1,280 classified TypeScript/TSX fences**; the
+> and explains why the other 238 are out of scope. Documentation contains **289 pages** and **1,289 classified TypeScript/TSX fences**; the
 > [documentation inventory](./docs-site/SPEC.md#21-current-documentation-inventory) records their statuses, compilation modes and GraphQL exclusions.
 
 ## Quick Start

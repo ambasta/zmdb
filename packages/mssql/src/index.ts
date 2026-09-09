@@ -78,7 +78,10 @@ const traits: ResolvedDialectTraits = Object.freeze({
   booleanNot: 'bitwise',
   types: MSSQL_TYPES,
   paramLimit: 2000,
-  retryableCodes: Object.freeze(['1205']),
+  // `mssql` sets `code` to 'EREQUEST' and carries the SQL Server error number on `number`: 1205 is the
+  // deadlock victim, 3960 the snapshot-isolation update conflict. Both are retried by re-running the unit
+  // of work.
+  retryableCodes: Object.freeze(['1205', '3960']),
   acceptsOperator,
   functions: false,
   procedures: false,

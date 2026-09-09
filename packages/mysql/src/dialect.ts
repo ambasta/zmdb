@@ -58,7 +58,10 @@ const traits: ResolvedDialectTraits = {
     jsonEnum: 'TEXT',
   }),
   paramLimit: 60000,
-  retryableCodes: Object.freeze([]),
+  // mysql2 sets `code` to the error name and `errno` to the number, so both spellings are listed:
+  // 1213 ER_LOCK_DEADLOCK and 1205 ER_LOCK_WAIT_TIMEOUT. InnoDB rolls the transaction back itself in
+  // both cases, which is exactly the condition a re-run of the unit of work resolves.
+  retryableCodes: Object.freeze(['ER_LOCK_DEADLOCK', 'ER_LOCK_WAIT_TIMEOUT', '1213', '1205']),
   acceptsOperator,
   functions: true,
   procedures: true,

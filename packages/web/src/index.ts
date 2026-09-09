@@ -107,6 +107,8 @@ export {
   type StreamOptions,
   type FileResponseOptions,
   type AdapterOptions,
+  type CorsPolicy,
+  type HttpPolicy,
 } from './pipeline/index.js';
 
 // Confined static files with validators and single-range streaming. See ./static.

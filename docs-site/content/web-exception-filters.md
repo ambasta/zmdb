@@ -132,8 +132,9 @@ chain itself.
 The second half of this gap has closed. A `WebResponse` built by `json`, `text` or `respond` carries a non-enumerable tag, and the router returns a tagged response as-is instead of serialising it — so
 a filter's 409 is a 409 today. Only a hand-built literal still becomes a 200.
 
-That one change makes the interface on this page work as designed, and they would also fix [guards](./web-middleware.html), [interceptors](./web-middleware.html), [CORS](./web-cors.html) and
-[health checks](./web-health-checks.html).
+That one change makes the interface on this page work as designed, and it would also fix [guards](./web-middleware.html), [interceptors](./web-middleware.html) and
+[health checks](./web-health-checks.html). [CORS](./web-cors.html) and [security headers](./web-security-headers.html) no longer wait on it — they are router-level `policy` options, and they decorate
+a failed response as well as a successful one.
 
 ---
 

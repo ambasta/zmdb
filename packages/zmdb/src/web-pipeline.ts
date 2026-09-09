@@ -17,9 +17,11 @@ export {
 } from '@zmdb/web/pipeline';
 export type {
   AdapterOptions,
+  CorsPolicy,
   Ctx,
   FileResponseOptions,
   GuardRegistry,
+  HttpPolicy,
   ResponseBody,
   ResponseOptions,
   RouteOptions,

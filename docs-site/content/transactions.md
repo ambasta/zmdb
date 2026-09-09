@@ -30,8 +30,22 @@ await db.transaction(
 );
 ```
 
-`maxRetries` is the number of retries after the first attempt. Backoff is exponential and capped. The wrapper retries only error codes classified by the selected connection dialect — Cockroach retries
-`40001`; Postgres also classifies `40P01`. With no `retry` option, the callback runs once.
+`maxRetries` is the number of retries after the first attempt. Backoff is exponential and capped. The wrapper retries only error codes classified by the selected connection dialect. With no `retry`
+option, the callback runs once.
+
+| Dialect            | Retried on                                                        |
+| ------------------ | ----------------------------------------------------------------- |
+| Postgres           | `40001` serialization failure, `40P01` deadlock                   |
+| Cockroach          | `40001`                                                           |
+| MySQL, SingleStore | `1213` deadlock, `1205` lock wait timeout                         |
+| SQLite             | `SQLITE_BUSY`, `SQLITE_LOCKED`                                    |
+| SQL Server         | `1205` deadlock victim, `3960` snapshot-isolation update conflict |
+
+The dialect must be the one for the database you are connected to — `retryableCodes` is dialect metadata, so a connection without a dialect retries nothing. The identifier is read from whichever
+property the driver uses: `code` on `pg`, `errno` on mysql2, `number` on `mssql`, `errcode` on `node:sqlite`.
+
+Under Postgres's default `READ COMMITTED`, `40001` does not occur at all — the retry policy only becomes meaningful at `REPEATABLE READ` or `SERIALIZABLE`, which zmdb does not yet have an API to
+request. Lock-contention retries (MySQL, SQLite, SQL Server) apply at the default isolation level.
 
 Keep message publishing, HTTP calls, file writes and other non-idempotent work outside a retrying callback. A database rollback cannot undo them.
 

@@ -88,10 +88,22 @@ function retryPolicy(options: TransactionOptions | undefined): Required<Transact
   return { maxRetries: policy.maxRetries, baseDelayMs, maxDelayMs };
 }
 
-function errorCode(error: unknown): string | undefined {
-  if (error === null || typeof error !== 'object') return undefined;
-  const code = Reflect.get(error, 'code');
-  return typeof code === 'string' ? code : undefined;
+// Drivers disagree about which property carries the database's own error identifier. `pg` puts the
+// SQLSTATE on `code`; mysql2 puts a name there and the number on `errno`; `mssql` puts 'EREQUEST'
+// there and the number on `number`; `node:sqlite` puts 'ERR_SQLITE_ERROR' there and the number on
+// `errcode`. Reading only `code` made every non-Postgres dialect's `retryableCodes` list inert, so
+// every candidate identifier is collected and a dialect may list whichever spelling its driver uses.
+const CODE_PROPERTIES = Object.freeze(['code', 'errno', 'number', 'errcode']);
+
+function errorCodes(error: unknown): readonly string[] {
+  if (error === null || typeof error !== 'object') return [];
+  const codes: string[] = [];
+  for (const property of CODE_PROPERTIES) {
+    const value = Reflect.get(error, property);
+    if (typeof value === 'string') codes.push(value);
+    else if (typeof value === 'number' && Number.isFinite(value)) codes.push(String(value));
+  }
+  return codes;
 }
 
 function canRetry(
@@ -101,8 +113,7 @@ function canRetry(
   policy: Required<TransactionRetryPolicy> | undefined,
 ): policy is Required<TransactionRetryPolicy> {
   if (retryableCodes === undefined || policy === undefined || retries >= policy.maxRetries) return false;
-  const code = errorCode(error);
-  return code !== undefined && retryableCodes.includes(code);
+  return errorCodes(error).some(code => retryableCodes.includes(code));
 }
 
 function backoff(policy: Required<TransactionRetryPolicy>, retry: number): number {

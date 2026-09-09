@@ -67,7 +67,10 @@ export const sqlite = defineSqlDialect({
     booleanNot: 'not',
     types: TYPES,
     paramLimit: 30_000,
-    retryableCodes: Object.freeze([]),
+    // `node:sqlite` sets `code` to 'ERR_SQLITE_ERROR' for every failure and carries the SQLite result
+    // code on `errcode` — 5 SQLITE_BUSY, 6 SQLITE_LOCKED. better-sqlite3 spells the same two on `code`.
+    // Both are lock contention that clears on its own, unlike a constraint violation.
+    retryableCodes: Object.freeze(['SQLITE_BUSY', 'SQLITE_LOCKED', '5', '6']),
     acceptsOperator,
     functions: false,
     procedures: false,
