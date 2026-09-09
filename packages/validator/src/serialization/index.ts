@@ -53,8 +53,8 @@ export function decode<T = unknown>(text: string, schema?: TypeIR): ValidateResu
   const parsed = parse(text);
   if (!parsed.success) return parsed;
   try {
-    assert(parsed.data, schema);
-    return parsed.data !== undefined ? { success: true, data: parsed.data } : { success: true };
+    const data = assert<T>(parsed.data, schema);
+    return { success: true, data };
   } catch (err) {
     const issues =
       err instanceof AssertError
