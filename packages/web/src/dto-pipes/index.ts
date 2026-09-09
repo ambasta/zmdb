@@ -7,7 +7,7 @@
 // (an Interceptor), built on the middleware chain. Zero runtime parser (consumer
 // supplies the AOT assert); no `as` on the consumer surface.
 
-import { compileFastStringifier } from '@zmdb/aot-validator/serialization';
+import { compileFastStringifier } from '@zmdb/validator/serialization';
 
 import type { Chain, Pipe, Interceptor } from '../middleware/index.js';
 import { parseMultipart, type Multipart, type UploadLimits } from '../upload/index.js';

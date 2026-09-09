@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import { createRequestData } from '@zmdb/app/data';
-import { schemasFrom } from '@zmdb/aot-validator/testing';
-import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
+import { schemasFrom } from '@zmdb/compiler/testing';
+import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema/tags';
 // Tests (#299) for DTO validation/serialization pipes — RED first (dto-pipes
 // exports absent). Pipe rejects invalid, serializer emits, dtoChain composes.
 // Per packages/web/src/dto-pipes/SPEC.md.
