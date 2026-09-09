@@ -19,6 +19,7 @@ import {
   type Operator,
 } from '@zmdb/sql';
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 import { QueryPostSchema, QueryUserSchema, type QueryPost, type QueryUser } from './testing/query-schema.fixture.js';
 
@@ -556,10 +557,16 @@ describe('Operator normalization & bounded dialect operators', () => {
 
     for (const [op, expectedSqlOp] of ops) {
       if (expectedSqlOp === 'IN' || expectedSqlOp === 'NOT IN') {
-        const q = qb.selectFrom(trustedTable('users')).where('col', op, [1, 2]).compile();
+        const q = qb
+          .selectFrom(trustedTable('users'))
+          .where('col', op as Operator, [1, 2])
+          .compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} ($1, $2)`);
       } else {
-        const q = qb.selectFrom(trustedTable('users')).where('col', op, 'val').compile();
+        const q = qb
+          .selectFrom(trustedTable('users'))
+          .where('col', op as Operator, 'val')
+          .compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} $1`);
       }
     }
@@ -679,7 +686,7 @@ describe('Operator normalization & bounded dialect operators', () => {
     const compile = () =>
       createQueryCompiler(postgresDialect)
         .selectFrom(trustedTable('users'))
-        .where('role', "= 'x' OR 1=1 --", 1)
+        .where('role', "= 'x' OR 1=1 --" as Operator, 1)
         .compile();
 
     expect(compile).toThrow(
@@ -693,7 +700,10 @@ describe('Operator normalization & bounded dialect operators', () => {
 
     for (const operator of invalid) {
       const compile = () =>
-        createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('role', operator, 1).compile();
+        createQueryCompiler(postgresDialect)
+          .selectFrom(trustedTable('users'))
+          .where('role', operator as Operator, 1)
+          .compile();
       expect(compile, JSON.stringify(operator)).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -711,7 +721,7 @@ describe('Operator normalization & bounded dialect operators', () => {
       const compile = () =>
         createQueryCompiler(officialDialects[dialect])
           .selectFrom(trustedTable('users'))
-          .where('payload', operator, 1)
+          .where('payload', operator as Operator, 1)
           .compile();
       expect(compile, `${dialect} ${operator}`).toThrow(/invalid unmapped SQL operator/);
     }
@@ -726,7 +736,10 @@ describe('Operator normalization & bounded dialect operators', () => {
       const inherited: unknown = Reflect.get(input, 'operator');
       if (typeof inherited !== 'string') throw new TypeError('test input carried no inherited operator string');
       const compile = () =>
-        createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('col', inherited, 'val').compile();
+        createQueryCompiler(postgresDialect)
+          .selectFrom(trustedTable('users'))
+          .where('col', inherited as Operator, 'val')
+          .compile();
       expect(compile, operator).toThrow(InvalidOperatorError);
     }
   });
