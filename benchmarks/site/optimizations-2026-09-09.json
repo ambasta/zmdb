@@ -1,0 +1,308 @@
+{
+  "measuredAt": "9 September 2026 (Asia/Kolkata)",
+  "measurementDateUtc": "2026-09-08",
+  "sourceRevision": "4c9cf2f49f03bddab821fb9099c25827a9a1efd3",
+  "baseRevision": "9c8c206f1f0703ec49dc2723e8df16fab82b0288",
+  "environment": "AMD Ryzen 7 7840U; Node 26.8.1, Bun 1.4.0, Deno 2.9.6; project compiler TypeScript 7.0.2; PostgreSQL 18.6, pg 8.23.0; oha 1.16.0. One application process on logical CPU 4. Timed runs were sequential with no concurrent owned builds or tests; ordinary desktop services remained running.",
+  "groups": [
+    {
+      "id": "serialization",
+      "title": "Serialization and generated validation",
+      "unit": "median ns/op",
+      "changeLabel": "Time reduction",
+      "p99": false,
+      "methodology": "Five 80 ms samples per case and version, alternating order after 150 ms warmup, using the same 32 rotating inputs and consumed outputs. Lower time is better. These are the actual generated predicates and public serializer; no peer implementation was loaded.",
+      "rows": [
+        {
+          "name": "Numeric validation: valid",
+          "before": {
+            "value": 20.456893857054094,
+            "range": [
+              20.433359824463892,
+              21.061987252071003
+            ]
+          },
+          "after": {
+            "value": 19.611178601123218,
+            "range": [
+              19.297700840575665,
+              20.394327119894857
+            ]
+          },
+          "changePercent": 4.134133274779894
+        },
+        {
+          "name": "Numeric validation: late invalid",
+          "before": {
+            "value": 20.214355973172804,
+            "range": [
+              19.761965849905287,
+              20.375809987385985
+            ]
+          },
+          "after": {
+            "value": 19.75632274897419,
+            "range": [
+              19.138808995077035,
+              21.326393893712474
+            ]
+          },
+          "changePercent": 2.265880866085901
+        },
+        {
+          "name": "Strict validation: valid",
+          "before": {
+            "value": 34.09957619909635,
+            "range": [
+              33.326418922060874,
+              34.50461675079769
+            ]
+          },
+          "after": {
+            "value": 34.16441590635917,
+            "range": [
+              32.59984863281274,
+              41.86284200554251
+            ]
+          },
+          "changePercent": -0.19014813229421001
+        },
+        {
+          "name": "Strict validation: excess property",
+          "before": {
+            "value": 33.6087302506175,
+            "range": [
+              32.765283693039336,
+              35.361090594680476
+            ]
+          },
+          "after": {
+            "value": 33.11532499668958,
+            "range": [
+              31.757443514737062,
+              37.91373082833722
+            ]
+          },
+          "changePercent": 1.4680865663434406
+        },
+        {
+          "name": "JSON: plain strings",
+          "before": {
+            "value": 1199.1891140408093,
+            "range": [
+              1109.3715549045123,
+              1347.7024078369232
+            ]
+          },
+          "after": {
+            "value": 534.175736276729,
+            "range": [
+              490.79127197265706,
+              616.3444366455093
+            ]
+          },
+          "changePercent": 55.45525471985309
+        },
+        {
+          "name": "JSON: escaped strings",
+          "before": {
+            "value": 1499.5422886439785,
+            "range": [
+              1401.2748674665193,
+              1520.1285226004327
+            ]
+          },
+          "after": {
+            "value": 710.3336268833701,
+            "range": [
+              659.7115559895839,
+              816.8481547037773
+            ]
+          },
+          "changePercent": 52.629970340768594
+        }
+      ],
+      "conclusion": "Native serialization took 53\u201355% less time on these inputs. Numeric-validation differences were small and several sample ranges overlap; no general validator speedup is established."
+    },
+    {
+      "id": "http",
+      "title": "HTTP and request data",
+      "unit": "mean req/s",
+      "changeLabel": "Throughput change",
+      "p99": true,
+      "methodology": "Two four-second samples per version after one-second warmup, in before/after/after/before order, at 64 connections with keep-alive. One server process on CPU 4; client on CPUs 10, 12 and 14. Closed-loop maximum throughput; latency is not coordinated-omission corrected.",
+      "rows": [
+        {
+          "name": "Node POST validation",
+          "before": {
+            "value": 39326.86039867328,
+            "range": [
+              36328.05215028475,
+              42325.6686470618
+            ],
+            "p99Range": [
+              4.251068999999999,
+              5.218923
+            ]
+          },
+          "after": {
+            "value": 43298.55810992433,
+            "range": [
+              41769.064709494814,
+              44828.05151035384
+            ],
+            "p99Range": [
+              3.27688,
+              3.760799
+            ]
+          },
+          "changePercent": 10.099198540102726
+        },
+        {
+          "name": "Bun POST validation",
+          "before": {
+            "value": 42862.168601483325,
+            "range": [
+              42614.35203110934,
+              43109.98517185731
+            ],
+            "p99Range": [
+              2.8766260000000003,
+              3.151613
+            ]
+          },
+          "after": {
+            "value": 45274.44341704749,
+            "range": [
+              43365.938549712155,
+              47182.94828438283
+            ],
+            "p99Range": [
+              2.540876,
+              2.99764
+            ]
+          },
+          "changePercent": 5.627981257767445
+        },
+        {
+          "name": "Deno POST validation",
+          "before": {
+            "value": 51406.189182457674,
+            "range": [
+              50746.636453921725,
+              52065.74191099362
+            ],
+            "p99Range": [
+              4.756112,
+              4.894982
+            ]
+          },
+          "after": {
+            "value": 61561.372376864194,
+            "range": [
+              60167.55259961617,
+              62955.19215411222
+            ],
+            "p99Range": [
+              4.162699,
+              4.51002
+            ]
+          },
+          "changePercent": 19.75478703228204
+        },
+        {
+          "name": "Deno GET parameter",
+          "before": {
+            "value": 78532.97139383541,
+            "range": [
+              77607.79637370468,
+              79458.14641396613
+            ],
+            "p99Range": [
+              2.059753,
+              2.115579
+            ]
+          },
+          "after": {
+            "value": 93252.92386170628,
+            "range": [
+              91542.5610545145,
+              94963.28666889807
+            ],
+            "p99Range": [
+              1.638387,
+              1.74712
+            ]
+          },
+          "changePercent": 18.74365913655769
+        }
+      ],
+      "conclusion": "These results combine Fetch header/response conversion and the shared lazy request-data getter; their individual contributions are not isolated. Node throughput ranges and Bun p99 ranges overlap. The bounded request-body reader is unchanged."
+    },
+    {
+      "id": "orm",
+      "title": "Nested relation loading",
+      "unit": "median operations/s",
+      "changeLabel": "Throughput change",
+      "p99": true,
+      "methodology": "Two four-second samples per version after one-second warmup, in before/after/after/before order, at concurrency 48 with a 12-connection pg pool. Each read returns 25 users, 100 posts and 300 comments in three queries. Medians of two samples are their midpoint. PostgreSQL runs on CPUs 6\u201311 on the same machine.",
+      "rows": [
+        {
+          "name": "Nested repository",
+          "before": {
+            "value": 1425.9442501204308,
+            "range": [
+              1403.8638411271472,
+              1448.0246591137143
+            ],
+            "p99Range": [
+              60.53825300000017,
+              74.77283100000022
+            ]
+          },
+          "after": {
+            "value": 1572.6933747257422,
+            "range": [
+              1512.8860953012324,
+              1632.5006541502516
+            ],
+            "p99Range": [
+              63.91676399999983,
+              70.51405699999987
+            ]
+          },
+          "changePercent": 10.291364798653069
+        },
+        {
+          "name": "Deferred nested loading",
+          "before": {
+            "value": 1409.0869400068366,
+            "range": [
+              1403.0293314258304,
+              1415.1445485878428
+            ],
+            "p99Range": [
+              62.2439830000003,
+              63.851283000000876
+            ]
+          },
+          "after": {
+            "value": 1488.5739503594177,
+            "range": [
+              1370.1454486952478,
+              1607.0024520235875
+            ],
+            "p99Range": [
+              40.84400699999969,
+              68.9814750000005
+            ]
+          },
+          "changePercent": 5.641029527404151
+        }
+      ],
+      "conclusion": "Repository throughput increased about 10% in this probe. Deferred results were more variable, and neither lane establishes a consistent p99 improvement."
+    }
+  ],
+  "fairness": "The corrected 13-route ORM fixture uses matching projections, response structures, data, driver and pool settings across zmdb, Drizzle and Kysely. Both full-text GIN indexes are created by the shared seed and are available to every participant. All 27 functional response-parity cases passed, and PostgreSQL selected both indexes. This is a correctness result, not a newly measured peer ranking.",
+  "rawFile": "optimizations-2026-09-09-samples.json.gz"
+}

@@ -1,316 +1,967 @@
 {
+  "captureId": "peer-refresh-2026-09-09",
+  "sourceRevision": "a86e01861b7609e8c3bc76aa9a1d85ced96cdb9f",
+  "rawFile": "peer-refresh-2026-09-09-samples.json.gz",
+  "machine": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
+  "harnessRevision": "ed507604aa8d0cf67b93ddd5bb02d8729c50dd30",
   "suite": "the-benchmarker/web-frameworks",
-  "framework": "@zmdb/web",
-  "runtime": "deno",
-  "runtimeVersion": "2.9.6 (stable, release, x86_64-unknown-linux-gnu)",
   "upstream": "https://github.com/the-benchmarker/web-frameworks",
-  "port": 3000,
-  "methodology": "Served on deno 2.9.6 (stable, release, x86_64-unknown-linux-gnu). oha oha 1.16.0: per route for 10s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by 1 worker process(es) on 16 cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
-  "concurrencyModel": {
-    "workers": 1,
-    "cores": 16,
-    "note": "A JS runtime runs one thread per process, so worker count is the core count this framework can use; all three supported runtimes (node, bun, deno) fork via node:cluster and accept from a shared listening socket. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
-  },
-  "repeats": 3,
-  "generatedAt": "2026-09-01T20:54:28Z",
-  "machine": "Linux x86_64, 16 cores, deno 2.9.6 (stable, release, x86_64-unknown-linux-gnu)",
+  "generatedAt": "2026-09-08T23:48:19.553Z",
+  "methodology": "Three rotated repetitions per candidate and each of the three published routes at c256; one server process on CPU4, oha on CPUs10,12,14, keepalive off. Each repetition has 1s warmup and 5s measurement. Saturation is closed-loop without coordinated-omission correction; fixed-rate uses -q20000 with --latency-correction. Each displayed row is the median-throughput repetition with its own percentiles. Other source builds, tests and benchmark captures were stopped during timing.",
   "contract": [
     {
       "method": "GET",
       "route": "/",
-      "status": "2xx",
-      "body": "empty",
+      "status": 200,
+      "body": "",
       "pass": true
     },
     {
       "method": "GET",
       "route": "/user/:id",
-      "status": "2xx",
-      "body": "the id path parameter",
+      "status": 200,
+      "body": "42 (for /user/42)",
       "pass": true
     },
     {
       "method": "POST",
       "route": "/user",
-      "status": "2xx",
-      "body": "empty",
+      "status": 200,
+      "body": "",
       "pass": true
     }
   ],
-  "contractVerdict": "PASSED — @zmdb/web fulfills the the-benchmarker/web-frameworks shared contract (verified by contract-check.mjs before load).",
-  "throughput": {
-    "measured": true
+  "contractVerdict": "Every measured participant passed the three shared-route status/body checks before and after load.",
+  "framework": "@zmdb/web",
+  "runtime": "deno",
+  "runtimeVersion": "deno 2.9.6 (stable, release, x86_64-unknown-linux-gnu)\nv8 15.0.245.2-rusty\ntypescript 6.0.3",
+  "concurrencyModel": {
+    "workers": 1
   },
   "metrics": [
     {
-      "level": 64,
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
       "label": "total_requests_per_s",
-      "value": 27788.365664740737,
-      "route": "GET:/"
+      "value": 59565.75424424604,
+      "selectedPass": 3
     },
     {
-      "level": 64,
-      "label": "average_latency",
-      "value": 0.0023006496830926537,
-      "route": "GET:/"
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "requests_per_s_min",
+      "value": 59370.52358168735,
+      "selectedPass": 3
     },
     {
-      "level": 64,
-      "label": "percentile50",
-      "value": 0.002243395,
-      "route": "GET:/"
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "requests_per_s_max",
+      "value": 59753.313755300485,
+      "selectedPass": 3
     },
     {
-      "level": 64,
-      "label": "percentile75",
-      "value": 0.002794172,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "percentile90",
-      "value": 0.003367262,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "percentile99",
-      "value": 0.005127818,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "percentile99999",
-      "value": 0.011981336,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
       "label": "total_requests",
-      "value": 277937,
-      "route": "GET:/"
+      "value": 298160,
+      "selectedPass": 3
     },
     {
-      "level": 64,
-      "label": "total_bytes_received",
-      "value": 0,
-      "route": "GET:/"
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "average_latency",
+      "value": 0.004282503408847594,
+      "selectedPass": 3
     },
     {
-      "level": 64,
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile50",
+      "value": 0.004187475,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile90",
+      "value": 0.004584298,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile95",
+      "value": 0.004940463,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile99",
+      "value": 0.005761141,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile95_min",
+      "value": 0.004714513,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile95_max",
+      "value": 0.004940463,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile99_min",
+      "value": 0.005131549,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile99_max",
+      "value": 0.005761141,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
       "label": "http_errors",
       "value": 0,
-      "route": "GET:/"
+      "selectedPass": 3
     },
     {
-      "level": 64,
-      "label": "standard_deviation",
-      "value": 0.014261481999999999,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "duration_ms",
-      "value": 10001.919629,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "requests_per_s_min",
-      "value": 26527.113727398304,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "requests_per_s_max",
-      "value": 28826.265776437896,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "repeats",
-      "value": 3,
-      "route": "GET:/"
-    },
-    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
       "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
       "label": "total_requests_per_s",
-      "value": 30045.8326695509,
-      "route": "GET:/"
+      "value": 55924.43670048101,
+      "selectedPass": 2
     },
     {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
       "level": 256,
-      "label": "average_latency",
-      "value": 0.008519189885131909,
-      "route": "GET:/"
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "requests_per_s_min",
+      "value": 54871.66417371702,
+      "selectedPass": 2
     },
     {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
       "level": 256,
-      "label": "percentile50",
-      "value": 0.008235803,
-      "route": "GET:/"
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "requests_per_s_max",
+      "value": 57094.57281922988,
+      "selectedPass": 2
     },
     {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
       "level": 256,
-      "label": "percentile75",
-      "value": 0.00954067,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "percentile90",
-      "value": 0.010776478,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "percentile99",
-      "value": 0.013144608,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "percentile99999",
-      "value": 0.016741924,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
       "label": "total_requests",
-      "value": 300547,
-      "route": "GET:/"
+      "value": 279922,
+      "selectedPass": 2
     },
     {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
       "level": 256,
-      "label": "total_bytes_received",
-      "value": 0,
-      "route": "GET:/"
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "average_latency",
+      "value": 0.004560192926511672,
+      "selectedPass": 2
     },
     {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
       "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile50",
+      "value": 0.004496152,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile90",
+      "value": 0.004800706,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile95",
+      "value": 0.005066627,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile99",
+      "value": 0.005792575,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile95_min",
+      "value": 0.004974914,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile95_max",
+      "value": 0.005273765,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile99_min",
+      "value": 0.005792575,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile99_max",
+      "value": 0.006133927,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
       "label": "http_errors",
       "value": 0,
-      "route": "GET:/"
+      "selectedPass": 2
     },
     {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
       "level": 256,
-      "label": "standard_deviation",
-      "value": 0.015817712999999997,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "duration_ms",
-      "value": 10002.951268,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "requests_per_s_min",
-      "value": 29112.54968701887,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "requests_per_s_max",
-      "value": 32170.825091029856,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "repeats",
-      "value": 3,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
+      "route": "POST:/user",
+      "load": "saturation",
       "label": "total_requests_per_s",
-      "value": 32221.6330649771,
-      "route": "GET:/"
+      "value": 49659.616395595265,
+      "selectedPass": 3
     },
     {
-      "level": 512,
-      "label": "average_latency",
-      "value": 0.015879674540209804,
-      "route": "GET:/"
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "requests_per_s_min",
+      "value": 48841.26111016673,
+      "selectedPass": 3
     },
     {
-      "level": 512,
-      "label": "percentile50",
-      "value": 0.015825469,
-      "route": "GET:/"
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "requests_per_s_max",
+      "value": 50193.15589517702,
+      "selectedPass": 3
     },
     {
-      "level": 512,
-      "label": "percentile75",
-      "value": 0.017107254,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
-      "label": "percentile90",
-      "value": 0.018390551,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
-      "label": "percentile99",
-      "value": 0.02130464,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
-      "label": "percentile99999",
-      "value": 0.030161552,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
       "label": "total_requests",
-      "value": 322370,
-      "route": "GET:/"
+      "value": 248561,
+      "selectedPass": 3
     },
     {
-      "level": 512,
-      "label": "total_bytes_received",
-      "value": 0,
-      "route": "GET:/"
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "average_latency",
+      "value": 0.005136081075474539,
+      "selectedPass": 3
     },
     {
-      "level": 512,
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile50",
+      "value": 0.004875902,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile90",
+      "value": 0.006407296,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile95",
+      "value": 0.00669379,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile99",
+      "value": 0.007535247,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile95_min",
+      "value": 0.006571814,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile95_max",
+      "value": 0.00679287,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile99_min",
+      "value": 0.007318942,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile99_max",
+      "value": 0.007557851,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
       "label": "http_errors",
       "value": 0,
-      "route": "GET:/"
+      "selectedPass": 3
     },
     {
-      "level": 512,
-      "label": "standard_deviation",
-      "value": 0.025313771000000002,
-      "route": "GET:/"
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "total_requests_per_s",
+      "value": 19989.14417530253,
+      "selectedPass": 1
     },
     {
-      "level": 512,
-      "label": "duration_ms",
-      "value": 10004.769136,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
       "label": "requests_per_s_min",
-      "value": 31928.098496658033,
-      "route": "GET:/"
+      "value": 19988.46383457723,
+      "selectedPass": 1
     },
     {
-      "level": 512,
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
       "label": "requests_per_s_max",
-      "value": 32502.19615812128,
-      "route": "GET:/"
+      "value": 19991.511203577003,
+      "selectedPass": 1
     },
     {
-      "level": 512,
-      "label": "repeats",
-      "value": 3,
-      "route": "GET:/"
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "total_requests",
+      "value": 99980,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "average_latency",
+      "value": 0.0003478182210042032,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile50",
+      "value": 0.000320727,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile90",
+      "value": 0.000539522,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile95",
+      "value": 0.000625525,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile99",
+      "value": 0.000852285,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile95_min",
+      "value": 0.000606628,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile95_max",
+      "value": 0.000634301,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile99_min",
+      "value": 0.000852285,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile99_max",
+      "value": 0.000921685,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "http_errors",
+      "value": 0,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "total_requests_per_s",
+      "value": 19989.756270164322,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "requests_per_s_min",
+      "value": 19989.33950003414,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "requests_per_s_max",
+      "value": 19993.472829962775,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "total_requests",
+      "value": 99973,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "average_latency",
+      "value": 0.00043104202852770084,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile50",
+      "value": 0.000363778,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile90",
+      "value": 0.000635142,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile95",
+      "value": 0.000743297,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile99",
+      "value": 0.001275735,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile95_min",
+      "value": 0.00067679,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile95_max",
+      "value": 0.000843849,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile99_min",
+      "value": 0.001275735,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile99_max",
+      "value": 0.004814639,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "http_errors",
+      "value": 0,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "total_requests_per_s",
+      "value": 19990.289644674984,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "requests_per_s_min",
+      "value": 19987.780796808445,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "requests_per_s_max",
+      "value": 19994.1138139901,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "total_requests",
+      "value": 99979,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "average_latency",
+      "value": 0.0005426690667240202,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile50",
+      "value": 0.000369069,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile90",
+      "value": 0.000658807,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile95",
+      "value": 0.000780508,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile99",
+      "value": 0.004497144,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile95_min",
+      "value": 0.000679346,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile95_max",
+      "value": 0.000780508,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile99_min",
+      "value": 0.000926743,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile99_max",
+      "value": 0.004537436,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-deno",
+      "runtime": "deno",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "http_errors",
+      "value": 0,
+      "selectedPass": 2
     }
   ]
 }

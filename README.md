@@ -102,18 +102,19 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) for the policy-generated package graph
 ## Benchmarks
 
 The benchmark suite uses the upstream projects and their normal workloads. The ORM comparison runs the 13 [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks) routes against
-PostgreSQL 16 and replays them with k6. zmdb supports every route, including joins, aggregates, and full-text search.
+PostgreSQL 18.6 and replays them with k6. zmdb supports every route, including joins, aggregates, and full-text search.
 
-In the recorded Northwind run, zmdb handled 2,916 requests per second with 102 ms average latency. Drizzle had the better tail latency: 173.8 ms at p95, compared with 215.5 ms for zmdb. Enabling
-prepared statements with `ZMDB_PREPARED=1` raised zmdb to 3,068 requests per second, lowered the average to 97 ms, and brought p95 down to 209.5 ms. Prepared statements remain opt-in because the
-default repository does not keep hidden statement state.
+The September 9 replay uses matching projections, responses and shared indexes. Median-throughput repetitions measured zmdb at 11,719 requests/s with p95/p99 of 39.23/49.51 ms, Kysely at 10,643
+requests/s with 44.65/53.46 ms, and Drizzle at 5,830 requests/s with 97.30/120.04 ms. All nine runs had zero HTTP failures. These short, co-located runs use unprepared statements; the dashboard
+retains every repetition and its throughput range. Earlier projection-mismatched results cannot establish a before/after speedup.
 
-The validation comparison uses [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks). The runtime validator covers all four cases, but it is slower than
-libraries that generate or compile validators. The separate AOT benchmark measures zmdb's generated path.
+The validation comparison uses [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks). The runtime and generated AOT participants cover strict parsing and
+loose/strict assertions. Both omit `parseSafe`: its upstream contract requires removing unknown properties, which these APIs retain. The latest run compares them with `ts-runtypes` and
+`ts-runtime-checks`; this fixed-input throughput benchmark does not measure individual-call p95/p99.
 
-Unsupported cases are listed individually. Typia is omitted when its build step is unavailable, and Prisma is omitted when its engine is not installed.
+The refresh includes two selected peers per category. Unsupported cases and measurement limits are listed explicitly; the selected comparisons do not establish an ecosystem-wide rank.
 
-See [`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md) for the full results and [`benchmarks/harness/`](./benchmarks/harness) for reproduction instructions.
+See the dashboard for current results, [`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md) for archived captures and [`benchmarks/harness/`](./benchmarks/harness) for reproduction instructions.
 
 📊 **Interactive dashboard** (charts + Node/Bun/Deno tabs, like the upstream sites): **<https://ambasta.github.io/zmdb/benchmarks/>**
 
