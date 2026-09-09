@@ -107,7 +107,6 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   builder: B,
   where: WhereDTO<T> | undefined,
   resolveColumn: (column: string) => string = column => column,
-  keysetState?: { firstCallInBranch: boolean },
 ): B {
   if (!where) return builder;
   let b: B = builder;
@@ -121,14 +120,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
     const resolvedColumn = resolveColumn(col);
     const add = (op: string, rawVal: unknown) => {
       const value = resolveSubqueryTarget(rawVal, dialect);
-      if (keysetState) {
-        if (keysetState.firstCallInBranch) {
-          keysetState.firstCallInBranch = false;
-          b = b.orWhere(resolvedColumn, op, value);
-        } else {
-          b = b.where(resolvedColumn, op, value);
-        }
-      } else if (connector === 'or') {
+      if (connector === 'or') {
         b = b.orWhere(resolvedColumn, op, value);
       } else {
         b = b.where(resolvedColumn, op, value);
@@ -162,12 +154,12 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
           } else if (op === 'notNull') {
             add(value ? 'is not null' : 'is null', null);
           } else if (op === 'in' && Array.isArray(value)) {
-            if (!keysetState && connector === 'or' && b.orWhereIn) b = b.orWhereIn(resolvedColumn, value);
-            else if (!keysetState && connector !== 'or' && b.whereIn) b = b.whereIn(resolvedColumn, value);
+            if (connector === 'or' && b.orWhereIn) b = b.orWhereIn(resolvedColumn, value);
+            else if (connector !== 'or' && b.whereIn) b = b.whereIn(resolvedColumn, value);
             else add('in', value);
           } else if (op === 'nin' && Array.isArray(value)) {
-            if (!keysetState && connector === 'or' && b.orWhereNotIn) b = b.orWhereNotIn(resolvedColumn, value);
-            else if (!keysetState && connector !== 'or' && b.whereNotIn) b = b.whereNotIn(resolvedColumn, value);
+            if (connector === 'or' && b.orWhereNotIn) b = b.orWhereNotIn(resolvedColumn, value);
+            else if (connector !== 'or' && b.whereNotIn) b = b.whereNotIn(resolvedColumn, value);
             else add('not in', value);
           } else {
             // `Object.hasOwn`, not a truthy read: `OP_SQL` is an object literal, so an
@@ -203,34 +195,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
     const items = Array.isArray(spec) ? spec : [spec];
     for (const item of items) {
       const resolved = resolveSubqueryTarget(item, dialect);
-      if (keysetState) {
-        if (keysetState.firstCallInBranch) {
-          keysetState.firstCallInBranch = false;
-          if (isNot) {
-            if (!b.orWhereNotExists) {
-              throw new Error('Builder does not support orWhereNotExists');
-            }
-            b = b.orWhereNotExists(resolved);
-          } else {
-            if (!b.orWhereExists) {
-              throw new Error('Builder does not support orWhereExists');
-            }
-            b = b.orWhereExists(resolved);
-          }
-        } else {
-          if (isNot) {
-            if (!b.whereNotExists) {
-              throw new Error('Builder does not support whereNotExists');
-            }
-            b = b.whereNotExists(resolved);
-          } else {
-            if (!b.whereExists) {
-              throw new Error('Builder does not support whereExists');
-            }
-            b = b.whereExists(resolved);
-          }
-        }
-      } else if (connector === 'or') {
+      if (connector === 'or') {
         if (isNot) {
           if (!b.orWhereNotExists) {
             throw new Error('Builder does not support orWhereNotExists');
@@ -263,7 +228,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   if (!fields) return b;
   for (const key of Object.keys(fields)) {
     if (key === 'and') {
-      if (and) for (const sub of and) b = compileWhere(b, sub, resolveColumn, keysetState);
+      if (and) for (const sub of and) b = compileWhere(b, sub, resolveColumn);
     } else if (key === 'or') {
       for (const sub of or ?? []) {
         const group = asRecord(sub);
@@ -314,6 +279,47 @@ export function applyOrderBy<B extends OrderTarget>(
   return b;
 }
 
+class BranchTarget implements WhereTarget {
+  private b: WhereTarget;
+  private firstCallInBranch: boolean;
+
+  constructor(b: WhereTarget, isFirstBranch: boolean) {
+    this.b = b;
+    this.firstCallInBranch = !isFirstBranch;
+  }
+
+  where(col: string, op: string, value: unknown): this {
+    if (this.firstCallInBranch) {
+      this.firstCallInBranch = false;
+      this.b = this.b.orWhere(col, op, value);
+    } else {
+      this.b = this.b.where(col, op, value);
+    }
+    return this;
+  }
+
+  // A keyset branch is a conjunction that is OR'd onto the branches before it,
+  // so the branch spends its OR on the first predicate and conjoins the rest.
+  // Repository filters use `whereGroup` below to preserve their own OR boundary;
+  // compileWhere's user-authored `or` tree is still flat and remains a separate
+  // predicate-tree problem.
+  orWhere(col: string, op: string, value: unknown): this {
+    return this.where(col, op, value);
+  }
+
+  whereGroup(predicates: readonly ComparisonPredicate[]): this {
+    const method = this.firstCallInBranch ? this.b.orWhereGroup : this.b.whereGroup;
+    if (method === undefined) throw new Error('keyset filters require predicate-group support');
+    this.firstCallInBranch = false;
+    this.b = method.call(this.b, predicates);
+    return this;
+  }
+
+  getBuilder(): WhereTarget {
+    return this.b;
+  }
+}
+
 export function applyKeysetFilter<B extends WhereTarget>(
   builder: B,
   cursorValues: Record<string, unknown>,
@@ -334,77 +340,34 @@ export function applyKeysetFilter<B extends WhereTarget>(
 
   let currentBuilder: WhereTarget = builder;
   const k = orderBy.length;
-  const state = { firstCallInBranch: false };
 
   for (let i = 0; i < k; i++) {
     const itemI = orderBy[i];
     if (!itemI) continue;
 
-    state.firstCallInBranch = i > 0;
+    const target = new BranchTarget(currentBuilder, i === 0);
 
     if (userWhere) {
-      currentBuilder = compileWhere(currentBuilder, userWhere, resolveColumn, state);
+      compileWhere(target, userWhere, resolveColumn);
     }
-    if (additionalWhere) {
-      const branchTarget: WhereTarget = {
-        where(col, op, value) {
-          const resolvedCol = resolveColumn(col);
-          if (state.firstCallInBranch) {
-            state.firstCallInBranch = false;
-            currentBuilder = currentBuilder.orWhere(resolvedCol, op, value);
-          } else {
-            currentBuilder = currentBuilder.where(resolvedCol, op, value);
-          }
-          return this;
-        },
-        orWhere(col, op, value) {
-          return this.where(col, op, value);
-        },
-        whereGroup(predicates) {
-          if (state.firstCallInBranch) {
-            state.firstCallInBranch = false;
-            if (!currentBuilder.orWhereGroup) throw new Error('keyset filters require predicate-group support');
-            currentBuilder = currentBuilder.orWhereGroup(predicates);
-          } else {
-            if (!currentBuilder.whereGroup) throw new Error('keyset filters require predicate-group support');
-            currentBuilder = currentBuilder.whereGroup(predicates);
-          }
-          return this;
-        },
-        orWhereGroup(predicates) {
-          if (this.whereGroup) {
-            return this.whereGroup(predicates);
-          }
-          return this;
-        },
-      };
-      additionalWhere(branchTarget);
-    }
+    additionalWhere?.(target);
 
     for (let j = 0; j < i; j++) {
       const itemJ = orderBy[j];
       if (!itemJ) continue;
-      const col = resolveColumn(String(itemJ.column));
-      if (state.firstCallInBranch) {
-        state.firstCallInBranch = false;
-        currentBuilder = currentBuilder.orWhere(col, '=', cursorValues[String(itemJ.column)]);
-      } else {
-        currentBuilder = currentBuilder.where(col, '=', cursorValues[String(itemJ.column)]);
-      }
+      const col = String(itemJ.column);
+      target.where(resolveColumn(col), '=', cursorValues[col]);
     }
 
-    const curCol = resolveColumn(String(itemI.column));
+    const curCol = String(itemI.column);
     const dir = itemI.dir ?? 'asc';
     const op = dir === 'desc' ? '<' : '>';
-    if (state.firstCallInBranch) {
-      state.firstCallInBranch = false;
-      currentBuilder = currentBuilder.orWhere(curCol, op, cursorValues[String(itemI.column)]);
-    } else {
-      currentBuilder = currentBuilder.where(curCol, op, cursorValues[String(itemI.column)]);
-    }
+    target.where(resolveColumn(curCol), op, cursorValues[curCol]);
+
+    currentBuilder = target.getBuilder();
   }
 
-  // boundary: currentBuilder is the mutated input builder B (implementing WhereTarget)
+  // boundary: BranchTarget wraps B (implementing WhereTarget); getBuilder() returns the mutated query builder B.
   return currentBuilder as B;
 }
 
