@@ -190,8 +190,8 @@ names both property names; the known defect in `EmitDiagnostic.path` (it carries
 Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved from `@zmdb/compiler/config`, so the reflector receives one strategy object and never discovers or
 evaluates project configuration itself.
 
-Both AOT routes have to resolve the same config: the `@zmdb/core/unplugin` transformer entry and `@zmdb/compiler` project compilation each receive the `resolvedNaming` produced by `loadConfig`, and
-`yarn verify:fixtures` is the gate that proves the two routes emit the same physical names. The consumer pair declares `Table<'order'>` with a `shipTo` property and both routes emit `orders.ship_to`.
+Both AOT routes have to resolve the same config: the `@zmdb/core/unplugin` transformer entry and `@zmdb/compiler` project compilation each receive the `resolvedNaming` produced by `loadConfig`.
+Focused config, reflection and plugin tests cover resolution and the resulting physical table and column names.
 
 ## 8. What a declaration says and a schema value cannot
 

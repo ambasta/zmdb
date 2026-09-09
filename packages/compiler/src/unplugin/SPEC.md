@@ -72,9 +72,8 @@ If unmet, #83 documents why and the architecture claim is revised (no silent ove
 
 ## 6. Metro, for React Native and Expo (frozen — epic "React Native")
 
-Metro is the third route into the same transform, after the bundler plugin (§1) and project compilation. It is not a fourth implementation: `transformFile` is the transform, `ARCHITECTURE.md` §2.9
-allows one front end, and `yarn verify:fixtures` asserts that all three routes agree. What this section freezes is the integration, because Metro's shape differs from unplugin's in three ways that
-each have a wrong answer that looks right.
+Metro is the third route into the same transform, after the bundler plugin (§1) and project compilation. It is not a fourth implementation: `transformFile` is the transform, and `ARCHITECTURE.md` §2.9
+allows one front end. What this section freezes is the integration, because Metro's shape differs from unplugin's in three ways that each have a wrong answer that looks right.
 
 ### 6.1 Wrapping, because a project has exactly one transformer
 
@@ -197,19 +196,16 @@ and EAS Build all run the same Metro pipeline and need nothing further.
 
 ### 6.6 What the Metro fixture measures
 
-1. A real Metro bundle of a fixture app contains the inlined schema and no surviving `schemaOf` call.
-2. An app with a pre-existing `babelTransformerPath` still gets that transformer's output — the delegation is asserted, not assumed, including that the delegate is reached by path across the worker
-   boundary.
-3. `getCacheKey()` changes when a type in another file changes, and does not change when nothing does.
-4. `apiInstanceCount()` is 1 per transform process, and 0 for a bundle with no `CALLEES` name in it.
-5. The transformed output is byte-identical to the unplugin route's for the same fixture, which is `verify:fixtures` gaining a third row rather than a new assertion style.
+1. A real Metro bundle executes an inlined validator that accepts valid input, rejects invalid input and exposes the expected schema table.
+2. An app with a pre-existing `babelTransformerPath` still gets that transformer's output across the worker boundary.
+3. Focused unit tests assert that `withZmdb` preserves the host config, wraps its transformer and applies valid worker-count options.
 
 ## 7. Non-goals (rejected)
 
 - No walk over a runtime witness on the emitted hot path (that is the runtime fallback).
 - No async validation. No reflection at runtime.
 - **No replacing `transformerPath` or `babelTransformerPath`.** §6.1 — Expo ships both, and an integration that works only in an app with no other transformer works in no real app.
-- **No Metro-specific transform implementation.** §6 — one front end, and `verify:fixtures` is how that claim stays true.
+- **No Metro-specific transform implementation.** §6 — the adapter calls the shared compiler transform.
 - **No dev-mode flag that skips the transform.** The device path has no runtime fallback to skip to (§6.4).
 - **No Expo config plugin.** §6.5 — it runs at prebuild and cannot reach the Metro config.
 - **No claim of one compiler session per build under Metro.** §6.2 — the pipe is synchronous and process-owned, so the valid number is one per worker.

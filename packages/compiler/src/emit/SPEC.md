@@ -376,7 +376,7 @@ An unparseable `pattern` is refused at emit time rather than trusted, because th
 - [x] An invalid input produces exactly one issue, not a list of everything that was checked.
 - [x] The text before `return input;` in the emitted `assert` contains no `[]`, no `Issue` and no `new `.
 - [x] `validate<User>` blames `input.id` with `expected: 'minimum 1'`; `validate<Shape>` blames `input.kind` with `expected: '"circle" | "square"'`.
-- [x] The emitted prelude imports `AssertError` from `@zmdb/validator/errors`, and that subpath is published (`packaging.spec.ts`).
+- [x] The emitted prelude imports `AssertError` from `@zmdb/validator/errors` (`emit.spec.ts`).
 - [x] A file whose every call site was refused gets no prelude, so a helper reserved on the way to a refusal does not become dead code.
 
 ## 10. Non-goals (rejected)
