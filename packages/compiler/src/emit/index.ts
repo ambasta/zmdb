@@ -218,6 +218,12 @@ export class Emitter {
   // The call sites
   // -------------------------------------------------------------------------
 
+  /** Bind a tag call's value using the same once-only capture as type-first checks. */
+  emitBoundExpression(expression: string, emit: (reference: string) => string): string {
+    const bound = this.#bind(expression, true);
+    return bound.expression(emit(bound.ref));
+  }
+
   /** `is<T>(expr)` → a boolean expression. */
   emitIs(node: TypeIR, expr: string, maxDepth?: number): string | undefined {
     this.#open.clear();

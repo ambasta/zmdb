@@ -77,30 +77,30 @@ describe('transformer inlining (golden fixtures)', () => {
 
   it('inlines Min', () => {
     const out = transformCode('const ok = validate(tags.Min(0), input.price);');
-    expect(norm(out)).toContain('typeof input.price === "number" && input.price >= 0');
+    expect(norm(out)).toContain('typeof _zmdbArg0 === "number" && _zmdbArg0 >= 0');
   });
 
   it('inlines MaxLength', () => {
     const out = transformCode('const ok = validate(tags.MaxLength(255), input.name);');
-    expect(norm(out)).toContain('typeof input.name === "string" && input.name.length <= 255');
+    expect(norm(out)).toContain('typeof _zmdbArg0 === "string" && _zmdbArg0.length <= 255');
   });
 
   it('inlines Enum as OR chain', () => {
     const out = transformCode('const ok = validate(tags.Enum("a","b"), input.role);');
-    expect(norm(out)).toContain('input.role === "a" || input.role === "b"');
+    expect(norm(out)).toContain('_zmdbArg0 === "a" || _zmdbArg0 === "b"');
   });
 
   it('inlines Pattern safely with escaped slashes and quotes', () => {
     const out = transformCode('const ok = validate(tags.Pattern("foo/bar"), input.path);');
-    expect(norm(out)).toContain('typeof input.path === "string" && /foo\\/bar/.test(input.path)');
+    expect(norm(out)).toContain('typeof _zmdbArg0 === "string" && /foo\\/bar/.test(_zmdbArg0)');
   });
 
   it('inlines Pattern containing double and single quotes', () => {
     const outDouble = transformCode('const ok = validate(tags.Pattern("foo\\"bar"), input.val);');
-    expect(norm(outDouble)).toContain('/foo\\"bar/.test(input.val)');
+    expect(norm(outDouble)).toContain('/foo"bar/.test(_zmdbArg0)');
 
     const outSingle = transformCode("const ok = validate(tags.Pattern('foo\\'bar'), input.val);");
-    expect(norm(outSingle)).toContain("/foo\\'bar/.test(input.val)");
+    expect(norm(outSingle)).toContain("/foo'bar/.test(_zmdbArg0)");
   });
 
   it('inlines Pattern containing template literal substitution using hoisted pattern-keyed regex cache', () => {
@@ -108,7 +108,7 @@ describe('transformer inlining (golden fixtures)', () => {
     const out = transformCode(src);
     expect(norm(out)).toContain('const _regexCache = new Map();');
     expect(norm(out)).toContain('function _getRegExp(p)');
-    expect(norm(out)).toContain('typeof input.val === "string" && _getRegExp(`prefix_${id}_suffix`).test(input.val)');
+    expect(norm(out)).toContain('typeof _zmdbArg0[1] === "string" && _getRegExp(_zmdbArg0[0]).test(_zmdbArg0[1])');
   });
 
   it('inlines Pattern dynamic variable expression using hoisted pattern-keyed regex cache', () => {
@@ -116,13 +116,13 @@ describe('transformer inlining (golden fixtures)', () => {
     const out = transformCode(src);
     expect(norm(out)).toContain('const _regexCache = new Map();');
     expect(norm(out)).toContain('function _getRegExp(p)');
-    expect(norm(out)).toContain('typeof input.val === "string" && _getRegExp(myCustomPattern).test(input.val)');
+    expect(norm(out)).toContain('typeof _zmdbArg0[1] === "string" && _getRegExp(_zmdbArg0[0]).test(_zmdbArg0[1])');
   });
 
   it('inlines Pattern backtick template literal when it contains no substitutions', () => {
     const src = 'const ok = validate(tags.Pattern(`^[a-z]+$`), input.val);';
     const out = transformCode(src);
-    expect(norm(out)).toContain('typeof input.val === "string" && /^[a-z]+$/.test(input.val)');
+    expect(norm(out)).toContain('typeof _zmdbArg0 === "string" && /^[a-z]+$/.test(_zmdbArg0)');
   });
 
   it('leaves code without validate() calls unchanged', () => {
@@ -200,7 +200,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
 
     for (const { pattern, inputs } of testCases) {
       const rule = tags.Pattern(pattern);
-      const srcCode = `const ok = validate(tags.Pattern("${pattern}"), input.val); return ok;`;
+      const srcCode = `const ok = validate(tags.Pattern(${JSON.stringify(pattern)}), input.val); return ok;`;
       const compiledSrc = transformCode(srcCode);
       const compiledFn = new Function('input', compiledSrc);
 

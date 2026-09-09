@@ -71,7 +71,9 @@ describe('without a project', () => {
 
   it('still inlines the tag-rule form, which spells out its own rule', () => {
     const out = hook.transform('const ok = validate(tags.Min(0), input.price);', '/x/a.ts');
-    expect(out?.code).toContain('input.price >= 0');
+    const check = new Function('input', `${out?.code}\nreturn ok;`);
+    expect(check({ price: 0 })).toBe(true);
+    expect(check({ price: -1 })).toBe(false);
   });
 
   it('is what `transformTypeChecks` does on its own', () => {

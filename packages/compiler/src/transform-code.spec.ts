@@ -35,7 +35,7 @@ describe('tag rules', () => {
     ['const ok = validate(tags.Enum("a","b"), input.role);', 'input.role === "a" || input.role === "b"'],
   ])('inlines %s', (source, expected) => {
     const out = transformCode(source);
-    expect(norm(out)).toContain(expected);
+    expect(norm(out)).toContain(expected.replace(/input\.(?:price|bio|role)/g, '_zmdbArg0'));
     expect(out).not.toContain('validate(tags.');
   });
 
@@ -71,6 +71,63 @@ describe('type arguments', () => {
 });
 
 describe('the scanner', () => {
+  it.each([
+    ['quoted delimiters', 'tags.Enum("a,b)", "other")', '"a,b)"'],
+    ['nested object arguments', 'tags.Enum({ first: 1, second: 2 }.second, 3)', '2'],
+    ['comments between arguments', 'tags.Min(1 /* ), */)', '2 // ),\n'],
+    ['nested template interpolation', 'tags.Enum(`a,${`${{ x: ")" }.x},b`}`, "other")', '`a,),b`'],
+    ['regular expression literals', 'tags.Enum(/[,)]/.source, "other")', '"[,)]"'],
+    ['nested value calls', 'tags.MinLength(1)', 'String({ x: "a,b)" , y: 2 }.x)'],
+  ])('preserves complete arguments containing %s', (_name, rule, value) => {
+    const source = `return validate(${rule}, ${value});`;
+    const output = transformCode(source);
+    expect(output).not.toContain('validate(');
+    expect(new Function(output)()).toBe(true);
+  });
+
+  it('evaluates rule arguments before the value, once each, including unused enum alternatives', () => {
+    const source = `
+      const events = [];
+      const mark = (name, value) => { events.push(name); return value; };
+      const ok = validate(tags.Enum(mark('first', 1), mark('second', 2)), mark('value', 1));
+      return { ok, events };
+    `;
+    expect(new Function(transformCode(source))()).toEqual({ ok: true, events: ['first', 'second', 'value'] });
+  });
+
+  it('captures a getter even when the rule is constant', () => {
+    const source = `
+      let reads = 0;
+      const input = { get value() { reads++; return 2; } };
+      const ok = validate(tags.Min(1), input.value);
+      return { ok, reads };
+    `;
+    expect(new Function(transformCode(source))()).toEqual({ ok: true, reads: 1 });
+  });
+
+  it('reads an effectful value once and evaluates the rule even on a type mismatch', () => {
+    const source = `
+      const events = [];
+      const input = { get value() { events.push('value'); return 'bad'; } };
+      const minimum = () => { events.push('rule'); return 1; };
+      const ok = validate(tags.Min(minimum()), input.value);
+      return { ok, events };
+    `;
+    expect(new Function(transformCode(source))()).toEqual({ ok: false, events: ['rule', 'value'] });
+  });
+
+  it.each([
+    'const re = /validate(tags.Min(1), x)/;',
+    'const text = `head ${1} validate(tags.Min(1), x)`;',
+    'const ok = foreign . /* member */ validate(tags.Min(1), x);',
+    'function run(validate) { return validate(tags.Min(1), x); }',
+    'import { validate } from "foreign"; const ok = validate(tags.Min(1), x);',
+    'const ok = validate(tags.Min(1), x, effect());',
+    'const ok = validate(tags.Min(...limits), x);',
+  ])('leaves non-owned or unsupported syntax intact: %s', source => {
+    expect(transformCode(source)).toBe(source);
+  });
+
   it('leaves code without validator calls byte-for-byte alone', () => {
     const plain = 'const a = 1 + 2; console.log(a);';
     expect(transformCode(plain)).toBe(plain);

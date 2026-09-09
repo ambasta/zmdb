@@ -525,38 +525,122 @@ export class Rewriter {
 // The no-checker path: `validate(tags.X, expr)`
 // ---------------------------------------------------------------------------
 
-function splitTopLevelComma(s: string): [string, string] {
-  let depth = 0;
-  for (let k = 0; k < s.length; k++) {
-    const ch = s[k] ?? '';
-    if (ch === '(' || ch === '[') depth++;
-    else if (ch === ')' || ch === ']') depth--;
-    else if (ch === ',' && depth === 0) return [s.slice(0, k), s.slice(k + 1)];
-  }
-  return [s, ''];
+interface LexicalToken {
+  readonly kind: SyntaxKind;
+  readonly start: number;
+  readonly end: number;
+  readonly value: string;
 }
 
-function splitArgs(s: string): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let cur = '';
-  for (const ch of s) {
-    if (ch === '(' || ch === '[') depth++;
-    else if (ch === ')' || ch === ']') depth--;
-    if (ch === ',' && depth === 0) {
-      parts.push(cur.trim());
-      cur = '';
-    } else cur += ch;
+/** Scan complete tokens; template text and regexp bodies never become source tokens. */
+function lexicalTokens(code: string): LexicalToken[] | undefined {
+  const scanner = createScanner(true, LanguageVariant.Standard, code);
+  const tokens: LexicalToken[] = [];
+  let refused = false;
+
+  const scan = (previous: SyntaxKind): LexicalToken => {
+    let kind = scanner.scan();
+    const start = scanner.getTokenStart();
+    if (kind === SyntaxKind.SlashToken || kind === SyntaxKind.SlashEqualsToken) {
+      // The scanner needs a lexical goal for '/'. Only choose regexp where an
+      // expression must begin. Ambiguous division/statement contexts stay with TS.
+      if (
+        previous !== SyntaxKind.OpenParenToken &&
+        previous !== SyntaxKind.OpenBracketToken &&
+        previous !== SyntaxKind.CommaToken &&
+        previous !== SyntaxKind.EqualsToken &&
+        previous !== SyntaxKind.ReturnKeyword &&
+        previous !== SyntaxKind.EqualsGreaterThanToken &&
+        previous !== SyntaxKind.ColonToken &&
+        previous !== SyntaxKind.TemplateHead
+      )
+        refused = true;
+      else kind = scanner.reScanSlashToken();
+    }
+    if (kind === SyntaxKind.TemplateHead) {
+      let depth = 0;
+      let previousPart: SyntaxKind = kind;
+      while (!refused) {
+        const part = scan(previousPart);
+        previousPart = part.kind;
+        if (part.kind === SyntaxKind.EndOfFile) {
+          refused = true;
+          break;
+        }
+        if (part.kind === SyntaxKind.OpenBraceToken) depth++;
+        if (part.kind !== SyntaxKind.CloseBraceToken) continue;
+        if (depth > 0) {
+          depth--;
+          continue;
+        }
+        const tail = scanner.reScanTemplateToken(false);
+        if (tail === SyntaxKind.TemplateTail) break;
+        if (tail !== SyntaxKind.TemplateMiddle) {
+          refused = true;
+          break;
+        }
+        previousPart = SyntaxKind.TemplateHead;
+      }
+    }
+    if (scanner.isUnterminated()) refused = true;
+    return { kind, start, end: scanner.getTokenEnd(), value: scanner.getTokenValue() };
+  };
+
+  let previous = SyntaxKind.Unknown;
+  for (;;) {
+    const token = scan(previous);
+    if (refused) return undefined;
+    if (token.kind === SyntaxKind.EndOfFile) break;
+    // Generic and JSX syntax require the checker/parser's lexical context.
+    if (token.kind === SyntaxKind.LessThanToken) return undefined;
+    tokens.push(token);
+    previous = token.kind;
   }
-  if (cur.trim()) parts.push(cur.trim());
-  return parts;
+  return tokens;
 }
 
-function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => void): string {
-  const m = /^tags\.(\w+)\((.*)\)$/s.exec(ruleSrc);
-  if (!m) return `validate(${ruleSrc}, ${expr})`;
-  const kind = m[1] ?? '';
-  const args = (m[2] ?? '').trim();
+/** Offsets between commas at one delimiter depth, never inside a lexical token. */
+type ArgumentRange = readonly [start: number, end: number];
+
+function callArguments(
+  tokens: readonly LexicalToken[],
+  open: number,
+): { args: ArgumentRange[]; close: number } | undefined {
+  const expected: SyntaxKind[] = [SyntaxKind.CloseParenToken];
+  const args: ArgumentRange[] = [];
+  let start = open + 1;
+  for (let index = start; index < tokens.length; index++) {
+    const kind = tokens[index]?.kind;
+    if (kind === SyntaxKind.OpenParenToken) expected.push(SyntaxKind.CloseParenToken);
+    else if (kind === SyntaxKind.OpenBracketToken) expected.push(SyntaxKind.CloseBracketToken);
+    else if (kind === SyntaxKind.OpenBraceToken) expected.push(SyntaxKind.CloseBraceToken);
+    else if (
+      kind === SyntaxKind.CloseParenToken ||
+      kind === SyntaxKind.CloseBracketToken ||
+      kind === SyntaxKind.CloseBraceToken
+    ) {
+      if (expected.pop() !== kind) return undefined;
+      if (expected.length === 0) {
+        if (index > start) args.push([start, index]);
+        return { args, close: index };
+      }
+    } else if (kind === SyntaxKind.CommaToken && expected.length === 1) {
+      if (index === start) return undefined;
+      args.push([start, index]);
+      start = index + 1;
+    }
+  }
+  return undefined;
+}
+
+function inlineCheck(
+  kind: string,
+  values: readonly string[],
+  expr: string,
+  ensureRegexCache: () => void,
+  pattern?: string,
+): string {
+  const args = values[0] ?? '';
   switch (kind) {
     case 'Min':
       return `(typeof ${expr} === "number" && ${expr} >= ${args})`;
@@ -567,32 +651,19 @@ function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => voi
     case 'MaxLength':
       return `(typeof ${expr} === "string" && ${expr}.length <= ${args})`;
     case 'Pattern': {
-      let raw = args.trim();
-      const first = raw[0] ?? '';
-      const last = raw.length > 0 ? (raw[raw.length - 1] ?? '') : '';
-      const isQuoted =
-        raw.length >= 2 &&
-        ((first === '"' && last === '"') || (first === "'" && last === "'") || (first === '`' && last === '`'));
-
-      if (!isQuoted || (first === '`' && raw.includes('${'))) {
-        if (ensureRegexCache) {
-          ensureRegexCache();
-          return `(typeof ${expr} === "string" && _getRegExp(${raw}).test(${expr}))`;
-        }
-        return `(typeof ${expr} === "string" && new RegExp(${raw}).test(${expr}))`;
+      if (pattern === undefined) {
+        ensureRegexCache();
+        return `(typeof ${expr} === "string" && _getRegExp(${args}).test(${expr}))`;
       }
-
-      raw = raw.slice(1, -1);
-      const re = escapePattern(raw);
+      const re = escapePattern(pattern);
       validatePatternComplexity(re);
       return `(typeof ${expr} === "string" && /${re}/.test(${expr}))`;
     }
     case 'Enum': {
-      const values = splitArgs(args);
       return `(${values.map(v => `${expr} === ${v}`).join(' || ')})`;
     }
     default:
-      return `validate(${ruleSrc}, ${expr})`;
+      throw new Error(`Unsupported inline tag: ${kind}`);
   }
 }
 
@@ -600,15 +671,59 @@ function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => voi
  * Inline `validate(tags.X(…), expr)`, and nothing else.
  *
  * A rule spelled at the call site needs no type information, which is why this survives
- * without a compiler: the scanner is here only to avoid rewriting the inside of a string
- * literal or a comment. `validate<T>(expr)` and every other type-argument form are left
- * for `transformFile`; this function does not look at type arguments at all beyond
- * skipping past them.
+ * without a compiler. The scanner supplies complete lexical boundaries; ambiguous
+ * syntax and bindings stay unchanged. Type-argument forms belong to `transformFile`.
  */
 export function transformCode(code: string): string {
-  const scanner = createScanner(false, LanguageVariant.Standard);
-  scanner.setText(code);
-
+  const tokens = lexicalTokens(code);
+  if (tokens === undefined) return code;
+  const text = (index: number) => {
+    const token = tokens[index];
+    return token === undefined ? '' : code.slice(token.start, token.end);
+  };
+  // Without a checker, a binding occurrence makes ownership uncertain. Retain
+  // historical bare calls and known named imports; leave ambiguous modules intact.
+  const imported = new Set<number>();
+  for (let index = 0; index < tokens.length; index++) {
+    if (tokens[index]?.kind !== SyntaxKind.ImportKeyword) continue;
+    let end = index + 1;
+    while (
+      end < tokens.length &&
+      tokens[end]?.kind !== SyntaxKind.StringLiteral &&
+      tokens[end]?.kind !== SyntaxKind.SemicolonToken
+    )
+      end++;
+    const module = text(end).slice(1, -1);
+    if (!CALL_OWNERS.validate?.includes(module)) continue;
+    for (let item = index; item < end; item++) {
+      if (text(item) !== 'validate' && text(item) !== 'tags') continue;
+      const before = tokens[item - 1]?.kind;
+      const after = tokens[item + 1]?.kind;
+      if (
+        (before !== SyntaxKind.OpenBraceToken && before !== SyntaxKind.CommaToken) ||
+        (after !== SyntaxKind.CloseBraceToken && after !== SyntaxKind.CommaToken)
+      )
+        return code;
+      imported.add(item);
+    }
+  }
+  for (let index = 0; index < tokens.length; index++) {
+    if (imported.has(index)) continue;
+    const name = text(index);
+    if (name !== 'validate' && name !== 'tags') continue;
+    const previous = tokens[index - 1]?.kind;
+    if (previous === SyntaxKind.DotToken || previous === SyntaxKind.QuestionDotToken) continue;
+    if (name === 'tags' && tokens[index + 1]?.kind === SyntaxKind.DotToken) continue;
+    if (
+      name === 'validate' &&
+      tokens[index + 1]?.kind === SyntaxKind.OpenParenToken &&
+      previous !== SyntaxKind.FunctionKeyword &&
+      previous !== SyntaxKind.NewKeyword
+    )
+      continue;
+    return code;
+  }
+  const emitter = new Emitter();
   let out = '';
   let lastPos = 0;
 
@@ -624,62 +739,77 @@ export function transformCode(code: string): string {
     }
   };
 
-  let token = scanner.scan();
-  while (token !== SyntaxKind.EndOfFile) {
-    const tokenStart = scanner.getTokenStart();
-    const tokenEnd = scanner.getTokenEnd();
-
-    if (tokenStart < lastPos) {
-      token = scanner.scan();
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index];
+    if (token === undefined || token.start < lastPos || text(index) !== 'validate' || imported.has(index)) continue;
+    const previous = tokens[index - 1]?.kind;
+    if (previous === SyntaxKind.DotToken || previous === SyntaxKind.QuestionDotToken) continue;
+    if (tokens[index + 1]?.kind !== SyntaxKind.OpenParenToken) continue;
+    const call = callArguments(tokens, index + 1);
+    if (call === undefined || call.args.length !== 2) continue;
+    const [ruleRange, valueRange] = call.args;
+    if (ruleRange === undefined || valueRange === undefined) continue;
+    const [ruleStart, ruleEnd] = ruleRange;
+    if (
+      text(ruleStart) !== 'tags' ||
+      tokens[ruleStart + 1]?.kind !== SyntaxKind.DotToken ||
+      tokens[ruleStart + 3]?.kind !== SyntaxKind.OpenParenToken
+    )
       continue;
-    }
-
-    if (scanner.getTokenText() === 'validate') {
-      const prevChar = tokenStart > 0 ? (code[tokenStart - 1] ?? '') : '';
-      if (prevChar && /[A-Za-z0-9_$.]/.test(prevChar)) {
-        token = scanner.scan();
-        continue;
-      }
-
-      let i = tokenEnd;
-      while (i < code.length && /\s/.test(code[i] ?? '')) i++;
-
-      // A type argument means this is `validate<T>(…)`, which belongs to the checker.
-      let typed = false;
-      if (i < code.length && code[i] === '<') {
-        let depth = 1;
-        i++;
-        while (i < code.length && depth > 0) {
-          if (code[i] === '<') depth++;
-          else if (code[i] === '>') depth--;
-          i++;
-        }
-        typed = depth === 0;
-      }
-
-      while (i < code.length && /\s/.test(code[i] ?? '')) i++;
-
-      if (!typed && i < code.length && code[i] === '(') {
-        let depth = 1;
-        const argStart = i + 1;
-        i++;
-        while (i < code.length && depth > 0) {
-          if (code[i] === '(') depth++;
-          else if (code[i] === ')') depth--;
-          i++;
-        }
-        if (depth === 0) {
-          const [ruleSrc, exprSrc] = splitTopLevelComma(code.slice(argStart, i - 1));
-          if (ruleSrc && exprSrc) {
-            out += code.slice(lastPos, tokenStart);
-            out += inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
-            lastPos = i;
-          }
-        }
-      }
-    }
-
-    token = scanner.scan();
+    const kind = text(ruleStart + 2);
+    if (!['Min', 'Max', 'MinLength', 'MaxLength', 'Pattern', 'Enum'].includes(kind)) continue;
+    const rule = callArguments(tokens, ruleStart + 3);
+    if (
+      rule === undefined ||
+      rule.close !== ruleEnd - 1 ||
+      (kind !== 'Enum' && rule.args.length !== 1) ||
+      rule.args.length === 0
+    )
+      continue;
+    const ranges = [...rule.args, valueRange];
+    if (ranges.some(([start]) => tokens[start]?.kind === SyntaxKind.DotDotDotToken)) continue;
+    const source = ([start, end]: ArgumentRange) => {
+      const first = tokens[start];
+      const last = tokens[end - 1];
+      if (first === undefined || last === undefined) throw new Error('Invalid scanner argument range');
+      return code.slice(first.start, last.end);
+    };
+    const values = rule.args.map(source);
+    const expression = source(valueRange);
+    const constants = rule.args.every(
+      ([start, end]) =>
+        end === start + 1 &&
+        [
+          SyntaxKind.StringLiteral,
+          SyntaxKind.NumericLiteral,
+          SyntaxKind.NoSubstitutionTemplateLiteral,
+          SyntaxKind.TrueKeyword,
+          SyntaxKind.FalseKeyword,
+          SyntaxKind.NullKeyword,
+        ].includes(tokens[start]?.kind ?? SyntaxKind.Unknown),
+    );
+    const firstArgument = rule.args[0];
+    const firstToken = firstArgument === undefined ? undefined : tokens[firstArgument[0]];
+    const pattern =
+      kind === 'Pattern' &&
+      firstToken !== undefined &&
+      (firstToken.kind === SyntaxKind.StringLiteral || firstToken.kind === SyntaxKind.NoSubstitutionTemplateLiteral)
+        ? firstToken.value
+        : undefined;
+    const replacement = constants
+      ? emitter.emitBoundExpression(expression, ref => inlineCheck(kind, values, ref, ensureRegexCache, pattern))
+      : emitter.emitBoundExpression(`[${[...values, expression].map(value => `(${value}\n)`).join(', ')}]`, ref =>
+          inlineCheck(
+            kind,
+            values.map((_value, item) => `${ref}[${item}]`),
+            `${ref}[${values.length}]`,
+            ensureRegexCache,
+          ),
+        );
+    out += code.slice(lastPos, token.start) + replacement;
+    const closingToken = tokens[call.close];
+    if (closingToken === undefined) throw new Error('Invalid scanner call range');
+    lastPos = closingToken.end;
   }
 
   out += code.slice(lastPos);
