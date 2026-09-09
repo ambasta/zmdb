@@ -8,12 +8,7 @@
 import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
 
 export { AssertError, failWith } from './errors.js';
-export {
-  getCachedRegExp,
-  getCachedRegExp as getRegExp,
-  MAX_REGEX_CACHE_SIZE,
-  validatePatternComplexity,
-} from './regex-complexity.js';
+export { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
 
 export interface Rule {
   readonly kind: string;
