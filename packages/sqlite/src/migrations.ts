@@ -104,7 +104,6 @@ function formatReference(target: string): string {
   }
   return q(target);
 }
-}
 
 function primaryKeyDdl(columns: readonly string[]): string {
   return `PRIMARY KEY (${columns.map(q).join(', ')})`;
@@ -172,7 +171,6 @@ function refuseForeignKey(action: 'add' | 'drop', table: string, foreignKey: For
       'see the migration guide',
   );
 }
-
 
 function validateSnapshot(snapshot: SchemaSnapshot): void {
   if (snapshot.extensions.length > 0) {

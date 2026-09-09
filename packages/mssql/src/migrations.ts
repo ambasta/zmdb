@@ -193,13 +193,6 @@ function primaryKeyRefusal(operation: Extract<ChangeOp, { readonly kind: 'alter_
   );
 }
 
-function formatDefault(value: unknown): string {
-  if (value === null) return 'NULL';
-  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
-  if (typeof value === 'boolean') return value ? '1' : '0';
-  return String(value);
-}
-
 function formatReference(target: string): string {
   const parts = target.split('.');
   if (parts.length === 2 && parts[0] && parts[1]) {

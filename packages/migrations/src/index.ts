@@ -515,7 +515,6 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
           to: c,
         });
       }
-      }
     }
     if (!sameSequence(before.primaryKey, t.primaryKey)) {
       ops.push({ kind: 'alter_primary_key', table: t.name, from: before.primaryKey, to: t.primaryKey });

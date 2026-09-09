@@ -191,10 +191,15 @@ describe('diff engine', () => {
       {
         kind: 'drop_table',
         table: 'users',
-        columns: [
-          { name: 'id', type: 'serial', nullable: false, primaryKey: true },
-          { name: 'email', type: 'text', nullable: false, primaryKey: false },
-        ],
+        definition: {
+          name: 'users',
+          primaryKey: ['id'],
+          foreignKeys: [],
+          columns: [
+            { name: 'id', type: 'serial', nullable: false, primaryKey: true },
+            { name: 'email', type: 'text', nullable: false, primaryKey: false },
+          ],
+        },
       },
     ]);
   });
@@ -207,7 +212,13 @@ describe('diff engine', () => {
         foreignKeys: [],
         columns: [
           { name: 'id', type: 'serial', nullable: false, primaryKey: true },
-          { name: 'status', type: 'text', nullable: false, primaryKey: false, default: 'pending' },
+          {
+            name: 'status',
+            type: 'text',
+            nullable: false,
+            primaryKey: false,
+            default: { kind: 'literal', value: 'pending' },
+          },
           { name: 'code', type: 'text', nullable: false, primaryKey: false },
           { name: 'userId', type: 'integer', nullable: false, primaryKey: false, references: { target: 'users.id' } },
         ],
@@ -221,7 +232,13 @@ describe('diff engine', () => {
         foreignKeys: [],
         columns: [
           { name: 'id', type: 'serial', nullable: false, primaryKey: true },
-          { name: 'status', type: 'text', nullable: false, primaryKey: false, default: 'active' },
+          {
+            name: 'status',
+            type: 'text',
+            nullable: false,
+            primaryKey: false,
+            default: { kind: 'literal', value: 'active' },
+          },
           { name: 'code', type: 'text', nullable: false, primaryKey: false, unique: true },
           {
             name: 'userId',
@@ -236,25 +253,22 @@ describe('diff engine', () => {
 
     const ops = diff(prev, next);
     expect(ops).toContainEqual({
-      kind: 'alter_column_default',
+      kind: 'alter_column',
       table: 'orders',
-      column: 'status',
-      from: 'pending',
-      to: 'active',
+      from: prev.tables[0]!.columns[1]!,
+      to: next.tables[0]!.columns[1]!,
     });
     expect(ops).toContainEqual({
-      kind: 'alter_column_unique',
+      kind: 'alter_column',
       table: 'orders',
-      column: 'code',
-      from: undefined,
-      to: true,
+      from: prev.tables[0]!.columns[2]!,
+      to: next.tables[0]!.columns[2]!,
     });
     expect(ops).toContainEqual({
-      kind: 'alter_column_references',
+      kind: 'alter_column',
       table: 'orders',
-      column: 'userId',
-      from: { target: 'users.id' },
-      to: { target: 'customers.id' },
+      from: prev.tables[0]!.columns[3]!,
+      to: next.tables[0]!.columns[3]!,
     });
   });
 });
@@ -278,23 +292,38 @@ describe('DDL emitter (postgres)', () => {
     const dropCol = {
       kind: 'drop_column' as const,
       table: 'users',
-      column: { name: 'status', type: 'text', nullable: false, primaryKey: false, default: 'active' },
+      column: {
+        name: 'status',
+        type: 'text',
+        nullable: false,
+        primaryKey: false,
+        default: { kind: 'literal' as const, value: 'active' },
+      },
     };
     expect(emitUp(dropCol, postgresDialect)).toBe('ALTER TABLE "users" DROP COLUMN "status"');
-    expect(emitDown(dropCol, postgresDialect)).toBe('ALTER TABLE "users" ADD COLUMN "status" TEXT NOT NULL');
+    expect(emitDown(dropCol, postgresDialect)).toBe(
+      'ALTER TABLE "users" ADD COLUMN "status" TEXT NOT NULL DEFAULT \'active\'',
+    );
   });
 
   it('down for drop_table produces valid table creation statement with complete column list', () => {
     const dropTbl = {
       kind: 'drop_table' as const,
       table: 'orders',
-      columns: [
-        { name: 'id', type: 'serial', nullable: false, primaryKey: true },
-        { name: 'userId', type: 'integer', nullable: false, primaryKey: false, references: { target: 'users.id' } },
-      ],
+      definition: {
+        name: 'orders',
+        primaryKey: ['id'],
+        foreignKeys: [],
+        columns: [
+          { name: 'id', type: 'serial', nullable: false, primaryKey: true },
+          { name: 'userId', type: 'integer', nullable: false, primaryKey: false, references: { target: 'users.id' } },
+        ],
+      },
     };
     expect(emitUp(dropTbl, postgresDialect)).toBe('DROP TABLE "orders"');
-    expect(emitDown(dropTbl, postgresDialect)).toBe('CREATE TABLE "orders" ()');
+    expect(emitDown(dropTbl, postgresDialect)).toBe(
+      'CREATE TABLE "orders" ("id" SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL REFERENCES "users"("id"))',
+    );
   });
 });
 

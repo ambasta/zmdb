@@ -425,12 +425,13 @@ function alterColumnDdl(types: DialectTypeMap, table: string, from: ColumnSnapsh
     const name = `${table}_${to.name}_fkey`;
     if (from.references) clauses.push(`DROP CONSTRAINT ${quoteIdentifier(name)}`);
     if (to.references)
-      clauses.push(`ADD CONSTRAINT ${quoteIdentifier(name)} FOREIGN KEY (${column}) REFERENCES ${formatReference(to.references.target)}`);
+      clauses.push(
+        `ADD CONSTRAINT ${quoteIdentifier(name)} FOREIGN KEY (${column}) REFERENCES ${formatReference(to.references.target)}`,
+      );
   }
   if (defaultChanged && afterDefault !== undefined) clauses.push(`ALTER COLUMN ${column} SET DEFAULT ${afterDefault}`);
   if (clauses.length === 0) throw new TypeError(`column "${table}"."${to.name}" has no supported alteration`);
   return `ALTER TABLE ${quoteIdentifier(table)} ${clauses.join(', ')}`;
-}
 }
 
 function emitUp(types: DialectTypeMap, operation: ChangeOp): string {

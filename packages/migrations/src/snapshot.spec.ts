@@ -107,7 +107,7 @@ describe('snapshot serializer', () => {
       type: 'text',
       nullable: false,
       primaryKey: false,
-      default: 'pending',
+      default: { kind: 'literal', value: 'pending' },
     });
     expect(cols).toContainEqual({
       name: 'trackingCode',

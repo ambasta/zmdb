@@ -242,21 +242,6 @@ function alterColumn<Name extends string>(
   return `ALTER TABLE ${quote(table)} MODIFY COLUMN ${quote(to.name)} ${ddlType(name, types, to)}${to.nullable ? ' NULL' : ' NOT NULL'}${defaultClause(to)}`;
 }
 
-function formatDefault(value: unknown): string {
-  if (value === null) return 'NULL';
-  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  return String(value);
-}
-
-function formatReference(target: string): string {
-  const parts = target.split('.');
-  if (parts.length === 2 && parts[0] && parts[1]) {
-    return `${quote(parts[0])}(${quote(parts[1])})`;
-  }
-  return quote(target);
-}
-
 function alterPrimaryKey(table: string, from: readonly string[], to: readonly string[]): string {
   const clauses: string[] = [];
   if (from.length > 0) clauses.push('DROP PRIMARY KEY');
