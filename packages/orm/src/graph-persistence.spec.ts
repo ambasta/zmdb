@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/compiler/testing';
@@ -78,9 +82,21 @@ describe('Explicit Transactional Graph Persistence Helpers', () => {
     expect(created.profile).toMatchObject({ id: 1, userId: 1, bio: 'Software Developer' });
 
     // Verify directly from DB
-    const dbUsers = await driver.execute({ text: 'SELECT * FROM users', parameters: [] });
-    const dbOrders = await driver.execute({ text: 'SELECT * FROM orders', parameters: [] });
-    const dbProfiles = await driver.execute({ text: 'SELECT * FROM profiles', parameters: [] });
+    const dbUsers = await driver.execute({
+      text: 'SELECT * FROM users',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
+    const dbOrders = await driver.execute({
+      text: 'SELECT * FROM orders',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
+    const dbProfiles = await driver.execute({
+      text: 'SELECT * FROM profiles',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
 
     expect(dbUsers).toHaveLength(1);
     expect(dbOrders).toHaveLength(2);
@@ -102,9 +118,21 @@ describe('Explicit Transactional Graph Persistence Helpers', () => {
     ).rejects.toThrow();
 
     // Verify 0 records were created in DB
-    const dbUsers = await driver.execute({ text: 'SELECT * FROM users', parameters: [] });
-    const dbOrders = await driver.execute({ text: 'SELECT * FROM orders', parameters: [] });
-    const dbProfiles = await driver.execute({ text: 'SELECT * FROM profiles', parameters: [] });
+    const dbUsers = await driver.execute({
+      text: 'SELECT * FROM users',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
+    const dbOrders = await driver.execute({
+      text: 'SELECT * FROM orders',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
+    const dbProfiles = await driver.execute({
+      text: 'SELECT * FROM profiles',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
 
     expect(dbUsers).toHaveLength(0);
     expect(dbOrders).toHaveLength(0);
@@ -146,7 +174,11 @@ describe('Explicit Transactional Graph Persistence Helpers', () => {
     expect(updated!.profile?.bio).toBe('Updated Bio');
 
     // Verify removed order 2 is no longer in DB
-    const dbOrders = await driver.execute({ text: 'SELECT * FROM orders', parameters: [] });
+    const dbOrders = await driver.execute({
+      text: 'SELECT * FROM orders',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
     expect(dbOrders).toHaveLength(2);
     expect(dbOrders.some((o: Record<string, unknown>) => o.id === existingOrderId2)).toBe(false);
   });
@@ -170,8 +202,20 @@ describe('Explicit Transactional Graph Persistence Helpers', () => {
     ).rejects.toThrow();
 
     // Verify DB still has original state
-    const dbUser = (await driver.execute({ text: 'SELECT * FROM users WHERE id = 1', parameters: [] }))[0];
-    const dbOrder = (await driver.execute({ text: 'SELECT * FROM orders WHERE id = 1', parameters: [] }))[0];
+    const dbUser = (
+      await driver.execute({
+        text: 'SELECT * FROM users WHERE id = 1',
+        parameters: [],
+        effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+      })
+    )[0];
+    const dbOrder = (
+      await driver.execute({
+        text: 'SELECT * FROM orders WHERE id = 1',
+        parameters: [],
+        effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+      })
+    )[0];
 
     expect(dbUser?.name).toBe('Dave');
     expect(dbOrder?.total).toBe(100);
@@ -190,9 +234,21 @@ describe('Explicit Transactional Graph Persistence Helpers', () => {
     expect(deleted).toBe(true);
 
     // Verify parent and child records are all removed from DB
-    const dbUsers = await driver.execute({ text: 'SELECT * FROM users', parameters: [] });
-    const dbOrders = await driver.execute({ text: 'SELECT * FROM orders', parameters: [] });
-    const dbProfiles = await driver.execute({ text: 'SELECT * FROM profiles', parameters: [] });
+    const dbUsers = await driver.execute({
+      text: 'SELECT * FROM users',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
+    const dbOrders = await driver.execute({
+      text: 'SELECT * FROM orders',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
+    const dbProfiles = await driver.execute({
+      text: 'SELECT * FROM profiles',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
 
     expect(dbUsers).toHaveLength(0);
     expect(dbOrders).toHaveLength(0);
@@ -211,12 +267,24 @@ describe('Explicit Transactional Graph Persistence Helpers', () => {
     // Disable foreign key enforcement temporarily or test standard delete
     // Standard delete calls `DELETE FROM users WHERE id = ?`
     // Note: without DB CASCADE or graph delete, standard delete only targets the root row
-    await driver.execute({ text: 'PRAGMA foreign_keys = OFF;', parameters: [] });
+    await driver.execute({
+      text: 'PRAGMA foreign_keys = OFF;',
+      parameters: [],
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+    });
     const deletedSingle = await userRepo.delete(created.id);
     expect(deletedSingle).toBe(true);
 
-    const dbUsers = await driver.execute({ text: 'SELECT * FROM users', parameters: [] });
-    const dbOrders = await driver.execute({ text: 'SELECT * FROM orders', parameters: [] });
+    const dbUsers = await driver.execute({
+      text: 'SELECT * FROM users',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
+    const dbOrders = await driver.execute({
+      text: 'SELECT * FROM orders',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+    });
 
     expect(dbUsers).toHaveLength(0);
     // Standard delete affects ONLY the targeted single table row
