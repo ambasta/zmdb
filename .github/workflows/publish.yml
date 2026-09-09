@@ -90,9 +90,7 @@ jobs:
             if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
               node .github/scripts/publish-package.mjs "${args[@]}" --tag "$CHANNEL" --dry-run
             else
-              eval "$(node .github/scripts/decide-dist-tag.mjs "$package_name" "$VER")"
-              if [ "$LATEST" = "yes" ]; then TAG=latest; else TAG="$CHANNEL"; fi
-              node .github/scripts/publish-package.mjs "${args[@]}" --tag "$TAG"
+              node .github/scripts/publish-package.mjs "${args[@]}" --tag "$CHANNEL"
             fi
           done < "$RUNNER_TEMP/zmdb-publish-order.tsv"
 
