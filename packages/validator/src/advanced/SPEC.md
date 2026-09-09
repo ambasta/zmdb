@@ -32,7 +32,8 @@ source. No current validator or emitter path applies the rule, so callers that i
 
 ## 4. Coercion, branded types, object strictness
 
-- `coerce.number(expr)` → inline `Number(expr)` with NaN guard.
+- `coerce.number(expr)` explicitly accepts finite numbers unchanged and nonblank strings whose `Number(expr)` result is finite. Blank strings, NaN, infinities, and all other input shapes throw
+  `TypeError`. Objects are rejected before conversion, and diagnostics do not invoke their conversion hooks. This boundary helper does not add implicit coercion to validation or generated code.
 - Branded types: compile-time only nominal typing; no runtime footprint.
 - Object modes: `strict` (reject excess keys), `strip` (delete excess), `passthrough`.
 

@@ -122,9 +122,13 @@ export function evalRule(rule: Rule, value: unknown): boolean {
 
 export const coerce = {
   number(expr: unknown): number {
-    const n = Number(expr);
-    if (Number.isNaN(n)) throw new TypeError(`cannot coerce to number: ${String(expr)}`);
-    return n;
+    if (typeof expr === 'number') {
+      if (Number.isFinite(expr)) return expr;
+    } else if (typeof expr === 'string' && expr.trim() !== '') {
+      const n = Number(expr);
+      if (Number.isFinite(n)) return n;
+    }
+    throw new TypeError(`cannot coerce to finite number: ${expr === null ? 'null' : typeof expr}`);
   },
 } as const;
 
