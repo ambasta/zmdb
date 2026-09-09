@@ -10,7 +10,9 @@ const root = resolve(source, '../..');
 const hash = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const input = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, input));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  return encoding === 'base64'
+    ? globalThis.btoa(String.fromCharCode(...digest))
+    : Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

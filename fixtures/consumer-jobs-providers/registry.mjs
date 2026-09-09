@@ -9,8 +9,10 @@ export async function startRegistry(packages) {
     tarballs.set(entry.manifest.name, {
       ...entry,
       bytes,
-      integrity: `sha512-${new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
-      shasum: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes)).toHex(),
+      integrity: `sha512-${globalThis.btoa(String.fromCharCode(...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes))))}`,
+      shasum: Array.from(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes)), b =>
+        b.toString(16).padStart(2, '0'),
+      ).join(''),
     });
   }
   let origin;

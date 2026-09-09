@@ -1,5 +1,5 @@
 import { tags, validateRule as validate, ValidationError, is, validate as utilityValidate } from '@zmdb/validator';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
 
@@ -26,6 +26,20 @@ describe('Static Regular Expression Complexity Validation & Caching', () => {
       const re1 = getCachedRegExp('^[a-z]+$');
       const re2 = getCachedRegExp('^[a-z]+$');
       expect(re1).toBe(re2);
+    });
+
+    it('compiles each miss exactly once and throws ValidationError on invalid syntax without caching', () => {
+      expect(() => getCachedRegExp('[a-z')).toThrow(ValidationError);
+
+      const spy = vi.spyOn(globalThis, 'RegExp');
+      const pat = 'unique_single_compile_pattern_123';
+      const re1 = getCachedRegExp(pat);
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      const re2 = getCachedRegExp(pat);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(re1).toBe(re2);
+      spy.mockRestore();
     });
 
     it('bounds pattern cache size and evicts oldest entries using LRU', () => {

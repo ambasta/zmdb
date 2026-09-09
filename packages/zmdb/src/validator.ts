@@ -37,7 +37,6 @@ export {
   ValidationError,
   getCachedRegExp,
   getEnumSet,
-  getRegExp,
   tags,
   validatePatternComplexity,
 } from '@zmdb/validator';

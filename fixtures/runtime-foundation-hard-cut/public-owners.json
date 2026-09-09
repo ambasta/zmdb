@@ -3468,14 +3468,6 @@
     },
     {
       "from": "@zmdb/aot-validator",
-      "name": "getRegExp",
-      "to": "@zmdb/validator",
-      "export": "getRegExp",
-      "value": true,
-      "declarationSource": "packages/aot-validator/src/index.ts"
-    },
-    {
-      "from": "@zmdb/aot-validator",
       "name": "MAX_REGEX_CACHE_SIZE",
       "to": "@zmdb/validator",
       "export": "MAX_REGEX_CACHE_SIZE",

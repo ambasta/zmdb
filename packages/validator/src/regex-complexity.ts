@@ -32,14 +32,18 @@ export function getCachedRegExp(pattern: string): RegExp {
     patternCache.set(pattern, re);
     return re;
   }
-  validatePatternComplexity(pattern);
+  try {
+    re = new RegExp(pattern);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new ValidationError(`Invalid regular expression pattern: ${msg}`);
+  }
   if (patternCache.size >= MAX_REGEX_CACHE_SIZE) {
     const oldestKey = patternCache.keys().next().value;
     if (oldestKey !== undefined) {
       patternCache.delete(oldestKey);
     }
   }
-  re = new RegExp(pattern);
   patternCache.set(pattern, re);
   return re;
 }
