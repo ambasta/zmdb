@@ -56,7 +56,6 @@ export default defineConfig({
             'benchmarks/src/**/*.spec.ts',
             'docs-site/**/*.spec.ts',
             '.github/**/*.spec.ts',
-            'tests/**/*.spec.ts',
           ],
           exclude: integrationTests,
         },

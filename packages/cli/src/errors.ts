@@ -8,9 +8,8 @@ export class CliInvocationError extends Error {
 
 /** Preserve the original failure before an error raised while disposing its resources. */
 export function errorMessage(error: unknown): string {
-  if (typeof SuppressedError !== 'undefined' && error instanceof SuppressedError) {
-    const err = error as { suppressed?: unknown; error?: unknown };
-    return `${errorMessage(err.suppressed)}\ncleanup: ${errorMessage(err.error)}`;
+  if (error instanceof SuppressedError) {
+    return `${errorMessage(error.suppressed)}\ncleanup: ${errorMessage(error.error)}`;
   }
   if (error instanceof AggregateError) {
     const errors: readonly unknown[] = error.errors;

@@ -13,7 +13,6 @@ export interface TransactionContext<State extends string = 'active'> {
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
   savepoint<R>(fn: (tx: TransactionContext<State>) => Promise<R>): Promise<R>;
-  repo?<T>(RepoClass: new (driver: { execute: TransactionContext<State>['execute'] }, dialect?: DialectTarget) => T): T;
 }
 
 export type ActiveTransactionContext = TransactionContext<'active'>;
@@ -27,7 +26,6 @@ export function markTransactionClosed<State extends string = 'active'>(
     _state: 'closed',
     ...(tx.dialect === undefined ? {} : { dialect: tx.dialect }),
     execute: (query, opts) => tx.execute(query, opts),
-    repo: RepoClass => (tx.repo ? tx.repo(RepoClass) : new RepoClass({ execute: (q, opts) => tx.execute(q, opts) })),
     ...(stream === undefined
       ? {}
       : {
@@ -234,15 +232,6 @@ export function createTransactionalDb(conn: TxConnection): TransactionalDb {
       execute: (query, opts) => {
         assertOpen();
         return conn.execute(query, opts);
-      },
-      repo: <T>(
-        RepoClass: new (driver: { execute: TransactionContext<State>['execute'] }, dialect?: DialectTarget) => T,
-      ) => {
-        assertOpen();
-        return new RepoClass(
-          { execute: (q: CompiledQuery, opts?: ExecuteOptions) => context.execute(q, opts) },
-          conn.dialect,
-        );
       },
       ...(connectionStream === undefined
         ? {}

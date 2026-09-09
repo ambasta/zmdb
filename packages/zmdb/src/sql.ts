@@ -89,8 +89,8 @@ export { type FtsOptions, type FtsSelect, type FtsTableOptions } from '@zmdb/sql
 export { joinableSelectFrom } from '@zmdb/sql/joins';
 export { type JoinCondition, type JoinKind, type JoinableSelect } from '@zmdb/sql/joins';
 
-export { aggregateSelectFrom, avg, count, max, min, sum } from '@zmdb/sql/aggregations';
-export type { AggregateSelect } from '@zmdb/sql/aggregations';
+export { aggregateSelectFrom } from '@zmdb/sql/aggregations';
+export { type AggregateSelect } from '@zmdb/sql/aggregations';
 
 export { SET_KEYWORD, batch, setOperation } from '@zmdb/sql/set-ops';
 export { type BatchHandle, type SetOp } from '@zmdb/sql/set-ops';

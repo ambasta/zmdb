@@ -261,12 +261,8 @@ export function openPreparedSession(options: SessionOptions, prepare: PreparePro
  * the session snapshot.
  */
 export function projectSourceFileNames(project: string): readonly string[] {
-  const session = ReflectSession.open({ project });
-  try {
-    return [...session.sourceFileNames()];
-  } finally {
-    session.close();
-  }
+  using session = ReflectSession.open({ project });
+  return [...session.sourceFileNames()];
 }
 
 /** `try`/`finally` around a session, for callers that cannot use `using`. */
