@@ -7,10 +7,36 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const source = dirname(fileURLToPath(import.meta.url));
 const root = resolve(source, '../..');
+function toBase64(bytes) {
+  if (bytes.toBase64) return bytes.toBase64();
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '',
+    i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    result +=
+      chars[bytes[i] >> 2] +
+      chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] +
+      chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)] +
+      chars[bytes[i + 2] & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[bytes[i] >> 2];
+    if (i + 1 === bytes.length) {
+      result += chars[(bytes[i] & 3) << 4] + '==';
+    } else {
+      result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] + chars[(bytes[i + 1] & 15) << 2] + '=';
+    }
+  }
+  return result;
+}
+
 const hash = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const input = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, input));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  if (encoding === 'base64') {
+    return toBase64(digest);
+  }
+  return digest.toHex ? digest.toHex() : Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);
@@ -31,7 +57,6 @@ async function privateImports(paths, consumer) {
     if (!/\.[cm]?[jt]s$/.test(file)) continue;
     const text = await readFile(file, 'utf8');
     for (const match of text.matchAll(/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)['"](@zmdb\/[^'"]+)['"]/g)) {
-      if (match[1] === '@zmdb/core' || match[1].startsWith('@zmdb/core/')) continue;
       found.push(`${relative(consumer, file)}: ${match[1]}`);
     }
   }
@@ -62,11 +87,11 @@ export async function qualifyProductConsumer({ tarballs, evidence }) {
       records.set(manifest.name, record);
       report.archives.push({ name: manifest.name, sha256: record.sha256, integrity: record.integrity });
     }
-    assert(records.has('@zmdb/core'));
+    assert(records.has('zmdb'));
     registry = await startRegistry(records);
     consumer = await mkdtemp(join(evidence, 'consumer-'));
     const manifest = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'));
-    manifest.dependencies['@zmdb/core'] = records.get('@zmdb/core').manifest.version;
+    manifest.dependencies.zmdb = records.get('zmdb').manifest.version;
     await writeFile(join(consumer, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
     await writeFile(join(consumer, '.npmrc'), '');
     const flags = [
@@ -108,13 +133,13 @@ export async function qualifyProductConsumer({ tarballs, evidence }) {
         if (!current.peerDependenciesMeta?.[peer]?.optional) visit(peer);
       }
     }
-    visit('@zmdb/core');
+    visit('zmdb');
     const installed = [],
       workspaceLeaks = [];
     for (const [path, locked] of Object.entries(lock.packages)) {
       if (!path) continue;
       const name = path.slice(path.lastIndexOf('node_modules/') + 'node_modules/'.length);
-      if (!name.startsWith('@zmdb/')) continue;
+      if (!name.startsWith('@zmdb/') && name !== 'zmdb') continue;
       const record = records.get(name);
       assert(record, `unprovided product dependency ${name}`);
       assert.equal(locked.resolved, `${registry.origin}/tarballs/${record.sha256}.tgz`);
@@ -128,7 +153,9 @@ export async function qualifyProductConsumer({ tarballs, evidence }) {
       installed.push(name);
     }
     report.installation = {
-      directZmdbDependencies: Object.keys(manifest.dependencies).filter(name => name.startsWith('@zmdb/')),
+      directZmdbDependencies: Object.keys(manifest.dependencies).filter(
+        name => name === 'zmdb' || name.startsWith('@zmdb/'),
+      ),
       packageManager: 'npm',
       workspaceLeaks,
       ci: true,
@@ -259,9 +286,7 @@ export async function qualifyProductConsumer({ tarballs, evidence }) {
         consumer,
       ),
       loaded: [
-        ...new Set(
-          loaded.map(entry => entry.specifier).filter(name => name === '@zmdb/core' || name.startsWith('@zmdb/core/')),
-        ),
+        ...new Set(loaded.map(entry => entry.specifier).filter(name => name === 'zmdb' || name.startsWith('zmdb/'))),
       ].toSorted(),
     };
   } catch (error) {

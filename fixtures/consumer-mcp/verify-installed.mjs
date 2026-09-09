@@ -28,9 +28,35 @@ function packageName(directory) {
   return JSON.parse(readFileSync(join(PACKAGES, directory, 'package.json'), 'utf8')).name;
 }
 
+function toBase64(bytes) {
+  if (bytes.toBase64) return bytes.toBase64();
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '',
+    i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    result +=
+      chars[bytes[i] >> 2] +
+      chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] +
+      chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)] +
+      chars[bytes[i + 2] & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[bytes[i] >> 2];
+    if (i + 1 === bytes.length) {
+      result += chars[(bytes[i] & 3) << 4] + '==';
+    } else {
+      result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] + chars[(bytes[i + 1] & 15) << 2] + '=';
+    }
+  }
+  return result;
+}
+
 async function digest(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const hash = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hash.toBase64() : hash.toHex();
+  if (encoding === 'base64') {
+    return toBase64(hash);
+  }
+  return hash.toHex ? hash.toHex() : Array.from(hash, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 const temporary = mkdtempSync(join(tmpdir(), 'zmdb-mcp-consumer-'));

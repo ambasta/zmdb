@@ -28,8 +28,8 @@ describe('push destructive-operation classification', () => {
   });
 
   it.each([
-    { kind: 'drop_table', table: 'events' },
-    { kind: 'drop_column', table: 'events', column: 'legacy' },
+    { kind: 'drop_table', table: 'events', columns: [column] },
+    { kind: 'drop_column', table: 'events', column },
     { kind: 'alter_column_type', table: 'events', column: 'value', from: 'text', to: 'varchar' },
     { kind: 'alter_column_type', table: 'events', column: 'value', from: 'bigint', to: 'integer' },
     { kind: 'alter_column_type', table: 'events', column: 'value', from: 'numeric', to: 'integer' },

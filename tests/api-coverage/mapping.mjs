@@ -310,8 +310,10 @@ export const kysely = {
   'schema > alter table > add index': 'creates a non-unique index',
   'schema > alter table > drop index': 'creates a non-unique index',
   'schema > alter table > add check constraint': 'check constraint',
-  'schema > alter table > add unique constraint': 'emits database-owned unique and foreign-key constraints',
+  'schema > alter table > add unique constraint':
+    'includes the unique constraint and foreign key on the way to the DDL',
   'schema > alter table > add foreign key constraint': [
+    'includes the unique constraint and foreign key on the way to the DDL',
     'emits ON DELETE CASCADE on the foreign key',
     'emits every supported referential action',
     'creates the supporting index MySQL requires',
@@ -445,11 +447,11 @@ export const drizzle = {
 
   // --- schema declaration --------------------------------------------------
   'table config*': [
-    'emits database-owned unique and foreign-key constraints',
+    'includes the unique constraint and foreign key on the way to the DDL',
     'names a generated constraint deterministically',
   ],
   'define constraints as array*': [
-    'emits database-owned unique and foreign-key constraints',
+    'includes the unique constraint and foreign key on the way to the DDL',
     'emits a composite foreign key referencing a composite key',
   ],
   'Object keys as column names': 'names every declared column in every dialect',
@@ -711,6 +713,7 @@ export const mikroOrm = {
   'generated-columns': ['stored generated column', 'virtual generated column (no STORED)'],
   'check-constraint': 'check constraint',
   createForeignKeyConstraint: [
+    'includes the unique constraint and foreign key on the way to the DDL',
     'emits ON DELETE CASCADE on the foreign key',
     'names a generated constraint deterministically',
   ],

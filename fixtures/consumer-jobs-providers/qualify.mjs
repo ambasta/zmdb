@@ -143,14 +143,39 @@ async function packClosure(roots) {
     const packedInfo = JSON.parse(packedResult.stdout);
     assert.deepEqual(Object.keys(packedInfo), [manifest.name]);
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
+    function toBase64(bytes) {
+      if (bytes.toBase64) return bytes.toBase64();
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+      let result = '',
+        i = 0;
+      for (; i + 2 < bytes.length; i += 3) {
+        result +=
+          chars[bytes[i] >> 2] +
+          chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] +
+          chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)] +
+          chars[bytes[i + 2] & 63];
+      }
+      if (i < bytes.length) {
+        result += chars[bytes[i] >> 2];
+        if (i + 1 === bytes.length) {
+          result += chars[(bytes[i] & 3) << 4] + '==';
+        } else {
+          result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] + chars[(bytes[i + 1] & 15) << 2] + '=';
+        }
+      }
+      return result;
+    }
+
     packageIntegrities.set(
       manifest.name,
-      `sha512-${new Uint8Array(
-        await globalThis.crypto.subtle.digest(
-          'SHA-512',
-          await readFile(join(tarballs, packedInfo[manifest.name].filename)),
+      `sha512-${toBase64(
+        new Uint8Array(
+          await globalThis.crypto.subtle.digest(
+            'SHA-512',
+            await readFile(join(tarballs, packedInfo[manifest.name].filename)),
+          ),
         ),
-      ).toBase64()}`,
+      )}`,
     );
   }
   return packed;
@@ -330,10 +355,14 @@ try {
   const packed = await packClosure(['@zmdb/jobs', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres', '@zmdb/app']);
   registry = await startRegistry(packed);
   results.tarballs = await Promise.all(
-    packed.map(async entry => ({
-      name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
-    })),
+    packed.map(async entry => {
+      const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
+      const hex = digest.toHex ? digest.toHex() : Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
+      return {
+        name: entry.manifest.name,
+        sha256: hex,
+      };
+    }),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
     const portable = await consumer('portable', { '@zmdb/jobs': '1.0.0-beta.2' });

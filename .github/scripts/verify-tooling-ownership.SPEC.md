@@ -11,13 +11,13 @@ The shipped/build-input source inventory is every file below `packages/{validato
 `packages/schema/src/ir/{validation-shape,vocabulary}.ts`, `packages/schema/src/naming/index.ts` and `packages/orm/src/outbox/sql.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in
 declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **210 paths**, each exactly once:
+The inventory has **212 paths**, each exactly once:
 
 ```json
 {
   "compiler": 34,
   "migrations": 21,
-  "cli": 33,
+  "cli": 35,
   "runtime": 31,
   "facade": 53,
   "optional-integration": 0,
@@ -92,6 +92,7 @@ cli	packages/cli/src/application-loader.ts
 cli	packages/cli/src/args.ts
 cli	packages/cli/src/atomic.ts
 cli	packages/cli/src/bin.ts
+cli	packages/cli/src/cli.ts
 cli	packages/cli/src/commands/check.ts
 cli	packages/cli/src/commands/client.ts
 cli	packages/cli/src/commands/codegen.ts
@@ -106,6 +107,7 @@ cli	packages/cli/src/commands/studio.ts
 cli	packages/cli/src/commands/upgrade.ts
 cli	packages/cli/src/database.ts
 cli	packages/cli/src/errors.ts
+cli	packages/cli/src/generator.ts
 cli	packages/cli/src/index.ts
 cli	packages/cli/src/lifecycle.ts
 cli	packages/cli/src/migration-project.ts
@@ -309,7 +311,7 @@ zmdb	./cli	retain-product-facade	@zmdb/cli
 zmdb	./config	retain-facade	@zmdb/compiler/config
 ```
 
-Stable `@zmdb/core/*` product facades remain while implementation ownership moves.
+Stable `zmdb/*` product facades remain while implementation ownership moves.
 
 The one current tooling binary is:
 
@@ -317,7 +319,7 @@ The one current tooling binary is:
 @zmdb/cli	zmdb	sole-owner
 ```
 
-The target repository has one bin declaration, `@zmdb/cli` → `@zmdb/core`. The `zmdb-codegen` declaration is absent; `@zmdb/core` retains the CLI identity facade and declares no bin.
+The target repository has one bin declaration, `@zmdb/cli` → `zmdb`. The `zmdb-codegen` declaration is absent; `zmdb` retains the CLI identity facade and declares no bin.
 
 ## 4. Exact tooling DAG
 
@@ -340,9 +342,9 @@ The line grammar is `<dependency><TAB><consumer><TAB><kind>`. These are the comp
 ```
 
 `@zmdb/compiler` and `@zmdb/migrations` have no edge between them. The CLI composes their public results. `@zmdb/web/contract/compiler` alone has an optional compiler peer; the web root cannot reach
-it. `@zmdb/web` is not evaluated by the CLI root; it is an optional peer loaded only for selected application commands. The three tooling packages reach `@zmdb/core` only through stable concern
-facades, and none is reachable from the product root. A topological sort must contain query/schema/validator/AI protocols before compiler, compiler/migrations before CLI, and all three tooling
-packages before the product facade.
+it. `@zmdb/web` is not evaluated by the CLI root; it is an optional peer loaded only for selected application commands. The three tooling packages reach `zmdb` only through stable concern facades, and
+none is reachable from the product root. A topological sort must contain query/schema/validator/AI protocols before compiler, compiler/migrations before CLI, and all three tooling packages before the
+product facade.
 
 ## 5. Manifest-edge move map
 
@@ -386,9 +388,9 @@ packages/zmdb/package.json	peer	@zmdb/mssql	retain-optional-database-facade
 packages/zmdb/package.json	peer	@zmdb/postgres	retain-optional-database-facade
 ```
 
-New dependency declarations make `@zmdb/cli` depend on `@zmdb/compiler` and `@zmdb/migrations`, while `@zmdb/core` depends on all three for `@zmdb/core/cli`, `@zmdb/core/compiler`,
-`@zmdb/core/migrations` and `@zmdb/core/config`. The migrations package owns the only required `oxfmt` edge used by declaration/migration generation; CLI scaffolding may keep its own direct formatter
-edge. The SQL and validator runtime roots have no formatter or compiler peer after extraction.
+New dependency declarations make `@zmdb/cli` depend on `@zmdb/compiler` and `@zmdb/migrations`, while `zmdb` depends on all three for `zmdb/cli`, `zmdb/compiler`, `zmdb/migrations` and `zmdb/config`.
+The migrations package owns the only required `oxfmt` edge used by declaration/migration generation; CLI scaffolding may keep its own direct formatter edge. The SQL and validator runtime roots have no
+formatter or compiler peer after extraction.
 
 ## 6. Fixtures and packed consumers
 
@@ -524,9 +526,9 @@ docs-site/content/web-microservices-grpc.md
 docs-site/content/web-repl.md
 ```
 
-The docs implementation also audits `README.md`, `PUBLISHING.md`, `docs-site/content/package-reference.md`, and the READMEs for `aot-validator`, `query-compiler`, `@zmdb/core`, `compiler`,
-`migrations` and `cli`. The docs slice removes old implementation-package tooling imports and explains one product story through stable `@zmdb/core/*` concern subpaths. Removed tooling entry points
-fail resolution; no compatibility alias is retained.
+The docs implementation also audits `README.md`, `PUBLISHING.md`, `docs-site/content/package-reference.md`, and the READMEs for `aot-validator`, `query-compiler`, `zmdb`, `compiler`, `migrations` and
+`cli`. The docs slice removes old implementation-package tooling imports and explains one product story through stable `zmdb/*` concern subpaths. Removed tooling entry points fail resolution; no
+compatibility alias is retained.
 
 ## 9. Manifest, verifier and release migration
 
@@ -593,7 +595,7 @@ zmdb
 
 The order satisfies §4 plus the existing product edges. It is measured review evidence, not a second release-order authority: workflows and helpers consume `releasePlan(root).publishOrder`, whose
 membership comes from `scripts/product/catalog.mjs` and whose order comes from `scripts/architecture/policy.mjs`. Package npm names are read from the catalog rather than synthesized as
-`@zmdb/<directory>`, because the final entry is the unscoped `@zmdb/core` package.
+`@zmdb/<directory>`, because the final entry is the unscoped `zmdb` package.
 
 The release surfaces that consume the shared catalog/policy-derived model, and must continue to do so after the tooling split, are:
 
@@ -610,9 +612,9 @@ and is an admission prerequisite, not permission for a partial product release. 
 The release gate installs only tarballs outside the workspace and proves:
 
 1. all admitted manifests carry the coordinated version and workspace dependencies were rewritten to installable ranges;
-2. the `@zmdb/core` tarball installs `@zmdb/cli` and exposes exactly one `node_modules/.bin/zmdb`;
-3. `@zmdb/core/compiler`, `@zmdb/core/migrations`, `@zmdb/core/cli` and `@zmdb/core/config` are identity facades over independently importable tooling packages;
-4. old implementation-owner subpaths, `@zmdb/core/unplugin` and `zmdb-codegen` are absent;
+2. the `zmdb` tarball installs `@zmdb/cli` and exposes exactly one `node_modules/.bin/zmdb`;
+3. `zmdb/compiler`, `zmdb/migrations`, `zmdb/cli` and `zmdb/config` are identity facades over independently importable tooling packages;
+4. old implementation-owner subpaths, `zmdb/unplugin` and `zmdb-codegen` are absent;
 5. optional CLI commands fail with the specified diagnostic when their optional peers are absent; and
 6. the regenerated benchmark/fixture artifacts use only the emitted-runtime boundary in §7.
 
@@ -625,7 +627,7 @@ The executable verifier derived from this policy must:
 
 1. prove the current or migrated source catalog is bijective;
 2. prove the package dependency graph is acyclic and contains no runtime-to-tooling edge;
-3. prove exactly one `@zmdb/core` bin and zero `zmdb-codegen` bins;
+3. prove exactly one `zmdb` bin and zero `zmdb-codegen` bins;
 4. reject every old owner export/import whose release-plan state is removed, and reject any compatibility alias that owns new behavior;
 5. walk generated imports and the embedded-runner graph;
 6. pack each tooling package and test it outside the workspace; and
@@ -634,10 +636,10 @@ The executable verifier derived from this policy must:
 ## 10. Final tooling cutover (#631)
 
 The configured asynchronous `zmdbAot` and `ConfiguredZmdbAotOptions` belong to the compiler root. The synchronous option-driven adapter remains at `@zmdb/compiler/unplugin`; both use the same
-low-level transform. The old product `@zmdb/core/unplugin` export and implementation are deleted.
+low-level transform. The old product `zmdb/unplugin` export and implementation are deleted.
 
-The intentional `@zmdb/core/compiler`, `@zmdb/core/config`, `@zmdb/core/testing`, `@zmdb/core/migrations` and `@zmdb/core/cli` concerns retain explicit owner identities. Metro remains only at the
-explicitly selected `@zmdb/compiler/metro` entry; `getCacheKey`, `transform`, `withZmdb` and `MetroOptions` are absent from the core compiler facade and its declarations.
+The intentional `zmdb/compiler`, `zmdb/config`, `zmdb/testing`, `zmdb/migrations` and `zmdb/cli` concerns retain explicit owner identities. Metro remains only at the explicitly selected
+`@zmdb/compiler/metro` entry; `getCacheKey`, `transform`, `withZmdb` and `MetroOptions` are absent from the core compiler facade and its declarations.
 
 Only `@zmdb/cli` implements command dispatch. Migration root, runner and product entries expose `up`, `down` and `status` without `runCli`. Runtime foundations reject undeclared tooling across
 required, optional and peer manifest edges. The existing web contract compiler retains only its policy-owned optional tooling peers behind explicitly selected entries. Filesystem imports are allowed

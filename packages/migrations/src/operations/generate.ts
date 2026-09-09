@@ -124,6 +124,12 @@ function derivedName(ops: readonly ChangeOp[]): string {
       return `drop_${operation.table}_${operation.column}`;
     case 'alter_column_type':
       return `alter_${operation.table}_${operation.column}`;
+    case 'alter_column_default':
+      return `alter_${operation.table}_${operation.column}_default`;
+    case 'alter_column_unique':
+      return `alter_${operation.table}_${operation.column}_unique`;
+    case 'alter_column_references':
+      return `alter_${operation.table}_${operation.column}_references`;
     case 'alter_primary_key':
       return `alter_${operation.table}_primary_key`;
     case 'add_foreign_key':

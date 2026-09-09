@@ -162,6 +162,7 @@ describe('optional server integration documentation (#664)', { timeout: TEST_TIM
       const readme = markdown(`packages/${integration.directory}/README.md`);
 
       expect(defaultDependencies, integration.packageName).not.toHaveProperty(integration.packageName);
+
       expect(readme, integration.packageName).toContain(integration.packageName);
 
       if (integration.peer === undefined) {

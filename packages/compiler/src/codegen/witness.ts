@@ -307,7 +307,11 @@ function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<strin
     const support = SUPPORT_TYPES[entry.callee];
     if (support) {
       const supportSpecifier =
-        entry.callee === 'schemaOf' && specifier === '@zmdb/core' ? '@zmdb/core/schema' : specifier;
+        entry.callee === 'schemaOf' && (specifier === '@zmdb/core' || specifier === 'zmdb')
+          ? specifier === 'zmdb'
+            ? 'zmdb/schema'
+            : '@zmdb/core/schema'
+          : specifier;
       for (const name of support) into(types, supportSpecifier, name);
     }
   }

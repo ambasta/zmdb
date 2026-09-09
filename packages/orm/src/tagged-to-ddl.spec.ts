@@ -169,7 +169,7 @@ describe('the DDL a tagged declaration reaches the database as', () => {
   it('renders every column type for postgres', () => {
     expect(ddl(Users, 'postgres')).toEqual([
       'CREATE TABLE "users" ("active" BOOLEAN NOT NULL, "age" INTEGER NOT NULL, "bio" TEXT, ' +
-        '"createdAt" TIMESTAMPTZ NOT NULL, "email" VARCHAR(255) NOT NULL, "id" SERIAL PRIMARY KEY, ' +
+        '"createdAt" TIMESTAMPTZ NOT NULL, "email" VARCHAR(255) NOT NULL UNIQUE, "id" SERIAL PRIMARY KEY, ' +
         '"passwordHash" TEXT NOT NULL, "role" TEXT NOT NULL, "score" NUMERIC, "settings" JSONB NOT NULL, ' +
         '"visits" BIGINT NOT NULL)',
     ]);
@@ -188,7 +188,7 @@ describe('the DDL a tagged declaration reaches the database as', () => {
   it('renders every column type for sqlite', () => {
     expect(ddl(Users, 'sqlite')).toEqual([
       'CREATE TABLE "users" ("active" INTEGER NOT NULL, "age" INTEGER NOT NULL, "bio" TEXT, ' +
-        '"createdAt" TEXT NOT NULL, "email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY, ' +
+        '"createdAt" TEXT NOT NULL, "email" TEXT NOT NULL UNIQUE, "id" INTEGER PRIMARY KEY, ' +
         '"passwordHash" TEXT NOT NULL, "role" TEXT NOT NULL, "score" NUMERIC, "settings" TEXT NOT NULL, ' +
         '"visits" INTEGER NOT NULL)',
     ]);
@@ -197,7 +197,7 @@ describe('the DDL a tagged declaration reaches the database as', () => {
   it('renders every column type for mssql', () => {
     expect(ddl(Users, 'mssql')).toEqual([
       'CREATE TABLE [users] ([active] BIT NOT NULL, [age] INT NOT NULL, [bio] NVARCHAR(MAX), ' +
-        '[createdAt] DATETIMEOFFSET(3) NOT NULL, [email] NVARCHAR(255) NOT NULL, ' +
+        '[createdAt] DATETIMEOFFSET(3) NOT NULL, [email] NVARCHAR(255) NOT NULL UNIQUE, ' +
         '[id] INT IDENTITY(1,1) PRIMARY KEY, [passwordHash] NVARCHAR(MAX) NOT NULL, ' +
         '[role] NVARCHAR(MAX) NOT NULL, [score] DECIMAL, [settings] NVARCHAR(MAX) NOT NULL, ' +
         '[visits] BIGINT NOT NULL)',
@@ -231,12 +231,11 @@ describe('the DDL a tagged declaration reaches the database as', () => {
     }
   });
 
-  it('emits database-owned unique and foreign-key constraints', () => {
+  it('includes the unique constraint and foreign key on the way to the DDL', () => {
     expect(Users.columns.email?.flags.unique).toBe(true);
     expect(Memberships.ir.columns.find(column => column.name === 'userId')?.references).toBe('users.id');
     for (const dialect of DIALECTS) {
-      if (dialect === 'mysql') expect(ddl(Users, dialect)[0], dialect).toContain('UNIQUE');
-      else expect(ddl(Users, dialect)[0], dialect).not.toContain('UNIQUE');
+      expect(ddl(Users, dialect)[0], dialect).toContain('UNIQUE');
       const statements = ddl(Memberships, dialect).join('; ');
       expect(statements, dialect).toContain('REFERENCES');
       expect(statements, dialect).toContain('ON DELETE NO ACTION ON UPDATE NO ACTION');
@@ -246,7 +245,7 @@ describe('the DDL a tagged declaration reaches the database as', () => {
   it('emits a composite primary key as one ordered table constraint', () => {
     expect(Memberships.primaryKey).toEqual(['userId', 'groupId']);
     expect(ddl(Memberships, 'postgres')[0]).toBe(
-      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
+      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL REFERENCES "users"("id"), ' +
         'PRIMARY KEY ("userId", "groupId"))',
     );
     expect(ddl(Memberships, 'mysql')[0]).toBe(
@@ -256,12 +255,12 @@ describe('the DDL a tagged declaration reaches the database as', () => {
         'ON DELETE NO ACTION ON UPDATE NO ACTION)',
     );
     expect(ddl(Memberships, 'sqlite')[0]).toBe(
-      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
+      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL REFERENCES "users"("id"), ' +
         'PRIMARY KEY ("userId", "groupId"), FOREIGN KEY ("userId") REFERENCES "users" ("id") ' +
         'ON DELETE NO ACTION ON UPDATE NO ACTION)',
     );
     expect(ddl(Memberships, 'mssql')[0]).toBe(
-      'CREATE TABLE [memberships] ([groupId] INT NOT NULL, [note] NVARCHAR(MAX), [userId] INT NOT NULL, ' +
+      'CREATE TABLE [memberships] ([groupId] INT NOT NULL, [note] NVARCHAR(MAX), [userId] INT NOT NULL REFERENCES [users]([id]), ' +
         'PRIMARY KEY ([userId], [groupId]))',
     );
   });

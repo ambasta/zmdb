@@ -27,6 +27,7 @@ export {
   type ForeignKeySnapshot,
   type ReferentialAction,
   type SchemaSnapshot,
+  type SqlDialect,
   type TableOptions,
   type TableSnapshot,
 } from '@zmdb/sql';
@@ -55,7 +56,6 @@ export function emitSchemaObject(
 ): readonly string[] {
   return migrationsOf(target).emitSchemaObject(operation);
 }
-
 /**
  * The slice of a schema a snapshot reads.
  *
@@ -76,8 +76,10 @@ export interface SnapshotableSchema {
           readonly primaryKey?: boolean | undefined;
           readonly length?: number | undefined;
           readonly unique?: boolean | undefined;
+          readonly hasDefault?: boolean | undefined;
         };
-        readonly references?: { readonly target: string };
+        readonly default?: unknown;
+        readonly references?: { readonly target: string } | undefined;
       }
     >
   >;
@@ -178,6 +180,8 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
             // acquire a meaningless field in the version-1 snapshot.
             ...(meta.flags.length === undefined ? {} : { length: meta.flags.length }),
             ...(meta.flags.unique === true ? { unique: true } : {}),
+            ...(meta.default !== undefined ? { default: meta.default } : {}),
+            ...(meta.references ? { references: { target: meta.references.target } } : {}),
           };
         })
         .toSorted((a, b) => a.name.localeCompare(b.name));
@@ -242,7 +246,7 @@ export const CHANGE_PHASES = [
   ['drop_foreign_key'],
   ['drop_table'],
   ['create_table', 'add_column'],
-  ['alter_column_type', 'alter_primary_key'],
+  ['alter_column_type', 'alter_column_default', 'alter_column_unique', 'alter_column_references', 'alter_primary_key'],
   ['drop_column'],
   ['add_foreign_key'],
 ] as const satisfies readonly (readonly ChangeOp['kind'][])[];
@@ -410,7 +414,9 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
 
   // Dropped tables.
   for (const t of prev.tables) {
-    if (!nextTables.has(t.name)) ops.push({ kind: 'drop_table', table: t.name });
+    if (!nextTables.has(t.name)) {
+      ops.push({ kind: 'drop_table', table: t.name, columns: t.columns });
+    }
   }
   // Column-level and foreign-key diffs on tables that already exist.
   for (const t of next.tables) {
@@ -428,22 +434,41 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
     const beforeCols = new Map(before.columns.map(c => [c.name, c]));
     const afterCols = new Map(t.columns.map(c => [c.name, c]));
     for (const c of before.columns) {
-      if (!afterCols.has(c.name)) ops.push({ kind: 'drop_column', table: t.name, column: c.name });
+      if (!afterCols.has(c.name)) {
+        ops.push({ kind: 'drop_column', table: t.name, column: c });
+      }
     }
     for (const c of t.columns) {
       const bc = beforeCols.get(c.name);
       if (!bc) {
         ops.push({ kind: 'add_column', table: t.name, column: c });
-      } else if (!sameType(bc.type, c.type)) {
-        ops.push({
-          kind: 'alter_column_type',
-          table: t.name,
-          column: c.name,
-          from: bc.type,
-          to: c.type,
-          fromNullable: bc.nullable,
-          toNullable: c.nullable,
-        });
+      } else {
+        if (!sameType(bc.type, c.type)) {
+          ops.push({
+            kind: 'alter_column_type',
+            table: t.name,
+            column: c.name,
+            from: bc.type,
+            to: c.type,
+            fromNullable: bc.nullable,
+            toNullable: c.nullable,
+          });
+        }
+        if (bc.default !== c.default) {
+          ops.push({ kind: 'alter_column_default', table: t.name, column: c.name, from: bc.default, to: c.default });
+        }
+        if (Boolean(bc.unique) !== Boolean(c.unique)) {
+          ops.push({ kind: 'alter_column_unique', table: t.name, column: c.name, from: bc.unique, to: c.unique });
+        }
+        if (bc.references?.target !== c.references?.target) {
+          ops.push({
+            kind: 'alter_column_references',
+            table: t.name,
+            column: c.name,
+            from: bc.references,
+            to: c.references,
+          });
+        }
       }
     }
     if (!sameSequence(before.primaryKey, t.primaryKey)) {
