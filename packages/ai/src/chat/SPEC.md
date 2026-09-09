@@ -79,33 +79,24 @@ One method, no streaming, no retries, no token accounting. All three are real ne
 ## 3. The registry, and effectful-by-default
 
 ```ts
-type ToolHandler<T> = {
-  bivarianceHack(input: T, identity?: unknown): unknown | PromiseLike<unknown>;
-}['bivarianceHack'];
-
 export interface ToolEntry<T> {
   readonly spec: ToolSpec;
   readonly validate: (args: unknown) => T;
-  readonly handler: ToolHandler<T>;
+  readonly handler: (input: T, identity?: unknown) => unknown | PromiseLike<unknown>;
   readonly effectful?: boolean; // omitted means effectful — see below
 }
 
 export type ToolRegistry = Readonly<Record<string, ToolEntry<unknown>>>;
-
-type ToolInputs = Readonly<Record<string, unknown>>;
-
-interface LinkedToolEntry<T> {
-  readonly spec: ToolSpec;
-  readonly validate: (args: unknown) => T;
-  readonly handler: (input: T, identity?: unknown) => unknown | PromiseLike<unknown>;
-  readonly effectful?: boolean;
-}
-
-type LinkedRegistry<I extends ToolInputs> = {
-  readonly [K in keyof I]: LinkedToolEntry<I[K]>;
-};
-
-export declare function defineTools<const I extends ToolInputs, const R extends LinkedRegistry<I>>(tools: R & LinkedRegistry<I>): R;
+export declare function defineTools<
+  const I extends Readonly<Record<string, unknown>>,
+  const R extends {
+    readonly [K in keyof I]: ToolEntry<I[K]>;
+  },
+>(
+  tools: R & {
+    readonly [K in keyof I]: ToolEntry<I[K]>;
+  },
+): R;
 ```
 
 `validate` is the caller's, required, for the reason `../tool-runtime/SPEC.md` gives at length: `assert<T>` is inlined where the checker can resolve `T`, and inside a published generic there is no `T`
@@ -134,10 +125,17 @@ export interface RunOptions {
 
 export type RunOptionsFor<R extends ToolRegistry> = HasEffectful<R> extends true ? RunOptions & { readonly approve: (call: ToolCall) => Promise<boolean> } : RunOptions;
 
-export declare function run<const I extends ToolInputs, R extends LinkedRegistry<I>>(
+export declare function run<
+  const I extends Readonly<Record<string, unknown>>,
+  R extends {
+    readonly [K in keyof I]: ToolEntry<I[K]>;
+  },
+>(
   driver: ChatDriver,
   messages: readonly ChatMessage[],
-  tools: R & LinkedRegistry<I>,
+  tools: R & {
+    readonly [K in keyof I]: ToolEntry<I[K]>;
+  },
   opts: RunOptionsFor<R>,
 ): Promise<RunResult>;
 ```

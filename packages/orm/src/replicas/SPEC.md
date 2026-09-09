@@ -5,10 +5,10 @@ Part of `@zmdb/orm`. A transparent, stateless driver wrapper that routes reads t
 ## API
 
 ```ts
-export interface ReplicaOptions {
+interface ReplicaOptions {
   primary: Driver;
   replicas: readonly Driver[];
-  pick?: (replicas: readonly Driver[], nextIndex: number) => Driver; // default: round-robin
+  pick?: (replicas: readonly Driver[]) => Driver; // default: round-robin
 }
 function withReplicas(opts: ReplicaOptions): Driver;
 ```

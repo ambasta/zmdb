@@ -81,7 +81,7 @@ export interface WebApplication extends Application {
   fetch(request: Request): Promise<Response>;
 }
 
-export function createApp(rootModule: ModuleClass, options?: AppOptions): WebApplication;
+export function createApp(rootModule: ModuleClass, options?: WebApplicationOptions): WebApplication;
 ```
 
 `createApp` compiles exactly one application graph through `createApplication`, builds exactly one router from that graph's eager and deferred controller declarations, and delegates lifecycle to the

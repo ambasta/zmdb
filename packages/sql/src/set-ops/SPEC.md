@@ -22,11 +22,7 @@ interface BatchStatement {
   text: string;
   parameters: readonly unknown[];
 }
-export interface BatchHandle {
-  readonly statements: readonly CompiledQuery[];
-  execute<R>(runner: (stmts: readonly CompiledQuery[]) => Promise<readonly R[]>): Promise<readonly R[]>;
-}
-export function batch(statements: readonly CompiledQuery[]): BatchHandle;
+function batch(statements: readonly CompiledQuery[]): { statements; execute(runner) };
 ```
 
 - Bundles N statements for a single round-trip where the driver supports it.

@@ -14,11 +14,7 @@ interface Handler<In, Out> {
   handle: (input: In) => Promise<Out>;
   serialize?: (out: Out) => string; // default JSON.stringify
 }
-export interface EndpointResult {
-  readonly status: number;
-  readonly body: string;
-}
-export function makeEndpoint<In, Out>(h: Handler<In, Out>): (raw: unknown) => Promise<EndpointResult>;
+function makeEndpoint<In, Out>(h: Handler<In, Out>): (raw: unknown) => Promise<{ status: number; body: string }>;
 ```
 
 ## Frozen behavior

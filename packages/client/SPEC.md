@@ -137,9 +137,8 @@ export interface ClientRuntime {
 }
 
 export const CLIENT_RUNTIME_ABI = 1;
-export type FetchLike = typeof globalThis.fetch;
 export function createClientRuntime(options: ClientOptions): ClientRuntime;
-export function createFetchTransport(injected?: FetchLike): ClientTransport;
+export function createFetchTransport(fetch?: typeof globalThis.fetch): ClientTransport;
 ```
 
 This is the complete generated-code ABI; generated modules do not reach an unexported helper. `prepare` and `read` are emitted straight-line functions from the contract. The runtime owns URL assembly,

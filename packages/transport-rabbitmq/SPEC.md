@@ -23,7 +23,7 @@ export interface RabbitMqStrategyOptions {
   readonly durable?: boolean;
   readonly exchange: string;
   readonly name?: string;
-  readonly onError: TransportErrorSink;
+  readonly onError: (error: unknown) => void;
   readonly prefetch: number;
   readonly queue: string;
   readonly retry?: RabbitMqRetryOptions;

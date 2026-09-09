@@ -53,17 +53,10 @@ export interface ReadinessCheck {
   run(signal: AbortSignal): Promise<CheckResult>;
 }
 
-export interface HealthChecks {
-  readonly liveness?: readonly LivenessCheck[];
-  readonly readiness?: readonly ReadinessCheck[];
-}
-
-export interface HealthProbes {
+export declare function healthRoutes(checks: { readonly liveness?: readonly LivenessCheck[]; readonly readiness?: readonly ReadinessCheck[] }): {
   readonly live: () => WebResponse;
   readonly ready: () => Promise<WebResponse>;
-}
-
-export declare function healthRoutes(checks: HealthChecks): HealthProbes;
+};
 ```
 
 **`run(): boolean` is the enforcement.** A function whose return type is `boolean` cannot `await`, so it cannot wait for a socket, a connection from a pool, a DNS answer or a timer. It cannot be slow

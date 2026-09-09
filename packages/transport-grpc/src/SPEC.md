@@ -127,23 +127,10 @@ places.
 
 ```ts
 type Orders = {
-  readonly get: { readonly request: GetOrder; readonly response: Order };
-  readonly upload: {
-    readonly request: Chunk;
-    readonly response: UploadAck;
-    readonly requestStream: true;
-  };
-  readonly watch: {
-    readonly request: GetOrder;
-    readonly response: Order;
-    readonly responseStream: true;
-  };
-  readonly chat: {
-    readonly request: Chunk;
-    readonly response: Chunk;
-    readonly requestStream: true;
-    readonly responseStream: true;
-  };
+  readonly get: { request: GetOrder; response: Order };
+  readonly upload: { request: Chunk; response: UploadAck; requestStream: true };
+  readonly watch: { request: WatchOrders; response: Order; responseStream: true };
+  readonly chat: { request: Note; response: Note; requestStream: true; responseStream: true };
 };
 ```
 

@@ -50,9 +50,7 @@ interface CachedStatement {
  * was bound for.
  */
 function bindable(value: unknown): unknown {
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'boolean') return value ? 1 : 0;
-  return value;
+  return value instanceof Date ? value.toISOString() : value;
 }
 
 /** Wrap a node:sqlite DatabaseSync as a zmdb Driver. Zero external deps. */

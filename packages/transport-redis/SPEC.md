@@ -10,7 +10,7 @@ export interface RedisStrategyOptions {
   readonly channelPatterns?: readonly string[];
   readonly connection?: RedisClientOptions;
   readonly name?: string;
-  readonly onError: TransportErrorSink;
+  readonly onError: (error: unknown) => void;
   readonly replyPrefix?: string;
 }
 

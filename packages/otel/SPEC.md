@@ -6,12 +6,9 @@
 ## 1. Boundary and exports
 
 ```ts
-type OpenTelemetryTracer = import('@opentelemetry/api').Tracer;
-type OpenTelemetryMeter = import('@opentelemetry/api').Meter;
-
 export interface OpenTelemetryOptions {
-  readonly tracer?: OpenTelemetryTracer;
-  readonly meter?: OpenTelemetryMeter;
+  readonly tracer?: import('@opentelemetry/api').Tracer;
+  readonly meter?: import('@opentelemetry/api').Meter;
 }
 
 export function fromOpenTelemetry(options: OpenTelemetryOptions): Observability;

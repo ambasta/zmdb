@@ -24,7 +24,6 @@ const loadersProperty: PropertyDescriptor = {
 
 /** Allocate a loader scope only when the request first uses data loading. */
 export function createRequestData(): RequestData {
-  // boundary: defineProperty attaches the lazy getter for loaders, matching RequestData
   return Object.defineProperty({}, 'loaders', loadersProperty) as RequestData;
 }
 

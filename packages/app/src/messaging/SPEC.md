@@ -73,12 +73,14 @@ export interface DispatchOutcome {
   readonly reply?: MessageReply;
 }
 
-export interface TransportRequest extends TraceCarrier {
+export interface TransportRequest {
   readonly pattern: string;
   readonly payload: unknown;
   readonly correlationId: string;
   readonly timeoutMs: number;
   readonly signal: AbortSignal;
+  readonly traceparent?: string;
+  readonly tracestate?: string;
 }
 
 export interface TransportCapabilities {

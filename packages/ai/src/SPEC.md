@@ -10,19 +10,16 @@ Schema retains only the IR and JSON Schema framing those packages consume. No AI
 ## API
 
 ```ts
-export interface ToolOptions {
-  readonly description?: string;
+interface ToolSpec {
+  name: string;
+  description?: string;
+  parameters: JsonSchemaObject;
 }
-
-export interface ToolSpec {
-  readonly name: string;
-  readonly description?: string;
-  readonly parameters: JsonSchemaObject;
-}
-export function toolFromSchema(name: string, schema: CoreSchema<string>, opts?: ToolOptions): ToolSpec;
+function toolFromSchema<S>(name: string, schema: S, opts?: { description?: string }): ToolSpec;
 
 type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
-export function toolFor(provider: ToolProvider, name: string, schemaOrOptions?: ToolSchema | ToolOptions, options?: ToolOptions): AnyToolSpec;
+function toolFor<T, P extends ToolProvider>(provider: P, name: string, opts?: { description?: string }): ToolSpecFor[P];
+function toolFor<P extends ToolProvider>(provider: P, name: string, schema: CoreSchema<string>, opts?: { description?: string }): ToolSpecFor[P];
 
 interface ParseResult<T> {
   success: boolean;
@@ -187,25 +184,13 @@ output have one producer rather than merely similar tests.
 export type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
 
 export interface ToolSpecFor {
-  readonly openai: {
-    readonly type: 'function';
-    readonly function: {
-      readonly name: string;
-      readonly description?: string;
-      readonly parameters: JsonSchemaObject;
-    };
-  };
+  readonly openai: { type: 'function'; function: { name: string; description?: string; parameters: JsonSchemaObject } };
   readonly 'openai-strict': {
-    readonly type: 'function';
-    readonly function: {
-      readonly name: string;
-      readonly description?: string;
-      readonly strict: true;
-      readonly parameters: StrictJsonSchemaObject;
-    };
+    type: 'function';
+    function: { name: string; description?: string; strict: true; parameters: StrictJsonSchemaObject };
   };
-  readonly anthropic: { readonly name: string; readonly description?: string; readonly input_schema: JsonSchemaObject };
-  readonly gemini: { readonly name: string; readonly description?: string; readonly parameters: GeminiSchemaObject };
+  readonly anthropic: { name: string; description?: string; input_schema: JsonSchemaObject };
+  readonly gemini: { name: string; description?: string; parameters: GeminiSchemaObject };
   readonly 'json-schema': ToolSpec;
 }
 

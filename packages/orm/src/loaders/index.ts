@@ -216,9 +216,9 @@ export function createLoaderScope(): LoaderScope {
     return new Promise((resolve, reject) => {
       const request: PopulateRequest = {
         rows: isMany ? rowOrRows : [rowOrRows],
+        // The grouping key preserves repository identity, so every request has this T.
         resolve: rows =>
           resolve(
-            // boundary: The grouping key preserves repository identity, so every request has this T and attached relations match Populated<T, K>.
             (isMany ? rows : rows[0]) as Populated<T, RelationPath<T, K>> | readonly Populated<T, RelationPath<T, K>>[],
           ),
         reject,
@@ -234,7 +234,6 @@ export function createLoaderScope(): LoaderScope {
         byOptions.delete(options);
         if (byOptions.size === 0) byPath.delete(key);
         try {
-          // boundary: entry.rows originate from input records typed Entity<T> for this loader's repository.
           const roots = requests.flatMap(entry => entry.rows) as readonly Entity<T>[];
           const rows = await repository.populate<K>(roots, canonical, options);
           let offset = 0;

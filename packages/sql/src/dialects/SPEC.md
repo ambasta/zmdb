@@ -64,8 +64,7 @@ do the refactor at all.
 ## 2. The mechanism: a traits record with an optional parent, resolved once
 
 ```ts
-export const DIALECT_NAMES = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const;
-export type Dialect = (typeof DIALECT_NAMES)[number];
+export type Dialect = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore';
 
 export type PlaceholderStyle = 'numbered' | 'positional' | 'named';
 export type ReturningStatement = 'insert' | 'upsert' | 'update' | 'delete';
@@ -102,8 +101,9 @@ export interface DialectTraits {
 /** Every dialect has an entry. A three-line entry is the point of `parent`, not a shortcut. */
 export const DIALECTS: Readonly<Record<Dialect, DialectTraits>>;
 
-export type ResolvedTraits = RequiredDialectTraits & {
-  readonly family: DialectFamily;
+export type ResolvedTraits = Omit<Required<DialectTraits>, 'parent'> & {
+  readonly family: 'postgres' | 'mysql' | 'sqlite' | 'mssql';
+  readonly features: Readonly<Record<DialectFeature, boolean>>;
 };
 
 /** Merged once at module load. Indexed, never walked. */

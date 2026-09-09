@@ -10,15 +10,7 @@ const root = resolve(source, '../..');
 const hash = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const input = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, input));
-  if (encoding === 'base64') {
-    return typeof digest.toBase64 === 'function'
-      ? digest.toBase64()
-      : // oxlint-disable-next-line eslint/no-restricted-globals
-        btoa(String.fromCharCode(...digest));
-  }
-  return typeof digest.toHex === 'function'
-    ? digest.toHex()
-    : Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
+  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);
