@@ -169,9 +169,9 @@ The order for one column is: read the tags, then take `Physical<'…'>` if the d
 and the strategy is never consulted for a column that already answered the question.
 
 `Physical` is a type-only export from both `@zmdb/schema/tags` and `@zmdb/core/tags`. The same optional unique-symbol slot is read in two positions: directly on the interface for `physicalTable`, and
-from a property's intersection members for `physicalName`.
-`context.table` is the **declared** table name, not the physical one. A user function that special-cases a table wants the string the author wrote, and passing the declared name means that function
-reads the same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently changes which branch a `column` strategy takes.
+from a property's intersection members for `physicalName`. `context.table` is the **declared** table name, not the physical one. A user function that special-cases a table wants the string the author
+wrote, and passing the declared name means that function reads the same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently changes which branch a
+`column` strategy takes.
 
 A strategy is a function from names to names and nothing else. It never sees a type, a tag, a `SchemaIR` or a value, which is what makes it safe to run at build time and what makes the transform's
 cache key a fingerprint of the resolved config rather than of the project.
