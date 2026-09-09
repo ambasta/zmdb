@@ -1,25 +1,28 @@
 import { type CompiledQuery } from '@zmdb/sql';
 
 // Read-replica routing — see ./SPEC.md.
-import { type Driver } from '../index.js';
+import { type Driver, type TransactionalDriver } from '../index.js';
 
-export interface ReplicaOptions {
-  primary: Driver;
+export interface ReplicaOptions<Primary extends Driver = Driver> {
+  primary: Primary;
   replicas: readonly Driver[];
   pick?: (replicas: readonly Driver[], nextIndex: number) => Driver;
 }
 
-export function isWrite(sql: string): boolean {
-  const s = sql.trimStart().toUpperCase();
-  return s.startsWith('INSERT') || s.startsWith('UPDATE') || s.startsWith('DELETE');
+function isTransactional(driver: Driver): driver is TransactionalDriver {
+  return 'transaction' in driver && typeof driver.transaction === 'function';
 }
 
 /** Wrap primary+replicas into a single Driver that routes reads to replicas. */
-export function withReplicas(opts: ReplicaOptions): Driver {
+export function withReplicas<Name extends string>(
+  opts: ReplicaOptions<TransactionalDriver<Name>>,
+): TransactionalDriver<Name>;
+export function withReplicas<Name extends string>(opts: ReplicaOptions<Driver<Name>>): Driver<Name>;
+export function withReplicas(opts: ReplicaOptions): Driver | TransactionalDriver {
   const { primary, replicas } = opts;
   let rr = 0;
   const pick = (query: CompiledQuery): Driver => {
-    if (isWrite(query.text) || replicas.length === 0) return primary;
+    if (query.effects.requiresPrimary || replicas.length === 0) return primary;
     const driver = opts.pick ? opts.pick(replicas, rr) : replicas[rr % replicas.length];
     rr = (rr + 1) % replicas.length;
     // `replicas` is non-empty here (checked above), so the modulo index always
@@ -32,6 +35,9 @@ export function withReplicas(opts: ReplicaOptions): Driver {
     typeof primary.stream === 'function' && replicas.every(driver => typeof driver.stream === 'function');
   return {
     dialect: primary.dialect,
+    ...(primary.queryTelemetry === true || replicas.some(driver => driver.queryTelemetry === true)
+      ? { queryTelemetry: true as const }
+      : {}),
     execute(query, executeOpts) {
       return pick(query).execute(query, executeOpts);
     },
@@ -46,6 +52,9 @@ export function withReplicas(opts: ReplicaOptions): Driver {
             return stream.call(driver, query, executeOpts);
           },
         }
+      : {}),
+    ...(isTransactional(primary)
+      ? { transaction: <Result>(run: (driver: Driver) => Promise<Result>) => primary.transaction(run) }
       : {}),
   };
 }

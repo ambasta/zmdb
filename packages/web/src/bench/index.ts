@@ -202,6 +202,7 @@ const BENCH_QUERIES: readonly BenchmarkQuery[] = Object.freeze(
     Object.freeze({
       text: 'SELECT "id" FROM "bench" WHERE "id" = $1',
       parameters: Object.freeze([index + 1]),
+      effects: Object.freeze({ operation: 'SELECT', requiresPrimary: false, returnsRows: true } as const),
       telemetry: QUERY_TELEMETRY,
     }),
   ),

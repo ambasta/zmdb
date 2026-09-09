@@ -67,7 +67,7 @@ async function main(): Promise<void> {
     const declared = snapshot([schemaOf<Embedding>()]);
 
     for (const op of diff(empty, declared, { dialect: postgres })) {
-      await driver.execute({ text: postgres.migrations.emitUp(op), parameters: [] });
+      await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: postgres.migrations.emitUp(op), parameters: [] });
     }
 
     const indexSql = createIndexDdl(
@@ -80,10 +80,11 @@ async function main(): Promise<void> {
       },
       'postgres',
     );
-    await driver.execute({ text: indexSql, parameters: [] });
+    await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: indexSql, parameters: [] });
 
     const vector = vector1536(Array.from({ length: 1536 }, (_, index) => (index === 0 ? 1 : 0)));
     await driver.execute({
+      effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
       text: 'INSERT INTO embeddings ("documentId", chunk, embedding) VALUES ($1, $2, $3)',
       parameters: [42, 'The migration installs vector before creating the table.', JSON.stringify(vector)],
     });

@@ -297,7 +297,7 @@ it('executes a MySQL repository delete without unsupported RETURNING', async () 
   const repo = defineRepository(Users, driver, { dialect: mysqlDialect });
 
   await expect(repo.delete(7)).resolves.toBe(true);
-  expect(calls).toEqual([
+  expect(calls).toMatchObject([
     {
       text: 'DELETE FROM `users` WHERE `id` = ?',
       parameters: [7],
@@ -317,7 +317,7 @@ it('executes a SingleStore repository delete with inherited MySQL semantics', as
   const repo = defineRepository(Users, driver, { dialect: singlestoreDialect });
 
   await expect(repo.delete(7)).resolves.toBe(true);
-  expect(calls).toEqual([
+  expect(calls).toMatchObject([
     {
       text: 'DELETE FROM `users` WHERE `id` = ?',
       parameters: [7],

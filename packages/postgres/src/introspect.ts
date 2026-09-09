@@ -138,8 +138,10 @@ function booleanField(row: Readonly<Record<string, unknown>>, field: string, cat
   return value;
 }
 
+const CATALOG_EFFECTS = Object.freeze({ operation: 'SELECT', requiresPrimary: true, returnsRows: true } as const);
+
 function query(text: string, parameters: readonly unknown[] = []): CompiledQuery {
-  return { text, parameters };
+  return { text, parameters, effects: CATALOG_EFFECTS };
 }
 
 function postgresSchemas(options: IntrospectOptions): readonly string[] {

@@ -108,7 +108,7 @@ const users = defineRepository(UserSchema, driver);
 ```
 
 The wrapper marks the driver as needing query telemetry. Repositories then ask the compiler to attach an optional `{ system, operation, collection }` object. Without that opt-in a compiled query
-remains the same two-key `{ text, parameters }` value as before.
+contains `text`, `parameters` and required execution `effects`, with no telemetry field.
 
 Do not derive the verb by parsing SQL. A first-word regex reads `WITH` for a CTE that ends in an `INSERT`, and a leading comment changes the first token. Optional compile-time telemetry exists so the
 driver does not have to guess.

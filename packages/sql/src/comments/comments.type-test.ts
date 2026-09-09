@@ -9,17 +9,9 @@
 // "the central decision of this file", and a closed key set has no runtime shadow — an open
 // record and a closed one behave identically until the day somebody passes a request id.
 //
-// NOTE ON THE MISSING IMPORT. Unlike `../../../web/src/health/health.type-test.ts`, this
-// file does **not** `import type { Equal, Expect } from '@zmdb/schema'`. It cannot:
-// `packages/sql/package.json` has no `dependencies` block at all, deliberately,
-// because this package sits below `@zmdb/schema` in the dependency graph. The two
-// helpers are reimplemented in four lines below rather than inverting that edge. If a later
-// refactor moves `Equal`/`Expect` into a package this one may depend on, delete them and
-// import instead.
 import { type CompiledQuery } from '@zmdb/sql';
 import { serializeComment as serialize, type CommentKey, type CommentPairs } from '@zmdb/sql/comments';
 
-/** Local `Expect`. See the note above on why this is not the `@zmdb/schema` one. */
 type Expect<T extends true> = T;
 /** Local `Equal`. The bivariance trick, identical to `@zmdb/schema`'s. */
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
@@ -110,31 +102,20 @@ export type _PairsValuesAreStrings = Expect<Equal<CommentPairs[CommentKey], stri
 
 // --- §6/§7.7: the comment is rendered, not stored --------------------------
 //
-// §6: the tag is applied by the driver decorator at execute time and is **not** a field on
-// `CompiledQuery`. `./comments.spec.ts` asserts the runtime half (a tagged execute leaves the
-// compiled query deep-equal to its untagged self). This is the half that survives a
-// well-meaning refactor: the moment `CompiledQuery` grows a `comment` field, the shape every
-// existing `toEqual` in this repository compares has changed, and §6's whole argument —
-// "a compiled query can be cached and reused across requests that would tag it differently" —
-// is gone. `../index.ts:77-80` is the interface; these lines are the fence around it.
-export type _CompiledQueryKeysToday = Expect<Equal<keyof CompiledQuery, 'text' | 'parameters' | 'telemetry'>>;
+// Per-request comments remain outside reusable compiled statements.
 
 declare const today: CompiledQuery;
 
-// `../../../web/src/observability/SPEC.md` §5 adds exactly one optional field. "Optional"
-// there is justified as *additive* — "a field nothing reads is a field that changes the shape
-// every existing `toEqual` compares" — so the claim to check is that today's two-key value is
-// still assignable once the field exists. This is the only assertion in this file that comes
-// from the observability spec rather than this one; it lives here because `CompiledQuery`
-// lives here, and #580's file list does not name a second query-compiler test file.
+// Telemetry remains optional; execution effects are required.
 type FrozenCompiledQuery = CompiledQuery;
 export const additive: FrozenCompiledQuery = today;
 export const withTelemetry: FrozenCompiledQuery = {
   text: 'SELECT 1',
   parameters: [],
+  effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
   telemetry: { system: 'postgresql', operation: 'SELECT', collection: 'users' },
 };
 // @ts-expect-error — `telemetry: undefined` is not an absent `telemetry` under exactOptionalPropertyTypes; §5 means absent.
-export const undefTelemetry: FrozenCompiledQuery = { text: 'SELECT 1', parameters: [], telemetry: undefined };
+export const undefTelemetry: FrozenCompiledQuery = { ...today, telemetry: undefined };
 // @ts-expect-error — there is no `comment` field, and §6 is the reason: a per-request value in a per-route cached object.
-export const storedComment: FrozenCompiledQuery = { text: 'SELECT 1', parameters: [], comment: "route='%2Fx'" };
+export const storedComment: FrozenCompiledQuery = { ...today, comment: "route='%2Fx'" };

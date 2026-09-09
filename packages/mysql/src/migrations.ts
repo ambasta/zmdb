@@ -496,6 +496,9 @@ function splitGeneratedStatements(sql: string): readonly string[] {
   return [sql];
 }
 
+const MIGRATION_EFFECTS = Object.freeze({ operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false } as const);
+const MIGRATION_ROW_EFFECTS = Object.freeze({ ...MIGRATION_EFFECTS, returnsRows: true } as const);
+
 function migrationConnection<Name extends string>(
   name: Name,
   driver: MigrationDriver<Name>,
@@ -508,12 +511,13 @@ function migrationConnection<Name extends string>(
   async function execute(
     text: string,
     parameters: readonly unknown[] = [],
+    returnsRows = false,
   ): Promise<readonly Record<string, unknown>[]> {
-    return driver.execute({ text, parameters });
+    return driver.execute({ text, parameters, effects: returnsRows ? MIGRATION_ROW_EFFECTS : MIGRATION_EFFECTS });
   }
 
   async function appliedMigrations(): Promise<readonly AppliedMigration[]> {
-    const rows = await execute(`SELECT version, name, checksum FROM ${table} ORDER BY version`);
+    const rows = await execute(`SELECT version, name, checksum FROM ${table} ORDER BY version`, [], true);
     return rows.map((row, index) => {
       const numericVersion = Number(row.version);
       if (!Number.isSafeInteger(numericVersion) || typeof row.name !== 'string') {
@@ -560,7 +564,7 @@ function migrationConnection<Name extends string>(
       );
       await execute(`ALTER TABLE ${table} MODIFY COLUMN version BIGINT NOT NULL`);
       try {
-        await execute(`SELECT checksum FROM ${table} WHERE 1 = 0`);
+        await execute(`SELECT checksum FROM ${table} WHERE 1 = 0`, [], true);
       } catch {
         await execute(`ALTER TABLE ${table} ADD COLUMN checksum TEXT`);
       }

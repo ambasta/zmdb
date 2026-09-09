@@ -75,7 +75,7 @@ A transaction needs one pinned connection; a pool is free to use any. `postgresD
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 await driver.transaction(async transaction => {
-  await transaction.execute({ text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
+  await transaction.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
   // every query here uses the same checked-out client
 });
 ```
@@ -104,7 +104,7 @@ ssl: {
 ```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 export async function ping(): Promise<boolean> {
   try {
-    await driver.execute({ text: 'SELECT 1', parameters: [] });
+    await driver.execute({ effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true }, text: 'SELECT 1', parameters: [] });
     return true;
   } catch {
     return false;

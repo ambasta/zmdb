@@ -1,5 +1,8 @@
-import { type Driver, type ExecuteOptions } from '@zmdb/orm';
-import { withReplicas, isWrite } from '@zmdb/orm/replicas';
+import { type Driver, type ExecuteOptions, type TransactionalDriver } from '@zmdb/orm';
+import { withReplicas } from '@zmdb/orm/replicas';
+import { createQueryCompiler, trustedTable, type QueryEffects } from '@zmdb/sql';
+import { withComments } from '@zmdb/sql/comments';
+import { setOperation } from '@zmdb/sql/set-ops';
 import { describe, it, expect } from 'vitest';
 
 import { postgresDialect } from '../testing/official-dialects.fixture.js';
@@ -7,13 +10,13 @@ import { postgresDialect } from '../testing/official-dialects.fixture.js';
 function tagDriver(tag: string, log: string[]): Driver {
   return { dialect: postgresDialect, execute: async q => (log.push(`${tag}:${q.text.slice(0, 6)}`), []) };
 }
-const q = (text: string) => ({ text, parameters: [] });
+const read: QueryEffects = { operation: 'SELECT', requiresPrimary: false, returnsRows: true };
+const write: QueryEffects = { operation: 'INSERT', requiresPrimary: true, returnsRows: false };
+const q = (text: string, effects: QueryEffects = read) => ({ text, parameters: [], effects });
 
 describe('read replicas (#128)', () => {
-  it('isWrite detects INSERT/UPDATE/DELETE', () => {
-    expect(isWrite('INSERT INTO x ...')).toBe(true);
-    expect(isWrite('  update x set ...')).toBe(true);
-    expect(isWrite('SELECT 1')).toBe(false);
+  it('removes the SQL-text classification entry', async () => {
+    expect(await import('@zmdb/orm/replicas')).not.toHaveProperty('isWrite');
   });
 
   it('routes writes to primary, reads to replicas (round-robin)', async () => {
@@ -24,7 +27,7 @@ describe('read replicas (#128)', () => {
     });
     await d.execute(q('SELECT a'));
     await d.execute(q('SELECT b'));
-    await d.execute(q('INSERT INTO x'));
+    await d.execute(q('INSERT INTO x', write));
     await d.execute(q('SELECT c'));
     expect(log).toEqual(['R0:SELECT', 'R1:SELECT', 'P:INSERT', 'R0:SELECT']);
   });
@@ -34,6 +37,103 @@ describe('read replicas (#128)', () => {
     const d = withReplicas({ primary: tagDriver('P', log), replicas: [] });
     await d.execute(q('SELECT z'));
     expect(log).toEqual(['P:SELECT']);
+  });
+
+  it('routes DDL, locking reads, writing CTEs and explicit unknown effects to primary', async () => {
+    const log: string[] = [];
+    const driver = withReplicas({ primary: tagDriver('P', log), replicas: [tagDriver('R', log)] });
+    await driver.execute(
+      q('CREATE TABLE example (id int)', { operation: 'DDL', requiresPrimary: true, returnsRows: false }),
+    );
+    await driver.execute(q('SELECT id FROM example FOR UPDATE', { ...read, requiresPrimary: true }));
+    await driver.execute(
+      q('WITH changed AS (DELETE FROM example RETURNING id) SELECT id FROM changed', {
+        ...read,
+        requiresPrimary: true,
+      }),
+    );
+    await driver.execute(
+      q('SELECT custom_function()', { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true }),
+    );
+    await driver.execute(q('/* read */ SELECT id FROM example'));
+    expect(log.map(entry => entry.split(':')[0])).toEqual(['P', 'P', 'P', 'P', 'R']);
+  });
+
+  it('derives statement and row-return effects while compiling queries', () => {
+    const compiler = createQueryCompiler(postgresDialect);
+    expect(compiler.selectFrom(trustedTable('items')).select(['id']).compile().effects).toEqual(read);
+    expect(compiler.insertInto(trustedTable('items')).values({ id: 1 }).compile().effects).toEqual(write);
+    expect(compiler.insertInto(trustedTable('items')).values({ id: 1 }).returning(['id']).compile().effects).toEqual({
+      ...write,
+      returnsRows: true,
+    });
+    expect(compiler.updateTable(trustedTable('items')).set({ id: 2 }).compile().effects).toEqual({
+      ...write,
+      operation: 'UPDATE',
+    });
+    expect(compiler.updateTable(trustedTable('items')).set({ id: 2 }).returning(['id']).compile().effects).toEqual({
+      ...write,
+      operation: 'UPDATE',
+      returnsRows: true,
+    });
+    expect(compiler.deleteFrom(trustedTable('items')).compile().effects).toEqual({ ...write, operation: 'DELETE' });
+    expect(compiler.deleteFrom(trustedTable('items')).returning(['id']).compile().effects).toEqual({
+      ...write,
+      operation: 'DELETE',
+      returnsRows: true,
+    });
+  });
+
+  it('keeps transactions on the primary driver', async () => {
+    const log: string[] = [];
+    const primary: TransactionalDriver = {
+      ...tagDriver('P', log),
+      transaction: async run => run(tagDriver('TX', log)),
+    };
+    const driver = withReplicas({ primary, replicas: [tagDriver('R', log)] });
+    const transaction = driver.transaction;
+    expect(transaction).toBeTypeOf('function');
+    if (transaction === undefined) throw new Error('primary transactions were dropped');
+    await transaction(async nested => {
+      expect(nested.dialect).toBe(postgresDialect);
+      await nested.execute(q('SELECT id FROM items'));
+    });
+    expect(log).toEqual(['TX:SELECT']);
+  });
+
+  it('preserves nested primary requirements through composition and comments', async () => {
+    const compiler = createQueryCompiler(postgresDialect);
+    let compilations = 0;
+    const child = {
+      dialect: postgresDialect,
+      compile() {
+        compilations++;
+        return {
+          ...q('SELECT id FROM items WHERE id = $1 FOR UPDATE', { ...read, requiresPrimary: true }),
+          parameters: [7],
+        };
+      },
+    };
+    const outer = compiler.selectFrom(trustedTable('items')).whereExists(child).compile();
+    expect(compilations).toBe(1);
+    expect(outer.parameters).toEqual([7]);
+    expect(outer.effects).toEqual({ ...read, requiresPrimary: true });
+    const combined = setOperation('union', [q('SELECT id FROM items'), outer], postgresDialect);
+    expect(combined.effects).toEqual({ ...read, requiresPrimary: true });
+    expect(Object.isFrozen(combined.effects)).toBe(true);
+    expect(setOperation('union', [q('SELECT 1'), q('SELECT 2')], postgresDialect).effects).toEqual(read);
+    expect(() => setOperation('union', [q('INSERT INTO items DEFAULT VALUES', write), outer], postgresDialect)).toThrow(
+      /row/i,
+    );
+
+    const log: string[] = [];
+    const tagged = withComments(
+      withReplicas({ primary: tagDriver('P', log), replicas: [tagDriver('R', log)] }),
+      () => ({ route: '/items' }),
+    );
+    await tagged.execute(combined);
+    expect(log).toEqual(['P:SELECT']);
+    expect(tagged.dialect).toBe(postgresDialect);
   });
 
   it('forwards execute and stream options to the selected driver', async () => {
@@ -66,7 +166,14 @@ describe('read replicas (#128)', () => {
       expect(row).toEqual({ tag: 'replica' });
     }
 
-    expect(observed).toEqual([{ signal }, { signal, batchSize: 32 }]);
+    for await (const row of stream(q('SELECT three FOR UPDATE', { ...read, requiresPrimary: true }), {
+      signal,
+      batchSize: 16,
+    })) {
+      expect(row).toEqual({ tag: 'primary' });
+    }
+
+    expect(observed).toEqual([{ signal }, { signal, batchSize: 32 }, { signal, batchSize: 16 }]);
   });
 
   it('advertises streaming only when every routed driver has a callable method', () => {

@@ -1,3 +1,4 @@
+import type { QueryEffects } from './compiled-query.js';
 // Clause rendering shared by every builder in this package.
 //
 // SELECT, the join builder, the aggregate builder, FTS, UPDATE and DELETE all
@@ -20,6 +21,11 @@ import {
   type SpatialPredicateNode,
 } from './extensions/index.js';
 import { type CompiledQuery, type QueryTelemetry } from './index.js';
+
+/** One compile traversal accumulates nested primary requirements alongside parameters. */
+export interface EffectState {
+  requiresPrimary: boolean;
+}
 import {
   formatPlaceholder,
   qualifyRootColumn,
@@ -181,10 +187,11 @@ export function renderPredicate(
   params: unknown[],
   expressions?: ReadonlyMap<string, string>,
   rootReference?: string,
+  effects?: EffectState,
 ): string {
   if (p.kind === 'group') {
     if (p.predicates.length === 0) throw new TypeError('predicate groups must not be empty');
-    return `(${predicateList(dialect, p.predicates, params, expressions, rootReference)})`;
+    return `(${predicateList(dialect, p.predicates, params, expressions, rootReference, effects)})`;
   }
   if (p.kind === 'spatial')
     return renderSpatialPredicate(
@@ -222,6 +229,7 @@ export function renderPredicate(
 
   if (isSubqueryTarget(p.value)) {
     const sub = p.value.compile();
+    if (sub.effects.requiresPrimary && effects !== undefined) effects.requiresPrimary = true;
     // Continue the outer statement's numbering. Positional placeholders are a
     // no-op here, so the order of the pushes below is what matters.
     const text = renumberPlaceholders(sub.text, params.length, dialect);
@@ -260,10 +268,11 @@ function predicateList(
   params: unknown[],
   expressions?: ReadonlyMap<string, string>,
   rootReference?: string,
+  effects?: EffectState,
 ): string {
   return preds
     .map((p, i) => {
-      const cond = renderPredicate(dialect, p, params, expressions, rootReference);
+      const cond = renderPredicate(dialect, p, params, expressions, rootReference, effects);
       return i === 0 ? cond : `${p.connector ?? 'AND'} ${cond}`;
     })
     .join(' ');
@@ -275,9 +284,10 @@ export function whereClause(
   preds: readonly RenderPredicate[],
   params: unknown[],
   rootReference?: string,
+  effects?: EffectState,
 ): string {
   if (preds.length === 0) return '';
-  return ` WHERE ${predicateList(dialect, preds, params, undefined, rootReference)}`;
+  return ` WHERE ${predicateList(dialect, preds, params, undefined, rootReference, effects)}`;
 }
 
 /** ` HAVING …` — same rendering as WHERE, which is why they share a code path. */
@@ -287,9 +297,10 @@ export function havingClause(
   params: unknown[],
   expressions?: ReadonlyMap<string, string>,
   rootReference?: string,
+  effects?: EffectState,
 ): string {
   if (preds.length === 0) return '';
-  return ` HAVING ${predicateList(dialect, preds, params, expressions, rootReference)}`;
+  return ` HAVING ${predicateList(dialect, preds, params, expressions, rootReference, effects)}`;
 }
 
 /** ` INNER JOIN … ON … = … [AND … = …] [AND …]` for each join, in order. */
@@ -298,6 +309,7 @@ export function joinClauses(
   joins: readonly JoinSpec[],
   params: unknown[] = [],
   rootReference?: string,
+  effects?: EffectState,
 ): string {
   return joins
     .map(j => {
@@ -312,7 +324,7 @@ export function joinClauses(
           ? ''
           : j.on
               .map((predicate, index) => {
-                const rendered = renderPredicate(dialect, predicate, params, undefined, rootReference);
+                const rendered = renderPredicate(dialect, predicate, params, undefined, rootReference, effects);
                 return `${index === 0 ? 'AND' : (predicate.connector ?? 'AND')} ${rendered}`;
               })
               .join(' ');
@@ -347,9 +359,17 @@ export function tailClause(dialect: DialectTarget, tail: Tail): string {
 }
 
 /** Every `compile()` in this package returns this shape, frozen at both levels. */
-export function frozenQuery(text: string, params: readonly unknown[], telemetry?: QueryTelemetry): CompiledQuery {
+export function frozenQuery(
+  text: string,
+  params: readonly unknown[],
+  effects: QueryEffects,
+  telemetry?: QueryTelemetry,
+): CompiledQuery {
   const parameters = Object.freeze([...params]);
-  return telemetry === undefined ? Object.freeze({ text, parameters }) : Object.freeze({ text, parameters, telemetry });
+  Object.freeze(effects);
+  return telemetry === undefined
+    ? Object.freeze({ text, parameters, effects })
+    : Object.freeze({ text, parameters, effects, telemetry });
 }
 
 /** Compile-known database attributes, absent when telemetry was not requested. */

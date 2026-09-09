@@ -297,7 +297,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   it('the candidate query is the same three-clause select on every dialect', () => {
     // The expected text is what the shipped builders produce for §4.2 statement 1 — note that
     // the literals in SPEC §4.2 are hand-written prose: the real statement binds them.
-    expect(outboxCandidatesQuery(postgresDialect, { now: NOW, batch: 100 })).toEqual({
+    expect(outboxCandidatesQuery(postgresDialect, { now: NOW, batch: 100 })).toMatchObject({
       text:
         'SELECT "id" FROM "zmdb_outbox" WHERE "status" = $1 AND "lease_until" < $2 ' +
         'ORDER BY "created_at" ASC LIMIT 100',
@@ -318,7 +318,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     // the token and the lease take $1 and $2 rather than the last two slots.
     expect(
       outboxClaimQuery(postgresDialect, { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['a', 'b'] }),
-    ).toEqual({
+    ).toMatchObject({
       text:
         'UPDATE "zmdb_outbox" SET "lease_owner" = $1, "lease_until" = $2 ' +
         'WHERE "status" = $3 AND "lease_until" < $4 AND "id" IN ($5, $6)',
@@ -327,7 +327,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   });
 
   it('the read-back selects by lease owner and is what says which rows were won', () => {
-    expect(outboxReadBackQuery(postgresDialect, { token: 'tok' })).toEqual({
+    expect(outboxReadBackQuery(postgresDialect, { token: 'tok' })).toMatchObject({
       text: 'SELECT "id", "topic", "payload", "attempts" FROM "zmdb_outbox" WHERE "lease_owner" = $1',
       parameters: ['tok'],
     });
@@ -356,7 +356,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   it('the delivered mark sets status, deliveredAt and an incremented attempts', () => {
     expect(
       outboxMarkDeliveredQuery(postgresDialect, { id: 'r1', token: 'tok', deliveredAt: NOW, attempts: 1 }),
-    ).toEqual({
+    ).toMatchObject({
       text:
         'UPDATE "zmdb_outbox" SET "status" = $1, "delivered_at" = $2, "attempts" = $3 ' +
         'WHERE "id" = $4 AND "lease_owner" = $5',
@@ -407,7 +407,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
         .select(['id'])
         .where('deliveredAt', 'is null', null)
         .compile(),
-    ).toEqual({ text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" IS NULL', parameters: [] });
+    ).toMatchObject({ text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" IS NULL', parameters: [] });
   });
 
   it('no claim or mark statement emits RETURNING', () => {

@@ -191,8 +191,10 @@ function nullableScalarText(
   return valueAt(row, field) === null ? null : scalarText(row, field, catalog, index);
 }
 
+const CATALOG_EFFECTS = Object.freeze({ operation: 'SELECT', requiresPrimary: true, returnsRows: true } as const);
+
 function query(text: string, parameters: readonly unknown[] = []): CompiledQuery {
-  return { text, parameters };
+  return { text, parameters, effects: CATALOG_EFFECTS };
 }
 
 function globExpression(glob: string): RegExp {

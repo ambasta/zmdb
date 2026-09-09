@@ -55,7 +55,7 @@ From your schemas, so it cannot drift from a fixture:
 import { diff, emitUp, snapshot } from '@zmdb/core/migrations';
 
 for (const op of diff({ tables: {} }, snapshot(allSchemas))) {
-  await driver.execute({ text: emitUp(op, 'postgres'), parameters: [] });
+  await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: emitUp(op, 'postgres'), parameters: [] });
 }
 ```
 
@@ -83,7 +83,7 @@ Three options, fastest first.
 import { ALL_TABLES } from './domain/tables.ts'; // [schemaOf<User>(), schemaOf<Post>(), …]
 
 const tables = ALL_TABLES.map(s => `"${s.table}"`).join(', ');
-beforeEach(() => driver.execute({ text: `TRUNCATE ${tables} RESTART IDENTITY CASCADE`, parameters: [] }));
+beforeEach(() => driver.execute({ effects: { operation: 'DDL', requiresPrimary: true, returnsRows: false }, text: `TRUNCATE ${tables} RESTART IDENTITY CASCADE`, parameters: [] }));
 ```
 
 `RESTART IDENTITY` resets sequences, so ids are stable across tests. `CASCADE` handles foreign keys.

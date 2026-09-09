@@ -197,6 +197,7 @@ export interface QueryTelemetry {
 export interface CompiledQuery {
   readonly text: string;
   readonly parameters: readonly unknown[];
+  readonly effects: QueryEffects;
   readonly telemetry?: QueryTelemetry;
 }
 ```

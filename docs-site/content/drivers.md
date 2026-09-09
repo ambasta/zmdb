@@ -12,8 +12,9 @@ export interface Driver<Name extends string = string> {
 }
 ```
 
-`CompiledQuery` always has `text` and `parameters`. It may also have optional compile-time `telemetry` when an observing wrapper requests it. An ordinary driver hands the text and parameters to the
-client and returns rows; it does not parse SQL. `Driver` lives in `@zmdb/orm`, not in the compiler.
+`CompiledQuery` always has `text`, `parameters`, and `effects`. The compiler supplies the effects; raw queries declare them explicitly so replicas and drivers can route and execute without parsing
+SQL. It may also have optional compile-time `telemetry` when an observing wrapper requests it. An ordinary driver hands the text and parameters to the client and returns rows; it does not parse SQL.
+`Driver` lives in `@zmdb/orm`, not in the compiler.
 
 ## Six official database owners
 

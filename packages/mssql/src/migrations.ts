@@ -57,6 +57,9 @@ async function checksum(sql: string): Promise<string> {
   return `sha256:${Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('')}`;
 }
 
+const MIGRATION_EFFECTS = Object.freeze({ operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false } as const);
+const MIGRATION_ROW_EFFECTS = Object.freeze({ ...MIGRATION_EFFECTS, returnsRows: true } as const);
+
 function migrationConnection(
   driver: MigrationDriver<'mssql'>,
   options: MigrationTableOptions = {},
@@ -69,12 +72,13 @@ function migrationConnection(
   async function execute(
     text: string,
     parameters: readonly unknown[] = [],
+    returnsRows = false,
   ): Promise<readonly Record<string, unknown>[]> {
-    return driver.execute({ text, parameters });
+    return driver.execute({ text, parameters, effects: returnsRows ? MIGRATION_ROW_EFFECTS : MIGRATION_EFFECTS });
   }
 
   async function appliedMigrations(): Promise<readonly AppliedMigration[]> {
-    const rows = await execute(`SELECT version, name, checksum FROM ${ledgerTable} ORDER BY version`);
+    const rows = await execute(`SELECT version, name, checksum FROM ${ledgerTable} ORDER BY version`, [], true);
     return rows.map(appliedMigration);
   }
 
@@ -111,7 +115,7 @@ function migrationConnection(
           `${quoteIdentifier(dialect, 'checksum')} NVARCHAR(MAX))`,
       );
       try {
-        await execute(`SELECT ${quoteIdentifier(dialect, 'checksum')} FROM ${ledgerTable} WHERE 1 = 0`);
+        await execute(`SELECT ${quoteIdentifier(dialect, 'checksum')} FROM ${ledgerTable} WHERE 1 = 0`, [], true);
       } catch {
         await execute(`ALTER TABLE ${ledgerTable} ADD ${quoteIdentifier(dialect, 'checksum')} NVARCHAR(MAX)`);
       }

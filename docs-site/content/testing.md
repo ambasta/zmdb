@@ -9,7 +9,7 @@ import { postgres } from '@zmdb/postgres';
 
 it('filters by email', () => {
   const q = createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('email', '=', 'a@b.c').compile();
-  expect(q).toEqual({ text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: ['a@b.c'] });
+  expect(q).toEqual({ effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true }, text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: ['a@b.c'] });
 });
 ```
 

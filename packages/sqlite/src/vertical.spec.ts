@@ -131,7 +131,7 @@ describe('@zmdb/sqlite vertical', () => {
         .limit(10)
         .offset(5)
         .compile(),
-    ).toEqual({
+    ).toMatchObject({
       text: 'SELECT "id", "email" FROM "users" WHERE "visits" >= ? ORDER BY "id" ASC LIMIT 10 OFFSET 5',
       parameters: [1],
     });

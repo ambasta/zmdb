@@ -116,16 +116,14 @@ Values belong in the parameter array:
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
 await driver.execute({
+  effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
   text: `SELECT * FROM users WHERE id = ${id}`, // reported
   parameters: [],
 });
 ```
 
 ```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
-await driver.execute({
-  text: 'SELECT * FROM users WHERE id = $1',
-  parameters: [id],
-});
+await driver.execute({ effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true }, text: 'SELECT * FROM users WHERE id = $1', parameters: [id] });
 ```
 
 The rule reports a substituting template literal in either of two visible SQL sinks:

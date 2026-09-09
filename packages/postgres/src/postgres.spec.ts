@@ -148,7 +148,8 @@ describe('@zmdb/postgres vertical', () => {
     );
     expect(
       createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('email', '=', 'a@example.test').compile(),
-    ).toEqual({
+    ).toMatchObject({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
       text: 'SELECT * FROM "users" WHERE "email" = $1',
       parameters: ['a@example.test'],
     });
@@ -271,8 +272,16 @@ describe('@zmdb/postgres vertical', () => {
     } as unknown as PgQueryable;
 
     await postgresDriver(pool).transaction(async transaction => {
-      await transaction.execute({ text: 'SELECT 1', parameters: [] });
-      await transaction.execute({ text: 'SELECT 2', parameters: [] });
+      await transaction.execute({
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: 'SELECT 1',
+        parameters: [],
+      });
+      await transaction.execute({
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: 'SELECT 2',
+        parameters: [],
+      });
     });
 
     expect(Reflect.get(pool, 'connect')).toHaveBeenCalledTimes(1);
@@ -286,8 +295,16 @@ describe('@zmdb/postgres vertical', () => {
     }));
     const driver = postgresDriver({ query } as unknown as PgQueryable, { prepared: true, maxCacheSize: 1 });
 
-    await driver.execute({ text: 'SELECT $1::int', parameters: [1] });
-    await driver.execute({ text: 'SELECT ($1::int + 1)', parameters: [1] });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT $1::int',
+      parameters: [1],
+    });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT ($1::int + 1)',
+      parameters: [1],
+    });
 
     expect(query.mock.calls.map(call => call[0])).toEqual([
       { name: 'zmdb_0', text: 'SELECT $1::int', values: [1] },

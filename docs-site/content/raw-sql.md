@@ -1,10 +1,11 @@
-A compiled query is `{ text, parameters }`, and a driver takes exactly that. So raw SQL is a first-class path, not an escape hatch bolted on the side — you construct the same object the compiler would
-have.
+A compiled query contains `text`, `parameters` and required execution `effects`, plus optional telemetry. Raw SQL uses the same driver boundary. Declare whether the statement requires the primary and
+returns rows; use an `UNKNOWN` operation requiring the primary when you cannot establish its effects.
 
 ## Running a statement
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver, since; this excerpt does not repeat those declarations."}
 const rows = await driver.execute({
+  effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
   text: `SELECT id, email FROM "users" WHERE "created_at" > $1 ORDER BY "created_at" DESC LIMIT 50`,
   parameters: [since],
 });
@@ -24,7 +25,7 @@ interface Row {
   email: string;
 }
 
-const rows = await driver.execute({ text: '...', parameters: [since] });
+const rows = await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true }, text: '...', parameters: [since] });
 const typed = rows.map(r => assert<Row>(r));
 ```
 
@@ -41,10 +42,10 @@ const users = rows.map(r => assert<Entity<User>>(r));
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 // yes
-{ text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: [email] }
+{ text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: [email], effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true } }
 
 // no
-{ text: `SELECT * FROM "users" WHERE "email" = '${email}'`, parameters: [] }
+{ text: `SELECT * FROM "users" WHERE "email" = '${email}'`, parameters: [], effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true } }
 ```
 
 The placeholder syntax is the dialect's, because the text goes straight to the driver:
@@ -90,7 +91,7 @@ Handy for extension operators — see [Database Extensions](./db-extensions.html
 
 ```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies db, driver, dto, repo; this excerpt does not repeat those declarations."}
 await db.transaction(async () => {
-  await driver.execute({ text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
+  await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
   await repo.create(dto);
 });
 ```

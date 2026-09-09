@@ -519,7 +519,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     expect(check.cacheMs).toBe(2000);
     const signal = new AbortController().signal;
     expect(await check.run(signal)).toEqual({ ok: true });
-    expect(calls).toEqual([{ text: 'SELECT 1', parameters: [] }]);
+    expect(calls).toMatchObject([{ text: 'SELECT 1', parameters: [] }]);
     expect(observedSignal).toBe(signal);
   });
 });

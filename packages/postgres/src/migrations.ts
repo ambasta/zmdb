@@ -470,17 +470,24 @@ function emitDown(types: DialectTypeMap, operation: ChangeOp): string {
   }
 }
 
+const MIGRATION_EFFECTS = Object.freeze({ operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false } as const);
+const MIGRATION_ROW_EFFECTS = Object.freeze({ ...MIGRATION_EFFECTS, returnsRows: true } as const);
+
 function migrationConnection<Name extends string>(
   name: Name,
   driver: MigrationDriver<Name>,
   options: MigrationTableOptions = {},
 ): MigrationConnection<Name> {
   const table = qualifiedTable(options.schema, options.table ?? '_zmdb_migrations');
-  const execute = (text: string, parameters: readonly unknown[] = []): Promise<readonly Record<string, unknown>[]> =>
-    driver.execute({ text, parameters });
+  const execute = (
+    text: string,
+    parameters: readonly unknown[] = [],
+    returnsRows = false,
+  ): Promise<readonly Record<string, unknown>[]> =>
+    driver.execute({ text, parameters, effects: returnsRows ? MIGRATION_ROW_EFFECTS : MIGRATION_EFFECTS });
 
   const appliedMigrations = async (): Promise<readonly AppliedMigration[]> => {
-    const rows = await execute(`SELECT version, name, checksum FROM ${table} ORDER BY version`);
+    const rows = await execute(`SELECT version, name, checksum FROM ${table} ORDER BY version`, [], true);
     return rows.map((row, index) => {
       const version = row['version'];
       const migrationName = row['name'];
@@ -539,7 +546,7 @@ function migrationConnection<Name extends string>(
       );
       await execute(`ALTER TABLE ${table} ALTER COLUMN version TYPE BIGINT`);
       try {
-        await execute(`SELECT checksum FROM ${table} WHERE 1 = 0`);
+        await execute(`SELECT checksum FROM ${table} WHERE 1 = 0`, [], true);
       } catch {
         await execute(`ALTER TABLE ${table} ADD COLUMN checksum TEXT`);
       }

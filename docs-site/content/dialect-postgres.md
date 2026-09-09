@@ -52,7 +52,7 @@ const userRepo = defineRepository(users, postgresDriver(pool));
 import { trustedTable } from '@zmdb/sql';
 
 compiler.selectFrom(trustedTable('users')).where('email', '=', 'a@b.c').compile();
-// { text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: ['a@b.c'] }
+// { text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: ['a@b.c'], effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true } }
 ```
 
 ## `ilike`

@@ -200,7 +200,11 @@ describe('opt-in repository result cache (frozen: repository/SPEC.md 3d)', () =>
         dialect: postgresDialect,
         schema: USER_IR,
         table: 'users',
-        query: { text: 'SELECT $1', parameters: [parameter] },
+        query: {
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+          text: 'SELECT $1',
+          parameters: [parameter],
+        },
       });
 
     expect(keyFor({ b: 2, a: 1 })).toBe(keyFor({ a: 1, b: 2 }));

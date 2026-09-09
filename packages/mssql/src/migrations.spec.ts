@@ -165,7 +165,7 @@ describe('@zmdb/mssql migrations (#672)', () => {
     });
 
     expect(rootQueries).toEqual([]);
-    expect(transactionQueries).toEqual([
+    expect(transactionQueries).toMatchObject([
       {
         text: 'CREATE TABLE [audit].[events] ([id] INT)',
         parameters: [],

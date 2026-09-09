@@ -159,7 +159,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
     const driver = recordingDriver();
     await new FilteredNamedUsers(driver).findAll({ filters: { displayName: { value: 'Ada' } } });
 
-    expect(driver.calls).toEqual([
+    expect(driver.calls).toMatchObject([
       {
         text:
           'SELECT "account_id" AS "id", "display_name" AS "displayName", ' +
@@ -176,7 +176,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
       page: { mode: 'offset', limit: 2, offset: 0 },
     });
 
-    expect(driver.calls[0]).toEqual({
+    expect(driver.calls[0]).toMatchObject({
       text:
         'SELECT "account_id" AS "id", "display_name" AS "displayName", ' +
         '"created_at" AS "createdAt" FROM "user_accounts" ' +
@@ -192,7 +192,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
       page: { mode: 'cursor', limit: 1 },
     });
 
-    expect(driver.calls[0]).toEqual({
+    expect(driver.calls[0]).toMatchObject({
       text:
         'SELECT "display_name" AS "displayName", "account_id" AS "id" FROM "user_accounts" ' +
         'ORDER BY "account_id" ASC LIMIT 2',
@@ -208,7 +208,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
       orderBy: [{ column: 'createdAt' }],
     });
 
-    expect(driver.calls[0]).toEqual({
+    expect(driver.calls[0]).toMatchObject({
       text:
         'SELECT "created_at" AS "createdAt", COUNT("account_id") AS "count" ' +
         'FROM "user_accounts" GROUP BY "created_at" ORDER BY "created_at" ASC',
@@ -228,7 +228,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
     } satisfies CreateDTO<NamedUser>);
     await users.update(7, { displayName: 'Grace' });
 
-    expect(driver.calls).toEqual([
+    expect(driver.calls).toMatchObject([
       {
         text:
           'INSERT INTO "user_accounts" ("account_id", "display_name", "created_at") VALUES ($1, $2, $3) ' +

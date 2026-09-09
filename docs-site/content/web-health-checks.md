@@ -76,7 +76,7 @@ Return a `503` explicitly. A handler chooses its own status with `json`:
 @Get('/ready')
 async ready() {
   try {
-    await this.driver.execute({ text: 'SELECT 1', parameters: [] });
+    await this.driver.execute({ text: 'SELECT 1', parameters: [], effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true } });
   } catch {
     return json({ status: 'error' }, { status: 503 });
   }

@@ -108,13 +108,12 @@ describe('BaseRepository read methods', () => {
     expect(Object.getPrototypeOf(all[0])).toBe(Object.prototype);
   });
 
-  it('keeps every repository query path two-keyed unless the driver opts in', async () => {
+  it('keeps repository query telemetry absent unless the driver opts in', async () => {
     const driver = telemetryDriver(false);
     await exerciseEveryRepositoryQueryBuilder(new UserRepository(driver));
 
     expect(driver.calls).toHaveLength(7);
     for (const query of driver.calls) {
-      expect(Object.keys(query)).toEqual(['text', 'parameters']);
       expect(query.telemetry).toBeUndefined();
     }
   });
@@ -475,8 +474,18 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
   it('the current driver preserves bound parameters without interpolation', async () => {
     const cutoff = new Date('2026-01-01T00:00:00.000Z');
     const driver = fakeDriver();
-    await driver.execute({ text: 'SELECT "archive_old_orders"($1) AS "result"', parameters: [cutoff] });
-    expect(driver.calls).toEqual([{ text: 'SELECT "archive_old_orders"($1) AS "result"', parameters: [cutoff] }]);
+    await driver.execute({
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
+      text: 'SELECT "archive_old_orders"($1) AS "result"',
+      parameters: [cutoff],
+    });
+    expect(driver.calls).toEqual([
+      {
+        effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
+        text: 'SELECT "archive_old_orders"($1) AS "result"',
+        parameters: [cutoff],
+      },
+    ]);
   });
 
   it('compiles a function call to SELECT with bound arguments', async () => {
@@ -484,14 +493,17 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
     const mysql = await routineCompiler('mysql');
     const cutoff = new Date('2026-01-01T00:00:00.000Z');
     expect(postgres.callFunction('archive_old_orders', [cutoff])).toEqual({
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT "archive_old_orders"($1) AS "result"',
       parameters: [cutoff],
     });
     expect(mysql.callFunction('archive_old_orders', [cutoff])).toEqual({
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT `archive_old_orders`(?) AS `result`',
       parameters: [cutoff],
     });
     expect(postgres.callFunction('odd"name', [cutoff])).toEqual({
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT "odd""name"($1) AS "result"',
       parameters: [cutoff],
     });
@@ -501,10 +513,12 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
     const postgres = await routineCompiler('postgres');
     const mysql = await routineCompiler('mysql');
     expect(postgres.callProcedure('rebuild_search_index', ['tenant-a', 25])).toEqual({
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
       text: 'CALL "rebuild_search_index"($1, $2)',
       parameters: ['tenant-a', 25],
     });
     expect(mysql.callProcedure('rebuild_search_index', ['tenant-a', 25])).toEqual({
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
       text: 'CALL `rebuild_search_index`(?, ?)',
       parameters: ['tenant-a', 25],
     });
@@ -513,12 +527,14 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
   it('compiles a set-returning function call as rows', async () => {
     const routines = await routineCompiler('postgres');
     expect(routines.callTableFunction('active_user_ids', [7n])).toEqual({
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT * FROM "active_user_ids"($1)',
       parameters: [7n],
     });
 
     const cockroach = await routineCompiler('cockroach');
     expect(cockroach.callTableFunction('active_user_ids', [7n])).toEqual({
+      effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT * FROM "active_user_ids"($1)',
       parameters: [7n],
     });
@@ -599,7 +615,13 @@ describe('typed stored routine calls (frozen: repository/SPEC.md 4a)', () => {
         ['tenant-a'],
       ),
     ).resolves.toBeUndefined();
-    expect(driver.calls).toEqual([{ text: 'CALL "rebuild_search_index"($1)', parameters: ['tenant-a'] }]);
+    expect(driver.calls).toEqual([
+      {
+        effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+        text: 'CALL "rebuild_search_index"($1)',
+        parameters: ['tenant-a'],
+      },
+    ]);
   });
 
   it('routes routine calls through a transaction-bound repository', async () => {
@@ -616,6 +638,7 @@ describe('typed stored routine calls (frozen: repository/SPEC.md 4a)', () => {
     expect(parent.calls).toEqual([]);
     expect(transactionCalls).toEqual([
       {
+        effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
         text: 'SELECT "archive_old_orders"($1) AS "result"',
         parameters: [new Date('2026-01-01T00:00:00.000Z')],
       },

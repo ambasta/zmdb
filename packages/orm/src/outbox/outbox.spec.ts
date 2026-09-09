@@ -154,7 +154,11 @@ describe('outbox: the transactional guarantee (#593, SPEC §6, §9 items 1 and 2
 
     await expect(
       dbx.transaction(async tx => {
-        await tx.execute({ text: 'INSERT INTO posts(id, title) VALUES (?, ?)', parameters: [1, 'hi'] });
+        await tx.execute({
+          effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+          text: 'INSERT INTO posts(id, title) VALUES (?, ?)',
+          parameters: [1, 'hi'],
+        });
         await outboxWriter(tx).write('post.published', '{"id":1}');
         throw new Error('boom');
       }),
@@ -173,7 +177,11 @@ describe('outbox: the transactional guarantee (#593, SPEC §6, §9 items 1 and 2
     const dbx = createTransactionalDb(txConn(db));
 
     const id = await dbx.transaction(async tx => {
-      await tx.execute({ text: 'INSERT INTO posts(id, title) VALUES (?, ?)', parameters: [1, 'hi'] });
+      await tx.execute({
+        effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+        text: 'INSERT INTO posts(id, title) VALUES (?, ?)',
+        parameters: [1, 'hi'],
+      });
       return outboxWriter(tx).write('post.published', '{"id":1}');
     });
 

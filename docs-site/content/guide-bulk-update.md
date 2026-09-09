@@ -59,12 +59,13 @@ Still N statements, but all-or-nothing. Acceptable for tens of rows; painful for
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies driver, updates; this excerpt does not repeat those declarations."}
 const ids = updates.map(u => u.id);
-const cases = updates.map((_, i) => `WHEN $${i * 2 + 1} THEN $${i * 2 + 2}`).join(' ');
+const cases = updates.map((_, i) => `WHEN ${i * 2 + 1} THEN ${i * 2 + 2}`).join(' ');
 const params = updates.flatMap(u => [u.id, u.title]);
 
 await driver.execute({
+  effects: { operation: 'UPDATE', requiresPrimary: true, returnsRows: false },
   text: `UPDATE "posts" SET "title" = CASE "id" ${cases} END
-         WHERE "id" IN (${ids.map((_, i) => `$${params.length + i + 1}`).join(', ')})`,
+         WHERE "id" IN (${ids.map((_, i) => `${params.length + i + 1}`).join(', ')})`,
   parameters: [...params, ...ids],
 });
 ```

@@ -55,6 +55,7 @@ export const jobsPostgresMigrations: readonly JobStoreMigration[] = Object.freez
 ]);
 
 const MAX_INTEGER = 2_147_483_647;
+const JOB_QUERY_EFFECTS = Object.freeze({ operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true } as const);
 function integer(name: string, value: number, minimum: number, maximum = MAX_INTEGER): void {
   if (!Number.isSafeInteger(value) || value < minimum || value > maximum)
     throw new RangeError(`${name} must be an integer in [${minimum}, ${maximum}]`);
@@ -247,7 +248,8 @@ class Operations {
           preparedConnection(connection, this.#options, signal),
           this.#options.cancelVia === undefined ? {} : { cancelVia: this.#options.cancelVia },
         );
-        const rows: Rows = (sql, parameters = []) => selected.execute({ text: sql, parameters }, { signal });
+        const rows: Rows = (sql, parameters = []) =>
+          selected.execute({ text: sql, parameters, effects: JOB_QUERY_EFFECTS }, { signal });
         if (transaction) {
           await connection.query('BEGIN');
           began = true;

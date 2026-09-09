@@ -131,7 +131,7 @@ production, because development runs one process.
 For cross-instance events you need a transport: Postgres `LISTEN/NOTIFY`, Redis pub/sub, or the outbox plus a consumer. `LISTEN/NOTIFY` is attractive here because you already have the connection:
 
 ```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
-await driver.execute({ text: `NOTIFY post_published, $1`, parameters: [String(id)] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: `NOTIFY post_published, $1`, parameters: [String(id)] });
 ```
 
 It is still lossy — a listener that is not connected misses it — so use it for invalidation, not for work that must happen. Work that must happen goes in the outbox or in a job row, both of which

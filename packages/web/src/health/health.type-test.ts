@@ -40,7 +40,11 @@ export const liveAsync: LivenessCheck = { name: 'db', run: async () => true };
 // @ts-expect-error — an explicit `Promise<boolean>` return type is the same rejection, spelled out.
 export const liveAsyncTyped: LivenessCheck = { name: 'db', run: (): Promise<boolean> => Promise.resolve(true) };
 const databaseLivenessRun = async (): Promise<boolean> => (
-  await driver.execute({ text: 'SELECT 1', parameters: [] }),
+  await driver.execute({
+    text: 'SELECT 1',
+    parameters: [],
+    effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
+  }),
   true
 );
 // @ts-expect-error — a database round trip is asynchronous and therefore cannot be registered as liveness.

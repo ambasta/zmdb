@@ -88,12 +88,12 @@ only refuse. A target cannot tell them apart from the plan alone, which means th
 The only thing the plan can do with that value is ask it for SQL text, which `set-ops` then renumbers with a regex over `$n`. A non-SQL target handed one of those has a compiled Postgres string inside
 its query document.
 
-### 2.2 And two places SQL leaves the compiler as text
+### 2.2 Execution routing and transaction statements
 
-Both are in `@zmdb/orm`, and both would break silently rather than loudly:
+Execution routing and transaction control use different contracts:
 
-- **Read-replica routing reads the SQL.** `isWrite(sql)` in `replicas/index.ts` upper-cases the query text and tests whether it starts with `INSERT`, `UPDATE` or `DELETE`. Given a query object with no
-  `text`, this does not fail — it returns `false`, and every write goes to a replica. See `../../../repository/src/replicas/SPEC.md`, which now records that the routing rule is SQL-shaped.
+- **Read-replica routing uses compiled effects.** `withReplicas` reads `query.effects.requiresPrimary`. Writes, DDL, locking reads and unknown raw statements require the primary. It does not inspect
+  SQL text. See [`@zmdb/orm` replica routing](../../../orm/src/replicas/SPEC.md).
 - **Transactions issue raw statements, not compiled queries.** `TxConnection.raw(sql: string)` is how `BEGIN`, `COMMIT`, `ROLLBACK`, `SAVEPOINT s1` and `RELEASE SAVEPOINT s1` are sent, and
   `transactions/SPEC.md` §3 freezes that statement stream as goldens asserted through a recording connection. A target with no statement stream has nothing to record.
 

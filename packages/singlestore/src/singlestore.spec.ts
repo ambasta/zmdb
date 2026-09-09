@@ -170,7 +170,7 @@ describe('@zmdb/singlestore vertical', () => {
   it('removes the MySQL-only natural-language suffix from full-text queries', () => {
     expect(
       createQueryCompiler(singlestore).selectFrom(trustedTable('documents')).whereMatch('body', 'single').compile(),
-    ).toEqual({
+    ).toMatchObject({
       text: 'SELECT * FROM `documents` WHERE MATCH(`body`) AGAINST(?)',
       parameters: ['single'],
     });

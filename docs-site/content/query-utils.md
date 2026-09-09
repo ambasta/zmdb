@@ -12,10 +12,10 @@ q.text; // 'SELECT * FROM "users" WHERE "id" = $1'
 q.parameters; // [1]
 ```
 
-Every `CompiledQuery` has readonly `text` and `parameters`. The default compiler still returns exactly those two keys, so existing logs, snapshots and equality checks remain unchanged:
+Every `CompiledQuery` has readonly `text`, `parameters` and `effects`. Effects record the operation, primary requirement and row-return mode. Query telemetry is optional:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies expect, q; this excerpt does not repeat those declarations."}
-expect(q).toEqual({ text: 'SELECT * FROM "users" WHERE "id" = $1', parameters: [1] });
+expect(q).toEqual({ effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true }, text: 'SELECT * FROM "users" WHERE "id" = $1', parameters: [1] });
 ```
 
 Observability can opt into a third, optional compile-time field:

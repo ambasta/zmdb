@@ -175,7 +175,11 @@ function migrationConnection<Name extends string>(
     name: dialectName,
     transactionalDdl: true,
     exec: async sql => {
-      await driver.execute({ text: sql, parameters: [] });
+      await driver.execute({
+        text: sql,
+        parameters: [],
+        effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+      });
     },
     appliedVersions: () => applied.map(migration => migration.version),
     appliedMigrations: () => applied,
@@ -190,6 +194,7 @@ function migrationConnection<Name extends string>(
       await driver.execute({
         text: 'CREATE TABLE IF NOT EXISTS <_zmdb_migrations> (<version> INTEGER)',
         parameters: [],
+        effects: { operation: 'DDL', requiresPrimary: true, returnsRows: false },
       });
     },
     checksum: sql => `acme:${String(sql.length)}`,
@@ -209,6 +214,7 @@ export function makeSyntheticDialect(name = 'acme', options: { readonly paramLim
       await driver.execute({
         text: 'SELECT * FROM <acme_catalog>',
         parameters: [],
+        effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true },
       });
       return EMPTY_CATALOG;
     },

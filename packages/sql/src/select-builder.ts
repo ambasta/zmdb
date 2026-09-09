@@ -14,7 +14,7 @@ import {
   type Predicate,
   type RenderPredicate,
 } from './clauses.js';
-import type { CompiledQuery } from './compiled-query.js';
+import { READ_EFFECTS, PRIMARY_READ_EFFECTS, type CompiledQuery } from './compiled-query.js';
 import { dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
 import { UnsupportedFeatureError } from './errors.js';
 import {
@@ -323,6 +323,7 @@ export class SelectQuery {
     const state = this.state;
     const dialect = this.dialect;
     const params: unknown[] = [];
+    const effects = { requiresPrimary: false };
     // Schema mapping established ownership at fluent input; the final SELECT context decides qualification.
     // A later ordinary or generated FTS join therefore also qualifies earlier root references.
     const rootReference =
@@ -355,11 +356,15 @@ export class SelectQuery {
           : quoteColumn(dialect, qualifyRootColumn(column, rootReference)),
     );
     if (state.computed !== undefined)
-      for (const item of state.computed)
+      for (const item of state.computed) {
+        // Trusted SQL can call a mutating routine; its text is never classified here.
+        if ('raw' in item) effects.requiresPrimary = true;
         projections.push(`${this.computedSql(item, rootReference)} AS ${quoteIdentifier(dialect, item.alias)}`);
-    const joins = state.joins === undefined ? '' : joinClauses(dialect, state.joins, params, rootReference);
-    const ftsJoins = state.ftsJoins === undefined ? '' : joinClauses(dialect, state.ftsJoins, params, rootReference);
-    const where = state.wheres === undefined ? '' : whereClause(dialect, state.wheres, params, rootReference);
+      }
+    const joins = state.joins === undefined ? '' : joinClauses(dialect, state.joins, params, rootReference, effects);
+    const ftsJoins =
+      state.ftsJoins === undefined ? '' : joinClauses(dialect, state.ftsJoins, params, rootReference, effects);
+    const where = state.wheres === undefined ? '' : whereClause(dialect, state.wheres, params, rootReference, effects);
     const group =
       state.groups === undefined
         ? ''
@@ -384,6 +389,8 @@ export class SelectQuery {
             ),
         params,
         expressions,
+        undefined,
+        effects,
       );
     }
     const order =
@@ -399,6 +406,11 @@ export class SelectQuery {
       having +
       order +
       tailClause(dialect, { limitN: state.limitN, offsetN: state.offsetN, ordered: state.orderBys !== undefined });
-    return frozenQuery(text, params, queryTelemetry(dialect, 'SELECT', state.binding.table, this.telemetry));
+    return frozenQuery(
+      text,
+      params,
+      effects.requiresPrimary ? PRIMARY_READ_EFFECTS : READ_EFFECTS,
+      queryTelemetry(dialect, 'SELECT', state.binding.table, this.telemetry),
+    );
   }
 }

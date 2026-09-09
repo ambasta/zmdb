@@ -142,7 +142,7 @@ live() { return { ok: true }; }
 
 @Get('/readyz')
 async ready() {
-  await this.driver.execute({ text: 'SELECT 1', parameters: [] });
+  await this.driver.execute({ text: 'SELECT 1', parameters: [], effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true } });
   return { ok: true };
 }
 ```

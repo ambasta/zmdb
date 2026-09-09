@@ -97,7 +97,7 @@ export type {
   compilePopulate as Binding81,
 } from '@zmdb/orm/relations';
 
-export type { ReplicaOptions as Binding82, isWrite as Binding83, withReplicas as Binding84 } from '@zmdb/orm/replicas';
+export type { ReplicaOptions as Binding82, withReplicas as Binding84 } from '@zmdb/orm/replicas';
 
 export type { SeedOptions as Binding85, makeRng as Binding86, seedRows as Binding87 } from '@zmdb/orm/seeding';
 

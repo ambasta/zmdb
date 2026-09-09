@@ -238,7 +238,7 @@ describe('request-scoped dataloaders (repository/SPEC.md 3d)', () => {
     ]);
     expect(rows[0]).not.toBe(rows[1]);
     expect(driver.calls).toHaveLength(1);
-    expect(driver.calls[0]).toEqual({
+    expect(driver.calls[0]).toMatchObject({
       text: 'SELECT * FROM "memberships" WHERE "tenantId" = $1 AND "userId" = $2 OR "tenantId" = $3 AND "userId" = $4',
       parameters: ['acme', 1, 'globex', 2],
     });

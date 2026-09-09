@@ -93,7 +93,7 @@ The compiler gives you the exact statement, so this is easy:
 
 ```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies driver, repoQuery; this excerpt does not repeat those declarations."}
 const q = repoQuery(); // or a builder .compile()
-const plan = await driver.execute({ text: `EXPLAIN ANALYZE ${q.text}`, parameters: [...q.parameters] });
+const plan = await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true }, text: `EXPLAIN ANALYZE ${q.text}`, parameters: [...q.parameters] });
 console.log(plan.map(r => r['QUERY PLAN']).join('\n'));
 ```
 

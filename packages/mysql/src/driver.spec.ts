@@ -4,6 +4,7 @@ import { mysql } from './dialect.js';
 import { mysqlFamilyDriver, type MysqlConnection, type MysqlPool, type MysqlQueryable } from './driver.js';
 
 const query = {
+  effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
   text: 'SELECT ? AS value',
   parameters: [42],
 } as const;
@@ -50,7 +51,13 @@ describe('mysql2 structural driver', () => {
 
     const driver = mysqlFamilyDriver(mysql, pool);
     await expect(
-      driver.transaction(transaction => transaction.execute({ text: 'SELECT 1', parameters: [] })),
+      driver.transaction(transaction =>
+        transaction.execute({
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+          text: 'SELECT 1',
+          parameters: [],
+        }),
+      ),
     ).resolves.toEqual([{ connection: 'pinned' }]);
 
     expect(events).toEqual(['acquire', 'begin', 'execute:SELECT 1', 'commit', 'release']);
@@ -102,13 +109,25 @@ describe('mysql2 structural driver', () => {
     };
     const driver = mysqlFamilyDriver(mysql, client);
 
-    await expect(driver.executeResult({ text: 'UPDATE users SET active = 1', parameters: [] })).resolves.toEqual({
+    await expect(
+      driver.executeResult({
+        effects: { operation: 'UPDATE', requiresPrimary: true, returnsRows: false },
+        text: 'UPDATE users SET active = 1',
+        parameters: [],
+      }),
+    ).resolves.toEqual({
       kind: 'command',
       affectedRows: 2,
       insertId: 9007199254740993n,
       warningStatus: 0,
     });
-    await expect(driver.execute({ text: 'UPDATE users SET active = 1', parameters: [] })).resolves.toEqual([]);
+    await expect(
+      driver.execute({
+        effects: { operation: 'UPDATE', requiresPrimary: true, returnsRows: false },
+        text: 'UPDATE users SET active = 1',
+        parameters: [],
+      }),
+    ).resolves.toEqual([]);
   });
 
   it('refuses an unsafe numeric insertId instead of accepting precision loss', async () => {
@@ -118,9 +137,13 @@ describe('mysql2 structural driver', () => {
       },
     });
 
-    await expect(driver.executeResult({ text: 'INSERT INTO users () VALUES ()', parameters: [] })).rejects.toThrow(
-      'insertId must be a safe integer, string, or bigint',
-    );
+    await expect(
+      driver.executeResult({
+        effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+        text: 'INSERT INTO users () VALUES ()',
+        parameters: [],
+      }),
+    ).rejects.toThrow('insertId must be a safe integer, string, or bigint');
   });
 
   it('preserves bigint without number precision loss', async () => {
@@ -131,7 +154,11 @@ describe('mysql2 structural driver', () => {
       },
     });
 
-    const rows = await driver.execute({ text: 'SELECT id FROM ids', parameters: [] });
+    const rows = await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT id FROM ids',
+      parameters: [],
+    });
     expect(rows).toEqual([{ id: exact }]);
     expect(rows[0]?.id).not.toBe(Number(exact));
   });

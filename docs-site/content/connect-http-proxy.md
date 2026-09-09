@@ -1,5 +1,5 @@
-Because a `Driver` has one required method over `{ text, parameters }`, you can put anything between your application and the database — including your own HTTP endpoint. This is how you reach a
-database from a runtime with no TCP.
+Because a `Driver` has one required method over a `CompiledQuery` containing text, parameters and execution effects, you can put anything between your application and the database — including your own
+HTTP endpoint. This is how you reach a database from a runtime with no TCP.
 
 ## The client driver
 
@@ -14,7 +14,7 @@ export function httpDriver(url: string, token: string, dialect: SqlDialect): Dri
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text: query.text, parameters: query.parameters }),
+        body: JSON.stringify({ effects: query.effects, text: query.text, parameters: query.parameters }),
       });
       if (!res.ok) throw new Error(`proxy ${res.status}: ${await res.text()}`);
       return (await res.json()) as Record<string, unknown>[];
@@ -30,13 +30,15 @@ Runs anywhere `fetch` exists — a browser, a Worker, an edge function, React Na
 A `@zmdb/web` controller over your real driver:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, Ctx, DRIVER, Driver, Inject, Post, assert; this excerpt does not repeat those declarations."}
+import type { CompiledQuery } from '@zmdb/sql';
+
 @Controller('/sql')
 export class SqlProxyController {
   @Inject(DRIVER) private readonly driver!: Driver;
 
   @Post('/')
   async execute(ctx: Ctx<Record<never, string>, unknown>) {
-    const body = assert<{ text: string; parameters: unknown[] }>(ctx.body);
+    const body = assert<CompiledQuery>(ctx.body);
     return this.driver.execute(body);
   }
 }

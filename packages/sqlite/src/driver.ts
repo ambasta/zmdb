@@ -1,4 +1,5 @@
 import { type SelectedDriver, type TransactionalDriver } from '@zmdb/orm';
+import type { CompiledQuery } from '@zmdb/sql';
 
 import { sqlite } from './dialect.js';
 
@@ -59,7 +60,8 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
   const maxCacheSize = opts?.maxCacheSize ?? 1000;
   const cache = new Map<string, CachedStatement>();
 
-  const statementFor = (text: string): CachedStatement => {
+  const statementFor = (query: CompiledQuery): CachedStatement => {
+    const { text } = query;
     let entry = maxCacheSize > 0 ? cache.get(text) : undefined;
     if (entry !== undefined && entry.activeIterators === 0) {
       cache.delete(text);
@@ -71,8 +73,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
     const columns = stmt.columns?.();
     entry = {
       stmt,
-      isRead:
-        columns === undefined ? /^\s*(?:SELECT|PRAGMA)\b/i.test(text) || /RETURNING/i.test(text) : columns.length > 0,
+      isRead: columns === undefined ? query.effects.returnsRows : columns.length > 0,
       activeIterators: 0,
     };
     if (maxCacheSize <= 0) return entry;
@@ -90,7 +91,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
     async execute(q, executeOpts) {
       const signal = executeOpts?.signal;
       signal?.throwIfAborted();
-      const entry = statementFor(q.text);
+      const entry = statementFor(q);
       const parameters = q.parameters.map(bindable);
       if (entry.isRead) {
         // boundary: rows leave the database untyped. `all()` is declared
@@ -111,7 +112,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
       return {
         async *[Symbol.asyncIterator](): AsyncGenerator<Record<string, unknown>, void, unknown> {
           signal?.throwIfAborted();
-          const entry = statementFor(q.text);
+          const entry = statementFor(q);
           if (!entry.isRead) throw new Error('sqliteDriver.stream requires a row-returning statement');
           const parameters = q.parameters.map(bindable);
           entry.activeIterators++;

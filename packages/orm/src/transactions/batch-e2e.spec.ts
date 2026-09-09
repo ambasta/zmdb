@@ -32,8 +32,18 @@ describe('batch E2E (real SQLite)', () => {
   it('commits all writes in a batch', async () => {
     const dbx = createTransactionalDb(sqliteTxConn(db));
     await batch(dbx, [
-      tx => tx.execute({ text: 'INSERT INTO t(id, v) VALUES (?, ?)', parameters: [1, 10] }),
-      tx => tx.execute({ text: 'INSERT INTO t(id, v) VALUES (?, ?)', parameters: [2, 20] }),
+      tx =>
+        tx.execute({
+          effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+          text: 'INSERT INTO t(id, v) VALUES (?, ?)',
+          parameters: [1, 10],
+        }),
+      tx =>
+        tx.execute({
+          effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+          text: 'INSERT INTO t(id, v) VALUES (?, ?)',
+          parameters: [2, 20],
+        }),
     ]);
     expect(count()).toBe(2);
   });
@@ -42,9 +52,19 @@ describe('batch E2E (real SQLite)', () => {
     const dbx = createTransactionalDb(sqliteTxConn(db));
     await expect(
       batch(dbx, [
-        tx => tx.execute({ text: 'INSERT INTO t(id, v) VALUES (?, ?)', parameters: [1, 10] }),
+        tx =>
+          tx.execute({
+            effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+            text: 'INSERT INTO t(id, v) VALUES (?, ?)',
+            parameters: [1, 10],
+          }),
         // Duplicate PK → constraint violation → whole batch rolls back.
-        tx => tx.execute({ text: 'INSERT INTO t(id, v) VALUES (?, ?)', parameters: [1, 99] }),
+        tx =>
+          tx.execute({
+            effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+            text: 'INSERT INTO t(id, v) VALUES (?, ?)',
+            parameters: [1, 99],
+          }),
       ]),
     ).rejects.toBeTruthy();
     expect(count()).toBe(0);

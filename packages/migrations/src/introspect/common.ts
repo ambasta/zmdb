@@ -116,8 +116,10 @@ export function booleanField(
   throw new CatalogRowError(catalog, index, field, 'a boolean', value);
 }
 
+const CATALOG_EFFECTS = Object.freeze({ operation: 'SELECT', requiresPrimary: true, returnsRows: true } as const);
+
 export function query(text: string, parameters: readonly unknown[] = []): CompiledQuery {
-  return { text, parameters };
+  return { text, parameters, effects: CATALOG_EFFECTS };
 }
 
 function globExpression(glob: string): RegExp {

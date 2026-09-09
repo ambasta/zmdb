@@ -77,6 +77,7 @@ Then `ts_rank` respects the weights. Worth doing — an unweighted index ranks a
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies driver, term; this excerpt does not repeat those declarations."}
 const rows = await driver.execute({
+  effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
   text: `SELECT id, title, ts_rank("search", websearch_to_tsquery('english', $1)) AS rank
          FROM "articles"
          WHERE "search" @@ websearch_to_tsquery('english', $1)

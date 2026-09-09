@@ -86,10 +86,9 @@ too, so `{ status: { eq: 'publshed' } }` is a compile error rather than a query 
 There are no JSON path operators in the builder. Filtering on `address->>'city'` needs raw SQL:
 
 ```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
-const q = {
-  text: `SELECT * FROM "users" WHERE "address"->>'city' = $1`,
-  parameters: ['Berlin'],
-};
+import type { CompiledQuery } from '@zmdb/sql';
+
+const q: CompiledQuery = { effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true }, text: `SELECT * FROM "users" WHERE "address"->>'city' = $1`, parameters: ['Berlin'] };
 const rows = await driver.execute(q);
 ```
 

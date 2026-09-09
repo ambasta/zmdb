@@ -75,9 +75,9 @@ await up(connection, migrations, { onWarning: console.warn });
 const tables = ALL_TABLES.map(s => `\`${s.table}\``); // the array you keep — see below
 
 beforeEach(async () => {
-  await driver.execute({ text: 'SET FOREIGN_KEY_CHECKS = 0', parameters: [] });
-  for (const t of tables) await driver.execute({ text: `TRUNCATE TABLE ${t}`, parameters: [] });
-  await driver.execute({ text: 'SET FOREIGN_KEY_CHECKS = 1', parameters: [] });
+  await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: 'SET FOREIGN_KEY_CHECKS = 0', parameters: [] });
+  for (const t of tables) await driver.execute({ effects: { operation: 'DDL', requiresPrimary: true, returnsRows: false }, text: `TRUNCATE TABLE ${t}`, parameters: [] });
+  await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: 'SET FOREIGN_KEY_CHECKS = 1', parameters: [] });
 });
 ```
 

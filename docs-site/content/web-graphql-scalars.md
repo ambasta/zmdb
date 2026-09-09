@@ -80,7 +80,7 @@ const DateTime = new GraphQLScalarType({
   parseLiteral: (ast, variables) => {
     if (ast.kind === Kind.VARIABLE) {
       const value = variables?.[ast.name.value];
-      if (value === undefined) throw new TypeError(`DateTime variable $${ast.name.value} was not provided`);
+      if (value === undefined) throw new TypeError(`DateTime variable ${ast.name.value} was not provided`);
       return parseDateTime(value);
     }
     if (ast.kind !== Kind.STRING) throw new TypeError(`DateTime cannot be a ${ast.kind}`);
@@ -121,12 +121,12 @@ const settings = assert<{ theme: 'light' | 'dark'; notifications: boolean }>(arg
 
 A scalar validates a wire format. Your business rules belong on the column, where every write path enforces them regardless of which surface the request came in through:
 
-```ts
+````ts
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'varchar'> & Length<320> & Pattern<'^\\S+@\\S+$'>;
+  email: string & Sql<'varchar'> & Length<320> & Pattern<'^\\S+@\\S+```>;
 }
-```
+````
 
 An email scalar plus a column rule is the rule written twice. Put it on the column, and REST, a CLI backfill and whatever GraphQL server you run in front all get it.
 
