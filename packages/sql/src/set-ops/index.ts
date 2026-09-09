@@ -1,7 +1,6 @@
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
 import type { DialectTarget } from '../dialects/index.js';
 import type { CompiledQuery } from '../index.js';
-import { createCompiledQuery } from '../internals.js';
 import { renumberPlaceholders } from '../quoting.js';
 
 export type SetOp = 'union' | 'unionAll' | 'intersect' | 'except';
@@ -31,7 +30,7 @@ export function setOperation(op: SetOp, queries: readonly CompiledQuery[], diale
     return text;
   });
   const text = fragments.join(` ${SET_KEYWORD[op]} `);
-  return createCompiledQuery(text, params);
+  return Object.freeze({ text, parameters: Object.freeze(params) });
 }
 
 // ---- Batch (§2) ----
