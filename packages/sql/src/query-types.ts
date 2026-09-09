@@ -18,7 +18,7 @@ import type {
   SpatialPredicate,
   VectorColumnOf,
 } from './extensions/index.js';
-import type { Direction, Operator, TrustedTable } from './index.js';
+import type { Direction, Operator, TrustedTable, UnsafeOperator } from './index.js';
 
 export type TableName<T extends DeclaredTable> = T extends Table<infer Name> ? Name : never;
 type Key<Row> = Extract<keyof Row, string>;
@@ -36,17 +36,21 @@ type SelectedRow<Row, Selected, Computed> =
     : Simplify<(Selected extends undefined ? (keyof Computed extends never ? Row : {}) : Selected) & Computed>;
 
 type ScalarSubquery<V> = { compile(): CompiledQuery; readonly _type?: Readonly<Record<string, Primitive<V>>> };
-type Operand<V, Op extends string> =
-  Lowercase<Op> extends 'in' | 'not in' | 'nin'
-    ? readonly V[] | ScalarSubquery<V>
-    : Lowercase<Op> extends 'is null' | 'is not null'
-      ? null | undefined
-      : Lowercase<Op> extends 'like' | 'ilike'
-        ? NonNullable<V> extends string
-          ? V | ScalarSubquery<V>
-          : never
-        : V | ScalarSubquery<V>;
-type WhereOperand<Row, K extends Key<Row>, Op extends string> = Wide<Row> extends true ? unknown : Operand<Row[K], Op>;
+type Operand<V, Op> =
+  Op extends UnsafeOperator
+    ? unknown
+    : Op extends string
+      ? Lowercase<Op> extends 'in' | 'not in' | 'nin'
+        ? readonly V[] | ScalarSubquery<V>
+        : Lowercase<Op> extends 'is null' | 'is not null'
+          ? null | undefined
+          : Lowercase<Op> extends 'like' | 'ilike'
+            ? NonNullable<V> extends string
+              ? V | ScalarSubquery<V>
+              : never
+            : V | ScalarSubquery<V>
+      : V | ScalarSubquery<V>;
+type WhereOperand<Row, K extends Key<Row>, Op> = Wide<Row> extends true ? unknown : Operand<Row[K], Op>;
 
 type Comparison<Row> = {
   [K in Key<Row>]: {
@@ -180,15 +184,19 @@ export interface SelectBuilder<
     columns: Items & ValidSelection<Scope, Items, Computed>,
   ): SelectBuilder<Root, Scope, Aliases, Items extends readonly [] ? undefined : Projection<Scope, Items>, Computed>;
   where(predicate: SpatialPredicate<Wide<Scope> extends true ? string : GeometryColumnOf<Scope>>): this;
-  where<K extends Key<Scope>, Op extends Operator>(column: K, op: Op, value: WhereOperand<Scope, NoInfer<K>, Op>): this;
+  where<K extends Key<Scope>, Op extends Operator | UnsafeOperator>(
+    column: K,
+    op: Op,
+    value: WhereOperand<Scope, NoInfer<K>, Op>,
+  ): this;
   andWhere(predicate: SpatialPredicate<Wide<Scope> extends true ? string : GeometryColumnOf<Scope>>): this;
-  andWhere<K extends Key<Scope>, Op extends Operator>(
+  andWhere<K extends Key<Scope>, Op extends Operator | UnsafeOperator>(
     column: K,
     op: Op,
     value: WhereOperand<Scope, NoInfer<K>, Op>,
   ): this;
   orWhere(predicate: SpatialPredicate<Wide<Scope> extends true ? string : GeometryColumnOf<Scope>>): this;
-  orWhere<K extends Key<Scope>, Op extends Operator>(
+  orWhere<K extends Key<Scope>, Op extends Operator | UnsafeOperator>(
     column: K,
     op: Op,
     value: WhereOperand<Scope, NoInfer<K>, Op>,
@@ -247,7 +255,7 @@ export interface SelectBuilder<
     alias: Wide<Scope> extends true ? Alias : FreshAlias<Alias, Selected, Computed>,
   ): SelectBuilder<Root, Scope, Aliases, Selected, Merge<Computed, Record<Alias, unknown>>>;
   groupBy(...columns: Key<Scope>[]): this;
-  having<K extends Key<Merge<Scope, Computed & SelectionOrEmpty<Selected>>>, Op extends Operator>(
+  having<K extends Key<Merge<Scope, Computed & SelectionOrEmpty<Selected>>>, Op extends Operator | UnsafeOperator>(
     column: K,
     op: Op,
     value: WhereOperand<Merge<Scope, Computed & SelectionOrEmpty<Selected>>, NoInfer<K>, Op>,

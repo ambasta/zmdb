@@ -40,19 +40,6 @@ import {
 } from '@zmdb/schema/ir';
 import { type Sql } from '@zmdb/schema/tags';
 import {
-  trustedTable,
-  type AliasedColumn,
-  type ColumnExpr,
-  type ComparisonPredicate,
-  type CompiledQuery,
-  type DialectTarget,
-  type Operator,
-  type Predicate,
-  type SelectBuilder,
-  type SetValue,
-  type SqlDialect,
-  type UnsafeOperator,
-} from '@zmdb/sql';
   chunkArray,
   createQueryCompiler,
   dialectCapabilities,
@@ -61,9 +48,21 @@ import {
   inc,
   proposed,
   sanitizeKeys,
+  trustedTable,
   unsafeOperator,
+  type AliasedColumn,
+  type ColumnExpr,
+  type ComparisonPredicate,
+  type CompiledQuery,
+  type DialectTarget,
   type JoinCondition,
+  type Operator,
+  type Predicate,
+  type SelectBuilder,
+  type SetValue,
+  type SqlDialect,
   type TrustedTable,
+  type UnsafeOperator,
 } from '@zmdb/sql';
 import { type RoutineDef } from '@zmdb/sql/schema-objects';
 // @zmdb/orm — the repository layer: reads (#26), writes (#27), delete +
