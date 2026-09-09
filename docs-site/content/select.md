@@ -3,25 +3,13 @@ zmdb's query builder is **SQL-first**: it maps directly to SQL rather than hidin
 
 The examples below assume this schema:
 
-```ts {"mode":"compile","id":"example-001"}
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
-
-export interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'>;
-  role: 'admin' | 'user';
-  createdAt: Date & Sql<'timestamp'>;
-}
-```
+<!-- snippet: select.ts#snippet-1 -->
 
 ## Basic select
 
 Select every column from a table:
 
-```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-const q = qc.selectFrom('users').compile();
-// q.text, q.parameters — pass to your driver
-```
+<!-- snippet: select.ts#snippet-2 -->
 
 ```sql
 SELECT * FROM "users"
@@ -33,9 +21,7 @@ Through a repository you usually call `findAll()` / `findById()` instead, which 
 
 Pass the columns you want. Combined with the DTO `project`/`select` helpers this also **narrows the result type** to the chosen columns.
 
-```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.selectFrom('users').select(['id', 'email']).compile();
-```
+<!-- snippet: select.ts#snippet-3 -->
 
 ```sql
 SELECT "id", "email" FROM "users"
@@ -48,9 +34,7 @@ SELECT "id", "email" FROM "users"
 
 `where(column, operator, value)` adds a predicate; chained `where`/`andWhere` are ANDed and `orWhere` is ORed. Values are always parameterized.
 
-```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.selectFrom('users').where('role', '=', 'admin').andWhere('email', 'like', '%@corp.com').compile();
-```
+<!-- snippet: select.ts#snippet-4 -->
 
 ```sql
 SELECT * FROM "users" WHERE "role" = $1 AND "email" LIKE $2
@@ -61,9 +45,7 @@ For a typed, schema-derived filter object (operator sets, AND/OR groups), use [`
 
 ## Ordering
 
-```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.selectFrom('users').orderBy('createdAt', 'desc').orderBy('id', 'asc').compile();
-```
+<!-- snippet: select.ts#snippet-5 -->
 
 ```sql
 SELECT * FROM "users" ORDER BY "createdAt" DESC, "id" ASC
@@ -71,9 +53,7 @@ SELECT * FROM "users" ORDER BY "createdAt" DESC, "id" ASC
 
 ## Limit & offset
 
-```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.selectFrom('users').orderBy('id', 'asc').limit(20).offset(40).compile();
-```
+<!-- snippet: select.ts#snippet-6 -->
 
 ```sql
 SELECT * FROM "users" ORDER BY "id" ASC LIMIT 20 OFFSET 40
@@ -92,12 +72,7 @@ The same builder emits dialect-correct SQL. Identifiers and placeholders differ:
 | sqlite   | `"col"`         | `?`           |
 | mssql    | `[col]`         | `@p1, @p2, …` |
 
-```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies createQueryCompiler; this excerpt does not repeat those declarations."}
-import { mysql } from '@zmdb/mysql';
-
-createQueryCompiler(mysql).selectFrom('users').where('id', '=', 1).compile();
-// text: SELECT * FROM `users` WHERE `id` = ?   parameters: [1]
-```
+<!-- snippet: select.ts#snippet-7 -->
 
 SQL Server pagination uses `OFFSET … ROWS FETCH NEXT … ROWS ONLY` and requires an explicit `.orderBy(...)`; an unordered paginated query is refused.
 

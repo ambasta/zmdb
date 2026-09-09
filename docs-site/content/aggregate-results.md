@@ -5,31 +5,13 @@ aggregation specification.
 
 Use `AggregateSpec<S>` to declare what you want to compute:
 
-```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Order; this excerpt does not repeat those declarations."}
-import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
-import { type AggregateResult, type AggregateSpec } from '@zmdb/schema/dto';
-
-const spec: AggregateSpec<Order> = {
-  groupBy: ['status'],
-  computed: {
-    orderCount: { fn: 'count' },
-    totalRevenue: { fn: 'sum', column: 'totalPrice' },
-    avgPrice: { fn: 'avg', column: 'totalPrice' },
-    minOrder: { fn: 'min', column: 'totalPrice' },
-    maxOrder: { fn: 'max', column: 'totalPrice' },
-  },
-};
-```
+<!-- snippet: aggregate-results.ts#snippet-1 -->
 
 ## Running the Aggregate
 
 Pass a builder function to `aggregate()` — you compose exactly what you need.
 
-```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ordersRepo, spec; this excerpt does not repeat those declarations."}
-const results = await ordersRepo.aggregate(spec, agg =>
-  agg.groupBy('status').count('orderCount').sum('totalRevenue', 'totalPrice').avg('avgPrice', 'totalPrice').min('minOrder', 'totalPrice').max('maxOrder', 'totalPrice').compile(),
-);
-```
+<!-- snippet: aggregate-results.ts#snippet-2 -->
 
 **SQL emitted:**
 
@@ -48,17 +30,7 @@ GROUP BY "status"
 
 The result type is inferred from the spec:
 
-```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AggregateResult, Order, spec; this excerpt does not repeat those declarations."}
-type OrderAgg = AggregateResult<Order, typeof spec>;
-// {
-//   status: 'pending' | 'shipped' | 'delivered';
-//   orderCount: number;
-//   totalRevenue: number | null;
-//   avgPrice: number | null;
-//   minOrder: number | null;
-//   maxOrder: number | null;
-// }
-```
+<!-- snippet: aggregate-results.ts#snippet-3 -->
 
 > [!IMPORTANT] `sum` and `avg` return `number | null` (NULL if no rows in group). `min` and `max` return the column's type or `null`. `count` always returns `number`.
 
@@ -66,19 +38,7 @@ type OrderAgg = AggregateResult<Order, typeof spec>;
 
 Aggregate over the entire table by omitting `groupBy`:
 
-```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies ordersRepo; this excerpt does not repeat those declarations."}
-const totals = await ordersRepo.aggregate(
-  {
-    computed: {
-      totalOrders: { fn: 'count' },
-      revenue: { fn: 'sum', column: 'totalPrice' },
-    },
-  },
-  agg => agg.count('totalOrders').sum('revenue', 'totalPrice').compile(),
-);
-
-// totals[0]: { totalOrders: number, revenue: number | null }
-```
+<!-- snippet: aggregate-results.ts#snippet-4 -->
 
 **SQL emitted:**
 
@@ -90,19 +50,7 @@ SELECT COUNT(*) AS "totalOrders", SUM("totalPrice") AS "revenue" FROM "orders"
 
 Filter rows before aggregating by passing a pre-filtered query builder:
 
-```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ordersRepo, qb; this excerpt does not repeat those declarations."}
-const recentStats = await ordersRepo.aggregate(
-  {
-    computed: { count: { fn: 'count' } },
-  },
-  agg => {
-    // Filter first
-    const q = qb.selectFrom('orders').where('createdAt', '>', '2024-01-01');
-    // Then aggregate
-    return agg.count('count').compile();
-  },
-);
-```
+<!-- snippet: aggregate-results.ts#snippet-5 -->
 
 > [!TIP] Push filters before aggregation for performance — the database evaluates the WHERE clause before the GROUP BY.
 

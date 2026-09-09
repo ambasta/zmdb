@@ -5,19 +5,7 @@ map; many-to-many population is unsupported.
 
 Declare the relation on the type — see [Relations](./relations.html) — then ask for it by key or dotted path. The result is a parent **typed** with its requested relations.
 
-```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseRepository, OneToMany, Order, PrimaryKey, Serial, Sql, Table, UserSchema, users; this excerpt does not repeat those declarations."}
-interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  orders?: Order[] & OneToMany<'orders', 'userId'>;
-}
-
-class UserRepository extends BaseRepository<User> {
-  static override readonly schema = UserSchema;
-}
-
-const user = await users.findById(1, { populate: ['orders'] });
-// user.orders: readonly Entity<Order>[]   — to-one relations come back as Entity<Child> | null
-```
+<!-- snippet: populate-results.ts#snippet-1 -->
 
 `populate` checks every segment against the declared relations, so `['ordres']` does not compile. Existing repository read options also accept paths such as `['orders.items']`. Register the target
 schemas in `RepositoryOptions.schemas` to traverse those paths. The relation metadata supplies the target table, foreign key, and cardinality.
@@ -36,15 +24,7 @@ SELECT * FROM "orders" WHERE "userId" = $1   -- batched across all parents
 
 Use `findJoined` to fetch a parent with its related entity via JOIN.
 
-```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ordersRepo; this excerpt does not repeat those declarations."}
-// Given `user?: User & ManyToOne<'users', 'userId'>` on Order
-const orders = await ordersRepo.findJoined({ target: 'users', leftCol: 'userId', rightCol: 'id', kind: 'left' }, { col: 'status', op: '=', value: 'pending' });
-
-// Each order now has user data attached (flat object)
-for (const order of orders) {
-  console.log(order.userId, order.user?.email);
-}
-```
+<!-- snippet: populate-results.ts#snippet-2 -->
 
 **SQL emitted:**
 
@@ -58,12 +38,7 @@ WHERE "orders"."status" = $1
 
 Use `findAll({ populate: ['orders'] })` to batch-load children for all parents.
 
-```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies usersRepo; this excerpt does not repeat those declarations."}
-// Find all users, then batch-load their orders
-const usersWithOrders = await usersRepo.findAll({ populate: ['orders'] });
-
-// usersWithOrders[0].orders = all orders where userId = user.id
-```
+<!-- snippet: populate-results.ts#snippet-3 -->
 
 **SQL for a nonempty result that fits one relation batch:**
 
@@ -94,23 +69,13 @@ set, and options object identity; this method retains no result cache. See [Data
 
 Pass `populate` in the GetOptions to type-narrow the result:
 
-```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
-import { type GetDTO } from '@zmdb/schema/dto';
-import { type Populated } from '@zmdb/schema/derive';
-
-const result = await users.findById(1, { populate: ['orders'] });
-// result: Populated<User, 'orders'> | undefined
-// result.orders: readonly Entity<Order>[]
-```
+<!-- snippet: populate-results.ts#snippet-4 -->
 
 ## No Lazy Loading
 
 Relations appear only when requested by a `populate` read option or an explicit `populate()` call. Property access never loads them:
 
-```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
-const user = await users.findById(1);
-// 'orders' in user === false — absent, not `undefined`, and not a key of the result type
-```
+<!-- snippet: populate-results.ts#snippet-5 -->
 
 > [!TIP] Always consider which relations you need. Load only what's necessary to avoid unnecessary queries.
 

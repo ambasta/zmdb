@@ -3,6 +3,7 @@
 // The application supplies the session lookup, allowed browser origins and
 // signing secret. Tokens are stateless: this module keeps no session or token
 // store, and two instances using the same secret can verify each other's tokens.
+// Base64url encoding uses Uint8Array.prototype.toBase64 or fallback.
 
 import { ChainError, type AnyCtx, type Guard } from '../middleware/index.js';
 
@@ -48,8 +49,37 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const B64_LOOKUP = new Uint8Array(256);
+for (let i = 0; i < B64_CHARS.length; i += 1) {
+  B64_LOOKUP[B64_CHARS.charCodeAt(i)] = i;
+}
+
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  let res = '';
+  const len = value.length;
+  let i = 0;
+  for (; i < len - 2; i += 3) {
+    const b0 = value[i] ?? 0;
+    const b1 = value[i + 1] ?? 0;
+    const b2 = value[i + 2] ?? 0;
+    res += B64_CHARS[b0 >> 2];
+    res += B64_CHARS[((b0 & 3) << 4) | (b1 >> 4)];
+    res += B64_CHARS[((b1 & 15) << 2) | (b2 >> 6)];
+    res += B64_CHARS[b2 & 63];
+  }
+  if (i < len) {
+    const b0 = value[i] ?? 0;
+    res += B64_CHARS[b0 >> 2];
+    if (i + 1 < len) {
+      const b1 = value[i + 1] ?? 0;
+      res += B64_CHARS[((b0 & 3) << 4) | (b1 >> 4)];
+      res += B64_CHARS[(b1 & 15) << 2];
+    } else {
+      res += B64_CHARS[(b0 & 3) << 4];
+    }
+  }
+  return res;
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
@@ -57,8 +87,36 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
-    return encodeBase64Url(decoded) === value ? decoded : undefined;
+    const len = value.length;
+    let placeHolders = 0;
+    if (len % 4 === 2) placeHolders = 2;
+    else if (len % 4 === 3) placeHolders = 1;
+
+    const outLen = Math.floor((len * 3) / 4);
+    const out = new Uint8Array(outLen);
+    let cur = 0;
+    let i = 0;
+    for (; i < len - (len % 4); i += 4) {
+      const e0 = B64_LOOKUP[value.charCodeAt(i)] ?? 0;
+      const e1 = B64_LOOKUP[value.charCodeAt(i + 1)] ?? 0;
+      const e2 = B64_LOOKUP[value.charCodeAt(i + 2)] ?? 0;
+      const e3 = B64_LOOKUP[value.charCodeAt(i + 3)] ?? 0;
+      out[cur++] = (e0 << 2) | (e1 >> 4);
+      out[cur++] = ((e1 & 15) << 4) | (e2 >> 2);
+      out[cur++] = ((e2 & 3) << 6) | e3;
+    }
+    if (placeHolders === 2) {
+      const e0 = B64_LOOKUP[value.charCodeAt(i)] ?? 0;
+      const e1 = B64_LOOKUP[value.charCodeAt(i + 1)] ?? 0;
+      out[cur++] = (e0 << 2) | (e1 >> 4);
+    } else if (placeHolders === 1) {
+      const e0 = B64_LOOKUP[value.charCodeAt(i)] ?? 0;
+      const e1 = B64_LOOKUP[value.charCodeAt(i + 1)] ?? 0;
+      const e2 = B64_LOOKUP[value.charCodeAt(i + 2)] ?? 0;
+      out[cur++] = (e0 << 2) | (e1 >> 4);
+      out[cur++] = ((e1 & 15) << 4) | (e2 >> 2);
+    }
+    return encodeBase64Url(out) === value ? out : undefined;
   } catch {
     return undefined;
   }

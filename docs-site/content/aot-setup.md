@@ -1,17 +1,13 @@
-AOT (ahead-of-time) validation compiles TypeScript types into JavaScript checks at build time. `@zmdb/compiler` owns reflection and emission; generated application code uses the published runtime
-owners, including `@zmdb/validator`, without loading the compiler.
+AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime parsing overhead. `@zmdb/compiler` transforms the full and depth-limited `is`/`assert`/`validate` families into
+direct JavaScript checks — no Zod-style runtime parsers, no reflection.
 
 ## Why AOT?
 
 Runtime-schema validators carry schema machinery into the application and execute it on every call. AOT inlining compiles checks from the TypeScript type once, at build time:
 
-```ts {"mode":"illustrative","id":"example-001","reason":"This before-and-after comparison shows alternative authored and generated declarations, not one module."}
-// Authored code
-const ok = is<{ email: string }>(input);
+<!-- snippet: aot-setup.ts#snippet-1 -->
 
-// Compiled output (no runtime parser)
-const ok = typeof input === 'object' && input !== null && typeof input.email === 'string';
-```
+> [!IMPORTANT] AOT validation achieves 5-24× speedup over runtime validators on assert operations. See [benchmarks](./benchmarks.html) for real numbers.
 
 ## Build Plugin
 
@@ -21,17 +17,9 @@ Install the compiler and its required TypeScript peer in the build environment:
 yarn add --dev @zmdb/compiler@1.0.0-beta.2 typescript@^7.0.2
 ```
 
-The configured root plugin is available for Vite, esbuild, Webpack, and Rollup:
+The AOT transformer is available as an unplugin for Vite, esbuild, Webpack, and Rollup:
 
-```ts {"mode":"compile","id":"example-002"}
-// vite.config.ts
-import { defineConfig } from 'vite';
-import { zmdbAot } from '@zmdb/compiler';
-
-export default defineConfig({
-  plugins: [await zmdbAot()],
-});
-```
+<!-- snippet: aot-setup.ts#snippet-2 -->
 
 The async compiler root entry discovers `zmdb.config.ts`, including its project and naming strategy. `@zmdb/core/compiler` exposes the same configured factory for product consumers. Tooling that owns
 config loading can use the synchronous `@zmdb/compiler/unplugin` entry and pass `project` and `naming` explicitly. [Tooling Boundaries](./tooling-boundaries.html) explains the package and runtime
@@ -50,9 +38,9 @@ const { withZmdb } = require('@zmdb/compiler/metro');
 module.exports = withZmdb(getDefaultConfig(__dirname));
 ```
 
-Install the selected peers `metro@^0.87.0` and `metro-babel-transformer@^0.87.0`. On Node.js 26, the CommonJS configuration loads this explicit compiler subpath synchronously. `withZmdb` keeps Expo's
-or the application's existing Babel transformer and delegates to it after the shared zmdb transform. See [React Native Client](./client-react-native.html) for generated-client lifecycle and
-[React Native & Expo](./connect-react-native.html) for the bare-RN form, embedded SQLite boundary, worker-memory tuning, the cache key, and the one dev-server case that needs a reset.
+The supported range is Metro `>=0.87.0 <0.88.0`. `withZmdb` keeps Expo's or the application's existing Babel transformer and delegates to it after the shared zmdb transform. See
+[React Native Client](./client-react-native.html) for generated-client lifecycle and [React Native & Expo](./connect-react-native.html) for the bare-RN form, embedded SQLite boundary, worker-memory
+tuning, the cache key, and the one dev-server case that needs a reset.
 
 ## Direct compiler integration
 
@@ -116,41 +104,23 @@ not re-export either package.
 
 **Before:**
 
-```ts {"mode":"illustrative","id":"example-005","reason":"This authored-call excerpt depends on the surrounding input value and validator import."}
-const ok = is<{ n: number; s: string }>(input);
-```
+<!-- snippet: aot-setup.ts#snippet-3 -->
 
 **After:**
 
-```ts {"mode":"illustrative","id":"example-006","reason":"This generated expression depends on the input value declared in the surrounding application."}
-const ok = typeof input === 'object' && input !== null && typeof input.n === 'number' && typeof input.s === 'string';
-```
+<!-- snippet: aot-setup.ts#snippet-4 -->
 
 **assert with throw:**
 
-```ts {"mode":"illustrative","id":"example-007","reason":"This authored-call excerpt depends on the surrounding input value and validator import."}
-const v = assert<{ s: string }>(input);
-```
+<!-- snippet: aot-setup.ts#snippet-5 -->
 
-```ts {"mode":"illustrative","id":"example-008","reason":"This generated-code outline omits the complete AssertError arguments and surrounding input declaration."}
-const v = ((() => {
-  if (!(typeof input === "object" && input !== null && typeof input.s === "string"))
-    throw new AssertError("assertion failed", ...);
-  return input;
-})());
-```
+<!-- snippet: aot-setup.ts#snippet-6 -->
 
 ## Nested Objects
 
 The transformer recursively inlines nested object checks:
 
-```ts {"mode":"illustrative","id":"example-009","reason":"This before-and-after comparison shows alternative declarations and omits the surrounding input value."}
-// Input
-const ok = is<{ user: { email: string } }>(input);
-
-// Output
-const ok = typeof input === 'object' && input !== null && typeof input.user === 'object' && input.user !== null && typeof input.user.email === 'string';
-```
+<!-- snippet: aot-setup.ts#snippet-7 -->
 
 > [!TIP] Deeply nested objects emit longer inline expressions. For extreme depth (10+ levels), consider flattening your types.
 
@@ -162,6 +132,8 @@ The plugin skips:
 - Declaration files (`.d.ts`)
 - Non-TypeScript files
 
+<!-- snippet: aot-setup.ts#snippet-8 -->
+
 ## Runtime witness fallback
 
 An untransformed generic call has no runtime access to its type argument. `is<User>(payload)`, `assert<User>(payload)`, `validate<User>(payload)` and their shallow variants therefore throw
@@ -169,11 +141,7 @@ An untransformed generic call has no runtime access to its type argument. `is<Us
 
 The utilities accept an explicit `TypeIR` witness for tests and generated fallback modules:
 
-```ts {"mode":"illustrative","id":"example-010","reason":"The application supplies the payload and reflected type IR consumed by this runtime call."}
-import { is } from '@zmdb/validator';
-
-const ok = is(payload, userTypeIr);
-```
+<!-- snippet: aot-setup.ts#snippet-9 -->
 
 The generic `schemaOf<T>()`, `toJsonSchema<T>()` and protobuf calls are compile-time-only surfaces. `toJsonSchema(schema, variant)` remains available when the caller already has a runtime schema. Use
 the build plugin or [project compiler](./cli-codegen.html) for the generic forms.

@@ -1,0 +1,19 @@
+{
+  "name": "@zmdb/docs-site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@types/node": "^22.0.0",
+    "@zmdb/aot-validator": "workspace:*",
+    "@zmdb/query-compiler": "workspace:*",
+    "@zmdb/repository": "workspace:*",
+    "@zmdb/schema-core": "workspace:*",
+    "@zmdb/sqlite": "workspace:*",
+    "zmdb": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.2"
+  }
+}

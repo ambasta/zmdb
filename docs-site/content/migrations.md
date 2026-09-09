@@ -1,5 +1,4 @@
-`@zmdb/migrations` owns schema snapshots, diffs, DDL plans and ledger execution. Snapshots describe the schemas supplied by the caller; live database comparison uses the selected database's
-introspector. The library does not discover a TypeScript project or depend on the compiler or CLI.
+Migrations manage schema evolution over time. zmdb provides snapshot and diff utilities that compare your in-code schema definitions against the live database, generating the DDL needed to align them.
 
 ## The packaged workflow
 
@@ -26,40 +25,20 @@ Install the library and the database package that owns the dialect:
 yarn add @zmdb/migrations@1.0.0-beta.2 @zmdb/sqlite@1.0.0-beta.2
 ```
 
-This complete example builds snapshots and a plan from schema data without connecting to a database:
+## Taking a Snapshot
 
-```ts {"mode":"compile","id":"migration-snapshot-plan"}
-import { diff, planMigration, snapshot } from '@zmdb/migrations';
-import { sqlite, sqliteMigrations } from '@zmdb/sqlite';
+Capture the current state of your schemas:
 
-const previous = snapshot([]);
-const current = snapshot([
-  {
-    table: 'users',
-    primaryKey: ['id'],
-    columns: {
-      id: { type: 'integer', flags: { nullable: false, primaryKey: true } },
-      email: { type: 'text', flags: { nullable: false } },
-    },
-  },
-]);
+<!-- snippet: migrations.ts#snippet-1 -->
 
-const changes = diff(previous, current);
-const plan = planMigration(previous, current, {
-  dialect: sqlite,
-  emitUp: sqliteMigrations.emitUp,
-  emitDown: sqliteMigrations.emitDown,
-});
+The snapshot captures table names, column types, nullability, and each table's ordered primary key.
 
-console.log(changes.map(operation => operation.kind)); // ['create_table']
-console.log(plan.up); // SQL to create users
-console.log(plan.down); // SQL to drop users
-```
+## Computing the Diff
 
 `snapshot` also accepts the structural data in generated schemas. It captures table names, column types, nullability and ordered primary keys. `diff` compares two snapshots; `planMigration` uses the
 selected dialect and its migration emitters to order SQL. The product's `@zmdb/core/migrations` entry offers the curated lifecycle APIs, while the direct package provides the complete surface.
 
-## Change operations
+<!-- snippet: migrations.ts#snippet-2 -->
 
 Change operations include:
 
@@ -71,17 +50,13 @@ Change operations include:
 - `alter_column_type` — type change
 - `alter_primary_key` — ordered primary-key change; explicitly refused on SQLite and SQL Server (the latter needs the existing constraint name)
 
-For one operation, `emitUp(operation, dialect)` and `emitDown(operation, dialect)` accept the selected dialect object or its migration interface. Dialect names as strings are not the emitter API.
+## Generating DDL
+
+Convert change operations to SQL for your dialect:
+
+<!-- snippet: migrations.ts#snippet-3 -->
 
 > [!NOTE] Column renames are not detected — they're treated as drop + add. Track renames manually or use a naming convention.
-
-## Execution and embedding
-
-`@zmdb/migrations/runner` exports `up`, `down`, `status` and `driverMigrationConnection` for a caller-owned connection. `@zmdb/migrations/introspect` reads a live catalog through the selected dialect;
-`@zmdb/migrations/declarations` turns a snapshot into TypeScript declarations.
-
-For web or mobile SQLite, generate migration data with `zmdb embed` and import `runEmbedded` from `@zmdb/migrations/embedded`. That entry accepts precomputed records and a connection with `exec`,
-`run` and `rows`; it does not import a filesystem API, a driver or compiler tooling. See [Web and Mobile Migrations](./migrations-web-mobile.html) for the connection boundary.
 
 ## Version Table
 
@@ -97,10 +72,10 @@ CREATE TABLE IF NOT EXISTS _zmdb_migrations (
 ```
 
 PostgreSQL binds `applied_at` as a JavaScript `Date`, preserving an instant rather than a local wall clock. SQLite uses `INTEGER` for both numeric columns because its integer storage is already
-64-bit; other database packages own their corresponding ledger representation. New rows store SHA-256 over the exact `up` section.
+64-bit; other database packages own their corresponding ledger representation. A null checksum identifies history written by an older runner; new rows store SHA-256 over the exact `up` section.
 
 > [!TIP] Always store migrations in version control. Pair with the CLI runner for local development.
 
 ---
 
-See also: [Migrations CLI](./migrations-cli.html) · [Tooling Boundaries](./tooling-boundaries.html) · [Schema Declaration](./schema-declaration.html)
+See also: [Migrations CLI](./migrations-cli.html) · [Query Compiler](./select.html) · [Schema Core](./schema-declaration.html)

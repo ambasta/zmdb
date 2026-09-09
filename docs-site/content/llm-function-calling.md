@@ -6,20 +6,7 @@ inlined.
 
 ## Generate the provider shape directly
 
-```ts {"mode":"compile","id":"example-001"}
-import { toolFor } from '@zmdb/ai';
-import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
-
-interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'>;
-  role: ('admin' | 'user') & HasDefault;
-}
-
-export const createUser = toolFor<User>('openai-strict', 'create_user', {
-  description: 'Create a user',
-});
-```
+<!-- snippet: llm-function-calling.ts#snippet-1 -->
 
 The normal [AOT setup](./aot-setup.html) replaces that call with a frozen document. `Serial` fields are absent from the create shape, `Sensitive` fields are omitted, and validation tags remain JSON
 Schema constraints.
@@ -40,16 +27,7 @@ Read [Provider Schema Strategies](./llm-strategy.html) before choosing a target.
 
 `toolFromSchema` remains the right API when a framework or protocol wants a plain JSON Schema tool record:
 
-```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
-import { schemaOf } from '@zmdb/schema';
-import { toolFromSchema, type ToolSpec } from '@zmdb/ai';
-
-const users = schemaOf<User>();
-
-const generic: ToolSpec = toolFromSchema('create_user', users, {
-  description: 'Create a user',
-});
-```
+<!-- snippet: llm-function-calling.ts#snippet-2 -->
 
 It is the schema-value form of the `json-schema` target. It does not apply OpenAI strict rewrites, Anthropic's `input_schema` framing or Gemini's nullable spelling. The LangChain and AI SDK adapters
 deliberately start from this provider-neutral document because those frameworks perform their own provider translation.
@@ -58,13 +36,7 @@ deliberately start from this provider-neutral document because those frameworks 
 
 A model response is still untrusted. Validate the returned arguments before a repository or handler sees them:
 
-```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, toolCall, userRepo; this excerpt does not repeat those declarations."}
-import { assert } from '@zmdb/validator';
-import { type CreateDTO } from '@zmdb/schema';
-
-const dto = assert<CreateDTO<User>>(toolCall.input);
-await userRepo.create(dto);
-```
+<!-- snippet: llm-function-calling.ts#snippet-3 -->
 
 This is especially important for an optional field widened to nullable by the OpenAI strict target, or an untyped `json` column that a provider-neutral document represents as `{}`.
 
@@ -72,25 +44,11 @@ This is especially important for an optional field widened to nullable by the Op
 
 When the API returns text rather than a structured tool call, `lenientParse` strips an outer Markdown fence and calls `JSON.parse`:
 
-````ts {"mode":"compile","id":"example-004"}
-import { lenientParse } from '@zmdb/ai';
-
-const fenced = '```json\n{"email":"alice@example.com"}\n```';
-const result = lenientParse(fenced);
-// => { success: true, data: { email: 'alice@example.com' } }
-````
+<!-- snippet: llm-function-calling.ts#snippet-4 -->
 
 It does not repair trailing commas, single quotes or prose around the JSON. Pass a coercion function to validate and decode in the same boundary:
 
-```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies CreateDTO, User, assert, lenientParse, userRepo; this excerpt does not repeat those declarations."}
-const result = lenientParse('{"email":"alice@example.com"}', value => assert<CreateDTO<User>>(value));
-
-if (!result.success) {
-  throw new Error(result.errors?.join('; ') ?? 'invalid model output');
-}
-
-await userRepo.create(result.data);
-```
+<!-- snippet: llm-function-calling.ts#snippet-5 -->
 
 `lenientParse` catches a validator exception and returns its message in `errors`. With no coercion function, `lenientParse<T>` does no validation at all: `T` is only the caller's claim, just as it is
 with `JSON.parse`.

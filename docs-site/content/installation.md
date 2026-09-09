@@ -8,10 +8,7 @@ one application; the [package reference](./package-reference.html) lists the ind
 yarn add @zmdb/core@1.0.0-beta.2
 ```
 
-```ts {"mode":"compile","id":"example-001"}
-import { defineRepository, is, schemaOf, type CreateDTO, type Entity, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/core';
-import { sqliteDriver } from '@zmdb/core/sqlite';
-```
+<!-- snippet: installation.ts#snippet-1 -->
 
 The `@zmdb/core` package re-exports the curated public API of its required workspace dependencies, with complete concerns under `@zmdb/core/schema`, `@zmdb/core/sql`, `@zmdb/core/validator`,
 `@zmdb/core/orm`, `@zmdb/core/web`, `@zmdb/core/compiler`, `@zmdb/core/migrations`, and `@zmdb/core/testing`. SQLite is included by default and exposed through `@zmdb/core/sqlite`. Each database
@@ -130,7 +127,6 @@ yarn add @zmdb/jobs
 
 # SQLite persistence or an owned memory store
 yarn add @zmdb/jobs @zmdb/jobs-sqlite
-
 # Optional PostgreSQL jobs adapter
 yarn add @zmdb/jobs @zmdb/jobs-postgres pg@^8.23.0
 
@@ -222,15 +218,7 @@ Ensure your `tsconfig.json` targets modern features:
 zmdb declares tables as **types**, and a type does not exist at runtime. The transformer is what closes that gap: it reads the declaration from the type checker and replaces each `schemaOf<T>()`,
 `assert<T>()`, `is<T>()`, `validate<T>()`, `equals<T>()`, `assertEquals<T>()`, `random<T>()` and `toJsonSchema<T>()` call with the reflected result.
 
-```ts {"mode":"compile","id":"example-002"}
-// vite.config.ts / rollup / esbuild / webpack — one factory for all
-import { zmdbAot } from '@zmdb/core/compiler';
-
-const plugin = await zmdbAot({ project: new URL('./tsconfig.json', import.meta.url).pathname });
-export default {
-  plugins: [plugin],
-};
-```
+<!-- snippet: installation.ts#snippet-2 -->
 
 `@zmdb/core/compiler` discovers `zmdb.config.ts` when `project` is omitted. If neither config nor an explicit project or session is available, the plugin cannot ask the checker what a type is, so it
 leaves every `f<T>(…)` call alone — and an untransformed `schemaOf<T>()` throws when called. A refused call site is a build error by default, not a silent fallback. See [AOT Setup](./aot-setup.html).
@@ -241,30 +229,11 @@ For a project that only needs the query compiler, there is no build step at all 
 
 The query compiler is plain runtime code, so it verifies the install without the transformer in the way:
 
-```ts {"mode":"compile","id":"example-003"}
-import { createQueryCompiler } from '@zmdb/core/sql';
-import { sqlite } from '@zmdb/core/sqlite';
-
-const q = createQueryCompiler(sqlite).selectFrom('users').select(['id']).compile();
-console.log(q.text); // SELECT "id" FROM "users"
-```
+<!-- snippet: installation.ts#snippet-3 -->
 
 Then verify the transformer is wired, which is the part that actually goes wrong:
 
-```ts {"mode":"compile","id":"example-004"}
-import { schemaOf, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/core';
-
-interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'>;
-}
-
-const userSchema = schemaOf<User>();
-console.log(userSchema.table); // 'users'
-const emailColumn = userSchema.columns.email;
-if (emailColumn === undefined) throw new Error('The generated User schema must contain email');
-console.log(emailColumn.type); // 'text'
-```
+<!-- snippet: installation.ts#snippet-4 -->
 
 If that throws instead of printing, the plugin is not running over this file.
 
@@ -277,7 +246,6 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/migrations`         | Snapshots, diffs, DDL plans, files, runners, introspection, and declaration emission           |
 | `@zmdb/validator`          | Runtime full/shallow is/assert/validate, equals/random, errors, and serialization              |
 | `@zmdb/compiler`           | TypeScript reflection, AOT emission, project compilation, build adapters, and lint rules       |
-| `@zmdb/cli`                | The single zmdb executable, project commands, scaffolding, inspection and CLI library APIs     |
 | `@zmdb/orm`                | Auto-validating CRUD, hooks, transactions, populate                                            |
 | `@zmdb/mssql`              | T-SQL compilation, migrations, structural driver, introspection, and capability refusals       |
 | `@zmdb/postgres`           | PostgreSQL compiler traits, migrations, introspection, structural `pg` driver, and cursors     |
@@ -285,8 +253,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/mysql`              | MySQL compilation, migrations, introspection, and structural mysql2 driver                     |
 | `@zmdb/app`                | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health      |
 | `@zmdb/web`                | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters        |
-| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and explicit storage-provider ports   |
-| `@zmdb/jobs-sqlite`        | SQLite persistence and owned memory stores for portable jobs                                   |
+| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and SQLite memory storage             |
 | `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adapter for caller-owned pools and clients                               |
 | `@zmdb/client`             | Dependency-free HTTP transport, cancellation, authentication, and typed errors                 |
 | `@zmdb/react`              | React context, query, mutation, and component-lifecycle cancellation                           |

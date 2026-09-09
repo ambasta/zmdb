@@ -18,6 +18,27 @@ import {
   SERVICE_VARIABLES,
 } from './verify-installed.mjs';
 
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function toBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  let res = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const t = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    res +=
+      BASE64_CHARS[(t >> 18) & 63] + BASE64_CHARS[(t >> 12) & 63] + BASE64_CHARS[(t >> 6) & 63] + BASE64_CHARS[t & 63];
+  }
+  if (i < bytes.length) {
+    const rem = bytes.length - i;
+    const t = rem === 1 ? bytes[i] << 16 : (bytes[i] << 16) | (bytes[i + 1] << 8);
+    res +=
+      BASE64_CHARS[(t >> 18) & 63] +
+      BASE64_CHARS[(t >> 12) & 63] +
+      (rem === 1 ? '==' : BASE64_CHARS[(t >> 6) & 63] + '=');
+  }
+  return res;
+}
+
 await import('../../scripts/ts-specifier-hook.mjs');
 const { withPackedBuildLock } = await import('../client-adapters/src/packed-project.js');
 
@@ -183,7 +204,7 @@ try {
   const integrities = {};
   for (const [name, record] of tarballs) {
     const bytes = await readFile(record.tarball);
-    integrities[name] = `sha512-${new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)).toBase64()}`;
+    integrities[name] = `sha512-${toBase64(new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)))}`;
     report.packages.push({ name, version: record.manifest.version, integrity: integrities[name] });
   }
   registry = await startRegistry([...tarballs.values()]);

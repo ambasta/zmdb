@@ -7,19 +7,7 @@ constraints.
 
 Use `createIndexDdl` to generate index DDL. The function accepts an `IndexDef` with the index name, table, and columns.
 
-```ts {"mode":"compile","id":"example-001"}
-import { postgres } from '@zmdb/postgres';
-import { createIndexDdl } from '@zmdb/sql/schema-objects';
-
-const indexDef = {
-  name: 'idx_users_email',
-  table: 'users',
-  columns: ['email'],
-};
-
-const ddl = createIndexDdl(indexDef, postgres);
-console.log(ddl);
-```
+<!-- snippet: indexes-constraints.ts#snippet-1 -->
 
 ```sql
 CREATE INDEX "idx_users_email" ON "users" ("email")
@@ -29,20 +17,7 @@ CREATE INDEX "idx_users_email" ON "users" ("email")
 
 Unique indexes enforce uniqueness and can serve as alternative primary keys or enforce unique constraints on non-primary columns.
 
-```ts {"mode":"compile","id":"example-002"}
-import { postgres } from '@zmdb/postgres';
-import { createIndexDdl } from '@zmdb/sql/schema-objects';
-
-const uniqueIndex = {
-  name: 'idx_users_email_unique',
-  table: 'users',
-  columns: ['email'],
-  unique: true,
-};
-
-const ddl = createIndexDdl(uniqueIndex, postgres);
-console.log(ddl);
-```
+<!-- snippet: indexes-constraints.ts#snippet-2 -->
 
 ```sql
 CREATE UNIQUE INDEX "idx_users_email_unique" ON "users" ("email")
@@ -54,19 +29,7 @@ CREATE UNIQUE INDEX "idx_users_email_unique" ON "users" ("email")
 
 For queries that filter on multiple columns, composite indexes can significantly improve performance. Column order matters — put the most selective column first.
 
-```ts {"mode":"compile","id":"example-003"}
-import { postgres } from '@zmdb/postgres';
-import { createIndexDdl } from '@zmdb/sql/schema-objects';
-
-const compositeIndex = {
-  name: 'idx_orders_tenant_status',
-  table: 'orders',
-  columns: ['tenant_id', 'status', 'created_at'],
-};
-
-const ddl = createIndexDdl(compositeIndex, postgres);
-console.log(ddl);
-```
+<!-- snippet: indexes-constraints.ts#snippet-3 -->
 
 ```sql
 CREATE INDEX "idx_orders_tenant_status" ON "orders" ("tenant_id", "status", "created_at")
@@ -76,20 +39,7 @@ CREATE INDEX "idx_orders_tenant_status" ON "orders" ("tenant_id", "status", "cre
 
 Partial indexes only include rows that match a condition, making them smaller and faster for specific query patterns.
 
-```ts {"mode":"compile","id":"example-004"}
-import { postgres } from '@zmdb/postgres';
-import { createIndexDdl } from '@zmdb/sql/schema-objects';
-
-const partialIndex = {
-  name: 'idx_orders_pending',
-  table: 'orders',
-  columns: ['id'],
-  where: "status = 'pending'",
-};
-
-const ddl = createIndexDdl(partialIndex, postgres);
-console.log(ddl);
-```
+<!-- snippet: indexes-constraints.ts#snippet-4 -->
 
 ```sql
 CREATE INDEX "idx_orders_pending" ON "orders" ("id") WHERE status = 'pending'
@@ -101,19 +51,7 @@ CREATE INDEX "idx_orders_pending" ON "orders" ("id") WHERE status = 'pending'
 
 Check constraints validate that column values meet a condition. Use `checkConstraintDdl` to generate the DDL.
 
-```ts {"mode":"compile","id":"example-005"}
-import { postgres } from '@zmdb/postgres';
-import { checkConstraintDdl } from '@zmdb/sql/schema-objects';
-
-const constraint = {
-  name: 'chk_users_age',
-  table: 'users',
-  expression: 'age >= 18',
-};
-
-const ddl = checkConstraintDdl('users', 'chk_users_age', 'age >= 18', postgres);
-console.log(ddl);
-```
+<!-- snippet: indexes-constraints.ts#snippet-5 -->
 
 ```sql
 ALTER TABLE "users" ADD CONSTRAINT "chk_users_age" CHECK (age >= 18)
@@ -123,9 +61,7 @@ ALTER TABLE "users" ADD CONSTRAINT "chk_users_age" CHECK (age >= 18)
 
 ### Positive Values
 
-```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies checkConstraintDdl; this excerpt does not repeat those declarations."}
-const positiveConstraint = checkConstraintDdl('products', 'chk_product_price', 'price > 0', 'postgres');
-```
+<!-- snippet: indexes-constraints.ts#snippet-6 -->
 
 ```sql
 ALTER TABLE "products" ADD CONSTRAINT "chk_product_price" CHECK (price > 0)
@@ -133,9 +69,7 @@ ALTER TABLE "products" ADD CONSTRAINT "chk_product_price" CHECK (price > 0)
 
 ### Enum-Like Constraints
 
-```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies checkConstraintDdl; this excerpt does not repeat those declarations."}
-const enumConstraint = checkConstraintDdl('orders', 'chk_order_status', "status IN ('pending', 'processing', 'completed', 'cancelled')", 'postgres');
-```
+<!-- snippet: indexes-constraints.ts#snippet-7 -->
 
 ```sql
 ALTER TABLE "orders" ADD CONSTRAINT "chk_order_status" CHECK (status IN ('pending', 'processing', 'completed', 'cancelled'))
@@ -143,9 +77,7 @@ ALTER TABLE "orders" ADD CONSTRAINT "chk_order_status" CHECK (status IN ('pendin
 
 ### String Length
 
-```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies checkConstraintDdl; this excerpt does not repeat those declarations."}
-const lengthConstraint = checkConstraintDdl('users', 'chk_username_length', 'char_length(username) >= 3', 'postgres');
-```
+<!-- snippet: indexes-constraints.ts#snippet-8 -->
 
 ```sql
 ALTER TABLE "users" ADD CONSTRAINT "chk_username_length" CHECK (char_length(username) >= 3)
@@ -155,20 +87,7 @@ ALTER TABLE "users" ADD CONSTRAINT "chk_username_length" CHECK (char_length(user
 
 For queries that use expressions in WHERE clauses, expression indexes can improve performance.
 
-```ts {"mode":"compile","id":"example-009"}
-import { postgres } from '@zmdb/postgres';
-import { createIndexDdl } from '@zmdb/sql/schema-objects';
-
-// Lowercase email index for case-insensitive lookups
-const expressionIndex = {
-  name: 'idx_users_email_lower',
-  table: 'users',
-  columns: [{ expr: 'lower("email")' }],
-};
-
-const ddl = createIndexDdl(expressionIndex, postgres);
-console.log(ddl);
-```
+<!-- snippet: indexes-constraints.ts#snippet-9 -->
 
 ```sql
 CREATE INDEX "idx_users_email_lower" ON "users" (lower("email"))
@@ -181,10 +100,7 @@ with an `UnsupportedFeatureError`; use a generated column there.
 
 Include drop statements in your migrations when removing indexes or constraints.
 
-```ts {"mode":"compile","id":"example-010"}
-const dropIndexDdl = `DROP INDEX IF EXISTS "idx_users_email"`;
-const dropConstraintDdl = `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "chk_users_age"`;
-```
+<!-- snippet: indexes-constraints.ts#snippet-10 -->
 
 ```sql
 DROP INDEX IF EXISTS "idx_users_email"

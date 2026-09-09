@@ -8,19 +8,7 @@ schema objects. zmdb provides declarative DDL functions to create and manage seq
 
 Use `createSequenceDdl` to generate the DDL for a sequence. You can specify optional `start` and `increment` values.
 
-```ts {"mode":"compile","id":"example-001"}
-import { postgres } from '@zmdb/postgres';
-import { createSequenceDdl } from '@zmdb/sql/schema-objects';
-
-const seqDef = {
-  name: 'order_number_seq',
-  start: 1000,
-  increment: 1,
-};
-
-const ddl = createSequenceDdl(seqDef, postgres);
-console.log(ddl);
-```
+<!-- snippet: sequences.ts#snippet-1 -->
 
 ```sql
 CREATE SEQUENCE "order_number_seq" START 1000 INCREMENT 1
@@ -36,15 +24,7 @@ CREATE SEQUENCE [order_number_seq] START WITH 1000 INCREMENT BY 1
 
 A column fed by an explicit sequence is an ordinary `integer` column that says `HasDefault`:
 
-```ts {"mode":"compile","id":"example-002"}
-import type { HasDefault, PrimaryKey, Sql, Table } from '@zmdb/core/tags';
-
-export interface Order extends Table<'orders'> {
-  order_id: number & Sql<'integer'> & PrimaryKey;
-  order_number: number & Sql<'integer'> & HasDefault;
-  created_at: number & Sql<'integer'>; // timestamp as unix epoch
-}
-```
+<!-- snippet: sequences.ts#snippet-2 -->
 
 `HasDefault` makes `order_number` optional in `CreateDTO<Order>`, which is the part the compiler needs to know. Which sequence, and the `nextval(...)` call itself, goes in the
 [migration](./migrations-custom.html):
@@ -61,17 +41,7 @@ ALTER TABLE "orders" ALTER COLUMN "order_number" SET DEFAULT nextval('order_numb
 
 To use a sequence in your application, call `nextval()` to retrieve the next value. This is typically done at the application level or through a trigger.
 
-```ts {"mode":"compile","id":"example-003"}
-// Generating next sequence value via query compiler
-import { createQueryCompiler } from '@zmdb/sql';
-import { postgres } from '@zmdb/postgres';
-
-const compiler = createQueryCompiler(postgres);
-
-const nextValQuery = compiler.selectFrom('order_number_seq').select(['nextval']).compile();
-
-console.log(nextValQuery.text);
-```
+<!-- snippet: sequences.ts#snippet-3 -->
 
 ```sql
 SELECT nextval('order_number_seq')
@@ -83,9 +53,7 @@ SELECT nextval('order_number_seq')
 
 Sequences can be dropped using standard DDL. Include this in your migration files when removing tables that depend on custom sequences.
 
-```ts {"mode":"compile","id":"example-004"}
-const dropSequenceDdl = `DROP SEQUENCE IF EXISTS "order_number_seq"`;
-```
+<!-- snippet: sequences.ts#snippet-4 -->
 
 ```sql
 DROP SEQUENCE IF EXISTS "order_number_seq"

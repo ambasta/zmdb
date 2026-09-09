@@ -2,9 +2,7 @@ Delete rows with the query builder, or through a repository's `delete(id)` (whic
 
 ## Basic delete
 
-```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.deleteFrom('users').where('id', '=', 1).compile();
-```
+<!-- snippet: delete.ts#snippet-1 -->
 
 ```sql
 DELETE FROM "users" WHERE "id" = $1
@@ -13,9 +11,7 @@ DELETE FROM "users" WHERE "id" = $1
 
 ## Returning deleted rows
 
-```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.deleteFrom('users').where('role', '=', 'guest').returning(['id']).compile();
-```
+<!-- snippet: delete.ts#snippet-2 -->
 
 ```sql
 DELETE FROM "users" WHERE "role" = $1 RETURNING "id"

@@ -5,23 +5,11 @@ explicit repository calls.
 
 If you're coming from MikroORM, TypeORM, or similar, you may be used to this pattern:
 
-```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, em; this excerpt does not repeat those declarations."}
-// MikroORM-style
-const user = await em.findOne(User, 1);
-user.email = 'new@example.com';
-await em.flush(); // persist changes
-```
+<!-- snippet: inert-rows.ts#snippet-1 -->
 
 In zmdb, **this doesn't work**:
 
-```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
-const user = await users.findById(1);
-user.email = 'new@example.com'; // ❌ Does NOT persist
-
-// The database still has the old email
-const check = await users.findById(1);
-console.log(check.email); // original value
-```
+<!-- snippet: inert-rows.ts#snippet-2 -->
 
 > [!IMPORTANT] Fetched rows are inert. The only way to persist changes is through explicit `create`, `update`, or `delete` methods on the repository.
 
@@ -47,16 +35,7 @@ Translate your "load-mutate-flush" workflow into explicit updates:
 | `await em.flush()`               | `await users.update(1, patch)`        |
 | Multiple changes across entities | `db.transaction(async tx => { ... })` |
 
-```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
-// Find
-const user = await users.findById(1);
-
-// Prepare patch
-const patch = { email: 'new@example.com', role: 'admin' };
-
-// Persist explicitly
-await users.update(1, patch);
-```
+<!-- snippet: inert-rows.ts#snippet-3 -->
 
 ## Explicit population
 
@@ -77,15 +56,7 @@ See [loading strategies](./loading-strategies.html) for target-schema registrati
 
 Use `postSelect` to enrich or filter rows on the way out:
 
-```ts {"mode":"illustrative","id":"example-004","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
-protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
-  return rows.map(r => ({
-    ...r,
-    // Add computed field
-    isNew: r.createdAt instanceof Date && r.createdAt > new Date('2024-01-01'),
-  }));
-}
-```
+<!-- snippet: inert-rows.ts#snippet-4 -->
 
 > [!TIP] `postSelect` is the escape hatch for row enrichment. Use it for computed fields, masking, or adding metadata — but it doesn't enable auto-persisting.
 
