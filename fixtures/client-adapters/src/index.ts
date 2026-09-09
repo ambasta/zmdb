@@ -58,20 +58,7 @@ export {
   type AdapterQualificationEvidence,
   type AdapterQualificationSourceEvidence,
 } from './package-matrix.js';
-export {
-  adapterBrowserBoundaryProblems,
-  adapterClientImplementationProblems,
-  adapterExportSpecifiers,
-  adapterManifestProblems,
-  adapterPackageCycle,
-  adapterQualificationProblems,
-  assertAdapterImportsWithoutEffects,
-  assertAdapterPackageManifest,
-  privateHarnessProductionLeaks,
-  probeAdapterImports,
-  readAdapterPackageManifest,
-  type AdapterPackageManifest,
-} from './package-rules.js';
+export { assertAdapterImportsWithoutEffects } from './package-rules.js';
 export {
   runPackedProject,
   type PackedCommandResult,

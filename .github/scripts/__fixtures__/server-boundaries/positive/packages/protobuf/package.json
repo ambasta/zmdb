@@ -1,9 +1,0 @@
-{
-  "name": "@zmdb/protobuf",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./wire": "./src/wire.ts"
-  }
-}
