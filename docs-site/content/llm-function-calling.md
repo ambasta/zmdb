@@ -72,9 +72,9 @@ This is especially important for an optional field widened to nullable by the Op
 
 When the API returns text rather than a structured tool call, `lenientParse` strips an outer Markdown fence and calls `JSON.parse`:
 
-````ts {"mode":"compile","id":"example-004"}
+````ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies CreateDTO, User, assert; this excerpt does not repeat those declarations."}
 import { lenientParse } from '@zmdb/ai';
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert } from '@zmdb/validator';
 
 const fenced = '```json\n{"email":"alice@example.com"}\n```';
 const result = lenientParse(fenced, value => assert<CreateDTO<User>>(value));
