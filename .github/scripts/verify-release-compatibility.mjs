@@ -13,7 +13,7 @@ import { RELEASE_PACKAGE_POLICY } from '../../scripts/release/policy.mjs';
 import { publishCatalog, publishManifest } from './lib/publish-manifest.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const official = name => name.startsWith('@zmdb/');
+const official = name => name === 'zmdb' || name.startsWith('@zmdb/');
 const json = path => JSON.parse(readFileSync(path, 'utf8'));
 const manifestsAt = root =>
   Object.fromEntries(
@@ -279,9 +279,35 @@ export async function withCompatibilityWorkspace(parent, run) {
   }
 }
 
+function toBase64(bytes) {
+  if (bytes.toBase64) return bytes.toBase64();
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '',
+    i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    result +=
+      chars[bytes[i] >> 2] +
+      chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] +
+      chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)] +
+      chars[bytes[i + 2] & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[bytes[i] >> 2];
+    if (i + 1 === bytes.length) {
+      result += chars[(bytes[i] & 3) << 4] + '==';
+    } else {
+      result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] + chars[(bytes[i + 1] & 15) << 2] + '=';
+    }
+  }
+  return result;
+}
+
 async function digest(bytes, algorithm, encoding = 'hex') {
   const value = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? value.toBase64() : value.toHex();
+  if (encoding === 'base64') {
+    return toBase64(value);
+  }
+  return value.toHex ? value.toHex() : Array.from(value, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function sourceIdentity(directory) {

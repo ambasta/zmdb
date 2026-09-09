@@ -27,6 +27,7 @@ export {
   type ForeignKeySnapshot,
   type ReferentialAction,
   type SchemaSnapshot,
+  type SqlDialect,
   type TableOptions,
   type TableSnapshot,
 } from '@zmdb/sql';
@@ -55,7 +56,6 @@ export function emitSchemaObject(
 ): readonly string[] {
   return migrationsOf(target).emitSchemaObject(operation);
 }
-
 /**
  * The slice of a schema a snapshot reads.
  *
@@ -79,7 +79,7 @@ export interface SnapshotableSchema {
           readonly hasDefault?: boolean | undefined;
         };
         readonly default?: unknown;
-        readonly references?: { readonly target: string };
+        readonly references?: { readonly target: string } | undefined;
       }
     >
   >;
@@ -181,6 +181,7 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
             ...(meta.flags.length === undefined ? {} : { length: meta.flags.length }),
             ...(meta.flags.unique === true ? { unique: true } : {}),
             ...snapshotDefault(meta.default, meta.flags.hasDefault === true && meta.type !== 'serial'),
+            ...(meta.references ? { references: { target: meta.references.target } } : {}),
           };
         })
         .toSorted((a, b) => a.name.localeCompare(b.name));
@@ -300,6 +301,7 @@ function sameColumn(previous: ColumnSnapshot, next: ColumnSnapshot): boolean {
     previous.length === next.length &&
     previous.nullable === next.nullable &&
     (previous.unique === true) === (next.unique === true) &&
+    previous.references?.target === next.references?.target &&
     sameDefault
   );
 }
@@ -512,6 +514,7 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
           from: bc,
           to: c,
         });
+      }
       }
     }
     if (!sameSequence(before.primaryKey, t.primaryKey)) {

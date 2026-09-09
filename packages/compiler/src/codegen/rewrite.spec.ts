@@ -44,8 +44,8 @@ const TSCONFIG = {
     // No `node_modules` here and nothing touching a Node builtin.
     types: [] as string[],
     paths: {
-      '@zmdb/core': [`${ROOT}packages/zmdb/src/index.ts`],
-      '@zmdb/core/*': [`${ROOT}packages/zmdb/src/*.ts`],
+      zmdb: [`${ROOT}packages/zmdb/src/index.ts`],
+      'zmdb/*': [`${ROOT}packages/zmdb/src/*.ts`],
       '@zmdb/app': [`${ROOT}packages/app/src/index.ts`],
       '@zmdb/app/*': [`${ROOT}packages/app/src/*/index.ts`],
       '@zmdb/schema': [`${ROOT}packages/schema/src/index.ts`],
@@ -135,14 +135,14 @@ const ok = (result: CodegenResult): void => {
 
 describe('an import the rewrite compiled away', () => {
   it('goes, and takes its line with it', () => {
-    const run = generate(`import { is as isOrder } from '@zmdb/core/validator';
+    const run = generate(`import { is } from '@zmdb/validator';
 
 import type { Order } from './model.js';
 
-export const accepts = (value: unknown): boolean => isOrder<Order>(value);
+export const accepts = (value: unknown): boolean => is<Order>(value);
 `);
     ok(run.result);
-    expect(run.app).not.toContain("from '@zmdb/core/validator'");
+    expect(run.app).not.toContain("from '@zmdb/validator'");
     expect(run.app).toContain("from './app.zmdb.generated.js'");
     // No blank line where the statement was, and none at the top of the file — a deleted first
     // import used to leave the file beginning with the paragraph break that followed it.
@@ -152,11 +152,11 @@ export const accepts = (value: unknown): boolean => isOrder<Order>(value);
 
   it('loads root schemaOf support types from the schema concern', () => {
     const run = generate(
-      `import { schemaOf as tableSchema } from '@zmdb/core';
+      `import { schemaOf } from 'zmdb';
 
 import type { Order } from './model.js';
 
-export const OrderSchema = tableSchema<Order>();
+export const OrderSchema = schemaOf<Order>();
 `,
       {
         'model.ts': `import type { PrimaryKey, Sql, Table } from '@zmdb/schema/tags';
@@ -170,9 +170,9 @@ export interface Order extends Table<'orders'> {
     ok(run.result);
     const witness = readFileSync(join(run.src, 'app.zmdb.witness.ts'), 'utf8');
     const declaration = readFileSync(join(run.src, 'app.zmdb.generated.d.ts'), 'utf8');
-    expect(witness).toContain("import { schemaOf } from '@zmdb/core';");
-    expect(witness).toContain("import type { TaggedSchema } from '@zmdb/core/schema';");
-    expect(declaration).toContain("import type { TaggedSchema } from '@zmdb/core/schema';");
+    expect(witness).toContain("import { schemaOf } from 'zmdb';");
+    expect(witness).toContain("import type { TaggedSchema } from 'zmdb/schema';");
+    expect(declaration).toContain("import type { TaggedSchema } from 'zmdb/schema';");
   });
 
   it('goes even when a comment says its name', () => {
@@ -616,28 +616,35 @@ describe('a session the caller owns', () => {
   it('is used rather than a second one, and is still open afterwards', () => {
     const { src, tsconfig } = project(APP);
     const before = apiInstanceCount();
-    using session = ReflectSession.open({ project: tsconfig });
-    ok(codegen({ project: tsconfig, session }));
+    const session = ReflectSession.open({ project: tsconfig });
+    try {
+      ok(codegen({ project: tsconfig, session }));
 
-    // One compiler for the whole thing: the session opened above, and none from `codegen`.
-    expect(apiInstanceCount() - before).toBe(1);
-    expect(readFileSync(join(src, 'app.ts'), 'utf8')).toContain('zmdbIsOrder(value)');
-    // Closing it is the caller's business, so the caller can still use it. A closed session
-    // throws on any snapshot update, which is what makes this observable at all.
-    expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+      // One compiler for the whole thing: the session opened above, and none from `codegen`.
+      expect(apiInstanceCount() - before).toBe(1);
+      expect(readFileSync(join(src, 'app.ts'), 'utf8')).toContain('zmdbIsOrder(value)');
+      // Closing it is the caller's business, so the caller can still use it. A closed session
+      // throws on any snapshot update, which is what makes this observable at all.
+      expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+    } finally {
+      session.close();
+    }
   }, 60_000);
 
   it('survives a watch that borrowed it', async () => {
     const { src, tsconfig } = project(APP);
-    using session = ReflectSession.open({ project: tsconfig });
+    const session = ReflectSession.open({ project: tsconfig });
+    try {
+      const stop = Promise.withResolvers<void>();
+      const watching = watchCodegen({ project: tsconfig, session, until: stop.promise, debounceMs: 10 });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      stop.resolve();
+      ok(await watching);
 
-    const stop = Promise.withResolvers<void>();
-    const watching = watchCodegen({ project: tsconfig, session, until: stop.promise, debounceMs: 10 });
-    await new Promise(resolve => setTimeout(resolve, 100));
-    stop.resolve();
-    ok(await watching);
-
-    // `watchCodegen` closes the session it opened itself. This one it did not open.
-    expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+      // `watchCodegen` closes the session it opened itself. This one it did not open.
+      expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+    } finally {
+      session.close();
+    }
   }, 60_000);
 });

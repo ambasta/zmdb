@@ -93,7 +93,17 @@ function columnDdl(
   const notNull = rowidPrimaryKey || (!key.inline && column.nullable && !key.tableLevel) ? '' : ' NOT NULL';
   const unique = column.unique === true && !key.inline ? ' UNIQUE' : '';
   const value = columnDefaultSql(column, true);
-  return `${q(column.name)} ${type}${primaryKey}${notNull}${unique}${value === undefined ? '' : ` DEFAULT (${value})`}`;
+  const references = column.references ? ` REFERENCES ${formatReference(column.references.target)}` : '';
+  return `${q(column.name)} ${type}${primaryKey}${notNull}${unique}${value === undefined ? '' : ` DEFAULT (${value})`}${references}`;
+}
+
+function formatReference(target: string): string {
+  const parts = target.split('.');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return `${q(parts[0])}(${q(parts[1])})`;
+  }
+  return q(target);
+}
 }
 
 function primaryKeyDdl(columns: readonly string[]): string {
@@ -162,6 +172,7 @@ function refuseForeignKey(action: 'add' | 'drop', table: string, foreignKey: For
       'see the migration guide',
   );
 }
+
 
 function validateSnapshot(snapshot: SchemaSnapshot): void {
   if (snapshot.extensions.length > 0) {

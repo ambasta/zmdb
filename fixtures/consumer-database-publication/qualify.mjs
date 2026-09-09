@@ -180,10 +180,33 @@ try {
       tarballs.set(entry.npmName, { manifest, tarball });
     }
   });
+  function toBase64(bytes) {
+    if (bytes.toBase64) return bytes.toBase64();
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let result = '',
+      i = 0;
+    for (; i + 2 < bytes.length; i += 3) {
+      result +=
+        chars[bytes[i] >> 2] +
+        chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] +
+        chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)] +
+        chars[bytes[i + 2] & 63];
+    }
+    if (i < bytes.length) {
+      result += chars[bytes[i] >> 2];
+      if (i + 1 === bytes.length) {
+        result += chars[(bytes[i] & 3) << 4] + '==';
+      } else {
+        result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)] + chars[(bytes[i + 1] & 15) << 2] + '=';
+      }
+    }
+    return result;
+  }
+
   const integrities = {};
   for (const [name, record] of tarballs) {
     const bytes = await readFile(record.tarball);
-    integrities[name] = `sha512-${new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)).toBase64()}`;
+    integrities[name] = `sha512-${toBase64(new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)))}`;
     report.packages.push({ name, version: record.manifest.version, integrity: integrities[name] });
   }
   registry = await startRegistry([...tarballs.values()]);

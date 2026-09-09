@@ -308,9 +308,17 @@ function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<strin
     const support = SUPPORT_TYPES[entry.callee];
     if (support) {
       const supportSpecifier =
-        entry.callee === 'schemaOf' && specifier === '@zmdb/core' ? '@zmdb/core/schema' : specifier;
+        entry.callee === 'schemaOf' && (specifier === '@zmdb/core' || specifier === 'zmdb')
+          ? specifier === 'zmdb'
+            ? 'zmdb/schema'
+            : '@zmdb/core/schema'
+          : specifier;
       const validationSpecifier =
-        specifier === '@zmdb/core' || specifier.startsWith('@zmdb/core/') ? '@zmdb/core/validator' : '@zmdb/validator';
+        specifier === 'zmdb' || specifier.startsWith('zmdb/')
+          ? 'zmdb/validator'
+          : specifier === '@zmdb/core' || specifier.startsWith('@zmdb/core/')
+            ? '@zmdb/core/validator'
+            : '@zmdb/validator';
       for (const name of support) into(types, name === 'ValidateResult' ? validationSpecifier : supportSpecifier, name);
     }
   }

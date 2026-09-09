@@ -48,6 +48,81 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+declare global {
+  interface Uint8Array {
+    toBase64(opts?: { alphabet?: string; omitPadding?: boolean }): string;
+  }
+  interface Uint8ArrayConstructor {
+    fromBase64(str: string, opts?: { alphabet?: string }): Uint8Array<ArrayBuffer>;
+  }
+}
+
+if (typeof Uint8Array.prototype.toBase64 !== 'function') {
+  const B64_LOOKUP = new Uint8Array(256);
+  for (let i = 0; i < B64_CHARS.length; i += 1) {
+    const code = B64_CHARS.charCodeAt(i);
+    if (code !== undefined) {
+      B64_LOOKUP[code] = i;
+    }
+  }
+
+  const proto = Reflect.get(Uint8Array, 'prototype');
+  Object.defineProperty(proto, 'toBase64', {
+    value: function (this: Uint8Array): string {
+      let res = '';
+      const len = this.length;
+      for (let i = 0; i < len; i += 3) {
+        const b0 = this[i] ?? 0;
+        const b1 = i + 1 < len ? (this[i + 1] ?? 0) : 0;
+        const b2 = i + 2 < len ? (this[i + 2] ?? 0) : 0;
+        res += B64_CHARS[b0 >> 2] ?? '';
+        res += B64_CHARS[((b0 & 3) << 4) | (b1 >> 4)] ?? '';
+        if (i + 1 < len) {
+          res += B64_CHARS[((b1 & 15) << 2) | (b2 >> 6)] ?? '';
+        }
+        if (i + 2 < len) {
+          res += B64_CHARS[b2 & 63] ?? '';
+        }
+      }
+      return res;
+    },
+    writable: true,
+    configurable: true,
+  });
+
+  Object.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (str: string): Uint8Array<ArrayBuffer> {
+      let validLen = str.length;
+      while (validLen > 0 && str[validLen - 1] === '=') validLen -= 1;
+      const byteLen = Math.floor((validLen * 3) / 4);
+      const bytes = new Uint8Array(new ArrayBuffer(byteLen));
+      let p = 0;
+      for (let i = 0; i < validLen; i += 4) {
+        const c0 = B64_LOOKUP[str.charCodeAt(i)] ?? 0;
+        const c1 = i + 1 < validLen ? (B64_LOOKUP[str.charCodeAt(i + 1)] ?? 0) : 0;
+        const c2 = i + 2 < validLen ? (B64_LOOKUP[str.charCodeAt(i + 2)] ?? 0) : 0;
+        const c3 = i + 3 < validLen ? (B64_LOOKUP[str.charCodeAt(i + 3)] ?? 0) : 0;
+
+        bytes[p] = (c0 << 2) | (c1 >> 4);
+        p += 1;
+        if (i + 2 < validLen) {
+          bytes[p] = ((c1 & 15) << 4) | (c2 >> 2);
+          p += 1;
+        }
+        if (i + 3 < validLen) {
+          bytes[p] = ((c2 & 3) << 6) | c3;
+          p += 1;
+        }
+      }
+      return bytes;
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
   return value.toBase64({ alphabet: 'base64url', omitPadding: true });
 }

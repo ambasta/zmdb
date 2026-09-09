@@ -24,6 +24,7 @@ export interface ColumnSnapshot {
     | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
     | { readonly kind: 'expression'; readonly sql: string }
     | { readonly kind: 'unresolved' };
+  readonly references?: { readonly target: string } | undefined;
 }
 
 export interface TableOptions {

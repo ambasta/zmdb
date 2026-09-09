@@ -239,7 +239,7 @@ describe('the DDL a tagged declaration reaches the database as', () => {
     }
   });
 
-  it('emits database-owned unique and foreign-key constraints', () => {
+  it('includes the unique constraint and foreign key on the way to the DDL', () => {
     expect(Users.columns.email?.flags.unique).toBe(true);
     expect(Memberships.ir.columns.find(column => column.name === 'userId')?.references).toBe('users.id');
     for (const dialect of DIALECTS) {
@@ -254,7 +254,7 @@ describe('the DDL a tagged declaration reaches the database as', () => {
   it('emits a composite primary key as one ordered table constraint', () => {
     expect(Memberships.primaryKey).toEqual(['userId', 'groupId']);
     expect(ddl(Memberships, 'postgres')[0]).toBe(
-      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
+      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL REFERENCES "users"("id"), ' +
         'PRIMARY KEY ("userId", "groupId"))',
     );
     expect(ddl(Memberships, 'mysql')).toEqual([
@@ -264,12 +264,12 @@ describe('the DDL a tagged declaration reaches the database as', () => {
         'ON DELETE NO ACTION ON UPDATE NO ACTION',
     ]);
     expect(ddl(Memberships, 'sqlite')[0]).toBe(
-      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
+      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL REFERENCES "users"("id"), ' +
         'PRIMARY KEY ("userId", "groupId"), FOREIGN KEY ("userId") REFERENCES "users" ("id") ' +
         'ON DELETE NO ACTION ON UPDATE NO ACTION)',
     );
     expect(ddl(Memberships, 'mssql')[0]).toBe(
-      'CREATE TABLE [memberships] ([groupId] INT NOT NULL, [note] NVARCHAR(MAX), [userId] INT NOT NULL, ' +
+      'CREATE TABLE [memberships] ([groupId] INT NOT NULL, [note] NVARCHAR(MAX), [userId] INT NOT NULL REFERENCES [users]([id]), ' +
         'PRIMARY KEY ([userId], [groupId]))',
     );
   });

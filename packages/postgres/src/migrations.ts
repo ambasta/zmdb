@@ -103,7 +103,8 @@ function columnDdl(
   const unique = column.unique === true && !key.inline ? ' UNIQUE' : '';
   const value = columnDefaultSql(column);
   const defaultClause = value === undefined ? '' : ` DEFAULT ${value}`;
-  return `${quoteIdentifier(column.name)} ${postgresDdlType(types, column)}${primaryKey}${notNull}${unique}${defaultClause}`;
+  const references = column.references ? ` REFERENCES ${formatReference(column.references.target)}` : '';
+  return `${quoteIdentifier(column.name)} ${postgresDdlType(types, column)}${primaryKey}${notNull}${unique}${defaultClause}${references}`;
 }
 
 function primaryKeyDdl(columns: readonly string[]): string {
@@ -392,6 +393,14 @@ function schemaObjectStatements(types: DialectTypeMap, operation: SchemaObjectOp
   }
 }
 
+function formatReference(target: string): string {
+  const parts = target.split('.');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return `${quoteIdentifier(parts[0])}(${quoteIdentifier(parts[1])})`;
+  }
+  return quoteIdentifier(target);
+}
+
 function alterColumnDdl(types: DialectTypeMap, table: string, from: ColumnSnapshot, to: ColumnSnapshot): string {
   const column = quoteIdentifier(to.name);
   const clauses: string[] = [];
@@ -412,9 +421,16 @@ function alterColumnDdl(types: DialectTypeMap, table: string, from: ColumnSnapsh
         : `DROP CONSTRAINT ${quoteIdentifier(name)}`,
     );
   }
+  if (from.references?.target !== to.references?.target) {
+    const name = `${table}_${to.name}_fkey`;
+    if (from.references) clauses.push(`DROP CONSTRAINT ${quoteIdentifier(name)}`);
+    if (to.references)
+      clauses.push(`ADD CONSTRAINT ${quoteIdentifier(name)} FOREIGN KEY (${column}) REFERENCES ${formatReference(to.references.target)}`);
+  }
   if (defaultChanged && afterDefault !== undefined) clauses.push(`ALTER COLUMN ${column} SET DEFAULT ${afterDefault}`);
   if (clauses.length === 0) throw new TypeError(`column "${table}"."${to.name}" has no supported alteration`);
   return `ALTER TABLE ${quoteIdentifier(table)} ${clauses.join(', ')}`;
+}
 }
 
 function emitUp(types: DialectTypeMap, operation: ChangeOp): string {

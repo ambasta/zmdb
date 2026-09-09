@@ -232,14 +232,29 @@ function alterColumn<Name extends string>(
   from: ColumnSnapshot,
   to: ColumnSnapshot,
 ): string {
-  if ((from.unique === true) !== (to.unique === true))
+  if ((from.unique === true) !== (to.unique === true) || from.references?.target !== to.references?.target)
     throw unsupported(
       name,
-      `altering uniqueness on "${table}"."${to.name}"`,
-      'changing a unique constraint requires its index name; use a hand-written migration',
+      `altering uniqueness or references on "${table}"."${to.name}"`,
+      'changing a unique constraint or foreign key requires its constraint name; use a hand-written migration',
     );
   columnDefaultSql(from, true);
   return `ALTER TABLE ${quote(table)} MODIFY COLUMN ${quote(to.name)} ${ddlType(name, types, to)}${to.nullable ? ' NULL' : ' NOT NULL'}${defaultClause(to)}`;
+}
+
+function formatDefault(value: unknown): string {
+  if (value === null) return 'NULL';
+  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  return String(value);
+}
+
+function formatReference(target: string): string {
+  const parts = target.split('.');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return `${quote(parts[0])}(${quote(parts[1])})`;
+  }
+  return quote(target);
 }
 
 function alterPrimaryKey(table: string, from: readonly string[], to: readonly string[]): string {

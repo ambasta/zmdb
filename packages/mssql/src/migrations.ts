@@ -136,7 +136,8 @@ function columnDdl(
   const notNull = !options.inlinePrimaryKey && (!column.nullable || options.tablePrimaryKey) ? ' NOT NULL' : '';
   const unique = column.unique === true && !options.inlinePrimaryKey ? ' UNIQUE' : '';
   const value = columnDefaultSql(column, true);
-  return `${identifier(column.name)} ${mssqlDdlType(column)}${primaryKey}${notNull}${unique}${value === undefined ? '' : ` DEFAULT ${value}`}`;
+  const references = column.references ? ` REFERENCES ${formatReference(column.references.target)}` : '';
+  return `${identifier(column.name)} ${mssqlDdlType(column)}${primaryKey}${notNull}${unique}${value === undefined ? '' : ` DEFAULT ${value}`}${references}`;
 }
 
 function action(actionName: ForeignKeySnapshot['onDelete']): string {
@@ -168,7 +169,11 @@ function createTable(operation: Extract<ChangeOp, { readonly kind: 'create_table
 }
 
 function alterColumn(tableName: string, from: ColumnSnapshot, to: ColumnSnapshot): string {
-  if ((from.unique === true) !== (to.unique === true) || columnDefaultSql(from, true) !== columnDefaultSql(to, true)) {
+  if (
+    (from.unique === true) !== (to.unique === true) ||
+    columnDefaultSql(from, true) !== columnDefaultSql(to, true) ||
+    from.references?.target !== to.references?.target
+  ) {
     throw new UnsupportedFeatureError(
       'changing a default or unique constraint',
       'mssql',
@@ -186,6 +191,21 @@ function primaryKeyRefusal(operation: Extract<ChangeOp, { readonly kind: 'alter_
       `(${operation.from.join(', ')} → ${operation.to.join(', ')}) because the snapshot does not carry the ` +
       'existing SQL Server constraint name; use a hand-written migration',
   );
+}
+
+function formatDefault(value: unknown): string {
+  if (value === null) return 'NULL';
+  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
+  if (typeof value === 'boolean') return value ? '1' : '0';
+  return String(value);
+}
+
+function formatReference(target: string): string {
+  const parts = target.split('.');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return `${table(parts[0])}(${identifier(parts[1])})`;
+  }
+  return table(target);
 }
 
 function emitUp(operation: ChangeOp): string {
