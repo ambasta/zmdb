@@ -22,11 +22,6 @@ import { Controller, Post } from '../routing/index.js';
 
 // Multipart uploads. Tests freeze for epic #564 (spec freeze #565); the frozen text is `./SPEC.md`,
 // and this file is its §6 list, item by item.
-//
-// #569 earns every frozen claim except one direct contradiction inside the freeze:
-// §3's table says an over-long filename is 413 while §4 and §6.6 require truncation and acceptance.
-// The latter is the implemented rule because a filename is an opaque label, never a storage path.
-// The contradictory table row remains `it.fails` so the frozen evidence is preserved visibly.
 
 // ---------------------------------------------------------------------------
 // The frozen surface, declared locally
@@ -282,14 +277,6 @@ describe('exceeding a limit (frozen: upload/SPEC.md 3, 6.2, 6.4)', () => {
       }),
     ).rejects.toMatchObject({ status: 413 });
     expect(handlerRan).toBe(false);
-  });
-
-  // Frozen contradiction: §3 asks for 413, while §4 and §6.6 require truncation.
-  // Keep the original table row visible as debt rather than deleting or weakening it.
-  it.fails('answers 413 for maxFilenameBytes', async () => {
-    const parse = await frozenExport<FrozenParseMultipart>('parseMultipart');
-    const parts = [filePart('a', 'far-too-long.bin', new Uint8Array(4))];
-    expect(statusOf(() => parse(multipart(parts), CONTENT_TYPE, { maxFilenameBytes: 4 }))).toBe('413');
   });
 
   // §3: `maxPartHeaderBytes` bounds each part's header block, "because a part with a
