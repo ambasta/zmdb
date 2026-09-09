@@ -1,6 +1,16 @@
 The legitimate job `flush()` does elsewhere — atomically committing several writes — is handled by **explicit transactions**.
 
-<!-- snippet: transactions.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies connection, orders, users; this excerpt does not repeat those declarations."}
+import { createTransactionalDb } from '@zmdb/orm/transactions';
+
+const db = createTransactionalDb(connection);
+
+await db.transaction(async tx => {
+  const user = await users.withTransaction(tx).create({ email: 'a@b.com' });
+  const order = await orders.withTransaction(tx).create({ userId: user.id, totalPrice: 42 });
+  // throw → ROLLBACK (nothing persists); clean return → COMMIT
+});
+```
 
 - `TransactionContext` is `{ execute, savepoint }` — there is no `tx.repo(...)`. `repo.withTransaction(tx)` returns a **new repository instance** bound to the transaction's connection; the original is
   untouched, so an accidental call on `users` rather than `users.withTransaction(tx)` runs outside the transaction. Bind once at the top of the callback and use the bound handles.
@@ -36,7 +46,15 @@ COMMIT;   -- or ROLLBACK; if the callback threw
 
 ## Savepoints (nested)
 
-<!-- snippet: transactions.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies db, orders, users; this excerpt does not repeat those declarations."}
+await db.transaction(async tx => {
+  await users.withTransaction(tx).create({ email: 'a@b.com' });
+  await tx.savepoint(async sp => {
+    await orders.withTransaction(sp).create({ userId: 1, total: 42 });
+    // a throw here rolls back to the savepoint, keeping the outer tx alive
+  });
+});
+```
 
 ```sql
 BEGIN;

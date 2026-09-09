@@ -4,7 +4,12 @@ The examples use `orders(id, userId, status)` joined to `users(id, email)`.
 
 ## Inner join
 
-<!-- snippet: joins.ts#snippet-1 -->
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
+import { joinableSelectFrom } from '@zmdb/sql/joins';
+
+joinableSelectFrom('orders', postgres).innerJoin('users', 'orders.userId', 'users.id').where('orders.status', '=', 'shipped').compile();
+```
 
 ```sql
 SELECT * FROM "orders"
@@ -16,7 +21,9 @@ WHERE "orders"."status" = $1
 
 A left join keeps base rows even when there is no match — the joined columns may be null (reflected by `JoinRow<Base, Joined, 'left'>`).
 
-<!-- snippet: joins.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies joinableSelectFrom; this excerpt does not repeat those declarations."}
+joinableSelectFrom('employees as e', 'postgres').leftJoin('employees as r', 'r.id', 'e.recipient_id').where('e.id', '=', 1).compile();
+```
 
 ```sql
 SELECT * FROM "employees" AS "e"
@@ -30,7 +37,9 @@ As above, table aliases (`table as alias`) let a table join itself. Use [`aliasR
 
 ## Through the repository
 
-<!-- snippet: joins.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies orders; this excerpt does not repeat those declarations."}
+await orders.findJoined({ target: 'users', leftCol: 'orders.userId', rightCol: 'users.id', kind: 'inner' }, { col: 'orders.status', op: '=', value: 'shipped' });
+```
 
 > [!TIP] Joined rows come back as **flat plain objects** (no nested proxies). For typed nested relation shapes use [populate](./relations.html); for a typed flat join row use
 > [`JoinRow`](./populate-results.html).

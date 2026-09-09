@@ -8,7 +8,13 @@ providing security at the database level without relying solely on application l
 
 Use `enableRlsDdl` to enable RLS on a table. This is the first step before creating any policies.
 
-<!-- snippet: rls.ts#snippet-1 -->
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
+import { enableRlsDdl, UnsupportedFeatureError } from '@zmdb/sql/schema-objects';
+
+const ddl = enableRlsDdl('orders', postgres);
+console.log(ddl);
+```
 
 ```sql
 ALTER TABLE "orders" ENABLE ROW LEVEL SECURITY
@@ -20,7 +26,20 @@ ALTER TABLE "orders" ENABLE ROW LEVEL SECURITY
 
 Use `createPolicyDdl` to define a policy. The policy specifies which rows are visible based on a USING expression.
 
-<!-- snippet: rls.ts#snippet-2 -->
+```ts {"mode":"compile","id":"example-002"}
+import { postgres } from '@zmdb/postgres';
+import { createPolicyDdl, type RlsPolicy } from '@zmdb/sql/schema-objects';
+
+const policy: RlsPolicy = {
+  name: 'users_can_see_own_orders',
+  table: 'orders',
+  using: 'user_id = current_user_id()',
+  command: 'SELECT',
+};
+
+const ddl = createPolicyDdl(policy, postgres);
+console.log(ddl);
+```
 
 ```sql
 CREATE POLICY "users_can_see_own_orders" ON "orders" FOR SELECT USING (user_id = current_user_id())
@@ -30,7 +49,22 @@ CREATE POLICY "users_can_see_own_orders" ON "orders" FOR SELECT USING (user_id =
 
 Policies can be scoped to specific SQL commands: `SELECT`, `INSERT`, `UPDATE`, `DELETE`, or `ALL` (default).
 
-<!-- snippet: rls.ts#snippet-3 -->
+```ts {"mode":"compile","id":"example-003"}
+// Policy for all operations
+const allPolicy = {
+  name: 'tenant_isolation_all',
+  table: 'documents',
+  using: 'tenant_id = current_tenant_id()',
+  command: 'ALL',
+};
+
+const selectOnlyPolicy = {
+  name: 'read_only_access',
+  table: 'reports',
+  using: 'true', // everyone can read
+  command: 'SELECT',
+};
+```
 
 ```sql
 CREATE POLICY "tenant_isolation_all" ON "documents" FOR ALL USING (tenant_id = current_tenant_id())
@@ -41,7 +75,59 @@ CREATE POLICY "read_only_access" ON "reports" FOR SELECT USING (true)
 
 The most common use case for RLS is multi-tenant data isolation. Each tenant's data is protected at the database level.
 
-<!-- snippet: rls.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies createPolicyDdl, enableRlsDdl; this excerpt does not repeat those declarations."}
+// Complete RLS setup for a multi-tenant table
+const policies = [
+  // Enable RLS on the table
+  enableRlsDdl('tenants', 'postgres'),
+
+  // Policy for SELECT - users can only see their tenant
+  createPolicyDdl(
+    {
+      name: 'tenant_select',
+      table: 'tenants',
+      using: "id = current_setting('app.tenant_id', true)::uuid",
+      command: 'SELECT',
+    },
+    'postgres',
+  ),
+
+  // Policy for INSERT - can only insert for their tenant
+  createPolicyDdl(
+    {
+      name: 'tenant_insert',
+      table: 'tenants',
+      using: "id = current_setting('app.tenant_id', true)::uuid",
+      command: 'INSERT',
+    },
+    'postgres',
+  ),
+
+  // Policy for UPDATE - can only update their tenant
+  createPolicyDdl(
+    {
+      name: 'tenant_update',
+      table: 'tenants',
+      using: "id = current_setting('app.tenant_id', true)::uuid",
+      command: 'UPDATE',
+    },
+    'postgres',
+  ),
+
+  // Policy for DELETE - can only delete their tenant
+  createPolicyDdl(
+    {
+      name: 'tenant_delete',
+      table: 'tenants',
+      using: "id = current_setting('app.tenant_id', true)::uuid",
+      command: 'DELETE',
+    },
+    'postgres',
+  ),
+];
+
+console.log(policies.join(';\n'));
+```
 
 ```sql
 ALTER TABLE "tenants" ENABLE ROW LEVEL SECURITY;
@@ -57,7 +143,18 @@ CREATE POLICY "tenant_delete" ON "tenants" FOR DELETE USING (id = current_settin
 
 Some operations (like batch imports or admin tools) may need to bypass RLS. Use `FORCE` to make policies mandatory or bypass them with `BYPASS`.
 
-<!-- snippet: rls.ts#snippet-5 -->
+```ts {"mode":"compile","id":"example-005"}
+// Admin role bypass (run as superuser or owner)
+const bypassPolicy = {
+  name: 'admin_bypass',
+  table: 'orders',
+  using: "current_user = 'admin'",
+  command: 'ALL',
+};
+
+// Note: BYPASS requires superuser or BYPASSRLS attribute
+// This is typically handled at the role level, not in the policy
+```
 
 ```sql
 CREATE POLICY "admin_bypass" ON "orders" FOR ALL USING (current_user = 'admin')
@@ -69,7 +166,9 @@ CREATE POLICY "admin_bypass" ON "orders" FOR ALL USING (current_user = 'admin')
 
 If you need to temporarily disable RLS (for migrations, etc.), use `DISABLE ROW LEVEL SECURITY`.
 
-<!-- snippet: rls.ts#snippet-6 -->
+```ts {"mode":"compile","id":"example-006"}
+const disableRlsDdl = `ALTER TABLE "orders" DISABLE ROW LEVEL SECURITY`;
+```
 
 ```sql
 ALTER TABLE "orders" DISABLE ROW LEVEL SECURITY

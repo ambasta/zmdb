@@ -12,7 +12,20 @@ document back into nine framework clients; the [Client Applications](./framework
 
 The `toOpenApiComponents` function generates a map of schemas ready for OpenAPI specification:
 
-<!-- snippet: openapi.ts#snippet-1 -->
+```ts {"mode":"compile","id":"example-001"}
+import { toOpenApiComponents } from '@zmdb/schema/openapi';
+import { schemaOf } from '@zmdb/core';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
+
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: ('admin' | 'user') & HasDefault;
+  age: (number & Sql<'integer'>) | null;
+}
+
+const { schemas } = toOpenApiComponents([schemaOf<User>()]);
+```
 
 ```json
 {
@@ -35,7 +48,27 @@ The `toOpenApiComponents` function generates a map of schemas ready for OpenAPI 
 
 For API endpoints, generate schemas specific to each operation:
 
-<!-- snippet: openapi.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User, schemaOf; this excerpt does not repeat those declarations."}
+import { toJsonSchema } from '@zmdb/schema/openapi';
+
+const userSchema = schemaOf<User>();
+
+// GET /users/{id} — single entity response
+const getSchema = toJsonSchema(userSchema, 'get');
+// All fields required, includes auto-increment
+
+// POST /users — create request
+const createSchema = toJsonSchema(userSchema, 'create');
+// Excludes id (auto-increment), all fields required
+
+// PATCH /users/{id} — update request
+const updateSchema = toJsonSchema(userSchema, 'update');
+// All fields optional, excludes id
+
+// GET /users — list response (includes pagination envelope)
+import { toListSchema } from '@zmdb/schema/openapi';
+const listSchema = toListSchema(userSchema);
+```
 
 > [!IMPORTANT] The `get`, `list`, and `search` variants include auto-increment columns since those are present in responses. The `create` variant excludes them because the database generates them.
 
@@ -43,7 +76,46 @@ For API endpoints, generate schemas specific to each operation:
 
 Combine OpenAPI generation with your HTTP framework:
 
-<!-- snippet: openapi.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
+import { toJsonSchema, toListSchema } from '@zmdb/schema/openapi';
+import { schemaOf } from '@zmdb/core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
+
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  email: string & Sql<'text'>;
+}
+
+const userSchema = schemaOf<User>();
+
+// Endpoint definitions with OpenAPI schema
+const routes = [
+  {
+    method: 'GET',
+    path: '/users',
+    schema: {
+      response: {
+        200: toListSchema(userSchema),
+      },
+    },
+    handler: async (req, reply) => {
+      return repo.findAll();
+    },
+  },
+  {
+    method: 'GET',
+    path: '/users/{id}',
+    schema: {
+      params: { type: 'object', properties: { id: { type: 'integer' } } },
+      response: { 200: toJsonSchema(userSchema, 'get') },
+    },
+    handler: async (req, reply) => {
+      return repo.findById(req.params.id);
+    },
+  },
+];
+```
 
 ## Validation Tag Mapping
 
@@ -61,13 +133,70 @@ Tags on a column map to OpenAPI schema keywords:
 
 There is no `Enum` tag, because a literal union already says it and TypeScript checks it everywhere a flag would not.
 
-<!-- snippet: openapi.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies MaxLength, Min, Pattern, Sql, Table, schemaOf, toJsonSchema; this excerpt does not repeat those declarations."}
+interface Account extends Table<'accounts'> {
+  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'> & MaxLength<255>;
+  age: (number & Sql<'integer'> & Min<0>) | null;
+}
+
+const schema = toJsonSchema(schemaOf<Account>(), 'entity');
+// email: { type: 'string', pattern: '^[^@]+@[^@]+\.[^@]+$', maxLength: 255 }
+// age: { type: ['integer', 'null'], minimum: 0 }
+```
 
 ## Full OpenAPI Spec Generation
 
 Generate a complete spec by combining components:
 
-<!-- snippet: openapi.ts#snippet-5 -->
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies toJsonSchema, toListSchema, userSchema; this excerpt does not repeat those declarations."}
+import { toOpenApiComponents } from '@zmdb/schema/openapi';
+
+const fullSpec = {
+  openapi: '3.0.0',
+  info: {
+    title: 'My API',
+    version: '1.0.0',
+  },
+  paths: {
+    '/users': {
+      get: {
+        summary: 'List users',
+        responses: {
+          200: {
+            description: 'User list',
+            content: {
+              'application/json': {
+                schema: toListSchema(userSchema),
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: 'Create user',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: toJsonSchema(userSchema, 'create'),
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Created',
+            content: {
+              'application/json': {
+                schema: toJsonSchema(userSchema, 'entity'),
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  components: toOpenApiComponents([userSchema]),
+};
+```
 
 > [!TIP] The generated spec can be exported as JSON/YAML and fed into tools like Swagger UI, Redoc, or OpenAPI Generator for client SDKs.
 
@@ -75,7 +204,33 @@ Generate a complete spec by combining components:
 
 For full-text search endpoints, use `toSearchSchema` which includes relevance scoring:
 
-<!-- snippet: openapi.ts#snippet-6 -->
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies userSchema; this excerpt does not repeat those declarations."}
+import { toSearchSchema } from '@zmdb/schema/openapi';
+
+const searchSchema = toSearchSchema(userSchema);
+// {
+//   "type": "object",
+//   "properties": {
+//     "items": {
+//       "type": "array",
+//       "items": {
+//         "type": "object",
+//         "properties": {
+//           "id": { "type": "integer" },
+//           "name": { "type": "string" },
+//           ...
+//           "_score": { "type": "number" }  // FTS ranking
+//         },
+//         "required": ["id", "name", ...]
+//       }
+//     },
+//     "total": { "type": "integer" },
+//     "hasMore": { "type": "boolean" },
+//     "cursor": { "type": "string" }
+//   },
+//   "required": ["hasMore", "items"]
+// }
+```
 
 - [json-schema](./json-schema.html) — JSON Schema generation
 - [generated-client](./generated-client.html) — emit OpenAPI and one typed HTTP client from the same contract

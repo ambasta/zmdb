@@ -5,7 +5,56 @@ Embeddables let you compose complex value objects from multiple columns. Instead
 
 The embeddable is a plain interface. The table declares one column per field, and two helpers move between the two shapes.
 
-<!-- snippet: embeddables.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseRepository; this excerpt does not repeat those declarations."}
+import { flattenEmbeddable, liftEmbeddable } from '@zmdb/schema/entity-modeling';
+import { assert } from '@zmdb/validator';
+import { schemaOf } from '@zmdb/core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
+
+interface Address {
+  street: string;
+  city: string;
+  zip: string;
+  country: string;
+}
+
+export interface Customer extends Table<'customers'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  // the embeddable, one column per field
+  address_street: string & Sql<'text'>;
+  address_city: string & Sql<'text'>;
+  address_zip: string & Sql<'text'>;
+  address_country: string & Sql<'text'>;
+}
+
+// Flatten for inserts/updates
+function toDbAddress(addr: Address): Record<string, unknown> {
+  return flattenEmbeddable('address', addr);
+}
+
+// Lift from database rows
+function fromDbAddress(row: Record<string, unknown>): Address {
+  // liftEmbeddable returns Record<string, unknown>; assert returns the narrowed value
+  return assert<Address>(liftEmbeddable('address', row));
+}
+
+// Usage in repository
+const customerSchema = schemaOf<Customer>();
+
+class CustomerRepository extends BaseRepository<Customer> {
+  async createWithAddress(data: { name: string; address: Address }) {
+    const flat = { name: data.name, ...toDbAddress(data.address) };
+    return this.create(flat);
+  }
+
+  async findById(id: number) {
+    const row = await super.findById(id);
+    if (!row) return null;
+    return { ...row, address: fromDbAddress(row) };
+  }
+}
+```
 
 Generated DDL:
 
@@ -27,7 +76,18 @@ flat layout — see below for the version where the type system holds them toget
 
 For a nested structure you never filter on, one `json` column carries the whole thing and the shape stays in the declaration:
 
-<!-- snippet: embeddables.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
+interface OrderMetadata {
+  source: string;
+  priority: number;
+  tags: string[];
+}
+
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  metadata: OrderMetadata & Sql<'json'>;
+}
+```
 
 `Entity<Order>['metadata']` is `OrderMetadata`, so `row.metadata.priority` is a `number` with no projection step and no cast. That is the difference from the flat layout: the nested type _is_ the
 column type, rather than being reassembled from four columns whose names have to match.
@@ -37,9 +97,17 @@ column type, rather than being reassembled from four columns whose names have to
 
 ## Validation Integration
 
-Embeddables integrate with `@zmdb/aot-validator`. There is no separate validator to construct — the embeddable's interface is the argument:
+Embeddables integrate with `@zmdb/validator`. There is no separate validator to construct — the embeddable's interface is the argument:
 
-<!-- snippet: embeddables.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Address, incomingAddress; this excerpt does not repeat those declarations."}
+import { validate } from '@zmdb/validator';
+
+const result = validate<Address>(incomingAddress);
+if (!result.success) {
+  throw new Error(result.errors!.map(e => `${e.path}: ${e.message}`).join(', '));
+}
+const address: Address = result.data!;
+```
 
 For the JSON form there is nothing extra to do at all: `assert<CreateDTO<Order>>(ctx.body)` already walks `metadata`, because the column's type is `OrderMetadata` and the generated validator follows
 it. Errors come back with paths like `input.metadata.tags[0]`.

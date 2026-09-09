@@ -16,7 +16,23 @@ The executable loads `zmdb.config.ts`, opens its `driver`, parses each `<YYYYMMD
 
 Applications that already have migration data can call the same boundary:
 
-<!-- snippet: migrations-cli.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
+import { driverMigrationConnection, status, up, type Migration } from '@zmdb/migrations/runner';
+import { sqlite } from '@zmdb/sqlite';
+
+const migrations: readonly Migration[] = [
+  {
+    version: 20260904010101,
+    name: 'create_users',
+    up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)',
+    down: 'DROP TABLE users',
+  },
+];
+
+const connection = driverMigrationConnection(driver, sqlite);
+await up(connection, migrations);
+console.log(await status(connection, migrations));
+```
 
 `driverMigrationConnection` owns the ledger SQL. It creates or upgrades the table, stores a SHA-256 checksum for new rows, and refuses an edited applied migration before running pending SQL.
 

@@ -25,9 +25,9 @@ export const DOCUMENTATION_BASELINE = {
   },
   target: {
     groups: 10,
-    canonicalPages: 278,
+    canonicalPages: 276,
     retainedCurrentPages: 264,
-    addedCanonicalPages: 14,
+    addedCanonicalPages: 12,
     redirectArtifacts: 12,
   },
 };
@@ -422,16 +422,6 @@ export const CANONICAL_PAGE_ADDITIONS = {
   'package-reference': {
     title: 'Package reference',
     group: 'Reference',
-    status: 'supported',
-  },
-  'runtime-foundation': {
-    title: 'Runtime foundation',
-    group: 'Reference',
-    status: 'supported',
-  },
-  'tooling-boundaries': {
-    title: 'Tooling & Boundaries',
-    group: 'Product overview',
     status: 'supported',
   },
 };

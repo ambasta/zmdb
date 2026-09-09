@@ -1,6 +1,20 @@
 No hand-written DTOs. Every DTO derives from the interface you declared the table as:
 
-<!-- snippet: type-derivation.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
+import { type Entity, type CreateDTO, type UpdateDTO } from '@zmdb/schema';
+
+// interface User extends Table<'users'> { … } — see Schema Declaration.
+
+type UserRow = Entity<User>;
+// { id: number; email: string; role: 'admin'|'user'|'guest'; createdAt: Date }
+
+type CreateUser = CreateDTO<User>;
+// { email: string; role?: 'admin'|'user'|'guest' }
+//   id omitted (Serial); role/createdAt optional (HasDefault)
+
+type UpdateUser = UpdateDTO<User>;
+// every column optional, minus the serial ones and the primary key
+```
 
 - **Entity** — the full row shape returned by reads: every column, required, mutable, relations left out because a relation is not a column.
 - **CreateDTO** — insert shape; `Serial` columns dropped, `HasDefault` and nullable columns optional.

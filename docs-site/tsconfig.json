@@ -1,44 +1,6 @@
 {
+  "//": "The program `openapi-model.ts` is read in. One file, because the rest of the docs build is `.mjs` and has nothing for a compiler to check; this exists so the four interfaces the published OpenAPI document is derived from are typechecked like any other declaration, and so `schemasFrom` has a project to open.",
   "extends": "../tsconfig.json",
-  "compilerOptions": {
-    "paths": {
-      "zmdb": ["../packages/zmdb/src/index.ts"],
-      "zmdb/tags": ["../packages/schema/src/tags/index.ts"],
-      "zmdb/derive": ["../packages/schema/src/derive/index.ts"],
-      "zmdb/ir": ["../packages/schema/src/ir/index.ts"],
-      "zmdb/dto": ["../packages/schema/src/dto/index.ts"],
-      "zmdb/relations": ["../packages/schema/src/relations/index.ts"],
-      "zmdb/orm": ["../packages/orm/src/index.ts"],
-      "zmdb/orm/dto": ["../packages/orm/src/dto/index.ts"],
-      "zmdb/compiler": ["../packages/compiler/src/index.ts"],
-      "zmdb/validator": ["../packages/validator/src/index.ts"],
-      "zmdb/sqlite": ["../packages/sqlite/src/index.ts"],
-      "@zmdb/schema": ["../packages/schema/src/index.ts"],
-      "@zmdb/schema/*": ["../packages/schema/src/*"],
-      "@zmdb/schema-core": ["../packages/schema/src/index.ts"],
-      "@zmdb/schema-core/*": ["../packages/schema/src/*"],
-      "@zmdb/orm": ["../packages/orm/src/index.ts"],
-      "@zmdb/orm/*": ["../packages/orm/src/*"],
-      "@zmdb/repository": ["../packages/orm/src/index.ts"],
-      "@zmdb/repository/*": ["../packages/orm/src/*"],
-      "@zmdb/compiler": ["../packages/compiler/src/index.ts"],
-      "@zmdb/compiler/*": ["../packages/compiler/src/*"],
-      "@zmdb/query-compiler": ["../packages/compiler/src/index.ts"],
-      "@zmdb/query-compiler/*": ["../packages/compiler/src/*"],
-      "@zmdb/validator": ["../packages/validator/src/index.ts"],
-      "@zmdb/validator/*": ["../packages/validator/src/*"],
-      "@zmdb/aot-validator": ["../packages/validator/src/index.ts"],
-      "@zmdb/aot-validator/*": ["../packages/validator/src/*"],
-      "@zmdb/sql": ["../packages/sql/src/index.ts"],
-      "@zmdb/sql/*": ["../packages/sql/src/*"]
-    }
-  },
-  "include": [
-    "openapi-model.ts",
-    "snippets/quick-start.ts",
-    "snippets/read-dtos.ts",
-    "snippets/relations.ts",
-    "snippets/schema-declaration.ts",
-    "snippets/type-derivation.ts"
-  ]
+  "compilerOptions": {},
+  "files": ["openapi-model.ts"]
 }

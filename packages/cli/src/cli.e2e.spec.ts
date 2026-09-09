@@ -128,14 +128,8 @@ function run(project: Project, ...argv: readonly string[]): Run {
 function withoutCompilerShutdownNoise(stderr: string): string {
   return stderr
     .split(/\r?\n/)
-    .filter(
-      line =>
-        line !== 'context canceled' &&
-        !line.includes('ExperimentalWarning:') &&
-        !line.includes('Use `node --trace-warnings'),
-    )
-    .join('\n')
-    .trim();
+    .filter(line => line !== 'context canceled')
+    .join('\n');
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {

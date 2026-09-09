@@ -3,14 +3,27 @@ the engine's.
 
 ## Basic Usage
 
-<!-- snippet: json-stringify.ts#snippet-1 -->
+```ts {"mode":"compile","id":"example-001"}
+import { stringify } from '@zmdb/validator/serialization';
+
+stringify({ name: 'alice', age: 30, active: true });
+// '{"name":"alice","age":30,"active":true}'
+
+stringify([1, 2, 3]); // '[1,2,3]'
+stringify({ user: { email: 'a@b.com' } }); // '{"user":{"email":"a@b.com"}}'
+stringify(null); // 'null'
+stringify(undefined); // undefined — not a string, exactly as JSON.stringify
+```
 
 No replacer and no space parameter. Where you want either, call `JSON.stringify` directly; this entry point exists for the `bigint` policy and for the AOT path to hook into later, not to wrap the
 whole API.
 
 ## Bigint
 
-<!-- snippet: json-stringify.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies stringify; this excerpt does not repeat those declarations."}
+stringify({ id: 123n });
+// TypeError: Do not know how to serialize a BigInt
+```
 
 The check is applied at the top level _and_ through a replacer, so a `bigint` nested five levels down throws the same message rather than the engine's own wording. Normalising it is the point: one
 message means a caller can match on it.
@@ -18,7 +31,12 @@ message means a caller can match on it.
 A `bigint` column does not need you to solve this by hand, though. The **wire** type for `Sql<'bigint'>` is a `string` with `format: 'int64'`, and you get that without asking — it is in the generated
 JSON Schema, the OpenAPI document, and what `wireEncoder` produces:
 
-<!-- snippet: json-stringify.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies PrimaryKey, Sql, Table; this excerpt does not repeat those declarations."}
+export interface Event extends Table<'events'> {
+  id: bigint & Sql<'bigint'> & PrimaryKey;
+}
+// Entity<Event>['id'] is bigint; the JSON body carries "9007199254740993"
+```
 
 So the boundary encoder converts, and `stringify` throwing is the backstop for a value that reached JSON without going through one. See [bigint keys](./bigint-keys.html).
 
@@ -26,7 +44,11 @@ So the boundary encoder converts, and `stringify` throwing is the backstop for a
 
 `assertStringify(value, schema?)` validates before serializing:
 
-<!-- snippet: json-stringify.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies ir, payload; this excerpt does not repeat those declarations."}
+import { assertStringify } from '@zmdb/validator/serialization';
+
+const json = assertStringify(payload, ir); // throws AssertError if payload is wrong
+```
 
 > [!IMPORTANT] `assertStringify` is **not** one of the seventeen calls the transformer currently rewrites (`is`, `isShallow`, `assert`, `assertShallow`, `equals`, `assertEquals`, `validate`,
 > `validateShallow`, `random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`, `protoEncode`, `grpcDescriptor`, `loadGrpcService`), so its schema has to be a runtime argument.
@@ -34,7 +56,9 @@ So the boundary encoder converts, and `stringify` throwing is the backstop for a
 >
 > The transformed equivalent is two calls, and it is the one to write today:
 >
-> <!-- snippet: json-stringify.ts#snippet-5 -->
+> ```ts
+> const json = stringify(assert<CreateDTO<User>>(payload));
+> ```
 
 ## Comparison with `JSON.stringify`
 

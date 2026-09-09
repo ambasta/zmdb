@@ -3,13 +3,26 @@ runtime schema, no reflection.
 
 ## Usage
 
-<!-- snippet: validators-is.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies CreateUser, payload, users; this excerpt does not repeat those declarations."}
+import { is } from '@zmdb/validator';
+
+if (is<CreateUser>(payload)) {
+  // payload is narrowed to CreateUser here
+  await users.create(payload);
+}
+```
 
 ## What the transform emits
 
 For a type like `{ email: string; age: number }`, the call site compiles to a straight-line boolean expression:
 
-<!-- snippet: validators-is.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies d, is; this excerpt does not repeat those declarations."}
+// authored
+is<{ email: string; age: number }>(d)(
+  // compiled (AOT)
+  typeof d === 'object' && d !== null && typeof d.email === 'string' && typeof d.age === 'number',
+);
+```
 
 > [!NOTE] This is the same single boolean-chain shape typia emits — and in our [benchmarks](../benchmarks/index.html) it out-performs `new Function()` JIT validators. Without the transform wired in,
 > `is` falls back to a slower runtime walk of the type descriptor.

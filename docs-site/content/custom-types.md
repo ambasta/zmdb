@@ -7,7 +7,38 @@ A column has **three** types, and a custom type is where they visibly differ: wh
 
 `defineType` takes those three as type parameters and one function per crossing. The result is immutable and frozen — safe to share across your application.
 
-<!-- snippet: custom-types.ts#snippet-1 -->
+```ts {"mode":"compile","id":"example-001"}
+import { defineType, encodeValue, decodeValue } from '@zmdb/schema/custom-types';
+
+interface Money {
+  amount: number;
+  currency: string;
+}
+
+//                       wire    app     db
+const MoneyType = defineType<string, Money, string>({
+  sqlType: 'VARCHAR(50)',
+  toDb: m => `${m.amount}:${m.currency}`,
+  fromDb: s => {
+    const [amount, currency] = s.split(':');
+    if (currency === undefined || currency === '') throw new TypeError('Money currency is required');
+    return { amount: Number(amount), currency };
+  },
+  toWire: m => `${m.amount} ${m.currency}`,
+  fromWire: s => {
+    const [amount, currency] = s.split(' ');
+    if (currency === undefined || currency === '') throw new TypeError('Money currency is required');
+    return { amount: Number(amount), currency };
+  },
+});
+
+// Usage
+const dbValue = encodeValue(MoneyType, { amount: 100, currency: 'USD' });
+// dbValue => "100:USD"
+
+const appValue = decodeValue(MoneyType, '100:USD');
+// appValue => { amount: 100, currency: 'USD' }
+```
 
 All four functions are required, and that is deliberate: a codec whose `toWire` was optional would be a codec that sometimes converts, and the caller cannot tell which kind it has. The three type
 parameters exist for the same reason — a codec that named only two left the third to be guessed, and the guess was "the same as the app type", which is how a `Money` instance got handed to
@@ -19,7 +50,14 @@ parameters exist for the same reason — a codec that named only two left the th
 
 A column names its codec with the `Codec<'Name'>` tag, and says what JSON carries with `WireAs<W>`:
 
-<!-- snippet: custom-types.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Money; this excerpt does not repeat those declarations."}
+import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/core/tags';
+
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  total: Money & Sql<'varchar'> & Codec<'Money'> & WireAs<string>;
+}
+```
 
 Three tags, three answers: `Sql<'varchar'>` is the storage, `Codec<'Money'>` is the conversion, `WireAs<string>` is the JSON. The app type is the property type, `Money`, which is what
 `Entity<Order>['total']` gives you.
@@ -40,7 +78,15 @@ CREATE TABLE "orders" (
 
 The tag names a codec; the application supplies it. One registry, keyed by the same name:
 
-<!-- snippet: custom-types.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies MoneyType, Order, schemaOf; this excerpt does not repeat those declarations."}
+import { wireCodec } from '@zmdb/schema/custom-types';
+import { wireDecoder, wireEncoder } from '@zmdb/web/data';
+
+const codecs = { Money: wireCodec(MoneyType) };
+
+const decode = wireDecoder(schemaOf<Order>(), 'create', codecs);
+const encode = wireEncoder(schemaOf<Order>(), codecs);
+```
 
 `wireCodec` adapts the four-function `CustomType` to the two-function `Codec` the boundary asks for. A column that names a codec with nothing behind it **throws**:
 
@@ -57,20 +103,46 @@ nothing downstream can guess it.
 
 For a nested shape with no conversion, you do not need a codec at all — the property's type _is_ the payload type:
 
-<!-- snippet: custom-types.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
+interface Priority {
+  level: 'low' | 'medium' | 'high';
+  escalated: boolean;
+}
+
+export interface Task extends Table<'tasks'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  priority: Priority & Sql<'json'>;
+}
+```
 
 The generated validator walks `priority.level` and `priority.escalated`, so `assert<CreateDTO<Task>>(body)` covers it. Reach for a codec when the stored form and the app form genuinely differ —
 `Money` as `"100:USD"`, a `bigint` as a decimal string — not merely because a column holds an object.
 
-<!-- snippet: custom-types.ts#snippet-5 -->
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Priority, assert, defineType; this excerpt does not repeat those declarations."}
+// a codec that does need one: the stored text is not the app shape
+const PriorityType = defineType<string, Priority, string>({
+  sqlType: 'JSONB',
+  toDb: p => JSON.stringify(p),
+  // the column is JSONB; nothing guarantees the shape on read, so check it
+  fromDb: raw => assert<Priority>(JSON.parse(raw)),
+  toWire: p => JSON.stringify(p),
+  fromWire: raw => assert<Priority>(JSON.parse(raw)),
+});
+```
 
 ## Type Safety Guarantees
 
 The three parameters are what make the boundaries checked rather than assumed:
 
-<!-- snippet: custom-types.ts#snippet-6 -->
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies MoneyType, encodeValue; this excerpt does not repeat those declarations."}
+// This compiles — types align
+const encoded = encodeValue(MoneyType, { amount: 50, currency: 'EUR' });
 
-> [!IMPORTANT] Custom types do NOT add runtime validation. If the database returns malformed data, `fromDb` will throw — or worse, succeed with nonsense. Pair them with `@zmdb/aot-validator`, as
+// This fails — fromDb expects string, not number
+// decodeValue(MoneyType, 42); // Type error
+```
+
+> [!IMPORTANT] Custom types do NOT add runtime validation. If the database returns malformed data, `fromDb` will throw — or worse, succeed with nonsense. Pair them with `@zmdb/validator`, as
 > `PriorityType.fromDb` does above.
 
 ## Extension-backed storage types

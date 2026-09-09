@@ -6,9 +6,22 @@ application-level calculations.
 
 ## Creating a Generated Column
 
-Use `generatedColumnDdl` from `@zmdb/query-compiler/schema-objects` to generate the DDL. The function accepts a `GeneratedColumn` definition with the column name, SQL type, and expression.
+Use `generatedColumnDdl` from `@zmdb/sql/schema-objects` to generate the DDL. The function accepts a `GeneratedColumn` definition with the column name, SQL type, and expression.
 
-<!-- snippet: generated-columns.ts#snippet-1 -->
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
+import { generatedColumnDdl } from '@zmdb/sql/schema-objects';
+
+const genCol = {
+  name: 'full_name',
+  type: 'VARCHAR(255)',
+  expression: "first_name || ' ' || last_name",
+  stored: true,
+};
+
+const ddl = generatedColumnDdl(genCol, postgres);
+console.log(ddl);
+```
 
 ```sql
 "full_name" VARCHAR(255) GENERATED ALWAYS AS (first_name || ' ' || last_name) STORED
@@ -22,7 +35,14 @@ Use `generatedColumnDdl` from `@zmdb/query-compiler/schema-objects` to generate 
 
 Track elapsed time or derive timestamps from other columns.
 
-<!-- snippet: generated-columns.ts#snippet-2 -->
+```ts {"mode":"compile","id":"example-002"}
+const auditLogDef = {
+  name: 'duration_ms',
+  type: 'INTEGER',
+  expression: 'EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000',
+  stored: true,
+};
+```
 
 ```sql
 "duration_ms" INTEGER GENERATED ALWAYS AS (EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000) STORED
@@ -32,7 +52,14 @@ Track elapsed time or derive timestamps from other columns.
 
 Extract values from JSON columns into dedicated fields for indexing or querying.
 
-<!-- snippet: generated-columns.ts#snippet-3 -->
+```ts {"mode":"compile","id":"example-003"}
+const jsonExtractionDef = {
+  name: 'user_email',
+  type: 'VARCHAR(255)',
+  expression: "(payload->>'user')::text",
+  stored: true,
+};
+```
 
 ```sql
 "user_email" VARCHAR(255) GENERATED ALWAYS AS ((payload->>'user')::text) STORED
@@ -42,7 +69,14 @@ Extract values from JSON columns into dedicated fields for indexing or querying.
 
 Precompute values that are frequently queried but expensive to calculate.
 
-<!-- snippet: generated-columns.ts#snippet-4 -->
+```ts {"mode":"compile","id":"example-004"}
+const totalPriceDef = {
+  name: 'total_price',
+  type: 'NUMERIC(10,2)',
+  expression: 'unit_price * quantity',
+  stored: true,
+};
+```
 
 ```sql
 "total_price" NUMERIC(10,2) GENERATED ALWAYS AS (unit_price * quantity) STORED
@@ -52,7 +86,16 @@ Precompute values that are frequently queried but expensive to calculate.
 
 Declare the base columns and stop there. A generated column has no property, which is exactly how it stays out of `CreateDTO` and `UpdateDTO`:
 
-<!-- snippet: generated-columns.ts#snippet-5 -->
+```ts {"mode":"compile","id":"example-005"}
+import type { Numeric, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
+
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  unit_price: number & Sql<'numeric'> & Numeric<10, 2>;
+  quantity: number & Sql<'integer'>;
+  // total_price is generated — it lives in the migration, not here
+}
+```
 
 > [!WARNING] Do not add a property for a generated column. It would appear in `CreateDTO<Order>` as something to insert, and the database rejects any INSERT/UPDATE that targets a generated column.
 > There is no tag that would fix this, and there should not be: the expression is dialect-specific SQL and a type cannot hold SQL.
@@ -63,7 +106,16 @@ If you need to _read_ it through a typed path, declare a second interface over a
 
 Generated columns can be selected like regular columns. They're computed automatically, so you don't need to do anything special in your queries.
 
-<!-- snippet: generated-columns.ts#snippet-6 -->
+```ts {"mode":"compile","id":"example-006"}
+import { createQueryCompiler } from '@zmdb/sql';
+import { postgres } from '@zmdb/postgres';
+
+const compiler = createQueryCompiler(postgres);
+
+const query = compiler.selectFrom('orders').select(['id', 'unit_price', 'quantity', 'total_price']).compile();
+
+console.log(query.text);
+```
 
 ```sql
 SELECT "id", "unit_price", "quantity", "total_price" FROM "orders"

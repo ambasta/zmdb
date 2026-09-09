@@ -1,7 +1,17 @@
 A table is a TypeScript type. You declare it once, as an interface, and everything else — the row type, the create and update DTOs, the DDL, the validator, the JSON Schema document — is derived from
 that one declaration.
 
-<!-- snippet: schema-declaration.ts#snippet-1 -->
+```ts {"mode":"compile","id":"example-001"}
+import type { HasDefault, Length, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/schema';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'varchar'> & Length<255> & Unique;
+  name: (string & Sql<'text'>) | null;
+  role: ('admin' | 'user') & HasDefault;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+}
+```
 
 That is the whole column declaration. There is no second property map to keep in sync with it. `Unique` is carried into the IR, but the root dialects still need an explicit standalone unique index in
 a schema-object migration; see [Indexes & Constraints](./indexes-constraints.html).
@@ -13,7 +23,11 @@ a schema-object migration; see [Indexes & Constraints](./indexes-constraints.htm
 
 Each property is its **app type** intersected with **tags**. The app type is what your handler code sees; the tags say the things TypeScript has no syntax for.
 
-<!-- snippet: schema-declaration.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies PrimaryKey, Serial, Sql; this excerpt does not repeat those declarations."}
+id: number & Sql<'integer'> & Serial & PrimaryKey;
+// ^^          ^^^^^^^^^^^^^^^^ the SQL column type
+// the type your code sees      ^^^^^^^^^^^^^^^^^^ facts about the column
+```
 
 A tag is a phantom `unique symbol` property. It exists only in the type system: it erases completely, so a tagged type is the same value at runtime as the untagged one, and `number & Sql<'integer'>`
 is assignable to `number` in both directions. You can pass a row's `id` to anything that wants a `number`.
@@ -45,7 +59,23 @@ The full list is the [tag reference](./tags-reference.html). These five cover mo
 
 ## What you get from it
 
-<!-- snippet: schema-declaration.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, driver; this excerpt does not repeat those declarations."}
+import { defineRepository, schemaOf } from '@zmdb/core';
+import type { CreateDTO, Entity, UpdateDTO } from '@zmdb/core';
+
+type Row = Entity<User>;
+// { id: number; email: string; name: string | null; role: 'admin' | 'user'; createdAt: Date }
+
+type NewUser = CreateDTO<User>;
+// { email: string; name?: string | null; role?: 'admin' | 'user'; createdAt?: Date }
+// no `id`: it is Serial, so the database makes it
+
+type Patch = UpdateDTO<User>;
+// every field optional
+
+const users = defineRepository(schemaOf<User>(), driver);
+await users.create({ email: 'a@b.com' }); // validated before any SQL is sent
+```
 
 `CreateDTO` drops `Serial` columns entirely rather than making them optional, because there is no value you could usefully pass. Columns with `HasDefault` and nullable columns become optional —
 omitting a nullable column inserts `NULL`, which is what passing `null` does.
@@ -74,20 +104,50 @@ The named column must exist, be nullable, and use `Sql<'timestamp'>`. It remains
 `schemaOf<User>()` is a **compile-time** call. It has no runtime implementation and cannot have one: the answer is a function of a type argument, and type arguments do not exist at runtime. The zmdb
 transform replaces the call with a frozen object literal.
 
-<!-- snippet: schema-declaration.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-005","reason":"This pseudocode uses arrows or ellipses to omit implementation details from the surrounding example."}
+// what you write
+const users = defineRepository(schemaOf<User>(), driver);
+
+// what runs
+const users = defineRepository(
+  Object.freeze({ table: 'users', columns: { … }, primaryKey: ['id'], ir: { … } }),
+  driver,
+);
+```
 
 If the transform did not run, the call throws a message saying exactly that. It does not return an empty schema and let you find out in production. Set it up with the [build plugin](./aot-setup.html)
 or the [codegen CLI](./cli-codegen.html), which commits the generated files so a fresh clone needs no tool at all.
 
 ## Foreign keys
 
-<!-- snippet: schema-declaration.ts#snippet-5 -->
+```ts {"mode":"compile","id":"example-006"}
+import type { PrimaryKey, References, Serial, Sql, Table } from '@zmdb/core/schema';
+
+export interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  authorId: number & Sql<'integer'> & References<'users.id'>;
+}
+```
 
 `References<'users.id'>` is `table.column`, checked as a string literal. It reaches the DDL as a real `FOREIGN KEY` constraint, and [Relations](./relations.html) is how you traverse it in queries.
 
 ## JSON columns keep their shape
 
-<!-- snippet: schema-declaration.ts#snippet-6 -->
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Entity, PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
+interface Preferences {
+  theme: 'light' | 'dark';
+  digest: boolean;
+}
+
+export interface Account extends Table<'accounts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  prefs: Preferences & Sql<'json'>;
+}
+
+type Row = Entity<Account>;
+// Row['prefs']['theme'] is 'light' | 'dark'
+```
 
 The payload's shape survives every derivation, and the emitted validator checks it on the way in. This is the clearest thing the old builder DSL could not do: `json<Preferences>()` erased its type
 parameter at runtime, so the shape reached nothing downstream.
@@ -96,7 +156,14 @@ parameter at runtime, so the shape reached nothing downstream.
 
 `schemaOf<T>()` returns a plain frozen object when you need one:
 
-<!-- snippet: schema-declaration.ts#snippet-7 -->
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies User, schemaOf; this excerpt does not repeat those declarations."}
+import { createQueryCompiler } from '@zmdb/core/sql';
+import { postgres } from '@zmdb/core/postgres';
+
+const schema = schemaOf<User>();
+const compiler = createQueryCompiler(postgres);
+const query = compiler.selectFrom(schema.table).select(['id', 'email']).where('role', '=', 'admin').compile();
+```
 
 ```sql
 SELECT "id", "email" FROM "users" WHERE "role" = $1
@@ -115,5 +182,6 @@ example from `schema.columns`). Repository DTOs continue to use declared propert
 - [Column Types](./column-types.html) — the SQL type set and why it is small
 - [Type Derivation](./type-derivation.html) — `Entity`, the DTOs, and the read models
 - [Relations](./relations.html) — declaring and traversing relationships
-- [Codemod](./codemod.html) — converting a `defineSchema` project
 - [Repository](./repository.html) — using a schema for CRUD
+
+Continue with the [repository](./repository.html) to persist this schema, then [validate requests](./validators-validate.html) in the [blog API tutorial](./tutorial-blog-api.html).

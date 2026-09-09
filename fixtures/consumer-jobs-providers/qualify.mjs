@@ -7,32 +7,6 @@ import { pathToFileURL } from 'node:url';
 
 import { startRegistry } from './registry.mjs';
 
-const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-function toHex(bytes) {
-  return typeof bytes.toHex === 'function'
-    ? bytes.toHex()
-    : Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
-}
-function toBase64(bytes) {
-  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
-  let res = '';
-  let i = 0;
-  for (; i + 2 < bytes.length; i += 3) {
-    const t = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
-    res +=
-      BASE64_CHARS[(t >> 18) & 63] + BASE64_CHARS[(t >> 12) & 63] + BASE64_CHARS[(t >> 6) & 63] + BASE64_CHARS[t & 63];
-  }
-  if (i < bytes.length) {
-    const rem = bytes.length - i;
-    const t = rem === 1 ? bytes[i] << 16 : (bytes[i] << 16) | (bytes[i + 1] << 8);
-    res +=
-      BASE64_CHARS[(t >> 18) & 63] +
-      BASE64_CHARS[(t >> 12) & 63] +
-      (rem === 1 ? '==' : BASE64_CHARS[(t >> 6) & 63] + '=');
-  }
-  return res;
-}
-
 const source = import.meta.dirname;
 const rootArgument = process.argv.indexOf('--root');
 const root = resolve(rootArgument < 0 ? join(source, '../..') : process.argv[rootArgument + 1]);
@@ -171,14 +145,12 @@ async function packClosure(roots) {
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
     packageIntegrities.set(
       manifest.name,
-      `sha512-${toBase64(
-        new Uint8Array(
-          await globalThis.crypto.subtle.digest(
-            'SHA-512',
-            await readFile(join(tarballs, packedInfo[manifest.name].filename)),
-          ),
+      `sha512-${new Uint8Array(
+        await globalThis.crypto.subtle.digest(
+          'SHA-512',
+          await readFile(join(tarballs, packedInfo[manifest.name].filename)),
         ),
-      )}`,
+      ).toBase64()}`,
     );
   }
   return packed;
@@ -360,7 +332,7 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => ({
       name: entry.manifest.name,
-      sha256: toHex(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)))),
+      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
     })),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {

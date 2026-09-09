@@ -2,7 +2,9 @@ Insert rows with the query builder, or (preferably) through a repository's `crea
 
 ## Basic insert
 
-<!-- snippet: insert.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
+qc.insertInto('users').values({ email: 'a@b.com', role: 'user' }).compile();
+```
 
 ```sql
 INSERT INTO "users" ("email", "role") VALUES ($1, $2)
@@ -11,7 +13,9 @@ INSERT INTO "users" ("email", "role") VALUES ($1, $2)
 
 ## Returning the inserted row
 
-<!-- snippet: insert.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
+qc.insertInto('users').values({ email: 'a@b.com' }).returning(['id', 'createdAt']).compile();
+```
 
 ```sql
 INSERT INTO "users" ("email") VALUES ($1) RETURNING "id", "createdAt"
@@ -30,7 +34,10 @@ INSERT without `returning()`, validate the payload explicitly, and perform the r
 
 ## Through the repository (validated)
 
-<!-- snippet: insert.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
+const user = await users.create({ email: 'a@b.com' }); // role defaults applied
+// returns Entity<User>
+```
 
 > [!IMPORTANT] If the payload is invalid, `create` throws a structured `ValidationError` and **no SQL runs** — the driver is never called. Auto-increment PKs and defaulted columns may be omitted from
 > the payload (that is what `CreateDTO` encodes).

@@ -27,7 +27,6 @@ import { antiPatterns } from './coverage/mapping.mjs';
 import { NAV, PAGE_GROUPS, PAGE_META } from './pages.mjs';
 
 const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), 'content');
-const SNIPPETS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'snippets');
 
 const SOURCE_LABEL = {
   drizzle: ['Drizzle ORM', 'https://orm.drizzle.team/docs/'],
@@ -69,25 +68,9 @@ function renderAntiPatterns() {
 // generator would silently emit a title with nothing under it. Fail loudly.
 function readBody(slug) {
   try {
-    let raw = readFileSync(join(CONTENT_DIR, `${slug}.md`), 'utf8');
-    if (raw.includes(ANTI_PATTERN_MARKER)) {
-      raw = raw.replace(ANTI_PATTERN_MARKER, renderAntiPatterns());
-    }
-    raw = raw.replace(/<!-- snippet: ([^#]+)#([^\s]+) -->/g, (_, file, region) => {
-      const snippetPath = join(SNIPPETS_DIR, file);
-      const code = readFileSync(snippetPath, 'utf8');
-      const lines = code.split('\n');
-      const startMarker = `// #region ${region}`;
-      const endMarker = `// #endregion ${region}`;
-      const startIdx = lines.findIndex(l => l.trim() === startMarker);
-      const endIdx = lines.findIndex(l => l.trim() === endMarker);
-      if (startIdx === -1 || endIdx === -1) {
-        throw new Error(`Snippet region "${region}" not found in ${snippetPath}`);
-      }
-      const snippetLines = lines.slice(startIdx + 1, endIdx);
-      return `\`\`\`ts\n${snippetLines.join('\n')}\n\`\`\``;
-    });
-    return raw;
+    const raw = readFileSync(join(CONTENT_DIR, `${slug}.md`), 'utf8');
+    if (!raw.includes(ANTI_PATTERN_MARKER)) return raw;
+    return raw.replace(ANTI_PATTERN_MARKER, renderAntiPatterns());
   } catch (err) {
     if (err.code === 'ENOENT') {
       throw new Error(

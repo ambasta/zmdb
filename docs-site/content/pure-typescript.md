@@ -3,7 +3,11 @@ runtime. Everything that gets its shape from a **value** does not.
 
 ## The part that needs the build step
 
-<!-- snippet: pure-typescript.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, payload; this excerpt does not repeat those declarations."}
+import { is } from '@zmdb/validator';
+
+is<User>(payload); // needs the transformer
+```
 
 `is<T>`, `isShallow<T, D>`, `assert<T>`, `assertShallow<T, D>`, `validate<T>`, `validateShallow<T, D>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>`, `schemaOf<T>`, `toolFor<T>`,
 `protoDescriptor<T>`, `protoDecode<T>`, `protoEncode<T>`, `grpcDescriptor<S>` and `loadGrpcService<S>` are the seventeen calls the transformer currently rewrites. It replaces each with emitted code
@@ -22,7 +26,13 @@ The five protobuf and gRPC artifact calls are imported from `@zmdb/protobuf`; re
 
 **Rule-first validation.** `validate(rule, value)` takes the constraint as a value, so it runs anywhere:
 
-<!-- snippet: pure-typescript.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies input; this excerpt does not repeat those declarations."}
+import { tags, validateRule as validate } from '@zmdb/validator';
+
+validate(tags.Min(0), input.price); // boolean
+validate(tags.Pattern('^[^@]+@[^@]+$'), input.email);
+validate(tags.Enum('draft', 'review', 'published'), input.status);
+```
 
 | Rule                            | Checks                                  |
 | ------------------------------- | --------------------------------------- |
@@ -36,7 +46,12 @@ second implementation. An unknown `kind` throws.
 
 **Serialization.** Neither `stringify` nor `parse` is transformed, so both work unchanged:
 
-<!-- snippet: pure-typescript.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies user; this excerpt does not repeat those declarations."}
+import { parse, stringify } from '@zmdb/validator/serialization';
+
+const json = stringify(user); // JSON.stringify, plus one fixed bigint TypeError
+const result = parse(json); // { success, data? , issues? } — malformed JSON is a value, not a throw
+```
 
 `parse<T>`'s type argument is an unvalidated claim, exactly as `JSON.parse`'s cast would be. The checking step is separate, and it is one of the transformed validation calls.
 
@@ -44,7 +59,12 @@ second implementation. An unknown `kind` throws.
 second). The three shallow calls additionally accept their depth as a third fallback-only argument. The schema and protobuf calls cannot use that escape hatch because their public contract is
 compile-time-only:
 
-<!-- snippet: pure-typescript.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies rawValue; this excerpt does not repeat those declarations."}
+import { assert, type TypeIR } from '@zmdb/validator';
+
+const ir: TypeIR = { kind: 'scalar', scalar: 'string' };
+assert(rawValue, ir); // no type argument, no transformer
+```
 
 There used to be a second accepted shape, a hand-written `TypeDescriptor`. It is gone: a descriptor is a type written out again by hand, in a form nothing checks against the type it claims to
 describe, so it drifts silently the moment the interface is edited.

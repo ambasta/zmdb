@@ -178,8 +178,6 @@ function executeSample(directory, sample) {
     process.execPath,
     [
       '--permission',
-      '--import',
-      "data:text/javascript,globalThis.fetch=()=>Promise.reject(new Error('external state requires an issue-owned fixture'));",
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
       `--allow-fs-read=${realpathSync(join(root, 'packages'))}`,

@@ -3,7 +3,9 @@ Update rows with the query builder, or through a repository's `update(id, patch)
 
 ## Basic update
 
-<!-- snippet: update.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
+qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile();
+```
 
 ```sql
 UPDATE "users" SET "role" = $1 WHERE "id" = $2
@@ -12,7 +14,9 @@ UPDATE "users" SET "role" = $1 WHERE "id" = $2
 
 ## Returning the updated row
 
-<!-- snippet: update.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
+qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).returning(['id', 'role']).compile();
+```
 
 ```sql
 UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING "id", "role"
@@ -26,7 +30,14 @@ UPDATE [users] SET [role] = @p1 OUTPUT INSERTED.[id], INSERTED.[role] WHERE [id]
 
 ## Through the repository (validated)
 
-<!-- snippet: update.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies posts, users; this excerpt does not repeat those declarations."}
+import { inc, not } from '@zmdb/core/sql';
+
+const updated = await users.update(1, { role: 'admin' });
+const counted = await posts.increment(1, 'views', 2);
+await users.update(1, { active: not() });
+const affected = await posts.updateMany({ authorId: 7 }, { views: inc(1) });
+```
 
 `increment` accepts only updatable numeric columns and preserves number versus bigint operands. `preUpdate` receives the validated, `undefined`-stripped patch in schema order, including the same
 branded expression objects supplied by the caller.

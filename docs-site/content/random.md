@@ -2,18 +2,38 @@
 literal unions — are honoured because the value is assembled _from_ them rather than checked against them afterwards.
 
 > [!NOTE] `is<T>(random<T>()) === true` is the property the generator holds, and there is a test that says so. The values are not deterministic: the transformer inlines the call, and the inlined
-> expression draws from `Math.random`. Where you need reproducibility, `seedRows` in [`@zmdb/repository/seeding`](./seeding.html) drives the same sampler from a seed.
+> expression draws from `Math.random`. Where you need reproducibility, `seedRows` in [`@zmdb/orm/seeding`](./seeding.html) drives the same sampler from a seed.
 
 ## Basic Usage
 
-<!-- snippet: random.ts#snippet-1 -->
+```ts {"mode":"compile","id":"example-001"}
+import { random, is } from '@zmdb/validator';
+
+interface Account {
+  name: string;
+  age: number;
+  active: boolean;
+}
+
+const sample = random<Account>();
+// { name: 'k3f9qz', age: 417, active: true }
+
+is<Account>(sample); // true
+```
 
 The type argument is the whole input. The transformer turns `random<Account>()` into a call carrying `Account`'s IR, which is also why the constraints in the type reach the generator at all — there is
 no second argument to keep in step with the first.
 
 ## Primitives
 
-<!-- snippet: random.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies random; this excerpt does not repeat those declarations."}
+random<boolean>(); // true or false
+random<number>(); // 0 … 1000
+random<Date>(); // an arbitrary instant, epoch to roughly 2024
+random<bigint>(); // 417n
+random<'admin' | 'user' | 'guest'>(); // 'user' — one member, at random
+random<null>(); // null
+```
 
 A literal type samples to itself, which makes a discriminated union work the way you would hope: `random<{ kind: 'circle'; r: number }>()` always has `kind: 'circle'`.
 
@@ -21,7 +41,12 @@ A literal type samples to itself, which makes a discriminated union work the way
 
 Constraints narrow the range rather than being validated after the fact:
 
-<!-- snippet: random.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies random; this excerpt does not repeat those declarations."}
+import type { Max, MaxLength, Min, MinLength } from '@zmdb/core/tags';
+
+random<number & Min<100> & Max<200>>(); // 100 … 200
+random<string & MinLength<8> & MaxLength<8>>(); // exactly eight characters
+```
 
 An impossible bound is a thrown refusal rather than a wrong value:
 
@@ -31,7 +56,15 @@ cannot sample: a bound with minimum 200 above maximum 100
 
 ## Complex structures
 
-<!-- snippet: random.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Min, random; this excerpt does not repeat those declarations."}
+interface Order {
+  id: number;
+  items: { productId: number; quantity: number & Min<1> }[];
+}
+
+const order = random<Order>();
+// { id: 88, items: [{ productId: 3, quantity: 12 }, { productId: 91, quantity: 7 }] }
+```
 
 Arrays get 1–3 elements, or `MinLength`/`MaxLength` if the type says so. Tuples get exactly their arity. Objects get every property, including optional ones.
 
@@ -57,7 +90,9 @@ The path is in the message — ``cannot sample `.shipTo.postcode`: …`` — so 
 
 If a type you want to sample carries a `Pattern`, drop that property and supply it yourself:
 
-<!-- snippet: random.ts#snippet-5 -->
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies CreateDTO, User, random; this excerpt does not repeat those declarations."}
+const input = { ...random<Omit<CreateDTO<User>, 'email'>>(), email: 'a@b.test' };
+```
 
 Recursion through a union terminates, because a back-reference member is dropped rather than followed: `interface Node { next: Node | null }` samples to `{ next: null }` or `{ next: { next: null } }`.
 Only a reference with no non-recursive arm beside it is refused.
@@ -66,7 +101,21 @@ Only a reference with no non-recursive arm beside it is refused.
 
 `random<T>()` takes the type, so a table's own declaration is the fixture generator:
 
-<!-- snippet: random.ts#snippet-6 -->
+```ts {"mode":"compile","id":"example-006"}
+import { random } from '@zmdb/validator';
+import type { CreateDTO } from '@zmdb/core/derive';
+import type { Max, MaxLength, Min, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'> & MaxLength<100>;
+  email: string & Sql<'text'>;
+  age: (number & Sql<'integer'> & Min<0> & Max<120>) | null;
+}
+
+const sampleUser = random<CreateDTO<User>>();
+// { name: 'k3f9qz', email: 'p2m8t1x', age: 25 }
+```
 
 `CreateDTO<User>` rather than `User` is what makes this useful for an insert: `id` is `Serial`, so it is absent, and there is no generated id to collide with the one the database is about to assign.
 
@@ -75,7 +124,29 @@ Either keep the pattern and use the `Omit` form above, or keep it off the column
 
 ## Integration with Testing
 
-<!-- snippet: random.ts#snippet-7 -->
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies CreateDTO, Entity, User, describe, expect, it, repo; this excerpt does not repeat those declarations."}
+import { random, is, assertEquals } from '@zmdb/validator';
+
+describe('UserRepository', () => {
+  it('creates valid users', async () => {
+    const input = random<CreateDTO<User>>();
+
+    // Generated data is guaranteed valid
+    is<CreateDTO<User>>(input); // true
+
+    const created = await repo.create(input);
+
+    // The row that came back is exactly an entity — no extra keys, none missing
+    assertEquals<Entity<User>>(created);
+  });
+
+  it('rejects invalid input', async () => {
+    const invalid = { email: 'not-email', name: 'x'.repeat(101), age: 15 };
+
+    await expect(repo.create(invalid)).rejects.toThrow();
+  });
+});
+```
 
 ## Generated value ranges
 
@@ -97,7 +168,19 @@ Either keep the pattern and use the `Omit` form above, or keep it off the column
 
 ## Random for fuzzing
 
-<!-- snippet: random.ts#snippet-8 -->
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies CreateDTO, User; this excerpt does not repeat those declarations."}
+import { random, validate } from '@zmdb/validator';
+
+for (let i = 0; i < 1000; i++) {
+  const input = random<CreateDTO<User>>();
+
+  // Should always pass — `random` builds the value from the same IR `validate` checks
+  const result = validate<CreateDTO<User>>(input);
+  if (!result.success) {
+    console.error('Generated invalid input:', input, result.errors);
+  }
+}
+```
 
 That loop is a property test of the validator, not of your code: a failure means the generator and the checker disagree about the same IR. It is worth running once after a change to either.
 

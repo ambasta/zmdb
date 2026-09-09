@@ -5,19 +5,45 @@ projections to fetched rows.
 
 The repository's read methods accept a `select` option that narrows the returned row type. This is type-safe — only valid column keys from the schema are allowed.
 
-<!-- snippet: projections.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, users; this excerpt does not repeat those declarations."}
+import { type Entity } from '@zmdb/schema';
+
+// Given `interface User` with columns: id, email, role, createdAt
+type UserRow = Entity<User>;
+// UserRow = { id: number; email: string; role: string; createdAt: Date }
+
+// Select only email and role — type narrows automatically
+const minimal = await users.findById(1, { select: ['email', 'role'] as const });
+// Type: { email: string; role: string } | undefined
+```
 
 ## Runtime Projection Helper
 
 The `project()` function applies a column selection to a fetched row, returning a new object with only the specified keys.
 
-<!-- snippet: projections.ts#snippet-2 -->
+```ts {"mode":"compile","id":"example-002"}
+import { project } from '@zmdb/schema/dto';
+
+const row = { id: 1, email: 'a@b.com', role: 'admin', createdAt: new Date() };
+
+const narrow = project(row, ['email', 'role'] as const);
+// narrow = { email: 'a@b.com', role: 'admin' }
+
+// Passing undefined returns the row unchanged
+const full = project(row, undefined);
+// full = { id: 1, email: 'a@b.com', role: 'admin', createdAt: ... }
+```
 
 ## SQL Emitted
 
 When you specify `select` in a repository call, the compiler emits only those columns in the SELECT clause.
 
-<!-- snippet: projections.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies qb; this excerpt does not repeat those declarations."}
+const q = qb.selectFrom('users').select(['email', 'role']).where('id', '=', 1).compile();
+
+console.log(q.text);
+// SELECT "email", "role" FROM "users" WHERE "id" = $1
+```
 
 > [!IMPORTANT] Projections are compile-time checked against the schema. If you reference a column that doesn't exist, TypeScript will error before your code runs.
 
@@ -27,7 +53,13 @@ When you specify `select` in a repository call, the compiler emits only those co
 - Dashboard queries fetching only display columns
 - Reducing memory footprint for large result sets
 
-<!-- snippet: projections.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies id, users; this excerpt does not repeat those declarations."}
+// Expose only public-safe user data
+const publicUser = await users.findById(id, {
+  select: ['id', 'email', 'role'] as const,
+});
+// Never leaks internal fields like password_hash
+```
 
 > [!TIP] Combine projections with pagination to minimize data transfer. Fetch only what you display.
 

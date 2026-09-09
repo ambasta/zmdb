@@ -1,5 +1,5 @@
-Pagination controls how many rows come back and in what order. zmdb supports offset and keyset (cursor) pagination through three composable helpers in `@zmdb/schema-core/dto`, and
-`BaseRepository.list()` wires all three together for you.
+Pagination controls how many rows come back and in what order. zmdb supports offset and keyset (cursor) pagination through three composable helpers in `@zmdb/schema/dto`, and `BaseRepository.list()`
+wires all three together for you.
 
 Most application code should call [`list()`](./repository.html) and read `page.items` / `page.cursor` / `page.hasMore` — see [Cursor Pagination](./guide-cursor-pagination.html). This page is the layer
 underneath, for when you are paginating a hand-built query.
@@ -17,7 +17,21 @@ is `applyKeysetFilter` **plus** `applyPagination`.
 
 ## Offset pagination
 
-<!-- snippet: pagination.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies compiler, driver; this excerpt does not repeat those declarations."}
+import { applyOrderBy, applyPagination } from '@zmdb/orm/dto';
+import { buildListResult } from '@zmdb/schema/dto';
+
+let qb = compiler.selectFrom('users');
+qb = applyOrderBy(qb, [{ column: 'createdAt', dir: 'desc' }], 'id');
+qb = applyPagination(qb, { limit: 21, offset: 40 }); // limit + 1
+
+const rows = await driver.execute(qb.compile());
+const result = buildListResult(rows, {
+  limit: 20,
+  orderBy: [{ column: 'createdAt', dir: 'desc' }, { column: 'id' }],
+  pkColumn: 'id',
+});
+```
 
 **SQL emitted:**
 
@@ -37,7 +51,20 @@ Fetch `limit + 1` and pass the real `limit` to `buildListResult`, which is how `
 
 ## Keyset pagination
 
-<!-- snippet: pagination.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies applyOrderBy, applyPagination, compiler, cursor; this excerpt does not repeat those declarations."}
+import { applyKeysetFilter } from '@zmdb/orm/dto';
+import { decodeCursor } from '@zmdb/schema/dto';
+
+const order = [
+  { column: 'createdAt', dir: 'desc' as const },
+  { column: 'id', dir: 'asc' as const },
+];
+
+let qb = compiler.selectFrom('users');
+qb = applyOrderBy(qb, order);
+qb = applyKeysetFilter(qb, decodeCursor(cursor), order, { active: { eq: true } });
+qb = applyPagination(qb, { limit: 21 });
+```
 
 **SQL emitted** — one `OR` branch per sort column, each pinning the preceding columns with `=`:
 
@@ -63,7 +90,12 @@ wild.
 
 ## Cursor encoding
 
-<!-- snippet: pagination.ts#snippet-3 -->
+```ts {"mode":"compile","id":"example-003"}
+import { encodeCursor, decodeCursor } from '@zmdb/schema/dto';
+
+const cursor = encodeCursor({ createdAt: '2024-01-15T10:00:00Z', id: 123 });
+const values = decodeCursor(cursor); // throws on malformed input
+```
 
 `base64url` of the JSON payload, using `Buffer` where available and `btoa`/`atob` otherwise, so it works on Workers and in the browser.
 
@@ -72,9 +104,20 @@ wild.
 
 ## ListResult
 
-<!-- snippet: pagination.ts#snippet-4 -->
+```ts {"mode":"compile","id":"example-004"}
+interface ListResult<Row> {
+  readonly items: readonly Row[];
+  readonly total?: number; // only if you pass it in
+  readonly hasMore: boolean; // from the limit + 1 fetch
+  readonly cursor?: string; // encoded from the last kept row
+}
+```
 
-<!-- snippet: pagination.ts#snippet-5 -->
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies buildListResult, orderBy, rows; this excerpt does not repeat those declarations."}
+const result = buildListResult(rows, { limit: 20, orderBy, pkColumn: 'id' });
+// rows.length === 21 → hasMore = true, items = rows[0..19], cursor = encodeCursor(last kept row's sort keys)
+// rows.length <= 20  → hasMore = false, items = rows, cursor = undefined
+```
 
 `buildListResult` also applies `select` projection per item, so `items` matches the columns you asked for.
 
@@ -82,14 +125,20 @@ wild.
 
 `total` is opt-in and `list()` **never sets it** — a total is a second `COUNT(*)` query you run yourself and pass in:
 
-<!-- snippet: pagination.ts#snippet-6 -->
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies buildListResult, countUsers, rows, where; this excerpt does not repeat those declarations."}
+const result = buildListResult(rows, { limit: 20, total: await countUsers(where) });
+```
 
 > [!TIP] Only ask for a total when the UI shows "page 3 of 24". On a large table the count is the expensive part of the request — see [Count rows](./guide-count-rows.html) for the estimate-instead
 > options.
 
 ## Typed DTOs
 
-<!-- snippet: pagination.ts#snippet-7 -->
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Entity; this excerpt does not repeat those declarations."}
+type OffsetPage = { limit: number; offset?: number | undefined };
+
+type PaginationDTO<S> = OffsetPage | { limit: number; after?: Partial<Entity<S>> | string; before?: Partial<Entity<S>> | string };
+```
 
 A cursor is either the opaque string from a previous page or a partial entity, so column names in the object form are checked against the schema. `before` is accepted by the type and is **not
 implemented** by `list()` — see the ToDo on [Cursor Pagination](./guide-cursor-pagination.html).

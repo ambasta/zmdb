@@ -3,12 +3,20 @@ and the emitter finds the discriminant on its own.
 
 ## Unions
 
-<!-- snippet: unions-refinements.ts#snippet-1 -->
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies input; this excerpt does not repeat those declarations."}
+import { assert, validate } from '@zmdb/validator';
+
+assert<string | number>(input); // string | number
+validate<string | null>(input); // the nullable-column shape
+```
 
 An **undiscriminated** union is checked arm by arm: the value satisfies the union if it satisfies any member. On failure there is no arm to blame, so you get one issue naming the whole union at the
 union's own path:
 
-<!-- snippet: unions-refinements.ts#snippet-2 -->
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies validate; this excerpt does not repeat those declarations."}
+validate<string | number>(true);
+// errors: [{ path: 'input', expected: 'string | number', message: 'expected string | number', value: true }]
+```
 
 > [!NOTE] Excess-property checks are not defined for an undiscriminated union, and neither `equals<T>` nor `assertEquals<T>` applies one there. A value can satisfy several arms at once, so "which
 > arm's property list is the declared one" has no answer. Discriminated unions do get the check, per arm.
@@ -17,15 +25,26 @@ union's own path:
 
 A union of object types is discriminated when some non-optional property is a distinct literal in every arm. That is found automatically:
 
-<!-- snippet: unions-refinements.ts#snippet-3 -->
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies assert, body; this excerpt does not repeat those declarations."}
+type Payment = { type: 'credit'; cardNumber: string } | { type: 'debit'; bankCode: string } | { type: 'cash' };
+
+const payment = assert<Payment>(body);
+if (payment.type === 'credit') payment.cardNumber; // narrowed, as TypeScript narrows it
+```
 
 The failure messages are the reason to prefer this shape. With a discriminant, a bad tag is reported at the tag:
 
-<!-- snippet: unions-refinements.ts#snippet-4 -->
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Payment, validate; this excerpt does not repeat those declarations."}
+validate<Payment>({ type: 'crypto' });
+// errors: [{ path: 'input.type', expected: '"credit" | "debit" | "cash"', value: 'crypto' }]
+```
 
 and a good tag with a bad body is reported inside the matching arm only, rather than as "none of three arms matched":
 
-<!-- snippet: unions-refinements.ts#snippet-5 -->
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Payment, validate; this excerpt does not repeat those declarations."}
+validate<Payment>({ type: 'credit', cardNumber: 42 });
+// errors: [{ path: 'input.cardNumber', expected: 'string', value: 42 }]
+```
 
 The emitted form is a `switch` on the discriminant, so a twenty-arm union costs one comparison rather than twenty attempted matches.
 
@@ -38,7 +57,14 @@ Two details of what counts as a discriminant, both of which are about being soun
 
 A type that refers to itself becomes a `ref` node, resolved by name:
 
-<!-- snippet: unions-refinements.ts#snippet-6 -->
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies assert, input; this excerpt does not repeat those declarations."}
+interface Node {
+  value: number;
+  next: Node | null;
+}
+
+assert<Node>(input); // walks the whole chain
+```
 
 `random<Node>()` terminates because a back-reference arm of a union is dropped when sampling, so `next` samples to `null`. A reference with no non-recursive arm beside it is refused rather than looped
 — see [random](./random.html).
@@ -47,7 +73,14 @@ A type that refers to itself becomes a `ref` node, resolved by name:
 
 For a check the tag vocabulary does not model, `Rule<'name'>` names one:
 
-<!-- snippet: unions-refinements.ts#snippet-7 -->
+```ts {"mode":"compile","id":"example-007"}
+import type { Rule, Sql, Table, PrimaryKey, Serial } from '@zmdb/core/tags';
+
+export interface Account extends Table<'accounts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  iban: string & Sql<'varchar'> & Rule<'iban'>;
+}
+```
 
 The reflection records the _name_ and nothing else — a rule takes no arguments, and an unregistered name is a build error rather than a check that silently passes. `Rule<'a' | 'b'>` is how a column
 carries two.
@@ -58,16 +91,31 @@ carries two.
 
 The tags that _are_ honoured everywhere:
 
-<!-- snippet: unions-refinements.ts#snippet-8 -->
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies age, assert, slug; this excerpt does not repeat those declarations."}
+import type { Max, MaxLength, Min, MinLength, Pattern } from '@zmdb/core/tags';
+
+type Adult = number & Min<18> & Max<120>;
+type Slug = string & MinLength<1> & MaxLength<64> & Pattern<'^[a-z0-9-]+$'>;
+
+assert<Adult>(age);
+assert<Slug>(slug);
+```
 
 See [Tag Reference](./tags-reference.html).
 
 ## The rule-object API
 
-`@zmdb/aot-validator/advanced` contains the older rule-value API: `refine`, `transform`, `union`, `discriminated`, `validateObject`, and `coerce`. It predates type-first declarations and is mostly a
-stub:
+`@zmdb/validator/advanced` contains the older rule-value API: `refine`, `transform`, `union`, `discriminated`, `validateObject`, and `coerce`. It predates type-first declarations and is mostly a stub:
 
-<!-- snippet: unions-refinements.ts#snippet-9 -->
+```ts {"mode":"compile","id":"example-009"}
+import { refine, validateObject } from '@zmdb/validator/advanced';
+
+const adult = refine(v => typeof v === 'number' && v >= 18, 'must be at least 18');
+
+validateObject({ age: 17 }, { age: adult }, 'strict');
+// { success: false, issues: [{ path: 'input.age', expected: '<the predicate source>',
+//                             message: 'must be at least 18', value: 17 }] }
+```
 
 `refine` takes a **function**, not a source string. The string form would need either runtime code generation or a second expression interpreter, and a function is typechecked at the call site where a
 string predicate can only fail at runtime. The constructor also checks at runtime, so plain JavaScript cannot smuggle a string past the TypeScript signature. The rule records the intrinsic
@@ -86,7 +134,16 @@ For unions, discriminated unions and constraint checking, the type argument does
 
 ## Branded Types
 
-<!-- snippet: unions-refinements.ts#snippet-10 -->
+```ts {"mode":"compile","id":"example-010"}
+import { type Brand } from '@zmdb/validator/advanced';
+
+type UserId = Brand<number, 'UserId'>;
+type OrderId = Brand<number, 'OrderId'>;
+
+const userId = 123 as UserId;
+const orderId = 456 as OrderId;
+// userId = orderId; // type error, though both are numbers at runtime
+```
 
 > [!WARNING] A brand is compile-time only — it erases to the base type, so `assert<UserId>(x)` checks `number` and nothing more. That is the same phantom-symbol mechanism the declaration tags use, and
 > it has the same consequence: the brand is a claim your code makes to itself, not a check. Where the value comes from outside, brand it _after_ validating whatever actually distinguishes it.
