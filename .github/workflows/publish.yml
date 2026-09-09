@@ -81,6 +81,7 @@ jobs:
         env:
           COREPACK_ENABLE_PROJECT_SPEC: '0'
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
         run: |
           set -euo pipefail
           VER=$(node -e "const fs=require('node:fs'); console.log(JSON.parse(fs.readFileSync(process.argv[1], 'utf8')).version)" "$RUNNER_TEMP/zmdb-release-plan.json")
