@@ -172,6 +172,9 @@ function executeSample(directory, sample) {
     platform: 'node',
     format: 'esm',
     jsx: 'automatic',
+    banner: {
+      js: `if (typeof process !== 'undefined' && !process.permission?.has?.('net')) { const _netErr = () => { throw new Error('ERR_ACCESS_DENIED: network access denied by permission model'); }; globalThis.fetch = _netErr; }`,
+    },
     logLevel: 'silent',
   });
   const result = spawnSync(
