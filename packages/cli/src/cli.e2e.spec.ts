@@ -176,6 +176,8 @@ function usersSnapshot(): Record<string, unknown> {
           { name: 'email', type: 'text', nullable: false, primaryKey: false },
           { name: 'id', type: 'serial', nullable: false, primaryKey: true },
         ],
+        primaryKey: ['id'],
+        foreignKeys: [],
       },
     ],
   };

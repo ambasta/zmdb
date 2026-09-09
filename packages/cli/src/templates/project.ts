@@ -262,7 +262,11 @@ describe('generated project', () => {
     expect(response.status).toBe(200);
     expect(JSON.parse(await bodyText(response))).toEqual({ ok: true });
 
-    const rows = await config.driver().execute({ text: 'SELECT 1 AS ok', parameters: [] });
+    const rows = await config.driver().execute({
+      text: 'SELECT 1 AS ok',
+      parameters: [],
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+    });
     expect(Reflect.get(rows[0] ?? {}, 'ok')).toBe(1);
   });
 });
