@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { defineRepository, type Driver, type UpdatePatch } from '@zmdb/orm';
 // Type-level tests for the no-subclass wiring helper (#222/#223). No runtime
 // code: a *compilation* gate run by `yarn typecheck`, and therefore by CI.

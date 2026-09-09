@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — WebSocket & SSE gateways (epic #307, spec ./SPEC.md). @Gateway/
 // @Subscribe store handlers in context.metadata; a dispatcher routes events with
 // a typed message ctx; sseStream frames an async iterable as SSE. No ws

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The one place that talks to the TypeScript compiler.
 //
 // `typescript@7` is the Go compiler with a thin JS client: `import('typescript')`

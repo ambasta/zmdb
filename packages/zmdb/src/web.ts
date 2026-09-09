@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // zmdb/web — cohesive application-kernel and HTTP facade.
 //
 // The direct @zmdb/web package remains HTTP-only. This product entry composes

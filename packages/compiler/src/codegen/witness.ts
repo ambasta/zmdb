@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The three files project compilation writes beside a source file, as text.
 // Generated banners name the compiler package so checked-in artifacts identify their
 // current owner without implying that the retired executable still exists.

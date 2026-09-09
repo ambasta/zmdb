@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { schemasFrom, type SchemasFromOptions } from '@zmdb/compiler/testing';
 import { type Entity } from '@zmdb/schema';
 import { type PrimaryKey, type References, type Sql, type Table } from '@zmdb/schema/tags';

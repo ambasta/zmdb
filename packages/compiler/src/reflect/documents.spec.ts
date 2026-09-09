@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Phase 6's gate: REQ-TF-7, as an equality rather than as a resemblance.
 //
 // There are two ways to ask for the same document and they take different routes through

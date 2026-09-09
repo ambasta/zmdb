@@ -390,7 +390,7 @@ ${topbarHtml({ base: './' })}
   </div>
 </section>
 
-<div class="foot">GPL-3.0-or-later · Node 26+ · TypeScript 7 · ESM-only · <a href="https://github.com/ambasta/zmdb">github.com/ambasta/zmdb</a></div>
+<div class="foot">MPL-2.0 · Node 26+ · TypeScript 7 · ESM-only · <a href="https://github.com/ambasta/zmdb">github.com/ambasta/zmdb</a></div>
 ${PALETTE_HTML}
 <script>${shellJs('./')}</script>
 </body></html>`;

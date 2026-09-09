@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 /**
  * `ValidationRule.kind` is an open `string`, so this is the set any back-end
  * interprets rather than the set a consumer may write. Anything else is a named

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Shared startup/build-time representation helpers. These are deliberately not
 // exported from the package: the public surface is VersionStrategy plus the
 // decorators, while the router and document generator must still spell paths

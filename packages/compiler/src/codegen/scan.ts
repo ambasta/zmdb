@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The source-analysis half of no-bundler project compilation: what to generate, which canonical
 // package export each call resolves to, and what the generated module has to import.
 //

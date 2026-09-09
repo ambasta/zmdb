@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // REQ-TF-10, from the caller's side: `defineRepository(schemaOf<User>(), driver)` derives
 // its whole surface from the *declaration*, not from the columns of a value.
 //

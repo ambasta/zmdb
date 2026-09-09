@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // TypeIR -> field-number-dispatched protobuf decoder JavaScript.
 //
 // This is build-time only. Generated helpers construct the declared object shape and

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — controllers & routing (epic #252, spec ./SPEC.md).
 // Stage-3 class/method decorators store route data in context.metadata; getRoutes
 // composes prefix + method paths. No reflect-metadata, no `as` on the consumer

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Type surface for referential-action migrations (#455), frozen by `./SPEC.md`
 // §1.6. Runtime behavior is in `migrations.spec.ts`; this file is compiled by
 // `node scripts/typecheck.mjs`.

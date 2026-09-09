@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Type-level test for §10 item 1 of `./SPEC.md`: "no `br` appears in `ContentCoding` — a
 // compile-time assertion, so the decision in §3 cannot be quietly reversed without editing this
 // spec". The runtime half of that item — `new CompressionStream('br')` throws on the supported

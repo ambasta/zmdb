@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Type-level tests for compile-time DI (#264). No runtime code: a *compilation*
 // gate run by `yarn typecheck`, and therefore by CI.
 //

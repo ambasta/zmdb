@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — HTTP liveness and readiness routes (#581, epic #578).
 // Liveness is synchronous by type. Readiness is concurrent, bounded, success-cached,
 // and coalesced while a probe invocation is still waiting.

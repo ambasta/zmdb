@@ -14,7 +14,7 @@
   "bugs": {
     "url": "https://github.com/ambasta/zmdb/issues"
   },
-  "license": "GPL-3.0-or-later",
+  "license": "MPL-2.0",
   "author": "zmdb contributors",
   "repository": {
     "type": "git",

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The runtime half of the validator: one walk over `TypeIR`.
 //
 // This is what runs before the build has transformed anything — `vitest`, `tsx`, a REPL

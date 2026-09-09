@@ -28,6 +28,29 @@ must run on an idle machine; shared-machine timings do not establish a performan
 
 Release preparation follows [PUBLISHING.md](./PUBLISHING.md).
 
+## Licensing and sign-off
+
+zmdb is [MPL-2.0](./LICENSE). Every published source file carries the MPL Exhibit A notice, because files here leave their directory constantly — the compiler inlines emitted code into consumer
+modules and the CLI writes generated clients into consumer repositories. Attach it to new files with:
+
+```bash
+node scripts/license-headers.mjs
+yarn verify:license-headers
+```
+
+Two categories are excluded on purpose and must stay excluded. Test fixtures under `__fixtures__/` are excluded because lint rule specs assert diagnostic line and column numbers against their bytes.
+Generated files (`*.zmdb.*`, `*.generated.*`) are excluded because the [Generated Output Exception](./LICENSE-EXCEPTION.md) states that compiler output is not Covered Software; stamping the notice
+into generated output would contradict it. Emitters must never write the notice into the code they produce.
+
+Contributions are accepted under the Developer Certificate of Origin. Sign off each commit:
+
+```bash
+git commit --signoff
+```
+
+That line certifies you wrote the change or have the right to submit it under MPL-2.0. Do not paste code from a project whose license you have not checked, and do not add a file that carries another
+project's license header.
+
 ## Documentation changes
 
 Use the [documentation SPEC](./docs-site/SPEC.md) for the current page and generated-content contracts.

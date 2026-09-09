@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — confined static-file responses (epic #564, issue #568).
 //
 // Paths are decoded once, refused before filesystem access, opened once, and

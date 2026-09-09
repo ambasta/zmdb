@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The hard-cutover package names do not exist yet. Importing them here would make the
 // typecheck fail on module resolution instead of freezing their contracts, so this file
 // arranges today's real public signatures into the exact future package/subpath DAG from

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { singularPascalCase } from '@zmdb/schema/naming';
 import { type ColumnSnapshot, type SchemaSnapshot, type SqlDialect, type TableSnapshot } from '@zmdb/sql';
 import type { FormatConfig } from 'oxfmt';

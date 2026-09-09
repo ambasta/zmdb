@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Regular expression syntax validation and a bounded compiled-RegExp cache.
 //
 // This validates syntax only; there is no static ReDoS analysis here, and the name is a

@@ -686,7 +686,7 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 - **tsconfig:** `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, `isolatedModules`; `@zmdb/web` additionally pins `noImplicitAny` and asserts
   `experimentalDecorators: false`.
 - **Build:** `scripts/build-package.mjs` runs `tsc` to produce ESM `.js` and `.d.ts` files in a layout that mirrors `src`.
-- **Publish:** Trusted Publishing (OIDC, no token) via CI; `latest` dist-tag tracks the highest-precedence release (stable > rc > beta > alpha); provenance attested. License **GPL-3.0-or-later**.
+- **Publish:** Trusted Publishing (OIDC, no token) via CI; `latest` dist-tag tracks the highest-precedence release (stable > rc > beta > alpha); provenance attested. License **MPL-2.0**.
 - **No hidden state.** No module-level mutable singletons on the hot path (the DI container in `@zmdb/app` is the one explicit, opt-in registry, and it is resolved at class-init, not per request).
 
 ---

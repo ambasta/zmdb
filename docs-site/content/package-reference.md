@@ -84,7 +84,7 @@ Provider-neutral AI tool documents, bounded chat orchestration, shared tool invo
   - `@zmdb/validator` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
@@ -103,7 +103,7 @@ Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
@@ -122,7 +122,7 @@ Optional LangChain structured-tool adapter for provider-neutral zmdb AI tool doc
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/llm-adapters
 
@@ -141,7 +141,7 @@ Vercel AI SDK tool integration for provider-neutral zmdb AI contracts.
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/llm-adapters
 
@@ -160,7 +160,7 @@ Angular dependency-injection, signal, lifecycle, and Observable bindings for gen
   - `rxjs` → `>=7.8.2 <8.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters
 
@@ -192,7 +192,7 @@ Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injec
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `Application`
   - `ApplicationExtension`
@@ -252,7 +252,7 @@ The zmdb executable and developer command APIs for schema, application and HTTP 
   - `typescript` → `>=7.0.2 <8.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/cli`
 - **External proof:** fixtures/consumer-cli
@@ -276,7 +276,7 @@ Dependency-free HTTP client runtime for generated and manually declared zmdb ope
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** packages/client/src/runtime.spec.ts
 
@@ -297,7 +297,7 @@ CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, 
   - `@zmdb/sql` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/cockroach`
 - **External proof:** fixtures/database-cockroach
@@ -333,7 +333,7 @@ The single TypeScript front end for zmdb reflection, AOT emission, code generati
   - `typescript` → `>=7.0.2 <8.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `ZmdbConfig`
   - `defineConfig`
@@ -424,7 +424,7 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-product
 
@@ -443,7 +443,7 @@ Portable typed queues, workers, scheduling, leases, and application lifecycle in
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-core
 
@@ -463,7 +463,7 @@ node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.
   - `pg` → `^8.23.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
 
@@ -482,7 +482,7 @@ Explicit SQLite persistence and owned memory storage for portable zmdb jobs.
   - `@zmdb/jobs` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** packages/jobs-sqlite/src/index.spec.ts
 
@@ -500,7 +500,7 @@ Transport-neutral MCP client and server cores with validated tool dispatch, auth
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-mcp
 
@@ -527,7 +527,7 @@ Schema snapshots, deterministic migration plans, ledger runners, embedded execut
   - `@zmdb/sql` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/migrations`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
@@ -549,7 +549,7 @@ Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural
   - `@zmdb/sql` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/mssql`
 - **External proof:** fixtures/database-mssql
@@ -571,7 +571,7 @@ Complete MySQL compiler, migrations, introspection, and structural mysql2 driver
   - `@zmdb/sql` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/mysql`
 - **External proof:** fixtures/database-mysql
@@ -596,7 +596,7 @@ Request-scoped Next.js server clients and React browser bindings for generated z
   - `react-dom` → `>=19.2.8 <20.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/next-app-router
 
@@ -619,7 +619,7 @@ Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration 
   - `vue` → `>=3.5.42 <4.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters/nuxt
 
@@ -646,7 +646,7 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `Driver`
   - `IncompleteKeyError`
@@ -671,7 +671,7 @@ OpenTelemetry API adapter for the explicit observability ports owned by the zmdb
   - `@zmdb/app` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
 
@@ -692,7 +692,7 @@ The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspe
   - `@zmdb/sql` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/postgres`
 - **External proof:** fixtures/database-postgres
@@ -711,7 +711,7 @@ Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runti
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
@@ -730,7 +730,7 @@ React context, query, and mutation lifecycle bindings for generated zmdb clients
   - `react` → `>=19.2.8 <20.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters
 
@@ -751,7 +751,7 @@ React Native AppState, connectivity, and credential-store lifecycle bindings ove
   - `react-native` → `>=0.87.1 <0.88.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters
 
@@ -777,7 +777,7 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `CreateDTO`
   - `Entity`
@@ -825,7 +825,7 @@ SingleStore vertical for zmdb: MySQL-family compilation, storage-aware migration
   - `@zmdb/sql` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/singlestore`
 - **External proof:** fixtures/database-singlestore
@@ -845,7 +845,7 @@ Solid context, resource and owner-lifetime bindings for generated zmdb clients.
   - `solid-js` → `>=1.9.15 <2.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters
 
@@ -866,7 +866,7 @@ SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, f
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/sql`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
@@ -889,7 +889,7 @@ Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embed
   - `@zmdb/sql` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `@zmdb/core/sqlite`
 - **External proof:** fixtures/database-sqlite
@@ -909,7 +909,7 @@ Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancella
   - `svelte` → `>=5.57.0 <6.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters
 
@@ -931,7 +931,7 @@ Request-local SvelteKit clients, typed load helpers, explicit credential forward
   - `svelte` → `>=5.57.0 <6.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters/sveltekit-packed
 
@@ -951,7 +951,7 @@ Typed gRPC server and client integration for generated @zmdb/protobuf service ar
   - `@zmdb/app` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
 
@@ -970,7 +970,7 @@ Kafka event transport with ordered manual offsets, partition retries and bounded
   - `kafkajs` → `>=2.2.4 <3.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-transport-kafka
 
@@ -989,7 +989,7 @@ Core NATS transport strategy for the public messaging contract owned by the zmdb
   - `@zmdb/app` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
 
@@ -1008,7 +1008,7 @@ RabbitMQ transport strategy for the zmdb application messaging contract, with co
   - `amqplib` → `^2.0.1`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
 
@@ -1027,7 +1027,7 @@ Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messa
   - `redis` → `^6.2.1`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
 
@@ -1046,7 +1046,7 @@ SQS standard-queue transport for the zmdb application messaging contract, with e
   - `@zmdb/app` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-transport-sqs
 
@@ -1067,7 +1067,7 @@ Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/v
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `AssertError`
   - `ValidateResult`
@@ -1093,7 +1093,7 @@ Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb c
   - `vue` → `>=3.5.42 <4.0.0`
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters/vue
 
@@ -1135,7 +1135,7 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
-- **License:** `GPL-3.0-or-later`
+- **License:** `MPL-2.0`
 - **Facade exposure:**
   - `Controller`
   - `Ctx`

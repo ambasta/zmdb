@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // REQ-AV-4: the emitted check and the runtime walker are the same validator.
 //
 // There are two implementations of "does this value match this type" in the repo, and the

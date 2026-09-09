@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Migrations (#41–#44): snapshot a set of schemas, diff two snapshots into
 // change ops, and emit up/down DDL per dialect. Deterministic throughout —
 // tables and columns are sorted by name so a snapshot is byte-stable.

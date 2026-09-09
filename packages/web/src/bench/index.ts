@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — router benchmark & perf verification (epic #317, spec ./SPEC.md).
 // An honest microbench + an init-time-resolution probe proving route resolution
 // does not re-read metadata per request. No `as` on the consumer surface.

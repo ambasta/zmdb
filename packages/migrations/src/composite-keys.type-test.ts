@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The key on the snapshot, as a type. These assertions pin the frozen contract from
 // `./SPEC.md` §1.1 and §1.3.
 import { type Equal, type Expect } from '@zmdb/schema';

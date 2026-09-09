@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — DTO validation & serialization pipes (epic #297, spec ./SPEC.md).
 // Bind routes to schema-derived DTO validation (a Pipe) and entity serialization
 // (an Interceptor), built on the middleware chain. Zero runtime parser (consumer

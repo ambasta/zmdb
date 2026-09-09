@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/app — transport-neutral message dispatch and application-extension
 // contracts. Strategies own broker framing and settlement; the framework owns
 // validation, handler dispatch, request correlation and bounded client waits.

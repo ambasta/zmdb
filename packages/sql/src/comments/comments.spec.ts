@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { trustedTable, createQueryCompiler, type CompiledQuery } from '@zmdb/sql';
 import { appendComment, serializeComment, withComments, type CommentPairs } from '@zmdb/sql/comments';
 // Tests for the sqlcommenter query tagging frozen in ./SPEC.md (#580, epic #578).

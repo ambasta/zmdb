@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/app — modules & providers (epic #282, spec ./SPEC.md). @Module records a
 // module graph in context.metadata; compileModule validates its declarations,
 // constructs eager modules, and retains per-app handles for lazy subtrees.

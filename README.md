@@ -125,4 +125,10 @@ See the dashboard for current results, [`benchmarks/RESULTS.md`](./benchmarks/RE
 
 ## License
 
-GNU General Public License v3.0 or later (GPL-3.0-or-later). See [LICENSE](./LICENSE).
+Mozilla Public License 2.0 (MPL-2.0). See [LICENSE](./LICENSE).
+
+What you build with zmdb is yours. MPL is file-level copyleft: it covers zmdb's own source files, and your application is a Larger Work you may license however you like — closed, commercial,
+unpublished. There is no network clause of any kind, so operating a service on zmdb carries no obligation. If you modify zmdb itself and ship it to someone, that person is entitled to the modified
+zmdb source.
+
+Code that zmdb's compiler, client generator, migration tooling, and scaffolding write into your project is explicitly **not** covered — see the [Generated Output Exception](./LICENSE-EXCEPTION.md).

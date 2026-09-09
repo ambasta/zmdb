@@ -36,4 +36,4 @@ Full docs: **https://ambasta.github.io/zmdb/docs/llm-langchain.html**
 
 ## License
 
-GNU General Public License v3.0 or later (GPL-3.0-or-later) — see [LICENSE](./LICENSE).
+Mozilla Public License 2.0 (MPL-2.0) — see [LICENSE](./LICENSE).

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Tests (#309) for WS/SSE gateways — RED first (gateways exports absent).
 // Subscription metadata, dispatch with typed message ctx, SSE framing.
 // Per packages/web/src/gateways/SPEC.md.

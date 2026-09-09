@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The public constructors accept executable, typechecked function values only.
 // These calls are compile-time guard rails: widening either parameter to a
 // source string makes its `@ts-expect-error` unused and fails `yarn typecheck`.

@@ -120,4 +120,4 @@ This is the **fastest possible path** from schema definition to database operati
 
 **Define once. Derive everything. Ship faster.**
 
-GPL-3.0-or-later • Built for Node 26+ • ESM-only
+MPL-2.0 • Built for Node 26+ • ESM-only

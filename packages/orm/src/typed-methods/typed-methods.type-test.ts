@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { type UpdatePatch } from '@zmdb/orm';
 // Type-level tests for the typed repository methods (#203, #206). No runtime
 // code: this file is a *compilation* gate run by `yarn typecheck`, and therefore

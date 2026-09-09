@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // What `@zmdb/compiler` project compilation does to the source file it rewrites.
 //
 // The consumer fixtures next door prove the whole route works, but they prove it on a file that

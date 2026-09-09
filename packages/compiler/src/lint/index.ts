@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { noDistributedNullableTags } from './rules/no-distributed-nullable-tags.js';
 import { noEmptyPatch } from './rules/no-empty-patch.js';
 import { noInterpolatedSql } from './rules/no-interpolated-sql.js';

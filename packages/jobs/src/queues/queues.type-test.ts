@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Compile-time half of #587/#588. Assertions stay against the shipped package boundary.
 import { createQueue } from '@zmdb/jobs';
 import type { AnyJobHandler, Backoff, Clock, JobHandler, JobStore } from '@zmdb/jobs';

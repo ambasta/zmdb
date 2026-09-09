@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // REQ-TF-4: the REQ-SC-2…REQ-SC-5 type tests, re-run against a tagged interface.
 //
 // This was `../type-derivation.type-test.ts` — the same assertions, same order, same names —

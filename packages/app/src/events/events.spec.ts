@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Runtime contract for the application event emitter implemented by #595.
 // Compile-time claims remain in ./events.type-test.ts.
 //

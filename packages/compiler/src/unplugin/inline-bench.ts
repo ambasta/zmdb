@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The timing helper the AOT plugin benchmarks share.
 //
 // Both #82 (the build produces a working inlined validator) and #83 (the acceptance gate)

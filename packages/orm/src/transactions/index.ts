@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Transactions — implementation (#36 transaction context primitive).
 // createTransactionalDb.transaction() issues BEGIN/COMMIT/ROLLBACK and
 // tx.savepoint() issues SAVEPOINT / RELEASE / ROLLBACK TO SAVEPOINT.

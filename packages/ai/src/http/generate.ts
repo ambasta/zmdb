@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Checked-in source generation for the public @zmdb/ai/http boundary.
 import { compileOpenApiTools, type CompiledOpenApiTool } from './parse.js';
 import type { OpenApiToolsOptions } from './types.js';

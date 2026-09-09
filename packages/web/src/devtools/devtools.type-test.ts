@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { type Scope } from '@zmdb/app/di';
 import { type ModuleClass } from '@zmdb/app/modules';
 // The graph description, as types. Tests freeze for the epic "The module graph as a first-class

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { existsSync } from 'node:fs';
 
 import { encodeDelivery, type DispatchOutcome, type RawMessage, type TransportStrategy } from '@zmdb/app/messaging';

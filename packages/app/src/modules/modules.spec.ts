@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Tests (#284) for modules & providers — RED first (modules exports absent).
 // Module graph wiring, provider scopes, imports/exports visibility, cycle
 // detection. Per ./SPEC.md.

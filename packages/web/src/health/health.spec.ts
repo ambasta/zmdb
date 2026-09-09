@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { databaseReadinessCheck, type CheckResult, type HealthChecks, type ReadinessCheck } from '@zmdb/app/health';
 // Runtime acceptance tests for the liveness/readiness probes frozen by #580 and
 // implemented by #581 (epic #578).

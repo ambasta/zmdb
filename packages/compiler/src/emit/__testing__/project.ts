@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // A throwaway TypeScript project, for tests that need the real checker.
 //
 // Every emitted-output test now has to go through the compiler, because that is the only

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The one thing emitted code imports at runtime.
 //
 // `assert<T>(x)` has to throw something, and the interesting question is *what*. A

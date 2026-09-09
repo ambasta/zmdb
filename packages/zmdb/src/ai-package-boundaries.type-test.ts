@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Compile-only contract for the real @zmdb/ai package boundary and the remaining
 // integration-package target surfaces frozen by issue #703.
 

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { BaseRepository, type ArgsOf, type ResultOf } from '@zmdb/orm';
 // Compile-time contract frozen for #437 and implemented by #439. The local
 // frozen forms keep the exact expected shapes visible, while the repository

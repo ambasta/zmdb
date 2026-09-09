@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import type { DialectSqlType, MigrationDialect, SchemaObjectOperation, SqlDialect } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 import type { ColumnSnapshot } from '../migrations/types.js';

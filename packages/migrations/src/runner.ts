@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // #44 — async migration runner + version tracking + driver adapter.
 // Applies/rolls back ordered migrations against an async connection or
 // adapted database driver, recording applied versions in _zmdb_migrations.

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — the HTTP adapter for the zmdb application kernel.
 //
 // Stage-3 metadata, DI, modules and lifecycle are installed and owned by

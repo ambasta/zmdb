@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { createRequestData } from '@zmdb/app/data';
 // Tests (#289) for guards/pipes/interceptors/filters — RED first (middleware
 // exports absent). Order, short-circuit, transform, interceptor wrap, error

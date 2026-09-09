@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // REQ-AV-7: structured issues, and nothing paid for them until one is needed.
 //
 // Both validators can say *where* a value went wrong, with a path and an expected string.

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/app — compile-time dependency injection (epic #262, spec ./SPEC.md).
 // Container + @Inject field decorator. No emitDecoratorMetadata, no reflection,
 // no `as` on the consumer surface. Resolution happens at build (class-init) time.

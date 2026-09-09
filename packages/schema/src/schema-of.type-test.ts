@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // REQ-TF-10: a generated schema value still knows the declaration it came from.
 //
 // `schemaOf<T>()` produces a `TaggedSchema<T>`, and the phantom `T` is the entire mechanism.

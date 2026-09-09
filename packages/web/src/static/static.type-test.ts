@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Type-level test for §8.5 of `./SPEC.md`: "There is no option that enables directory listing — a
 // compile-time assertion over `StaticOptions`, since a missing runtime option is not observable."
 //

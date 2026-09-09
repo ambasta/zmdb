@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { type Driver } from '@zmdb/orm';
 // What `findById` and `delete` ask for, which is a question about the primary key:
 // a scalar when there is one key column, an object keyed by all of them when there

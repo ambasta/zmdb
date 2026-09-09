@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Tests (#269) for compile-time domain state machines: runtime identity and
 // deliberate construction. Legal/illegal transitions are type-level claims, asserted in
 // `state.type-test.ts` and compiled by `yarn typecheck`.

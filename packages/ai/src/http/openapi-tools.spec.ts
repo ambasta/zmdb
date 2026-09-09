@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Contract tests for OpenAPI tool mapping, refusals, generated validators and the allowlisted
 // caller in ./SPEC.md §§4–7. Documents are literals and the only HTTP call uses an injected fake.
 //

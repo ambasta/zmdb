@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // What is left of this file after the builder DSL was deleted.
 //
 // It used to be three describes over `serial()`, the eight modifiers and `defineSchema` — about

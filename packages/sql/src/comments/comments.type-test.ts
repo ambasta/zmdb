@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Type-level tests for the sqlcommenter surface frozen in ./SPEC.md §2 and §7.5 (#580,
 // epic #578). No runtime code: a *compilation* gate run by `node scripts/typecheck.mjs`,
 // and therefore by CI. `packages/sql/tsconfig.json` includes `src/**/*.ts`, so

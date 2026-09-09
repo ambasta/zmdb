@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // A json column's payload shape, and what each half of the codebase does with it.
 //
 // This file used to be written with `json<UserMetadata>()`, whose return type hung the payload

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/app — command applications (epic #497, spec ./SPEC.md).
 // Commands use the same module compilation, container and lifecycle as
 // createApplication, with argv validation at the terminal boundary and no

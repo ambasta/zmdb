@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/schema/derive/query — the relation-aware half of the read surface.
 //
 // This file used to restate the whole query DTO family, because there were two of them:

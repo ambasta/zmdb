@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // `IndexColumn`, as a type. Tests freeze for the epic "Composite primary keys and expression
 // indexes" (#407 / spec freeze #408); the frozen text is `./SPEC.md` §1.1.
 //

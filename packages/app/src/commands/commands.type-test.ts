@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // This file is compiled by `node scripts/typecheck.mjs` and is not a Vitest test file. Every
 // `@ts-expect-error` is therefore checked by TS2578 if the forbidden shape becomes legal.
 

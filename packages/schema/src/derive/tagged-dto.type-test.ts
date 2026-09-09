@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Type-level tests for the tagged DTO suite (PRD §6.7 REQ-TF-4 … REQ-TF-6).
 // No runtime code: this is a *compilation* gate run by `yarn typecheck`, and
 // therefore by CI.

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Outbox SQL and migration coverage for packages/orm/src/outbox/SPEC.md.
 // The repository-side writer and dispatcher tests live in
 // packages/orm/src/outbox/outbox.spec.ts.

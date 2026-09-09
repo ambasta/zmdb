@@ -86,6 +86,29 @@ Node 26. zmdb is ESM-only and uses `node:sqlite`, `AsyncDisposable` and modern d
 Deferred. Anything genuinely rejected is on the [anti-patterns page](./anti-patterns.html) with the argument for rejecting it. A **ToDo** page names the specific missing piece and where it would plug
 in.
 
+## Can I build a closed-source product or a paid service on zmdb?
+
+Yes, either one. zmdb is [MPL-2.0](https://github.com/ambasta/zmdb/blob/main/LICENSE), which is file-level copyleft: it covers zmdb's own source files and nothing else. Your application is a "Larger
+Work" under Section 3.3 and you license it however you want — proprietary, commercial, or never published at all. There is no network clause anywhere in the license, so running zmdb inside a hosted
+service triggers nothing.
+
+## What do I have to publish, then?
+
+Only zmdb's own files, and only if you change them and ship the result to someone. That person is entitled to your modified version of those files (Section 3.2(a)); you can hand them a patch, a fork
+URL, or a tarball. Upstreaming is welcome but never required, and if you never distribute your changes you owe nobody anything.
+
+## Does the code zmdb generates into my repository become MPL?
+
+No. Compiler output, generated clients and OpenAPI documents, migrations, and CLI scaffolding are explicitly excluded by the
+[Generated Output Exception](https://github.com/ambasta/zmdb/blob/main/LICENSE-EXCEPTION.md), granted under MPL Section 10.2. That covers the ahead-of-time transform rewriting your own modules in
+place, which is the case worth being explicit about: the code the transform inlines into your file is yours, and inlining, bundling, minifying, or tree-shaking it changes nothing.
+
+## My bundler inlines zmdb into one output file. What changes?
+
+Your obligation is still limited to zmdb's source. Bundling makes zmdb's code part of what you distribute, so recipients are entitled to _zmdb's_ source — which you discharge by pointing at the
+published npm package or the matching Git tag. It does not pull your own modules into the license, and MPL Section 3.2(b) says so directly: you may distribute the executable form of a Larger Work
+under your own terms as long as the Covered Software's source stays available.
+
 ---
 
 See also: [Gotchas](./gotchas.html) · [Goodies](./goodies.html) · [Why zmdb](./why-zmdb.html) · [Anti-patterns](./anti-patterns.html)

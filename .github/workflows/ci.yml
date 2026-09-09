@@ -39,6 +39,9 @@ jobs:
       - name: Format check
         run: yarn fmt:check
 
+      - name: Verify every published source file carries the MPL notice
+        run: yarn verify:license-headers
+
       - name: Typecheck (all projects, incl. specs and type-tests)
         run: yarn typecheck
 

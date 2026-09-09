@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Type-level tests for custom types & codecs (#133): the TS-side and DB-side
 // types must flow through `defineType`/`encodeValue`/`decodeValue` so a codec
 // cannot be wired up backwards. Compiled by `yarn typecheck`.

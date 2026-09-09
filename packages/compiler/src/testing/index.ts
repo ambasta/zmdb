@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // `@zmdb/compiler/testing` — tagged schema values, without a transform step.
 //
 // `schemaOf<User>()` is compiled away by the transform, and it has no runtime: a type

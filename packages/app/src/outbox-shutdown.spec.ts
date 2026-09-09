@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { createToken } from '@zmdb/app/di';
 import { Module } from '@zmdb/app/modules';
 // Application-level coverage for packages/sql/src/outbox/SPEC.md §5: a dispatcher

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { type TransactionContext } from '@zmdb/orm/transactions';
 // Runtime contract for the command bus — ./SPEC.md §7 items 4, 6, 7, 8, 9,
 // 10, 11 and 12. Items 1, 2, 3 and 5 are compile-time claims and live in ./cqrs.type-test.ts; they

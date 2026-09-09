@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — API version declarations (epic #572, spec ./SPEC.md).
 // Stage-3 class/method decorators write one private metadata value; the router
 // reads it once at registration. No reflect-metadata and no runtime reflection.

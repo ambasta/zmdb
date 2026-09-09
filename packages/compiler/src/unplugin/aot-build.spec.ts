@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // #82: source goes through the real transform and the emitted JavaScript is executed.
 
 import { afterAll, describe, expect, it } from 'vitest';

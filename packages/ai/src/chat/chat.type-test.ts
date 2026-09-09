@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Type-level tests for the chat loop surface frozen in ./SPEC.md (#532, epic #530).
 //
 // This file is compiled by `node scripts/typecheck.mjs` and never run: `*.type-test.ts` is not

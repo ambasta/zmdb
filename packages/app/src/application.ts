@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import type { Container } from './di/index.js';
 import { runInit, runShutdown } from './lifecycle.js';
 import { compileModule, type CompiledModule, type LazyModuleHandle, type ModuleClass } from './modules/index.js';

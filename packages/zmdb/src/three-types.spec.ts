@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // One column, three types, one place they have to agree (plan D3).
 //
 // A column has a **db** type (what the dialect declares), an **app** type (what handler

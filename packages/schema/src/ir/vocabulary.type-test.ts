@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // REQ-TF-1 — the tag vocabulary covers every column fact the IR has a field for.
 // A compilation gate, not a runtime test. The failure mode it guards against is
 // quiet: someone adds a `SqlType` or a `ColumnFlags` member, the tagged front-end

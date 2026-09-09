@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/web — guards, pipes, interceptors & exception filters (epic #287, spec
 // ./SPEC.md). A Chain composes middleware around a handler in deterministic
 // order. Static composition, no reflection, no `as` on the consumer surface.

@@ -38,6 +38,7 @@
     "verify:database-cockroach": "node fixtures/database-cockroach/verify-installed.mjs",
     "verify:database-postgres": "node fixtures/database-postgres/verify-installed.mjs",
     "verify:database-singlestore": "node fixtures/database-singlestore/verify-installed.mjs",
+    "verify:license-headers": "node scripts/license-headers.mjs --check",
     "verify:mssql-acceptance": "node fixtures/database-mssql/verify-installed.mjs",
     "verify:mysql-live": "vitest run packages/mysql/src/live.spec.ts",
     "verify:publish": "node .github/scripts/verify-publish.mjs",

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import { type PrimaryKey, type Serial, type SoftDelete, type Sql, type Table } from '@zmdb/schema/tags';
 import { describe, expect, it } from 'vitest';
 

@@ -1,7 +1,15 @@
 {
   "minTokens": 50,
   "minLines": 5,
-  "ignore": ["**/node_modules/**", "**/dist/**", "**/vendor/**", "**/SPEC.md", "**/README.md"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/vendor/**",
+    "**/SPEC.md",
+    "**/README.md",
+    "**/*.spec.ts",
+    "**/*-test.ts"
+  ],
   "reporters": ["console"],
   "gitignore": true
 }

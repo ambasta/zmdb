@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Baseline test (#249): a Stage-3 class decorator writing to `context.metadata`
 // round-trips through `metadataOf()` — no reflect-metadata, no `as` on the
 // consumer surface. Proves the @zmdb/app decorator baseline.

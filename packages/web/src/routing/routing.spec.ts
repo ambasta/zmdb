@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Tests (#254) for controllers & routing — RED first (routing exports don't
 // exist yet). Verifies route metadata recording, prefix composition, declaration
 // order, and no-reflection reads. Per packages/web/src/routing/SPEC.md.

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import 'server-only';
 import { createNextServerClientFromSources } from './server-runtime.js';
 import type { NextRequestSources, NextServerClient, NextServerClientRuntimeOptions } from './server-runtime.js';

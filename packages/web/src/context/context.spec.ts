@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Tests (#259) for typed Ctx + path-param derivation: runtime `extractParams`.
 // The type-level half (`PathParams`/`Ctx`/`HandlerFor`) lives in
 // `context.type-test.ts`, which `yarn typecheck` compiles.

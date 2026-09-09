@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // @zmdb/app — compile-time domain state machines (epic #267, spec ./SPEC.md).
 // Branded/phantom types make illegal transitions fail to compile; branding
 // erases at runtime (0 cost). No `as` on the consumer surface — construction
