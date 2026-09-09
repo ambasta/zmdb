@@ -120,12 +120,16 @@ export type CursorOrderSpec = ReadonlyArray<{ column: string; dir: OrderDir }>;
 export type PaginationSpec = OffsetPage | CursorPage;
 
 function base64Encode(str: string): string {
-  if (globalThis.Buffer) return globalThis.Buffer.from(str, 'utf8').toString('base64url');
-  if (globalThis.btoa) {
+  const g = globalThis as {
+    Buffer?: { from(str: string, encoding: string): { toString(encoding: string): string } };
+    btoa?: (data: string) => string;
+  };
+  if (g.Buffer) return g.Buffer.from(str, 'utf8').toString('base64url');
+  if (typeof g.btoa === 'function') {
     const bytes = new TextEncoder().encode(str);
     let binary = '';
     for (const byte of bytes) binary += String.fromCharCode(byte);
-    return globalThis.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return g.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
   throw new Error('No base64 encoder available');
 }
@@ -142,14 +146,18 @@ function base64Decode(str: string): string {
     throw new Error('Invalid cursor: expected canonical base64url');
   }
   let bytes: Uint8Array;
-  if (globalThis.Buffer) {
-    bytes = globalThis.Buffer.from(str, 'base64url');
-  } else if (globalThis.atob) {
+  const g = globalThis as {
+    Buffer?: { from(str: string, encoding: string): Uint8Array };
+    atob?: (data: string) => string;
+  };
+  if (g.Buffer) {
+    bytes = g.Buffer.from(str, 'base64url');
+  } else if (typeof g.atob === 'function') {
     const base64 = str
       .replace(/-/g, '+')
       .replace(/_/g, '/')
       .padEnd(str.length + ((4 - remainder) % 4), '=');
-    bytes = Uint8Array.from(globalThis.atob(base64), char => char.charCodeAt(0));
+    bytes = Uint8Array.from(g.atob(base64), (char: string) => char.charCodeAt(0));
   } else {
     throw new Error('No base64 decoder available');
   }
