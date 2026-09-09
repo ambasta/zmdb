@@ -1,7 +1,5 @@
 import { postgres } from '@zmdb/postgres';
-import { createQueryCompiler } from '@zmdb/sql';
-import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { sql, eq, asc, getTableColumns } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { pgTable, integer, text, numeric } from 'drizzle-orm/pg-core';
@@ -95,10 +93,25 @@ const details = pgTable('order_details', {
   order_id: integer('order_id'),
   product_id: integer('product_id'),
 });
-const employeeColumns = Object.keys(getTableColumns(employees)).map(column => `employees.${column}`);
-const productColumns = Object.keys(getTableColumns(products)).map(column => `products.${column}`);
-const orderColumns = Object.keys(getTableColumns(orders)).map(column => `orders.${column}`);
-const ddb = drizzle(pool, { schema: { customers, employees, suppliers, products, orders, details } });
+// zmdb queries name a physical table explicitly: this benchmark has no declared
+// entity to bind to, so `trustedTable` is the documented target for raw SQL names.
+const zCustomers = trustedTable('customers');
+const zEmployees = trustedTable('employees');
+const zSuppliers = trustedTable('suppliers');
+const zProducts = trustedTable('products');
+const zOrders = trustedTable('orders');
+const zDetails = trustedTable('order_details');
+// Qualified on input (a self-join needs it) and aliased back to the bare column on
+// output, so the projected keys match what drizzle and kysely return.
+const qualified = (table: string, columns: Record<string, unknown>) =>
+  Object.keys(columns).map(column => ({ column: `${table}.${column}`, alias: column }));
+const employeeColumns = qualified('employees', getTableColumns(employees));
+const productColumns = qualified('products', getTableColumns(products));
+const orderColumns = qualified('orders', getTableColumns(orders));
+// drizzle 1.0 takes the client through the config object; the 0.4x
+// `drizzle(pool, ...)` positional form is read as a config here, which silently
+// builds a second pool against the default localhost:5432 instead of this one.
+const ddb = drizzle({ client: pool });
 
 const k = new Kysely<Record<string, Record<string, unknown>>>({ dialect: new PostgresDialect({ pool }) });
 const qc = createQueryCompiler(postgres);
@@ -115,7 +128,7 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
     kysely: async () =>
       void (await k.selectFrom('customers').selectAll().orderBy('id').limit(50).offset(100).execute()),
     zmdb: async () => {
-      const c = qc.selectFrom('customers').orderBy('id', 'asc').limit(50).offset(100).compile();
+      const c = qc.selectFrom(zCustomers).orderBy('id', 'asc').limit(50).offset(100).compile();
       await z(c.text, c.parameters as unknown[]);
     },
   },
@@ -124,7 +137,7 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
     drizzle: async () => void (await ddb.select().from(customers).where(eq(customers.id, 42))),
     kysely: async () => void (await k.selectFrom('customers').selectAll().where('id', '=', 42).execute()),
     zmdb: async () => {
-      const c = qc.selectFrom('customers').where('id', '=', 42).compile();
+      const c = qc.selectFrom(zCustomers).where('id', '=', 42).compile();
       await z(c.text, c.parameters as unknown[]);
     },
   },
@@ -142,7 +155,7 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
         .where(ksql<boolean>`to_tsvector('english', company_name) @@ to_tsquery('english', ${'ltd'})`)
         .execute()),
     zmdb: async () => {
-      const c = ftsSelectFrom('customers', postgres).whereMatch('company_name', 'ltd').compile();
+      const c = qc.selectFrom(zCustomers).whereMatch('company_name', 'ltd').compile();
       await z(c.text, c.parameters as unknown[]);
     },
   },
@@ -151,7 +164,7 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
     drizzle: async () => void (await ddb.select().from(employees).orderBy(asc(employees.id)).limit(50).offset(0)),
     kysely: async () => void (await k.selectFrom('employees').selectAll().orderBy('id').limit(50).offset(0).execute()),
     zmdb: async () => {
-      const c = qc.selectFrom('employees').orderBy('id', 'asc').limit(50).offset(0).compile();
+      const c = qc.selectFrom(zEmployees).orderBy('id', 'asc').limit(50).offset(0).compile();
       await z(c.text, c.parameters as unknown[]);
     },
   },
@@ -172,10 +185,11 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
         .where('employees.id', '=', 5)
         .execute()),
     zmdb: async () => {
-      const c = aggregateSelectFrom('employees', postgres)
+      const c = qc
+        .selectFrom(zEmployees)
         .select(employeeColumns)
         .expr('row_to_json(r)', 'recipient')
-        .leftJoin('employees as r', 'r.id', 'employees.recipient_id')
+        .leftJoin(zEmployees, 'r', [{ leftCol: 'r.id', rightCol: 'employees.recipient_id' }])
         .where('employees.id', '=', 5)
         .compile();
       await z(c.text, c.parameters as unknown[]);
@@ -186,7 +200,7 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
     drizzle: async () => void (await ddb.select().from(suppliers).orderBy(asc(suppliers.id)).limit(50).offset(0)),
     kysely: async () => void (await k.selectFrom('suppliers').selectAll().orderBy('id').limit(50).offset(0).execute()),
     zmdb: async () => {
-      const c = qc.selectFrom('suppliers').orderBy('id', 'asc').limit(50).offset(0).compile();
+      const c = qc.selectFrom(zSuppliers).orderBy('id', 'asc').limit(50).offset(0).compile();
       await z(c.text, c.parameters as unknown[]);
     },
   },
@@ -195,7 +209,7 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
     drizzle: async () => void (await ddb.select().from(suppliers).where(eq(suppliers.id, 3))),
     kysely: async () => void (await k.selectFrom('suppliers').selectAll().where('id', '=', 3).execute()),
     zmdb: async () => {
-      const c = qc.selectFrom('suppliers').where('id', '=', 3).compile();
+      const c = qc.selectFrom(zSuppliers).where('id', '=', 3).compile();
       await z(c.text, c.parameters as unknown[]);
     },
   },
@@ -204,7 +218,7 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
     drizzle: async () => void (await ddb.select().from(products).orderBy(asc(products.id)).limit(50).offset(0)),
     kysely: async () => void (await k.selectFrom('products').selectAll().orderBy('id').limit(50).offset(0).execute()),
     zmdb: async () => {
-      const c = qc.selectFrom('products').orderBy('id', 'asc').limit(50).offset(0).compile();
+      const c = qc.selectFrom(zProducts).orderBy('id', 'asc').limit(50).offset(0).compile();
       await z(c.text, c.parameters as unknown[]);
     },
   },
@@ -225,10 +239,11 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
         .where('products.id', '=', 7)
         .execute()),
     zmdb: async () => {
-      const c = aggregateSelectFrom('products', postgres)
+      const c = qc
+        .selectFrom(zProducts)
         .select(productColumns)
         .expr('row_to_json(suppliers)', 'supplier')
-        .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
+        .leftJoin(zSuppliers, 'suppliers', [{ leftCol: 'suppliers.id', rightCol: 'products.supplier_id' }])
         .where('products.id', '=', 7)
         .compile();
       await z(c.text, c.parameters as unknown[]);
@@ -248,7 +263,7 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
         .where(ksql<boolean>`to_tsvector('english', name) @@ to_tsquery('english', ${'chai'})`)
         .execute()),
     zmdb: async () => {
-      const c = ftsSelectFrom('products', postgres).whereMatch('name', 'chai').compile();
+      const c = qc.selectFrom(zProducts).whereMatch('name', 'chai').compile();
       await z(c.text, c.parameters as unknown[]);
     },
   },
@@ -280,11 +295,12 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
         .offset(0)
         .execute()),
     zmdb: async () => {
-      const c = aggregateSelectFrom('orders', postgres)
-        .select(['orders.id'])
+      const c = qc
+        .selectFrom(zOrders)
+        .select([{ column: 'orders.id', alias: 'id' }])
         .expr('count(order_details.product_id)::int', 'products_count')
         .expr('sum(order_details.quantity)::int', 'quantity_sum')
-        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .leftJoin(zDetails, 'order_details', [{ leftCol: 'order_details.order_id', rightCol: 'orders.id' }])
         .groupBy('orders.id')
         .orderBy('orders.id', 'asc')
         .limit(50)
@@ -312,10 +328,11 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
         .groupBy('orders.id')
         .execute()),
     zmdb: async () => {
-      const c = aggregateSelectFrom('orders', postgres)
-        .select(['orders.id'])
+      const c = qc
+        .selectFrom(zOrders)
+        .select([{ column: 'orders.id', alias: 'id' }])
         .expr('count(order_details.product_id)::int', 'products_count')
-        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .leftJoin(zDetails, 'order_details', [{ leftCol: 'order_details.order_id', rightCol: 'orders.id' }])
         .where('orders.id', '=', 10500)
         .groupBy('orders.id')
         .compile();
@@ -339,10 +356,11 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
         .where('orders.id', '=', 10500)
         .execute()),
     zmdb: async () => {
-      const c = aggregateSelectFrom('orders', postgres)
+      const c = qc
+        .selectFrom(zOrders)
         .select(orderColumns)
         .expr('row_to_json(order_details)', 'detail')
-        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .leftJoin(zDetails, 'order_details', [{ leftCol: 'order_details.order_id', rightCol: 'orders.id' }])
         .where('orders.id', '=', 10500)
         .compile();
       await z(c.text, c.parameters as unknown[]);

@@ -8,6 +8,7 @@
 //   --install          allow the suite to install its own dependencies
 //   --skip-unavailable exit 0 when a suite's preconditions are missing
 //   --libs a,b,c       validation only: which competitors to run alongside zmdb
+//   --force            publish a capture with fewer entries than the published one
 //
 // The honesty rules this script enforces, because they are the only reason the
 // numbers are worth anything:
@@ -17,7 +18,8 @@
 //      with its own timestamp and machine string attached.
 //   2. It never overwrites measured data with a partial re-run. Normalisation
 //      reads raw results; if the raw file is absent, the suite is skipped rather
-//      than emitted empty.
+//      than emitted empty, and a run that measured fewer libraries than the
+//      published capture is refused rather than written (see `refuseNarrowing`).
 //   3. Every normalised file records where the number came from: upstream commit,
 //      runtime version, machine, methodology and the wall-clock time.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -105,6 +107,31 @@ function upstreamCommit(suite) {
   }
 }
 
+// Rule 2 has a sharper edge than "the raw file is missing". A run in which a
+// competitor's build failed still writes a raw file — just a smaller one — and
+// normalising it replaces a full capture with a two-library partial, taking the
+// published capture's own fields (the curated ones this script does not emit)
+// down with it. Losing measured data to a failed run is not recoverable from the
+// artefacts, so the narrower result is refused. `--force` is the escape hatch for
+// the case where the narrowing is real: a library that upstream removed.
+function refuseNarrowing(path, name, count, force) {
+  if (force || !existsSync(path)) return null;
+  let published;
+  try {
+    published = readJson(path);
+  } catch {
+    // An unreadable published file is not data worth protecting.
+    return null;
+  }
+  const before = Array.isArray(published[name]) ? published[name].length : 0;
+  if (count >= before) return null;
+  return (
+    `this run measured ${count} of the ${before} ${name} in the published capture ` +
+    `(${published.generatedAt ?? 'unknown date'}) — refusing to replace it. Re-run the missing ` +
+    'ones, or pass --force if the field really did shrink.'
+  );
+}
+
 function provenance(suiteName, extra) {
   const suite = SUITES[suiteName];
   return {
@@ -153,9 +180,10 @@ const validation = {
     run('npx', ['ts-node', 'index.ts', 'run', ...libs], cwd);
   },
 
-  normalize({ libs } = {}) {
+  normalize({ libs, force } = {}) {
     const raw = validation.raw();
     if (!existsSync(raw)) return { written: false, reason: `no upstream results at ${raw}` };
+    const site = join(SITE, 'validation.json');
 
     const results = readJson(raw).results ?? [];
     const kinds = ['parseSafe', 'parseStrict', 'assertLoose', 'assertStrict'];
@@ -180,6 +208,9 @@ const validation = {
     }));
 
     libraries.sort((a, b) => (b.ops.parseSafe ?? 0) - (a.ops.parseSafe ?? 0));
+
+    const narrowed = refuseNarrowing(site, 'libraries', libraries.length, force);
+    if (narrowed !== null) return { written: false, reason: narrowed };
 
     // The upstream runner catches a case that throws and prints "Skipped" —
     // failures leave no trace in the results file. Publishing the requested set
@@ -210,7 +241,7 @@ const validation = {
       libraries,
       notRun,
     };
-    writeJson(join(SITE, 'validation.json'), out);
+    writeJson(site, out);
     return { written: true, libraries: libraries.length, notRun: notRun.length };
   },
 };
@@ -242,7 +273,7 @@ const orm = {
     );
   },
 
-  normalize() {
+  normalize({ force } = {}) {
     // The measured run lives in the harness (a real k6 replay against a podman
     // Postgres). Carry it forward rather than re-deriving numbers this script did
     // not produce — and fail loudly if the shape is not what is expected, because
@@ -320,6 +351,8 @@ const orm = {
       prepared: measured.prepared ?? null,
       dnf: measured.dnf ?? [],
     };
+    const narrowed = refuseNarrowing(join(SITE, 'orm.json'), 'targets', targets.length, force);
+    if (narrowed !== null) return { written: false, reason: narrowed };
     writeJson(join(SITE, 'orm.json'), out);
     return { written: true, targets: targets.length, routes: routeNames.length, dnf: out.dnf.length };
   },
@@ -410,7 +443,7 @@ const framework = {
     if (existsSync(peers)) run('bash', [peers], BENCH);
   },
 
-  normalize() {
+  normalize({ force } = {}) {
     const self = join(SITE, 'framework-results.json');
     const peers = join(SITE, 'peers-results.json');
     if (!existsSync(self)) return { written: false, reason: 'no framework-results.json' };
@@ -526,6 +559,8 @@ const framework = {
       notRun,
       interleaved: mine.captureId ? null : interleavedHeadToHead(),
     };
+    const narrowed = refuseNarrowing(join(SITE, 'framework.json'), 'rows', all.length, force);
+    if (narrowed !== null) return { written: false, reason: narrowed };
     writeJson(join(SITE, 'framework.json'), out);
     return {
       written: true,
@@ -591,6 +626,7 @@ function main() {
   const normalizeOnly = flag('normalize-only');
   const install = flag('install');
   const skip = flag('skip-unavailable');
+  const force = flag('force');
   // Competitor runs are opt-in; default measurements refresh zmdb only.
   const explicit = value('libs');
   const libs = explicit === undefined ? ['zmdb', 'zmdb-aot'] : explicit.split(',').filter(l => l.length > 0);
@@ -617,7 +653,7 @@ function main() {
       }
     }
 
-    const normalized = impl.normalize({ libs });
+    const normalized = impl.normalize({ libs, force });
     if (normalized.written) {
       const detail = Object.entries(normalized)
         .filter(([k]) => k !== 'written')

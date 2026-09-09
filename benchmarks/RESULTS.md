@@ -15,6 +15,39 @@ The replaced comparison data remains available in the [previous revision](https:
 
 ---
 
+## Pins and upstream revisions — updated 2026-09-10
+
+The harnesses now pin the same competitor versions the vendored upstream suites pin, and two of the three suite submodules moved to their current upstream heads. **No number in this file was
+re-measured for that bump.** Every table below, and every artifact in [`site/`](./site), was captured against the previous pins on the revisions listed as `upstreamCommit` in the JSON. The machine
+these suites run on (`lander`, the AMD Ryzen 7 7840U used for every capture here) was not idle on the day of the bump, and `CONTRIBUTING.md` is explicit that shared-machine timings do not establish a
+baseline — so the refresh capture is pending an idle box rather than published alongside the pins.
+
+| what                                 | was        | now                          |
+| ------------------------------------ | ---------- | ---------------------------- |
+| `harness/validation` zod             | 3.25.76    | 4.5.4                        |
+| `harness/orm` drizzle-orm            | 0.45.2     | 1.0.0-beta.23-0bbcaa2        |
+| `harness/orm` hono                   | 4.6.20     | 4.13.7                       |
+| `harness/orm` `@hono/node-server`    | 1.13.8     | 1.19.17                      |
+| `harness/orm` pg                     | `^8.13.1`  | 8.23.0                       |
+| `typescript-runtime-type-benchmarks` | `25a1d184` | `2681b59a`                   |
+| `web-frameworks`                     | `2968d22c` | `5b83648b`                   |
+| `drizzle-benchmarks`                 | `2ae27415` | `2ae27415` (already current) |
+
+The first five are exactly what the vendored suites pin, `pg` included — the harness now pins it exactly rather than with a caret, because a floating peer version silently changes what a re-run
+compares against. typebox 0.34.52, ajv 8.20.0 and valibot 1.4.2 already matched upstream. tinybench 3.1.0 is deliberately not bumped: it is the timer, not a library under test, and changing it moves
+every row at once. Three things had to be repaired before the suites would run at all under the new pins, and each is worth knowing on its own:
+
+- **The validation patch was regenerated against `2681b59a`.** Upstream added cases and rewrote the `test`/`test:build` script chains, so
+  [the patch](./patches/typescript-runtime-type-benchmarks.patch) no longer applied. It now registers `zmdb`/`zmdb-aot` in `cases/index.ts` and `index.ts` against the new surroundings. It also adds
+  `--skipLibCheck` to upstream's own `compile:ts-runtypes` declaration emit — the repo's root `tsconfig.json` already sets that flag, and without it a competitor's build step fails and takes the whole run with it.
+- **drizzle 1.0 takes its client through the config object.** The 0.4x form `drizzle(pool, { schema })` is read as a *config* in 1.0, so it silently constructs a second pool against the default
+  `localhost:5432` instead of using the one it was handed. Here that surfaced as HTTP 500 with `ECONNREFUSED` because the benchmark database listens on 55432; on a machine with a stray local
+  Postgres it would instead have surfaced as a benchmark quietly measuring the wrong database. Both ORM entry points now pass `{ client: pool }`.
+- **The zmdb ORM routes moved to the consolidated query builder.** `aggregateSelectFrom`, `ftsSelectFrom` and `joinableSelectFrom` were removed in `1fd3379d`; every route now goes through
+  `createQueryCompiler(postgres).selectFrom(trustedTable(…))` with `.expr` / `.count` / `.sum` / `.leftJoin` / `.whereMatch`. Qualified root columns are passed as explicit `{ column, alias }` pairs so
+  the emitted SQL keeps bare JSON keys (`"employees"."id" AS "id"`, not `AS "employees.id"`) — otherwise the port would have changed the response shape it is supposed to hold fixed. All 13 routes
+  were re-checked against the seeded Northwind database and return byte-identical JSON across the drizzle, kysely and zmdb servers.
+
 ## Engineering costs — captured product revision
 
 The dashboard reads [engineering.json](./site/engineering.json) directly, including every editor/compiler, build/package/consumer, startup and PostgreSQL metric with its recorded unit, samples, median
@@ -94,6 +127,11 @@ the upstream **k6** request replay (`data/requests.json`). Servers built from th
 
 > ⚠️ Unlike the upstream dashboards (2 machines, 1GB ethernet, ramp to 3000 VUs over ~10 min), this runs server + load on one box with a short ramp — so treat the **relative** ordering as indicative
 > and the **absolute** numbers as low.
+
+The config row above states the versions of the campaign it was written for; the normalized capture in [`site/orm.json`](./site/orm.json) carries its own (`pg 8.23.0`, Drizzle 0.45.2, Kysely 0.29.5),
+and where the two disagree the artifact is the record. Either way the harness has since moved to upstream's pins — drizzle-orm 1.0.0-beta.23-0bbcaa2, hono 4.13.7, pg 8.23.0 — and the zmdb routes were
+re-written onto the consolidated query builder (see [Pins and upstream revisions](#pins-and-upstream-revisions--updated-2026-09-10)). A re-run therefore changes two of the three participants at once,
+which is a reason to read the tables below as a record of the older set rather than to diff them against a refresh.
 
 ### Feature coverage — each route listed individually (not summed)
 
@@ -225,8 +263,10 @@ benchmarking a compatibility shim over an input form the library never produced,
 The previous local row (6.37M, below) was measured before the conversion existed at all, so it is not comparable to either number above — which is the second reason to generate the witness: the
 benchmark's input form stopped matching what the library did with it, and nothing said so.
 
-> [!WARNING] The upstream runner discards every result. That used to inflate the hand-inlined AOT rows by 3.3–5× because V8 could remove the pure `void aotIs(FROZEN)` call as dead code. The same
-> problem existed in our old local harness.
+> [!WARNING] **The upstream table above was measured while the upstream runner discarded every result, at submodule `25a1d184`. Upstream has since closed that hole, and the table has not been
+> re-measured against the fix.** At `2681b59a` — the revision vendored here as of 2026-09-10 — `helpers/types.ts:24` declares a `protected sink: unknown` and each of `assertLoose.ts`,
+> `assertStrict.ts`, `parseSafe.ts` and `parseStrict.ts` assigns `this.sink = this.fn(validateData)`: the same technique the local harness below uses, arrived at independently. Until that landed,
+> discarding the result inflated the hand-inlined AOT rows by 3.3–5×, because V8 could remove the pure `void aotIs(FROZEN)` call as dead code. The same problem existed in our old local harness.
 >
 > These Node 26 results use 50 million iterations and the median of five interleaved passes:
 >
@@ -243,7 +283,7 @@ benchmark's input form stopped matching what the library did with it, and nothin
 > while `parseStrict` measured 55.7M upstream and 37.5–50.0M locally. We have not established why V8 keeps these generated calls, so the local harness still consumes every result.
 >
 > The local harness (`harness/validation`) observes results, rotates inputs, and runs 1,000 validations per timed call so tinybench's ~10ns per-call overhead does not dominate. Use its numbers below
-> for comparisons. The upstream table remains as a record of what the upstream runner reports.
+> for comparisons. The upstream table remains as a record of what the upstream runner reported at `25a1d184`.
 
 ### DCE-proof local measurement (`harness/validation`, `./run.sh`)
 
@@ -258,6 +298,10 @@ Node 26, median of 5 passes, 1,000 validations per timed call, results observed,
 | zmdb (runtime) |  7,021,828 |   4,582,451 |   7,136,217 |    4,689,626 | 1.03–1.09× |
 | valibot        |  1,893,780 |   1,491,467 |   1,977,096 |    1,552,091 | 1.04–1.06× |
 | zod (v3)       |  1,168,862 |   1,045,898 |   1,171,774 |    1,062,529 | 1.07–1.10× |
+
+The `zod (v3)` row is the one entry the 2026-09-10 pin bump has already invalidated: it was measured against zod 3.25.76, and this harness now pins zod 4.5.4 to match upstream. On the upstream runner
+v4 measured 4–8× v3 across these four cases, so the `aot ÷ zod v3` ratios below are a floor against the version the harness will measure next, not a statement about it. No v4 row is written here until
+one is measured — see [Pins and upstream revisions](#pins-and-upstream-revisions--updated-2026-09-10).
 
 Both zmdb rows are generated from the single `Moltar` interface in [`harness/validation/model.ts`](./harness/validation/model.ts) — the runtime row walks the reflected `TypeIR`, the AOT row runs the
 transformer's own output — so the two paths measure one declaration instead of two hand-written lookalikes. The previous zmdb rows in this table were both hand-written and neither matched what the
@@ -390,6 +434,10 @@ disabled, latency-corrected — and emits `framework-results.json` with req/s, l
 [capture](./site/framework-results.json) uses **Linux x86_64, Node 26.8.1, oha 1.16.0 and eight workers**. Each cell has three 5-second samples after one discarded warmup, with 2-second settling
 intervals. All 27 raw reports are retained; completed responses have **0 HTTP errors**, and oha's `aborted due to deadline` counts remain in the raw reports. The app bundles the current public sources
 with esbuild; this is not a packed-install measurement. Historical peer and Bun/Deno captures retain their original dates and methodology in the normalized data.
+
+That capture predates the 2026-09-10 move of the `web-frameworks` submodule to `5b83648b` (see [Pins and upstream revisions](#pins-and-upstream-revisions--updated-2026-09-10)). This harness is
+standalone — it mirrors the upstream methodology with `oha`, and the submodule matters only for the grafted `javascript/zmdb` participant — so the bump does not change the methodology. After it, the
+bundle, the codegen (no drift) and all seven contract assertions were re-verified; the load run itself was not repeated, because that needs an idle machine.
 
 ```sh
 bash benchmarks/harness/framework/run.sh          # levels 64/256/512, 3 routes, cores/2 workers

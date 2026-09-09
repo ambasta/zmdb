@@ -25,7 +25,7 @@ export function aotEquals(data: unknown): boolean {
 // purely structural type has no coercion. Rebuilding it would measure an allocation the
 // real API does not make.
 export function aotParseSafe(data: unknown): unknown {
-  const result = ((() => { if ((_zmdbCheckMoltar0(data))) return { success: true, data: data }; const _e = []; _zmdbIssues4(data, "input", _e); return { success: false, errors: _e }; })());
+  const result = ((() => { if ((_zmdbCheckMoltar0(data))) return { success: true, data: data }; const _e = []; _zmdbIssues4(data, "input", _e); return { success: false, issues: _e }; })());
   if (!result.success) throw new Error('wrong type.');
   return result.data;
 }

@@ -35,6 +35,10 @@ echo "==> generating the zmdb validators from model.ts"
 node ../../scripts/generate-validation-model.mjs
 
 # Node strips the types natively; no build step and no bundler, so what runs is
-# exactly what is in the file.
+# exactly what is in the file. The one thing plain `node` cannot do is resolve the
+# `./x.js` specifiers the packages' own sources use for their siblings, so the
+# repository's resolution hook is registered — the same `--import` every other
+# script that runs these sources uses. Without it this stopped at the first
+# internal import inside `@zmdb/validator`.
 echo "==> running validation benchmark (this takes a few minutes)"
-node validation.bench.ts | tee "$OUT"
+node --import ../../../scripts/ts-specifier-hook.mjs validation.bench.ts | tee "$OUT"

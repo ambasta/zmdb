@@ -4,9 +4,7 @@
 // return HTTP 501 (honest per-route DNF), never a faked 200.
 import { serve } from '@hono/node-server';
 import { postgres } from '@zmdb/postgres';
-import { createQueryCompiler } from '@zmdb/sql';
-import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { sql, eq, asc, getTableColumns } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { pgTable, integer, text, numeric } from 'drizzle-orm/pg-core';
@@ -98,10 +96,25 @@ const details = pgTable('order_details', {
   order_id: integer('order_id'),
   product_id: integer('product_id'),
 });
-const employeeColumns = Object.keys(getTableColumns(employees)).map(column => `employees.${column}`);
-const productColumns = Object.keys(getTableColumns(products)).map(column => `products.${column}`);
-const orderColumns = Object.keys(getTableColumns(orders)).map(column => `orders.${column}`);
-const ddb = drizzle(pool, { schema: { customers, employees, suppliers, products, orders, details } });
+// zmdb queries name a physical table explicitly: these routes have no declared
+// entity to bind to, so `trustedTable` is the documented target for raw SQL names.
+const zCustomers = trustedTable('customers');
+const zEmployees = trustedTable('employees');
+const zSuppliers = trustedTable('suppliers');
+const zProducts = trustedTable('products');
+const zOrders = trustedTable('orders');
+const zDetails = trustedTable('order_details');
+// Qualified on input (a self-join needs it) and aliased back to the bare column on
+// output, so the JSON keys match what drizzle's and kysely's projections return.
+const qualified = (table: string, columns: Record<string, unknown>) =>
+  Object.keys(columns).map(column => ({ column: `${table}.${column}`, alias: column }));
+const employeeColumns = qualified('employees', getTableColumns(employees));
+const productColumns = qualified('products', getTableColumns(products));
+const orderColumns = qualified('orders', getTableColumns(orders));
+// drizzle 1.0 takes the client through the config object; the 0.4x
+// `drizzle(pool, ...)` positional form is read as a config here, which silently
+// builds a second pool against the default localhost:5432 instead of this one.
+const ddb = drizzle({ client: pool });
 const k = new Kysely<Record<string, Record<string, unknown>>>({ dialect: new PostgresDialect({ pool }) });
 const qc = createQueryCompiler(postgres);
 // zmdb query execution. With ZMDB_PREPARED=1 we pass a stable statement `name`
@@ -148,7 +161,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .execute(),
     zmdb: async q => {
       const c = qc
-        .selectFrom('customers')
+        .selectFrom(zCustomers)
         .orderBy('id', 'asc')
         .limit(num(q.get('limit') ?? undefined, 50))
         .offset(num(q.get('offset') ?? undefined))
@@ -170,7 +183,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .execute(),
     zmdb: async q => {
       const c = qc
-        .selectFrom('customers')
+        .selectFrom(zCustomers)
         .where('id', '=', num(q.get('id') ?? undefined))
         .compile();
       return zq(c.text, c.parameters as unknown[]);
@@ -194,7 +207,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .execute(),
     zmdb: async q => {
       const c = qc
-        .selectFrom('employees')
+        .selectFrom(zEmployees)
         .orderBy('id', 'asc')
         .limit(num(q.get('limit') ?? undefined, 50))
         .offset(num(q.get('offset') ?? undefined))
@@ -218,10 +231,11 @@ const routes: Record<string, Record<string, H | null>> = {
         .where('employees.id', '=', num(q.get('id') ?? undefined))
         .execute(),
     zmdb: async q => {
-      const c = aggregateSelectFrom('employees', postgres)
+      const c = qc
+        .selectFrom(zEmployees)
         .select(employeeColumns)
         .expr('row_to_json(r)', 'recipient')
-        .leftJoin('employees as r', 'r.id', 'employees.recipient_id')
+        .leftJoin(zEmployees, 'r', [{ leftCol: 'r.id', rightCol: 'employees.recipient_id' }])
         .where('employees.id', '=', num(q.get('id') ?? undefined))
         .compile();
       return zq(c.text, c.parameters as unknown[]);
@@ -245,7 +259,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .execute(),
     zmdb: async q => {
       const c = qc
-        .selectFrom('suppliers')
+        .selectFrom(zSuppliers)
         .orderBy('id', 'asc')
         .limit(num(q.get('limit') ?? undefined, 50))
         .offset(num(q.get('offset') ?? undefined))
@@ -267,7 +281,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .execute(),
     zmdb: async q => {
       const c = qc
-        .selectFrom('suppliers')
+        .selectFrom(zSuppliers)
         .where('id', '=', num(q.get('id') ?? undefined))
         .compile();
       return zq(c.text, c.parameters as unknown[]);
@@ -291,7 +305,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .execute(),
     zmdb: async q => {
       const c = qc
-        .selectFrom('products')
+        .selectFrom(zProducts)
         .orderBy('id', 'asc')
         .limit(num(q.get('limit') ?? undefined, 50))
         .offset(num(q.get('offset') ?? undefined))
@@ -315,10 +329,11 @@ const routes: Record<string, Record<string, H | null>> = {
         .where('products.id', '=', num(q.get('id') ?? undefined))
         .execute(),
     zmdb: async q => {
-      const c = aggregateSelectFrom('products', postgres)
+      const c = qc
+        .selectFrom(zProducts)
         .select(productColumns)
         .expr('row_to_json(suppliers)', 'supplier')
-        .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
+        .leftJoin(zSuppliers, 'suppliers', [{ leftCol: 'suppliers.id', rightCol: 'products.supplier_id' }])
         .where('products.id', '=', num(q.get('id') ?? undefined))
         .compile();
       return zq(c.text, c.parameters as unknown[]);
@@ -346,10 +361,11 @@ const routes: Record<string, Record<string, H | null>> = {
         .offset(num(q.get('offset') ?? undefined))
         .execute(),
     zmdb: async q => {
-      const c = aggregateSelectFrom('orders', postgres)
-        .select(['orders.id'])
+      const c = qc
+        .selectFrom(zOrders)
+        .select([{ column: 'orders.id', alias: 'id' }])
         .expr('count(order_details.product_id)::int', 'cnt')
-        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .leftJoin(zDetails, 'order_details', [{ leftCol: 'order_details.order_id', rightCol: 'orders.id' }])
         .groupBy('orders.id')
         .orderBy('orders.id', 'asc')
         .limit(num(q.get('limit') ?? undefined, 50))
@@ -376,10 +392,11 @@ const routes: Record<string, Record<string, H | null>> = {
         .groupBy('orders.id')
         .execute(),
     zmdb: async q => {
-      const c = aggregateSelectFrom('orders', postgres)
-        .select(['orders.id'])
+      const c = qc
+        .selectFrom(zOrders)
+        .select([{ column: 'orders.id', alias: 'id' }])
         .expr('count(order_details.product_id)::int', 'cnt')
-        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .leftJoin(zDetails, 'order_details', [{ leftCol: 'order_details.order_id', rightCol: 'orders.id' }])
         .where('orders.id', '=', num(q.get('id') ?? undefined))
         .groupBy('orders.id')
         .compile();
@@ -402,10 +419,11 @@ const routes: Record<string, Record<string, H | null>> = {
         .where('orders.id', '=', num(q.get('id') ?? undefined))
         .execute(),
     zmdb: async q => {
-      const c = aggregateSelectFrom('orders', postgres)
+      const c = qc
+        .selectFrom(zOrders)
         .select(orderColumns)
         .expr('row_to_json(order_details)', 'detail')
-        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .leftJoin(zDetails, 'order_details', [{ leftCol: 'order_details.order_id', rightCol: 'orders.id' }])
         .where('orders.id', '=', num(q.get('id') ?? undefined))
         .compile();
       return zq(c.text, c.parameters as unknown[]);
@@ -426,7 +444,8 @@ const routes: Record<string, Record<string, H | null>> = {
         .where(ksql<boolean>`to_tsvector('english', company_name) @@ to_tsquery('english', ${q.get('term') ?? 'ltd'})`)
         .execute(),
     zmdb: async q => {
-      const c = ftsSelectFrom('customers', postgres)
+      const c = qc
+        .selectFrom(zCustomers)
         .whereMatch('company_name', q.get('term') ?? 'ltd')
         .compile();
       return zq(c.text, c.parameters as unknown[]);
@@ -445,7 +464,8 @@ const routes: Record<string, Record<string, H | null>> = {
         .where(ksql<boolean>`to_tsvector('english', name) @@ to_tsquery('english', ${q.get('term') ?? 'chai'})`)
         .execute(),
     zmdb: async q => {
-      const c = ftsSelectFrom('products', postgres)
+      const c = qc
+        .selectFrom(zProducts)
         .whereMatch('name', q.get('term') ?? 'chai')
         .compile();
       return zq(c.text, c.parameters as unknown[]);

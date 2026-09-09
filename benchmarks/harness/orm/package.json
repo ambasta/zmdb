@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@hono/node-server": "1.13.8",
-    "drizzle-orm": "0.45.2",
-    "hono": "4.6.20",
+    "@hono/node-server": "1.19.17",
+    "drizzle-orm": "1.0.0-beta.23-0bbcaa2",
+    "hono": "4.13.7",
     "kysely": "0.29.5",
-    "pg": "^8.13.1",
+    "pg": "8.23.0",
     "tinybench": "3.1.0"
   }
 }

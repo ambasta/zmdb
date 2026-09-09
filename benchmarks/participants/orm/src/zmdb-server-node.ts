@@ -19,10 +19,8 @@ import 'dotenv/config';
 // 200; there are none left, and the compiled SQL for each route is asserted by
 // benchmarks/harness/orm's tests.
 import { serve } from '@hono/node-server';
-import { createQueryCompiler } from '@zmdb/sql';
-import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
-import { joinableSelectFrom } from '@zmdb/sql/joins';
+import { postgres } from '@zmdb/postgres';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { Hono } from 'hono';
 // Upstream writes `import pg from 'pg'` and `new pg.Pool(...)`; this is the same
 // constructor reached by its named export, which is what this repository's lint
@@ -37,7 +35,17 @@ const numCPUs = os.cpus().length;
 // connection count dominates this benchmark and a different pool would make the
 // comparison meaningless.
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, min: 10, max: 10 });
-const qc = createQueryCompiler('postgres');
+const qc = createQueryCompiler(postgres);
+
+// These routes have no declared zmdb entity to bind to — the seed is upstream's
+// Northwind dump — so each query names its physical table through `trustedTable`,
+// the explicit target the compiler asks for in that case.
+const zCustomers = trustedTable('customers');
+const zEmployees = trustedTable('employees');
+const zSuppliers = trustedTable('suppliers');
+const zProducts = trustedTable('products');
+const zOrders = trustedTable('orders');
+const zDetails = trustedTable('order_details');
 
 // The drizzle participant calls `.prepare()` on every query, so Postgres plans
 // each statement once and reuses the plan. zmdb has no prepare step in its
@@ -68,7 +76,7 @@ app.route('', cpuUsage);
 
 app.get('/customers', async c => {
   const q = qc
-    .selectFrom('customers')
+    .selectFrom(zCustomers)
     .orderBy('id', 'asc')
     .limit(num(c.req.query('limit'), 50))
     .offset(num(c.req.query('offset')))
@@ -78,14 +86,15 @@ app.get('/customers', async c => {
 
 app.get('/customer-by-id', async c => {
   const q = qc
-    .selectFrom('customers')
+    .selectFrom(zCustomers)
     .where('id', '=', num(c.req.query('id')))
     .compile();
   return c.json(await run(q.text, q.parameters));
 });
 
 app.get('/search-customer', async c => {
-  const q = ftsSelectFrom('customers', 'postgres')
+  const q = qc
+    .selectFrom(zCustomers)
     .whereMatch('company_name', c.req.query('term') ?? '')
     .compile();
   return c.json(await run(q.text, q.parameters));
@@ -93,7 +102,7 @@ app.get('/search-customer', async c => {
 
 app.get('/employees', async c => {
   const q = qc
-    .selectFrom('employees')
+    .selectFrom(zEmployees)
     .orderBy('id', 'asc')
     .limit(num(c.req.query('limit'), 50))
     .offset(num(c.req.query('offset')))
@@ -102,8 +111,9 @@ app.get('/employees', async c => {
 });
 
 app.get('/employee-with-recipient', async c => {
-  const q = joinableSelectFrom('employees as e', 'postgres')
-    .leftJoin('employees as r', 'r.id', 'e.recipient_id')
+  const q = qc
+    .selectFrom(zEmployees, 'e')
+    .leftJoin(zEmployees, 'r', [{ leftCol: 'r.id', rightCol: 'e.recipient_id' }])
     .where('e.id', '=', num(c.req.query('id')))
     .compile();
   return c.json(await run(q.text, q.parameters));
@@ -111,7 +121,7 @@ app.get('/employee-with-recipient', async c => {
 
 app.get('/suppliers', async c => {
   const q = qc
-    .selectFrom('suppliers')
+    .selectFrom(zSuppliers)
     .orderBy('id', 'asc')
     .limit(num(c.req.query('limit'), 50))
     .offset(num(c.req.query('offset')))
@@ -121,7 +131,7 @@ app.get('/suppliers', async c => {
 
 app.get('/supplier-by-id', async c => {
   const q = qc
-    .selectFrom('suppliers')
+    .selectFrom(zSuppliers)
     .where('id', '=', num(c.req.query('id')))
     .compile();
   return c.json(await run(q.text, q.parameters));
@@ -129,7 +139,7 @@ app.get('/supplier-by-id', async c => {
 
 app.get('/products', async c => {
   const q = qc
-    .selectFrom('products')
+    .selectFrom(zProducts)
     .orderBy('id', 'asc')
     .limit(num(c.req.query('limit'), 50))
     .offset(num(c.req.query('offset')))
@@ -138,15 +148,17 @@ app.get('/products', async c => {
 });
 
 app.get('/product-with-supplier', async c => {
-  const q = joinableSelectFrom('products', 'postgres')
-    .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
+  const q = qc
+    .selectFrom(zProducts)
+    .leftJoin(zSuppliers, 'suppliers', [{ leftCol: 'suppliers.id', rightCol: 'products.supplier_id' }])
     .where('products.id', '=', num(c.req.query('id')))
     .compile();
   return c.json(await run(q.text, q.parameters));
 });
 
 app.get('/search-product', async c => {
-  const q = ftsSelectFrom('products', 'postgres')
+  const q = qc
+    .selectFrom(zProducts)
     .whereMatch('name', c.req.query('term') ?? '')
     .compile();
   return c.json(await run(q.text, q.parameters));
@@ -156,7 +168,8 @@ app.get('/search-product', async c => {
 // is the grouping column — so zmdb aggregates there and never joins. Fewer rows
 // touched than the upstream left join, and the same result set.
 app.get('/orders-with-details', async c => {
-  const q = aggregateSelectFrom('order_details', 'postgres')
+  const q = qc
+    .selectFrom(zDetails)
     .select(['order_id'])
     .count('product_id', 'products_count')
     .sum('quantity', 'quantity_sum')
@@ -169,7 +182,8 @@ app.get('/orders-with-details', async c => {
 });
 
 app.get('/order-with-details', async c => {
-  const q = aggregateSelectFrom('order_details', 'postgres')
+  const q = qc
+    .selectFrom(zDetails)
     .select(['order_id'])
     .count('product_id', 'products_count')
     .sum('quantity', 'quantity_sum')
@@ -184,8 +198,8 @@ app.get('/order-with-details', async c => {
 // emits, so it is the shape being measured.
 app.get('/order-with-details-and-products', async c => {
   const id = num(c.req.query('id'));
-  const order = qc.selectFrom('orders').where('id', '=', id).compile();
-  const details = qc.selectFrom('order_details').where('order_id', '=', id).compile();
+  const order = qc.selectFrom(zOrders).where('id', '=', id).compile();
+  const details = qc.selectFrom(zDetails).where('order_id', '=', id).compile();
   const [parents, children] = await Promise.all([
     run(order.text, order.parameters),
     run(details.text, details.parameters),
