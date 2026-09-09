@@ -1039,3 +1039,38 @@ describe('maxBodyBytes (frozen: pipeline/SPEC.md A7, A9.11)', () => {
     expect(seen.raw).toBe('never handled');
   });
 });
+
+describe('HTTP policy adapter preflight', () => {
+  it('answers Fetch preflight before reading an oversized body', async () => {
+    const router = createRouter({ policy: { cors: { origins: ['https://allowed'], methods: ['POST'] } } });
+    const request = new Request('http://x/no-route', {
+      method: 'OPTIONS',
+      headers: { origin: 'https://allowed', 'access-control-request-method': 'POST' },
+      body: 'oversized',
+    });
+    const response = await toFetchHandler(router, { maxBodyBytes: 1 })(request);
+    expect(response.status).toBe(204);
+    expect(request.bodyUsed).toBe(false);
+  });
+
+  it('answers Node preflight without installing body listeners', async () => {
+    const router = createRouter({ policy: { cors: { origins: ['https://allowed'], methods: ['POST'] } } });
+    const { res, state } = nodeDouble();
+    const events: string[] = [];
+    toNodeHandler(router, { maxBodyBytes: 1 })(
+      {
+        method: 'OPTIONS',
+        url: '/',
+        headers: { origin: 'https://allowed', 'access-control-request-method': 'POST', 'content-length': '99' },
+        on(event) {
+          events.push(event);
+        },
+      },
+      res,
+    );
+    await state.done;
+    expect(state.status).toBe(204);
+    expect(events).toEqual([]);
+    expect(state.destroyCalls).toBe(0);
+  });
+});

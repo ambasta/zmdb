@@ -22,7 +22,8 @@ export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '@zmdb/app
 /**
  * Protocol integrations attach through `ApplicationOptions.extensions`.
  */
-export interface WebApplicationOptions extends ApplicationOptions, Partial<Pick<AdapterOptions, 'maxBodyBytes'>> {
+export interface WebApplicationOptions
+  extends ApplicationOptions, Partial<Pick<AdapterOptions, 'maxBodyBytes'>>, Pick<RouterOptions, 'policy'> {
   readonly guardRegistry?: GuardRegistry;
   readonly versioning?: VersionStrategy;
 }
@@ -74,6 +75,7 @@ function routerOptions(options: WebApplicationOptions): RouterOptions {
   const observability = options.observability ?? {};
   return {
     ...observability,
+    ...(options.policy === undefined ? {} : { policy: options.policy }),
     ...(options.guardRegistry === undefined ? {} : { guardRegistry: options.guardRegistry }),
     ...(options.versioning === undefined ? {} : { versioning: options.versioning }),
   };

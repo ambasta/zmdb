@@ -368,3 +368,20 @@ is `status: 'wontfix'` for the mapped upstream feature page, so the deliberate d
 - **`@Render`, `setViewEngine`, a bundled template engine** (§A8).
 - **A logger anywhere in this package** (§A2).
 - **Draining an over-limit request body to be polite** (§A7, `../upload/SPEC.md` §3).
+
+### HTTP policy (#790)
+
+`RouterOptions.policy` and the type-derived `WebApplicationOptions.policy` accept `HttpPolicy`: optional `cors: false | CorsPolicy` and `securityHeaders`, a record of header values or `false`. Header
+names and values are validated at creation; configured security values override application values case-insensitively. A false entry preserves the application's value. No implicit security headers are
+installed.
+
+`CorsPolicy.origins` is `'*'`, an origin list, or a synchronous origin predicate. The predicate runs once per origin-bearing request. Wildcard origins with credentials are rejected at creation. Denied
+origins receive no allowing CORS headers. Methods default to GET, HEAD and POST; allowed request headers default to none. Method/header lists and origin sets are normalized at creation.
+`exposeHeaders` and non-negative integer `maxAgeSeconds` are optional.
+
+Only enabled CORS with OPTIONS, Origin and Access-Control-Request-Method is a preflight. Allowed origin/method/header combinations receive 204; denied combinations receive 403 without allowing
+headers. Both adapters decide before buffering request bodies, and in-process dispatch uses the same policy. Ordinary OPTIONS and disabled/security-only configurations retain routing. Origin-dependent
+responses merge Vary case-insensitively, preserving existing tokens; preflights also vary on the requested method and headers.
+
+Policy decorates router success/error/observed/versioned responses without changing tagged body identity, and decorates adapter body-limit rejections. Absent or inactive policy retains the existing
+router and adapter executor.
