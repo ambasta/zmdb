@@ -6,10 +6,10 @@ abort after the final unsubscribe, restart on a later subscription, and suppress
 ## Install
 
 ```bash
-yarn add @zmdb/svelte@1.0.0-beta.1 svelte@^5.57.0
+yarn add @zmdb/svelte@1.0.0-beta.2 svelte@^5.57.0
 ```
 
-> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+**, Svelte 5, and ESM. Svelte is a required peer and is never bundled into the adapter.
+> **Prerelease** (`1.0.0-beta.2`). Requires **Node.js 26+**, Svelte 5, and ESM. Svelte is a required peer and is never bundled into the adapter.
 
 ## Typed context
 

@@ -1,7 +1,7 @@
 > **Supported.** `protoEncode<T>(value)` is replaced at build time with a straight-line proto3 message encoder. The matching [`protoDecode<T>()`](./protobuf-decode.html) is emitted from the same
 > checked TypeIR.
 
-Install the dependency-free call and wire runtime with `yarn add @zmdb/protobuf@1.0.0-beta.1`; add `@zmdb/compiler@1.0.0-beta.1` as a development dependency for the build transform or project
+Install the dependency-free call and wire runtime with `yarn add @zmdb/protobuf@1.0.0-beta.2`; add `@zmdb/compiler@1.0.0-beta.2` as a development dependency for the build transform or project
 compiler. `@zmdb/protobuf` is not included in the `@zmdb/core` default install and declares no peer.
 
 ## Encode a tagged message

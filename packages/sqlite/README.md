@@ -6,7 +6,7 @@ driver contracts come from `@zmdb/orm`. `sqliteVertical` pairs this dialect with
 ## Install
 
 ```bash
-yarn add @zmdb/sqlite@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/migrations@1.0.0-beta.1
+yarn add @zmdb/sqlite@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2 @zmdb/migrations@1.0.0-beta.2
 ```
 
 For the TypeScript snippets, install the declaration inputs used by the packed consumer:

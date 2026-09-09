@@ -1,10 +1,10 @@
 # @zmdb/cli
 
 `@zmdb/cli` owns the single `zmdb` executable for schema, migration, code generation, scaffolding, application inspection, REPL, Studio and HTTP client commands. Install it with TypeScript for
-standalone tooling, or install `@zmdb/core@1.0.0-beta.1` for the complete product facade and the same executable.
+standalone tooling, or install `@zmdb/core@1.0.0-beta.2` for the complete product facade and the same executable.
 
 ```sh
-yarn add --dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/cli@1.0.0-beta.2 typescript@^7.0.2
 yarn zmdb --help
 yarn zmdb codegen --project tsconfig.json
 ```

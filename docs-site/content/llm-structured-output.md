@@ -1,4 +1,4 @@
-> **Install:** `yarn add @zmdb/ai@1.0.0-beta.1 @zmdb/schema-core@1.0.0-beta.1 @zmdb/aot-validator@1.0.0-beta.1`. `@zmdb/ai` owns provider documents; `@zmdb/validator` owns the boundary check. No
+> **Install:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/schema-core@1.0.0-beta.2 @zmdb/aot-validator@1.0.0-beta.2`. `@zmdb/ai` owns provider documents; `@zmdb/validator` owns the boundary check. No
 > provider client is installed unless the application chooses one.
 
 Getting a model to return data your database accepts is two problems: constraining what it produces, and checking what it actually produced. zmdb's schema object covers both, from one declaration.

@@ -5,7 +5,7 @@ one application; the [package reference](./package-reference.html) lists the ind
 ## Recommended: one product install
 
 ```bash
-yarn add @zmdb/core@1.0.0-beta.1
+yarn add @zmdb/core@1.0.0-beta.2
 ```
 
 ```ts {"mode":"compile","id":"example-001"}
@@ -34,19 +34,19 @@ compares all nine official packages, and links to their framework-native lifecyc
 
 ## Optional server integrations
 
-`yarn add @zmdb/core@1.0.0-beta.1` installs none of the packages or peers below. Add only the integration selected by the application:
+`yarn add @zmdb/core@1.0.0-beta.2` installs none of the packages or peers below. Add only the integration selected by the application:
 
 | Capability         | Install                                                                                        | Lifecycle and ownership                                                          |
 | ------------------ | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Protobuf artifacts | `yarn add @zmdb/protobuf@1.0.0-beta.1 && yarn add --dev @zmdb/compiler@1.0.0-beta.1`           | no runtime peer or external resource; compiler emits the artifacts               |
-| Typed gRPC         | `yarn add @zmdb/protobuf@1.0.0-beta.1 @zmdb/transport-grpc@1.0.0-beta.1 @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                                 |
-| Core NATS          | `yarn add @zmdb/transport-nats@1.0.0-beta.1 @nats-io/transport-node@^3.4.0`                    | app starts, drains, and closes the strategy connection                           |
-| RabbitMQ           | `yarn add @zmdb/transport-rabbitmq@1.0.0-beta.1 amqplib@^2.0.1`                                | app owns connection, channels, retry, and dead-letter topology                   |
-| Redis Pub/Sub      | `yarn add @zmdb/transport-redis@1.0.0-beta.1 redis@^6.2.1`                                     | app owns publisher/subscriber clients and bounded drain                          |
-| Background jobs    | `yarn add @zmdb/jobs@1.0.0-beta.1`                                                             | app starts and drains explicit workers/schedulers through `jobsExtension`        |
-| SQLite jobs        | `yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1`                              | explicit persistent stores borrow a database; memory stores own and close theirs |
-| PostgreSQL jobs    | `yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-postgres@1.0.0-beta.1 pg@^8.23.0`                 | caller owns and closes/releases the pool or client                               |
-| OpenTelemetry      | `yarn add @zmdb/otel@1.0.0-beta.1 @opentelemetry/api@^1.9.0`                                   | caller owns providers, exporters, tracers, meters, and shutdown                  |
+| Protobuf artifacts | `yarn add @zmdb/protobuf@1.0.0-beta.2 && yarn add --dev @zmdb/compiler@1.0.0-beta.2`           | no runtime peer or external resource; compiler emits the artifacts               |
+| Typed gRPC         | `yarn add @zmdb/protobuf@1.0.0-beta.2 @zmdb/transport-grpc@1.0.0-beta.2 @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                                 |
+| Core NATS          | `yarn add @zmdb/transport-nats@1.0.0-beta.2 @nats-io/transport-node@^3.4.0`                    | app starts, drains, and closes the strategy connection                           |
+| RabbitMQ           | `yarn add @zmdb/transport-rabbitmq@1.0.0-beta.2 amqplib@^2.0.1`                                | app owns connection, channels, retry, and dead-letter topology                   |
+| Redis Pub/Sub      | `yarn add @zmdb/transport-redis@1.0.0-beta.2 redis@^6.2.1`                                     | app owns publisher/subscriber clients and bounded drain                          |
+| Background jobs    | `yarn add @zmdb/jobs@1.0.0-beta.2`                                                             | app starts and drains explicit workers/schedulers through `jobsExtension`        |
+| SQLite jobs        | `yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-sqlite@1.0.0-beta.2`                              | explicit persistent stores borrow a database; memory stores own and close theirs |
+| PostgreSQL jobs    | `yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-postgres@1.0.0-beta.2 pg@^8.23.0`                 | caller owns and closes/releases the pool or client                               |
+| OpenTelemetry      | `yarn add @zmdb/otel@1.0.0-beta.2 @opentelemetry/api@^1.9.0`                                   | caller owns providers, exporters, tracers, meters, and shutdown                  |
 
 The package owns the adapter; the peer owns the external protocol client. `@zmdb/app` owns transport-neutral messaging and observability ports, while `@zmdb/jobs` owns queue and worker behavior.
 `@zmdb/compiler` owns TypeScript reflection and emission; `@zmdb/protobuf` owns the calls, service-artifact types, and generated wire runtime that emitted code imports.
@@ -64,7 +64,7 @@ compatibility facade or automatically install jobs.
 {
   "type": "module",
   "dependencies": {
-    "@zmdb/core": "^1.0.0-beta.1"
+    "@zmdb/core": "^1.0.0-beta.2"
   }
 }
 ```
@@ -74,11 +74,11 @@ compatibility facade or automatically install jobs.
 Choose runtime dependencies separately from the build tools. For example, a standalone SQLite data layer can use:
 
 ```bash
-yarn add @zmdb/schema@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/validator@1.0.0-beta.1 @zmdb/orm@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
-yarn add --dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
+yarn add @zmdb/schema@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2 @zmdb/validator@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sqlite@1.0.0-beta.2
+yarn add --dev @zmdb/compiler@1.0.0-beta.2 typescript@^7.0.2
 ```
 
-Install `@zmdb/cli@1.0.0-beta.1` with TypeScript instead when you want the single `zmdb` command; it includes the compiler and migrations engines. Install `@zmdb/migrations@1.0.0-beta.1` directly when
+Install `@zmdb/cli@1.0.0-beta.2` with TypeScript instead when you want the single `zmdb` command; it includes the compiler and migrations engines. Install `@zmdb/migrations@1.0.0-beta.2` directly when
 code owns the snapshot, plan or runner workflow. The [tooling guide](./tooling-boundaries.html) explains config ownership, optional adapter peers and which entries belong in generated runtime code.
 
 ## Install Individual Packages
@@ -93,16 +93,16 @@ yarn add @zmdb/schema
 yarn add @zmdb/sql
 
 # Schema snapshots, migration plans, runners, introspection, and declaration emission
-yarn add @zmdb/migrations@1.0.0-beta.1
+yarn add @zmdb/migrations@1.0.0-beta.2
 
 # Runtime validation + serialization
 yarn add @zmdb/validator
 
 # TypeScript reflection, AOT emission, build adapters, and lint rules
-yarn add --dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/compiler@1.0.0-beta.2 typescript@^7.0.2
 
 # The single zmdb executable for codegen, migrations and application commands
-yarn add --dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/cli@1.0.0-beta.2 typescript@^7.0.2
 
 # Repository with CRUD + transactions
 yarn add @zmdb/orm

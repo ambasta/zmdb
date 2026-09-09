@@ -80,6 +80,7 @@ jobs:
       - name: Publish staged packages (or pack on manual dispatch)
         env:
           COREPACK_ENABLE_PROJECT_SPEC: '0'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           VER=$(node -e "const fs=require('node:fs'); console.log(JSON.parse(fs.readFileSync(process.argv[1], 'utf8')).version)" "$RUNNER_TEMP/zmdb-release-plan.json")
@@ -91,6 +92,9 @@ jobs:
               node .github/scripts/publish-package.mjs "${args[@]}" --tag "$CHANNEL" --dry-run
             else
               node .github/scripts/publish-package.mjs "${args[@]}" --tag "$CHANNEL"
+              if [ "$GITHUB_REF_NAME" = "v1.0.0-beta.2" ]; then
+                npm dist-tag add "$package_name@$VER" latest
+              fi
             fi
           done < "$RUNNER_TEMP/zmdb-publish-order.tsv"
 

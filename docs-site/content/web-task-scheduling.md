@@ -3,7 +3,7 @@
 Install the selected background-work capability before using schedules:
 
 ```bash
-yarn add @zmdb/jobs@1.0.0-beta.1
+yarn add @zmdb/jobs@1.0.0-beta.2
 ```
 
 Scheduling composes through `jobsExtension`; it is not installed or re-exported by the default `@zmdb/core` package.

@@ -29,7 +29,7 @@ Advanced dependency boundaries are explained in the [runtime foundation](./docs-
 Create a formatter-clean SQLite project with the packaged CLI:
 
 ```bash
-yarn dlx -p @zmdb/cli@1.0.0-beta.1 zmdb new project blog
+yarn dlx -p @zmdb/cli@1.0.0-beta.2 zmdb new project blog
 cd blog
 yarn install
 yarn check

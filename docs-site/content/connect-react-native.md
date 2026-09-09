@@ -8,7 +8,7 @@ The [React Native Client](./client-react-native.html) guide is the concise gener
 Install the native adapter with its required React and React Native peers:
 
 ```bash
-yarn add @zmdb/react-native@1.0.0-beta.1 react@19 react-native@0.87
+yarn add @zmdb/react-native@1.0.0-beta.2 react@19 react-native@0.87
 ```
 
 React Native's `AppState` satisfies the lifecycle port directly. Connectivity and credential storage stay application choices:

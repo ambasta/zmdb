@@ -9,7 +9,7 @@ selected jobs under this lifecycle.
 ## Advanced: install the kernel alone
 
 ```bash
-yarn add @zmdb/app@1.0.0-beta.1
+yarn add @zmdb/app@1.0.0-beta.2
 ```
 
 The package is ESM-only and requires Node.js 26 or later.

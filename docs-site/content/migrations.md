@@ -23,7 +23,7 @@ Use the library sections below when an application owns snapshots or migration a
 Install the library and the database package that owns the dialect:
 
 ```bash
-yarn add @zmdb/migrations@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
+yarn add @zmdb/migrations@1.0.0-beta.2 @zmdb/sqlite@1.0.0-beta.2
 ```
 
 This complete example builds snapshots and a plan from schema data without connecting to a database:

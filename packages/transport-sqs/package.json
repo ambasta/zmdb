@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/transport-sqs",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "SQS standard-queue transport for the zmdb application messaging contract, with explicit receipts, retry visibility and confirmed dead-letter handoff.",
   "keywords": [
     "aws",
@@ -46,7 +46,7 @@
   },
   "peerDependencies": {
     "@aws-sdk/client-sqs": ">=3.1127.0 <4.0.0",
-    "@zmdb/app": "1.0.0-beta.1"
+    "@zmdb/app": "1.0.0-beta.2"
   },
   "engines": {
     "node": ">=26"

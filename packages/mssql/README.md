@@ -6,7 +6,7 @@ and driver contracts come from `@zmdb/orm`. `mssqlVertical` pairs this dialect w
 ## Install
 
 ```bash
-yarn add @zmdb/mssql@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/migrations@1.0.0-beta.1 mssql@^12.7.0
+yarn add @zmdb/mssql@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2 @zmdb/migrations@1.0.0-beta.2 mssql@^12.7.0
 ```
 
 For the TypeScript snippets, install the declaration inputs used by the packed consumer:

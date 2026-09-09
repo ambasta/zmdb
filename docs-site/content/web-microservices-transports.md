@@ -1,7 +1,7 @@
 Redis Pub/Sub, core NATS and RabbitMQ implement one public strategy contract, but they do not pretend to offer equivalent durability. Choose from the settlement matrix below before choosing from
 familiarity.
 
-The adapters and peers are opt-in; `yarn add @zmdb/core@1.0.0-beta.1` installs none of them. `@zmdb/app/messaging` owns the broker-neutral contract and application lifecycle, while each adapter owns
+The adapters and peers are opt-in; `yarn add @zmdb/core@1.0.0-beta.2` installs none of them. `@zmdb/app/messaging` owns the broker-neutral contract and application lifecycle, while each adapter owns
 only its protocol client, framing, subscriptions, replies, and settlement.
 
 ## The strategy boundary
@@ -44,9 +44,9 @@ Capability order is `redelivery / deadLetter / requestResponse`. Redis and core 
 The neutral `@zmdb/app/messaging` entry imports no broker client. Install the optional peer alongside the adapter you use:
 
 ```bash
-yarn add @zmdb/transport-redis@1.0.0-beta.1 redis@^6.2.1
-yarn add @zmdb/transport-nats@1.0.0-beta.1 @nats-io/transport-node@^3.4.0
-yarn add @zmdb/transport-rabbitmq@1.0.0-beta.1 amqplib@^2.0.1
+yarn add @zmdb/transport-redis@1.0.0-beta.2 redis@^6.2.1
+yarn add @zmdb/transport-nats@1.0.0-beta.2 @nats-io/transport-node@^3.4.0
+yarn add @zmdb/transport-rabbitmq@1.0.0-beta.2 amqplib@^2.0.1
 ```
 
 ```ts {"mode":"compile","id":"example-002"}
@@ -146,7 +146,7 @@ See also: [Microservices](./web-microservices.html) · [Custom Transports](./web
 
 ## SQS standard queues
 
-Install `@zmdb/transport-sqs@1.0.0-beta.1`, `@zmdb/app@1.0.0-beta.1` and `@aws-sdk/client-sqs@3.1127.0`. Supply a caller-owned `SQSClient`, distinct source and dead-letter queue URLs, and the explicit
+Install `@zmdb/transport-sqs@1.0.0-beta.2`, `@zmdb/app@1.0.0-beta.2` and `@aws-sdk/client-sqs@3.1127.0`. Supply a caller-owned `SQSClient`, distinct source and dead-letter queue URLs, and the explicit
 polling, visibility, concurrency and timeout options documented in the package SPEC. Attach `createSqsStrategy(options)` with `transportExtension`.
 
 Successful dispatch deletes the current receipt. Retry changes visibility; dead-letter handling waits for the destination send before deleting the source. Closing stops polling and drains accepted

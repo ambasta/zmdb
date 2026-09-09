@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/react",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "React context, query, and mutation lifecycle bindings for generated zmdb clients.",
   "keywords": [
     "client",
@@ -38,7 +38,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-beta.1"
+    "@zmdb/client": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@types/react": "19.2.18",

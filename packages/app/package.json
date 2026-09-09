@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/app",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.",
   "keywords": [
     "application-framework",

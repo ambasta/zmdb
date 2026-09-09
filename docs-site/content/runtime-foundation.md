@@ -38,10 +38,10 @@ Runtime code uses built ESM entry points and `.js` relative imports. No source-s
 Select only the public package needed by the consumer:
 
 ```bash
-yarn add @zmdb/schema@1.0.0-beta.1
-yarn add @zmdb/sql@1.0.0-beta.1
-yarn add @zmdb/validator@1.0.0-beta.1
-yarn add @zmdb/orm@1.0.0-beta.1
+yarn add @zmdb/schema@1.0.0-beta.2
+yarn add @zmdb/sql@1.0.0-beta.2
+yarn add @zmdb/validator@1.0.0-beta.2
+yarn add @zmdb/orm@1.0.0-beta.2
 ```
 
 These are four independent installation examples, not a requirement to list transitive dependencies yourself. ORM installs its declared foundation closure. Applications choosing direct core packages

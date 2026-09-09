@@ -3,7 +3,7 @@
 Background jobs are a first-party capability selected independently from the default product:
 
 ```bash
-yarn add @zmdb/jobs@1.0.0-beta.1
+yarn add @zmdb/jobs@1.0.0-beta.2
 ```
 
 Import queues, workers, schedules, and `jobsExtension` directly from `@zmdb/jobs`. The `@zmdb/core` package neither installs jobs nor exposes a `@zmdb/core/jobs` facade; application startup and
@@ -60,7 +60,7 @@ takes a provider-created `JobEnqueuer` bound to the caller's connection.
 For tests and local process-only work, explicitly install the SQLite provider. Its memory backend is ready immediately:
 
 ```bash
-yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1
+yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-sqlite@1.0.0-beta.2
 ```
 
 ```ts {"mode":"compile","id":"example-002"}
@@ -78,7 +78,7 @@ their required transactions; use `sqliteJobEnqueuer` or `pgJobEnqueuer` for enqu
 For a caller-owned node-postgres pool, install the dedicated adapter:
 
 ```bash
-yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-postgres@1.0.0-beta.1 pg@^8.23.0
+yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-postgres@1.0.0-beta.2 pg@^8.23.0
 ```
 
 ```ts {"mode":"compile","id":"example-003"}

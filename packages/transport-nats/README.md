@@ -8,12 +8,12 @@ process-global connection.
 ## Install
 
 ```bash
-yarn add @zmdb/transport-nats@1.0.0-beta.1 @nats-io/transport-node@^3.4.0
+yarn add @zmdb/transport-nats@1.0.0-beta.2 @nats-io/transport-node@^3.4.0
 ```
 
-> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+> **Prerelease** (`1.0.0-beta.2`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-The sole peer is `@nats-io/transport-node@^3.4.0`. Neither it nor this package is installed by `yarn add @zmdb/core@1.0.0-beta.1`.
+The sole peer is `@nats-io/transport-node@^3.4.0`. Neither it nor this package is installed by `yarn add @zmdb/core@1.0.0-beta.2`.
 
 ## Usage
 

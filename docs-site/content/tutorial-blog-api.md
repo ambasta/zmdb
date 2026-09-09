@@ -8,7 +8,7 @@ boundaries with a real Node listener and an optional worker.
 ## 1. Create the project
 
 ```bash
-yarn dlx -p @zmdb/cli@1.0.0-beta.1 zmdb new project blog
+yarn dlx -p @zmdb/cli@1.0.0-beta.2 zmdb new project blog
 cd blog
 yarn install
 ```

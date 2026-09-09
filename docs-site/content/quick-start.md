@@ -7,7 +7,7 @@ issued a typed query. Continue with the [blog API tutorial](./tutorial-blog-api.
 ## 1. Install
 
 ```bash
-yarn add @zmdb/core@1.0.0-beta.1
+yarn add @zmdb/core@1.0.0-beta.2
 ```
 
 `@zmdb/core` includes SQLite and exposes its driver through `@zmdb/core/sqlite`. (Prefer granular installs? See [Installation](./installation.html).) Then wire the transformer once — see

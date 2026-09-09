@@ -294,13 +294,13 @@ cases.T01 = async () => {
   }
   const manifest = JSON.parse(await readFile(join(product, 'node_modules/@zmdb/core/package.json'), 'utf8'));
   assert.equal(manifest.bin, undefined);
-  assert.equal(manifest.dependencies['@zmdb/cli'], '1.0.0-beta.1');
+  assert.equal(manifest.dependencies['@zmdb/cli'], '1.0.0-beta.2');
   await node(
     product,
     `import assert from 'node:assert/strict';import * as cli from '@zmdb/cli';import * as facade from '@zmdb/core/cli';assert.deepEqual(Object.keys(facade).toSorted(),Object.keys(cli).toSorted());for(const name of Object.keys(cli))assert.equal(facade[name],cli[name]);`,
   );
   const result = await command('npm', ['exec', '--offline', '--', 'zmdb', '--version'], { cwd: product, expected: 0 });
-  assert.equal(result.stdout, 'zmdb 1.0.0-beta.1\n');
+  assert.equal(result.stdout, 'zmdb 1.0.0-beta.2\n');
 };
 cases.T02 = async () => {
   const fixture = await setup();
@@ -316,7 +316,7 @@ cases.T02 = async () => {
     await mkdir(consumer);
     await writeFile(
       join(consumer, 'package.json'),
-      JSON.stringify({ name: 'integrity', private: true, dependencies: { '@zmdb/ai': '1.0.0-beta.1' } }),
+      JSON.stringify({ name: 'integrity', private: true, dependencies: { '@zmdb/ai': '1.0.0-beta.2' } }),
     );
     const result = await command(
       'npm',
@@ -357,7 +357,7 @@ cases.T02 = async () => {
   await mkdir(installRoot);
   await writeFile(
     join(installRoot, 'package.json'),
-    JSON.stringify({ name: 'interrupted-install', private: true, dependencies: { '@zmdb/ai': '1.0.0-beta.1' } }),
+    JSON.stringify({ name: 'interrupted-install', private: true, dependencies: { '@zmdb/ai': '1.0.0-beta.2' } }),
   );
   const installer = spawn(
     'npm',
@@ -440,7 +440,7 @@ cases.T04 = async () => {
     commands,
   );
   const version = await bin(consumer, consumer, ['--version'], 0);
-  assert.equal(version.stdout, 'zmdb 1.0.0-beta.1\n');
+  assert.equal(version.stdout, 'zmdb 1.0.0-beta.2\n');
   assert.equal(version.stderr, '');
   for (const name of commands) {
     const own = await bin(consumer, consumer, [name, '--help'], 0);

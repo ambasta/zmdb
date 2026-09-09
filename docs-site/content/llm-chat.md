@@ -1,4 +1,4 @@
-> **Install the shown Anthropic loop:** `yarn add @zmdb/ai@1.0.0-beta.1 @zmdb/ai-anthropic@1.0.0-beta.1 @anthropic-ai/sdk@0.124.0 @zmdb/aot-validator@1.0.0-beta.1`.
+> **Install the shown Anthropic loop:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/ai-anthropic@1.0.0-beta.2 @anthropic-ai/sdk@0.124.0 @zmdb/aot-validator@1.0.0-beta.2`.
 >
 > **Supported core, application-owned storage.** `@zmdb/ai/chat` provides typed chat messages, a validator-linked tool registry, and a bounded loop with effect approval. The optional Anthropic SDK
 > driver ships from `@zmdb/ai-anthropic`, whose sole external peer is the SDK in the command above. Neither package persists conversations or streams tokens.

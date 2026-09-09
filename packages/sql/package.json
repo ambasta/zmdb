@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/sql",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, full-text search, set operations, and schema-object DDL.",
   "keywords": [
     "mysql",

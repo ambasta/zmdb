@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/angular",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Angular dependency-injection, signal, lifecycle, and Observable bindings for generated zmdb clients.",
   "keywords": [
     "angular",

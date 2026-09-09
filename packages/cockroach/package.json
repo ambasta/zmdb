@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/cockroach",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.",
   "keywords": [
     "cockroachdb",
@@ -41,8 +41,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/migrations": "workspace:1.0.0-beta.1",
-    "@zmdb/postgres": "workspace:1.0.0-beta.1"
+    "@zmdb/migrations": "workspace:1.0.0-beta.2",
+    "@zmdb/postgres": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
@@ -52,8 +52,8 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/orm": "1.0.0-beta.1",
-    "@zmdb/sql": "1.0.0-beta.1"
+    "@zmdb/orm": "1.0.0-beta.2",
+    "@zmdb/sql": "1.0.0-beta.2"
   },
   "engines": {
     "node": ">=26"
