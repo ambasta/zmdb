@@ -105,6 +105,7 @@ export type {
 
 import { frozenQuery, queryTelemetry, sqlOperator, whereClause, type Predicate } from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
+import type { DistanceOp } from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';

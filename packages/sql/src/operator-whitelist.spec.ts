@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { aggregateSelectFrom } from './aggregations/index.js';
-import { ftsSelectFrom } from './fts/index.js';
-import { createQueryCompiler, InvalidOperatorError, sqlOperator, type Operator } from './index.js';
+import { createQueryCompiler, InvalidOperatorError, sqlOperator, trustedTable, type Operator } from './index.js';
 import { mysqlDialect, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
@@ -13,7 +11,7 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
   describe('Core Query Compiler Whitelist & Keyword Normalization', () => {
     it('compiles standard valid comparison and symbolic operators', () => {
       const q = qcPostgres
-        .selectFrom('products')
+        .selectFrom(trustedTable('products'))
         .where('price', '>=', 100)
         .andWhere('stock', '<', 10)
         .andWhere('status', '!=', 'archived')
@@ -25,7 +23,7 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
 
     it('normalizes approved string operators to standardized uppercase SQL keywords', () => {
       const q = qcPostgres
-        .selectFrom('users')
+        .selectFrom(trustedTable('users'))
         .where('name', 'like', '%alice%')
         .andWhere('email', 'ilike', '%@example.com')
         .andWhere('role', 'in', ['admin', 'manager'])
@@ -39,15 +37,15 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
     });
 
     it('handles operator arity correctly for nullary (IS NULL) and range (BETWEEN) operators', () => {
-      const qNull = qcPostgres.selectFrom('users').where('deleted_at', 'is null', null).compile();
+      const qNull = qcPostgres.selectFrom(trustedTable('users')).where('deleted_at', 'is null', null).compile();
       expect(qNull.text).toBe('SELECT * FROM "users" WHERE "deleted_at" IS NULL');
       expect(qNull.parameters).toEqual([]);
 
-      const qNotNull = qcPostgres.selectFrom('users').where('deleted_at', 'is not null', null).compile();
+      const qNotNull = qcPostgres.selectFrom(trustedTable('users')).where('deleted_at', 'is not null', null).compile();
       expect(qNotNull.text).toBe('SELECT * FROM "users" WHERE "deleted_at" IS NOT NULL');
       expect(qNotNull.parameters).toEqual([]);
 
-      const qBetween = qcPostgres.selectFrom('users').where('age', 'between', [18, 65]).compile();
+      const qBetween = qcPostgres.selectFrom(trustedTable('users')).where('age', 'between', [18, 65]).compile();
       expect(qBetween.text).toBe('SELECT * FROM "users" WHERE "age" BETWEEN $1 AND $2');
       expect(qBetween.parameters).toEqual([18, 65]);
     });
@@ -55,7 +53,7 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
     it('enforces dialect-specific operator restrictions', () => {
       // Postgres-specific operators allowed on postgres
       const qPg = qcPostgres
-        .selectFrom('events')
+        .selectFrom(trustedTable('events'))
         .where('tags', '@>', ['security', 'audit'])
         .andWhere('metadata', '?', 'session_id')
         .andWhere('title', 'ilike', '%login%')
@@ -63,29 +61,29 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
       expect(qPg.text).toBe('SELECT * FROM "events" WHERE "tags" @> $1 AND "metadata" ? $2 AND "title" ILIKE $3');
 
       // MySQL-specific operators allowed on mysql
-      const qMy = qcMysql.selectFrom('users').where('name', 'rlike', '^A.*').compile();
+      const qMy = qcMysql.selectFrom(trustedTable('users')).where('name', 'rlike', '^A.*').compile();
       expect(qMy.text).toBe('SELECT * FROM `users` WHERE `name` RLIKE ?');
 
       // SQLite-specific operators allowed on sqlite
-      const qSq = qcSqlite.selectFrom('files').where('path', 'glob', '*.ts').compile();
+      const qSq = qcSqlite.selectFrom(trustedTable('files')).where('path', 'glob', '*.ts').compile();
       expect(qSq.text).toBe('SELECT * FROM "files" WHERE "path" GLOB ?');
 
       // Disallowed on sqlite: placeholder collisions (?) and token-breaking shapes
       expect(() =>
         qcSqlite
-          .selectFrom('events')
+          .selectFrom(trustedTable('events'))
           .where('metadata', '?' as Operator, 'key')
           .compile(),
       ).toThrow(InvalidOperatorError);
       expect(() =>
         qcSqlite
-          .selectFrom('events')
+          .selectFrom(trustedTable('events'))
           .where('tags', ' @>' as Operator, ['a'])
           .compile(),
       ).toThrow(InvalidOperatorError);
       expect(() =>
         qcSqlite
-          .selectFrom('events')
+          .selectFrom(trustedTable('events'))
           .where('tags', '#>>' as Operator, ['a'])
           .compile(),
       ).toThrow(InvalidOperatorError);
@@ -93,13 +91,13 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
       // Disallowed on mysql: ? (placeholder conflict)
       expect(() =>
         qcMysql
-          .selectFrom('events')
+          .selectFrom(trustedTable('events'))
           .where('metadata', '?' as Operator, 'key')
           .compile(),
       ).toThrow(InvalidOperatorError);
       expect(() =>
         qcMysql
-          .selectFrom('users')
+          .selectFrom(trustedTable('users'))
           .where('name', 'ilike --' as Operator, '%a%')
           .compile(),
       ).toThrow(InvalidOperatorError);
@@ -108,14 +106,14 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
     it('rejects invalid or unapproved operator strings in SELECT queries', () => {
       expect(() => {
         qcPostgres
-          .selectFrom('users')
+          .selectFrom(trustedTable('users'))
           .where('id', '= 1 OR 1=1 --' as unknown as Operator, 1)
           .compile();
       }).toThrow(InvalidOperatorError);
 
       try {
         qcPostgres
-          .selectFrom('users')
+          .selectFrom(trustedTable('users'))
           .where('id', '= 1 OR 1=1 --' as unknown as Operator, 1)
           .compile();
       } catch (err) {
@@ -127,7 +125,7 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
     it('rejects unapproved operator strings in UPDATE queries', () => {
       expect(() => {
         qcPostgres
-          .updateTable('users')
+          .updateTable(trustedTable('users'))
           .set({ role: 'admin' })
           .where('id', 'in; DROP TABLE users' as unknown as Operator, [1])
           .compile();
@@ -137,7 +135,7 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
     it('rejects unapproved operator strings in DELETE queries', () => {
       expect(() => {
         qcPostgres
-          .deleteFrom('users')
+          .deleteFrom(trustedTable('users'))
           .where('id', 'IS NOT NULL OR 1=1 --' as unknown as Operator, null)
           .compile();
       }).toThrow(InvalidOperatorError);
@@ -150,7 +148,8 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
 
   describe('Aggregation Query Compiler Whitelist Validation', () => {
     it('normalizes valid operators in aggregation where and having clauses', () => {
-      const q = aggregateSelectFrom('orders', postgresDialect)
+      const q = qcPostgres
+        .selectFrom(trustedTable('orders'))
         .select(['user_id'])
         .count('id', 'total_orders')
         .where('status', 'in', ['completed', 'shipped'])
@@ -166,7 +165,8 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
 
     it('rejects unapproved operators in aggregation where clauses', () => {
       expect(() => {
-        aggregateSelectFrom('orders', postgresDialect)
+        qcPostgres
+          .selectFrom(trustedTable('orders'))
           .select(['user_id'])
           .where('status', 'COMPLETED"; DROP TABLE orders; --' as unknown as Operator, 'val')
           .compile();
@@ -175,7 +175,8 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
 
     it('rejects unapproved operators in aggregation having clauses', () => {
       expect(() => {
-        aggregateSelectFrom('orders', postgresDialect)
+        qcPostgres
+          .selectFrom(trustedTable('orders'))
           .select(['user_id'])
           .groupBy('user_id')
           .having('total', '> 0 OR 1=1' as unknown as Operator, 100)
@@ -186,7 +187,8 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
 
   describe('Full-Text Search Compiler Whitelist Validation', () => {
     it('normalizes valid operators in full-text search additional filters', () => {
-      const q = ftsSelectFrom('articles', postgresDialect)
+      const q = qcPostgres
+        .selectFrom(trustedTable('articles'))
         .whereMatch('content', 'search term')
         .where('category', 'like', 'tech%')
         .compile();
@@ -199,7 +201,8 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
 
     it('rejects unapproved operators in full-text search where conditions', () => {
       expect(() => {
-        ftsSelectFrom('articles', postgresDialect)
+        qcPostgres
+          .selectFrom(trustedTable('articles'))
           .whereMatch('content', 'search term')
           .where('views', '>= 0; DELETE FROM articles; --' as unknown as Operator, 0)
           .compile();
@@ -209,19 +212,19 @@ describe('Centralized Dialect-Aware Operator Whitelist Validation', () => {
 
   describe('Structural Subquery Operators Whitelist Validation', () => {
     it('validates EXISTS and NOT EXISTS subquery operators', () => {
-      const sub = qcPostgres.selectFrom('orders').where('amount', '>', 50);
-      const q1 = qcPostgres.selectFrom('users').whereExists(sub).compile();
+      const sub = qcPostgres.selectFrom(trustedTable('orders')).where('amount', '>', 50);
+      const q1 = qcPostgres.selectFrom(trustedTable('users')).whereExists(sub).compile();
       expect(q1.text).toBe('SELECT * FROM "users" WHERE EXISTS (SELECT * FROM "orders" WHERE "amount" > $1)');
 
-      const q2 = qcPostgres.selectFrom('users').whereNotExists(sub).compile();
+      const q2 = qcPostgres.selectFrom(trustedTable('users')).whereNotExists(sub).compile();
       expect(q2.text).toBe('SELECT * FROM "users" WHERE NOT EXISTS (SELECT * FROM "orders" WHERE "amount" > $1)');
     });
 
     it('rejects unapproved subquery operators', () => {
-      const sub = qcPostgres.selectFrom('orders').where('amount', '>', 50);
+      const sub = qcPostgres.selectFrom(trustedTable('orders')).where('amount', '>', 50);
       expect(() => {
         qcPostgres
-          .selectFrom('users')
+          .selectFrom(trustedTable('users'))
           .where('id', 'INVALID_OP' as unknown as Operator, sub)
           .compile();
       }).toThrow(InvalidOperatorError);
