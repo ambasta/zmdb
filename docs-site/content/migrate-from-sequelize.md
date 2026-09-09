@@ -12,7 +12,7 @@ const User = sequelize.define('User', {
 
 ```ts {"mode":"compile","id":"example-001"}
 // zmdb
-import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

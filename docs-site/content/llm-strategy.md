@@ -138,7 +138,7 @@ const context = stringify<Pick<Entity<Order>, 'id' | 'title' | 'status'>[]>(page
 There is none, and a conversation is a table:
 
 ```ts {"mode":"compile","id":"example-005"}
-import type { HasDefault, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Message extends Table<'messages'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

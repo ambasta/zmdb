@@ -1,7 +1,7 @@
 There are **two** things called tags, and this page is mostly about telling them apart.
 
-- **Type tags** — `Min<N>`, `Max<N>`, `MinLength<N>`, `MaxLength<N>`, `Pattern<S>`, `Rule<'…'>` from `zmdb/tags`. These go on a column in a declaration. They are types; they erase. This is what you
-  want almost always, and the [Tag Reference](./tags-reference.html) is their home.
+- **Type tags** — `Min<N>`, `Max<N>`, `MinLength<N>`, `MaxLength<N>`, `Pattern<S>`, `Rule<'…'>` from `@zmdb/core/tags`. These go on a column in a declaration. They are types; they erase. This is what
+  you want almost always, and the [Tag Reference](./tags-reference.html) is their home.
 - **Rule values** — `tags.Min(18)` from `@zmdb/validator`. Runtime objects for a one-off check against a bare value that is not part of any table.
 
 They have the same names because they mean the same constraints. They are not interchangeable: one is a type argument, the other is a function call.
@@ -13,7 +13,7 @@ They have the same names because they mean the same constraints. They are not in
 This is the common case, and there is no `validate()` call in it:
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { Max, MaxLength, Min, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { Max, MaxLength, Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

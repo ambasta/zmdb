@@ -4,7 +4,7 @@ zmdb's query builder is **SQL-first**: it maps directly to SQL rather than hidin
 The examples below assume this schema:
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

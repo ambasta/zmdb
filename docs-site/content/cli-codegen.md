@@ -71,7 +71,7 @@ src/handlers.zmdb.generated.d.ts     its signatures
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"This pre-generation excerpt deliberately omits the handler body, schema, driver and surrounding imports."}
 // before
-import { is, schemaOf } from 'zmdb';
+import { is, schemaOf } from '@zmdb/core';
 if (is<User>(body)) { … }
 const users = defineRepository(schemaOf<User>(), driver);
 ```

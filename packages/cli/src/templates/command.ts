@@ -4,7 +4,7 @@ export const commandTemplate: TemplateFactory = ({ name }) => ({
   files: [
     {
       path: `src/${name.fileStem}.command.ts`,
-      source: `import { assert } from 'zmdb';
+      source: `import { assert } from '@zmdb/core';
 import { Command } from '@zmdb/app/commands';
 
 export interface ${name.pascal}Args {
@@ -36,8 +36,8 @@ export class ${name.pascal}Command {
     {
       path: `src/${name.fileStem}.command.spec.ts`,
       source: `import { createCommandApp } from '@zmdb/app/commands';
-import { createTestApp } from 'zmdb/testing';
-import { Module } from 'zmdb';
+import { createTestApp } from '@zmdb/core/testing';
+import { Module } from '@zmdb/core';
 import { describe, expect, it } from 'vitest';
 
 import {

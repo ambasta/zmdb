@@ -109,7 +109,7 @@ describe('the zmdb CLI boundary', () => {
 
   // §12: the export, separate from the bin because they fail independently — the bin is what
   // a user types and the export is what the architecture policy and test suite import.
-  it('publishes ./cli as a zmdb subpath', () => {
+  it('publishes ./cli as an @zmdb/core subpath', () => {
     const record: { exports?: Record<string, unknown> } = Object(ZMDB_MANIFEST);
     expect(record.exports?.['./cli']).toBe('./src/cli/index.ts');
   });

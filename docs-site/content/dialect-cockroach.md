@@ -71,7 +71,7 @@ that raw value as an opaque parameter rather than coercing it to `Number`. Use t
 For a UUID primary key, keep the explicit declaration:
 
 ```ts {"mode":"compile","id":"example-002"}
-import type { HasDefault, PrimaryKey, Sql, Table, Unique } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: string & Sql<'text'> & PrimaryKey & HasDefault;

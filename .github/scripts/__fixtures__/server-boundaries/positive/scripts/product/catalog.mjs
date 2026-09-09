@@ -17,5 +17,5 @@ export const PRODUCT_CATALOG = Object.freeze([
   row('transport-rabbitmq', '@zmdb/transport-rabbitmq'),
   row('transport-redis', '@zmdb/transport-redis'),
   row('web', '@zmdb/web'),
-  row('zmdb', 'zmdb'),
+  row('zmdb', '@zmdb/core'),
 ]);

@@ -126,7 +126,7 @@ The current public inventory is classified exactly once:
 | `transport-sqs`      | `@zmdb/transport-sqs`      | integration   | `fixtures/consumer-transport-sqs`           |
 | `vue`                | `@zmdb/vue`                | integration   | `fixtures/client-adapters/vue`              |
 | `web`                | `@zmdb/web`                | core          | `yarn verify:publish`                       |
-| `zmdb`               | `zmdb`                     | core          | `fixtures/consumer-product`                 |
+| `@zmdb/core`         | `@zmdb/core`               | core          | `fixtures/consumer-product`                 |
 
 Counts are therefore eight core packages, 28 independently versioned integrations, and two independently versioned tooling packages.
 
@@ -150,7 +150,7 @@ Nested fixture manifests are test assets outside the root workspace set and are 
 
 The eight core packages carry one byte-identical SemVer and move together:
 
-`@zmdb/sql`, `@zmdb/schema`, `@zmdb/validator`, `@zmdb/orm`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/web`, and `zmdb`.
+`@zmdb/sql`, `@zmdb/schema`, `@zmdb/validator`, `@zmdb/orm`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/web`, and `@zmdb/core`.
 
 A release that changes any core package releases all eight, even when seven tarballs are byte-identical apart from metadata. This preserves one coherent product version and makes the umbrella version
 sufficient to identify every core contract.
@@ -256,7 +256,7 @@ changes no manifest.
 | `@zmdb/vue`                | `vue@>=3.5.42 <4.0.0`; `3.5.42`                                                                                                                                     |
 | `@zmdb/web`                | `typescript@>=7.0.2 <8.0.0`; `7.0.2`                                                                                                                                |
 
-Packages absent from the table have no third-party peer. `zmdb` additionally has internal optional peers on `@zmdb/mssql` and `@zmdb/postgres`; their measured current manifest ranges are both
+Packages absent from the table have no third-party peer. `@zmdb/core` additionally has internal optional peers on `@zmdb/mssql` and `@zmdb/postgres`; their measured current manifest ranges are both
 `workspace:^`. The implemented compatibility policy requires both peers to use the explicit cross-unit alpha range `1.0.0-alpha.4` until a wider range is proven, with manifest projection owned by the
 release model.
 

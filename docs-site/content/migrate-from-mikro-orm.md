@@ -19,7 +19,7 @@ export class User {
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 // zmdb
 import { schemaOf } from '@zmdb/schema';
-import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -44,8 +44,8 @@ snapshot.
 Put a shared convention in `zmdb.config.ts`:
 
 ```ts {"mode":"compile","id":"example-003"}
-import { postgres } from 'zmdb/postgres';
-import { defineConfig } from 'zmdb/config';
+import { postgres } from '@zmdb/core/postgres';
+import { defineConfig } from '@zmdb/core/config';
 
 export default defineConfig({
   schema: 'src/**/*.schema.ts',
@@ -57,7 +57,7 @@ export default defineConfig({
 Use `snake_case_plural` when the table rule also matches, or provide `namingStrategy` for a domain-specific convention. Preserve exceptions with explicit tags:
 
 ```ts {"mode":"compile","id":"example-004"}
-import type { Physical, Sql, Table } from 'zmdb/tags';
+import type { Physical, Sql, Table } from '@zmdb/core/tags';
 
 interface UserAccount extends Table<'userAccount'>, Physical<'legacy_users'> {
   createdAt: Date & Sql<'timestamp'> & Physical<'created_ts'>;

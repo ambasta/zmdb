@@ -6,7 +6,7 @@ Install the selected background-work capability before using schedules:
 yarn add @zmdb/jobs@1.0.0-beta.1
 ```
 
-Scheduling composes through `jobsExtension`; it is not installed or re-exported by the default `zmdb` package.
+Scheduling composes through `jobsExtension`; it is not installed or re-exported by the default `@zmdb/core` package.
 
 Three replicas run an in-process timer three times. That is correct for a local cache refresh and a billing defect for a cluster-wide job, so every schedule must choose explicitly:
 

@@ -18,7 +18,7 @@ The type argument is the schema. There is nothing to pass and nothing to keep in
 
 ```ts {"mode":"compile","id":"example-002"}
 import { validate } from '@zmdb/validator';
-import type { Min, Pattern } from 'zmdb/tags';
+import type { Min, Pattern } from '@zmdb/core/tags';
 
 interface Signup {
   email: string & Pattern<'^[^@]+@[^@]+$'>;
@@ -61,7 +61,7 @@ interface ValidationIssue {
 `path` is exact, including array indices and nested keys:
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies validate; this excerpt does not repeat those declarations."}
-import type { MaxLength } from 'zmdb/tags';
+import type { MaxLength } from '@zmdb/core/tags';
 
 interface Roster {
   users: { name: string & MaxLength<10> }[];
@@ -79,8 +79,8 @@ The DTO types are the useful arguments here — they are the shapes a client act
 
 ```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies body; this excerpt does not repeat those declarations."}
 import { validate } from '@zmdb/validator';
-import type { CreateDTO, UpdateDTO } from 'zmdb/derive';
-import type { Min, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { CreateDTO, UpdateDTO } from '@zmdb/core/derive';
+import type { Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

@@ -53,7 +53,7 @@ and emitter remain public library APIs when a caller needs a different destinati
    ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies LegacyUser, driver, schemaOf; this excerpt does not repeat those declarations."}
    import { detectDrift } from '@zmdb/migrations/introspect';
    import { postgres } from '@zmdb/postgres';
-   import { snapshot } from 'zmdb/migrations';
+   import { snapshot } from '@zmdb/core/migrations';
    import { expect } from 'vitest';
 
    const live = await postgres.introspector.snapshot(driver, {

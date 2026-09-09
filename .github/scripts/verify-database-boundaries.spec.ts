@@ -16,7 +16,7 @@ describe('database package imports', () => {
   }, PACKED_BUILD_TEST_TIMEOUT_MS);
 
   it('a default zmdb install includes SQLite without pg mysql2 or mssql', () => {
-    expect(packedProof.defaultImported).toEqual(['zmdb', 'zmdb/sqlite']);
+    expect(packedProof.defaultImported).toEqual(['@zmdb/core', '@zmdb/core/sqlite']);
     expect(packedProof.defaultAbsent).toEqual(
       expect.arrayContaining(['pg', 'mysql2', 'mssql', '@zmdb/postgres', '@zmdb/mysql', '@zmdb/mssql']),
     );

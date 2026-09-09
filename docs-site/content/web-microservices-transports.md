@@ -1,8 +1,8 @@
 Redis Pub/Sub, core NATS and RabbitMQ implement one public strategy contract, but they do not pretend to offer equivalent durability. Choose from the settlement matrix below before choosing from
 familiarity.
 
-The adapters and peers are opt-in; `yarn add zmdb@1.0.0-beta.1` installs none of them. `@zmdb/app/messaging` owns the broker-neutral contract and application lifecycle, while each adapter owns only
-its protocol client, framing, subscriptions, replies, and settlement.
+The adapters and peers are opt-in; `yarn add @zmdb/core@1.0.0-beta.1` installs none of them. `@zmdb/app/messaging` owns the broker-neutral contract and application lifecycle, while each adapter owns
+only its protocol client, framing, subscriptions, replies, and settlement.
 
 ## The strategy boundary
 

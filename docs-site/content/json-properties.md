@@ -3,7 +3,7 @@ A `json` column stores structured data, and its TypeScript type is whatever you 
 ## Typed JSON
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 interface Address {
   street: string;

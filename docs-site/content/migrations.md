@@ -57,7 +57,7 @@ console.log(plan.down); // SQL to drop users
 ```
 
 `snapshot` also accepts the structural data in generated schemas. It captures table names, column types, nullability and ordered primary keys. `diff` compares two snapshots; `planMigration` uses the
-selected dialect and its migration emitters to order SQL. The product's `zmdb/migrations` entry offers the curated lifecycle APIs, while the direct package provides the complete surface.
+selected dialect and its migration emitters to order SQL. The product's `@zmdb/core/migrations` entry offers the curated lifecycle APIs, while the direct package provides the complete surface.
 
 ## Change operations
 

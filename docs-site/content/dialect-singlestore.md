@@ -90,7 +90,7 @@ CREATE TABLE `orders` (
 SingleStore's default is columnstore, so there is no `COLUMNSTORE` keyword in that statement. For a transactional hot path, opt into row-oriented storage:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies PrimaryKey, Sql, Table; this excerpt does not repeat those declarations."}
-import type { Rowstore } from 'zmdb/tags';
+import type { Rowstore } from '@zmdb/core/tags';
 
 export interface Session extends Table<'sessions'>, Rowstore {
   id: string & Sql<'text'> & PrimaryKey;

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **product:** publish the umbrella package as `@zmdb/core`, with its existing concern subpaths under the new scoped name.
+- **compiler:** recognize `@zmdb/core` imports during ahead-of-time compilation and emit schema support types through `@zmdb/core/schema`.
+- **cli:** generate project dependencies and source imports using `@zmdb/core` while retaining the `zmdb` command.
+
 ## [core@1.0.0-beta.1] - 2026-09-08
 
 ### Added

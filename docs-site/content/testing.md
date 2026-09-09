@@ -60,8 +60,8 @@ A regression here is invisible in a functional test — the results stay correct
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies allSchemas, beforeEach; this excerpt does not repeat those declarations."}
 import { DatabaseSync } from 'node:sqlite';
-import { diff, snapshot } from 'zmdb/migrations';
-import { sqlite } from 'zmdb/sqlite';
+import { diff, snapshot } from '@zmdb/core/migrations';
+import { sqlite } from '@zmdb/core/sqlite';
 
 export function freshDb() {
   const db = new DatabaseSync(':memory:');

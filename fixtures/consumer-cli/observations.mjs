@@ -183,9 +183,17 @@ async function role(name) {
         : name === 'data'
           ? ['@zmdb/cli', ...dataRoots]
           : name === 'product'
-            ? ['zmdb', '@zmdb/sqlite', 'typescript', '@types/node', 'esbuild']
+            ? ['@zmdb/core', '@zmdb/sqlite', 'typescript', '@types/node', 'esbuild']
             : name === 'public'
-              ? ['zmdb', '@zmdb/cli', '@zmdb/compiler', '@zmdb/migrations', '@zmdb/schema', 'typescript', '@types/node']
+              ? [
+                  '@zmdb/core',
+                  '@zmdb/cli',
+                  '@zmdb/compiler',
+                  '@zmdb/migrations',
+                  '@zmdb/schema',
+                  'typescript',
+                  '@types/node',
+                ]
               : ['@zmdb/cli', ...appRoots];
     fixture.roles.set(name, await fixture.install(name, roots, name === 'nested'));
   }
@@ -284,12 +292,12 @@ cases.T01 = async () => {
     await assert.rejects(lstat(join(consumer, 'node_modules/.bin/zmdb-codegen')), { code: 'ENOENT' });
     await bin(consumer, consumer, ['--version'], 0);
   }
-  const manifest = JSON.parse(await readFile(join(product, 'node_modules/zmdb/package.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(join(product, 'node_modules/@zmdb/core/package.json'), 'utf8'));
   assert.equal(manifest.bin, undefined);
   assert.equal(manifest.dependencies['@zmdb/cli'], '1.0.0-beta.1');
   await node(
     product,
-    `import assert from 'node:assert/strict';import * as cli from '@zmdb/cli';import * as facade from 'zmdb/cli';assert.deepEqual(Object.keys(facade).toSorted(),Object.keys(cli).toSorted());for(const name of Object.keys(cli))assert.equal(facade[name],cli[name]);`,
+    `import assert from 'node:assert/strict';import * as cli from '@zmdb/cli';import * as facade from '@zmdb/core/cli';assert.deepEqual(Object.keys(facade).toSorted(),Object.keys(cli).toSorted());for(const name of Object.keys(cli))assert.equal(facade[name],cli[name]);`,
   );
   const result = await command('npm', ['exec', '--offline', '--', 'zmdb', '--version'], { cwd: product, expected: 0 });
   assert.equal(result.stdout, 'zmdb 1.0.0-beta.1\n');
@@ -416,7 +424,7 @@ cases.T03 = async () => {
   await compileType(await role('nested'), 'rejected-private.ts', { line: 1, column: 28, code: 2307 });
   await node(
     consumer,
-    `import assert from 'node:assert/strict';import * as cli from '@zmdb/cli';import * as facade from 'zmdb/cli';const values=['runCli','embedMigrations','exportSchema','generateMigration','pullDeclarations','generateHttpArtifacts','watchHttpArtifacts'];assert.deepEqual(Object.keys(cli).toSorted(),values.toSorted());for(const key of values)assert.equal(cli[key],facade[key]);const argv=Object.freeze(['--version']);assert.equal(await cli.runCli(argv,{stdout(){},stderr(){}}),0);assert.deepEqual(argv,['--version']);`,
+    `import assert from 'node:assert/strict';import * as cli from '@zmdb/cli';import * as facade from '@zmdb/core/cli';const values=['runCli','embedMigrations','exportSchema','generateMigration','pullDeclarations','generateHttpArtifacts','watchHttpArtifacts'];assert.deepEqual(Object.keys(cli).toSorted(),values.toSorted());for(const key of values)assert.equal(cli[key],facade[key]);const argv=Object.freeze(['--version']);assert.equal(await cli.runCli(argv,{stdout(){},stderr(){}}),0);assert.deepEqual(argv,['--version']);`,
   );
 };
 const commands = contractExpected.commands;
@@ -849,7 +857,7 @@ cases.T16 = async () => {
     );
   }
   const manifest = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));
-  assert.deepEqual(Object.keys(manifest.dependencies).toSorted(), ['@zmdb/sqlite', 'zmdb']);
+  assert.deepEqual(Object.keys(manifest.dependencies).toSorted(), ['@zmdb/core', '@zmdb/sqlite']);
   for (const range of Object.values({ ...manifest.dependencies, ...manifest.devDependencies }))
     assert.match(range, /^\d+\.\d+\.\d+(?:-[\w.]+)?$/);
   await command(

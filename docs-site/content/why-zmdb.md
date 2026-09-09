@@ -20,7 +20,7 @@ OpenAPI document that documents a field you removed last week.
 One **TypeScript interface** is the source of truth, and everything else is **derived from it by the type system**:
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -30,8 +30,8 @@ export interface User extends Table<'users'> {
 ```
 
 There is no column-map schema _object_ to write. The table name, column types, key and constraint intent are all on the type, carried by intersection tags that erase to nothing at runtime —
-`zmdb/tags` has no runtime exports at all, so that import disappears from your build output. Schema objects that have no type-level shape, such as a standalone or expression index, stay in explicit
-migrations.
+`@zmdb/core/tags` has no runtime exports at all, so that import disappears from your build output. Schema objects that have no type-level shape, such as a standalone or expression index, stay in
+explicit migrations.
 
 From that one declaration you get, with no second declaration and no runtime reflection:
 
@@ -56,8 +56,8 @@ If you delete `email` from the interface, every one of those changes in the same
 diff. See [Why fetched rows are inert](./inert-rows.html).
 
 **3. Explicit ownership.** The runtime foundation has no external runtime dependencies. Database providers, HTTP, build tooling and optional integrations have their own declared dependencies and
-resource ownership. The default `zmdb` install includes SQLite; select a supported driver instead of writing an adapter for the beginner path. See [Runtime foundation](./runtime-foundation.html) and
-[Database selection](./drivers.html).
+resource ownership. The default `@zmdb/core` install includes SQLite; select a supported driver instead of writing an adapter for the beginner path. See [Runtime foundation](./runtime-foundation.html)
+and [Database selection](./drivers.html).
 
 These rules exclude identity maps, automatic unit-of-work flushing and lazy relation proxies. [Anti-patterns](./anti-patterns.html) explains those boundaries. Use the
 [generated package reference](./package-reference.html) and [client integration guide](./framework-integrations.html) for current package and framework support.

@@ -68,7 +68,7 @@ Use the same declaration from the call site when emitting an explicit migration:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies archiveOldOrders; this excerpt does not repeat those declarations."}
 import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '@zmdb/sql/schema-objects';
-import type { MigrationConnection } from 'zmdb/migrations';
+import type { MigrationConnection } from '@zmdb/core/migrations';
 
 export async function applyArchiveOldOrders(migrationConnection: MigrationConnection, previous: RoutineDef | undefined): Promise<void> {
   const changed = previous === undefined || routineFingerprint(previous) !== routineFingerprint(archiveOldOrders);

@@ -23,7 +23,7 @@ try {
     ['compiler', ['@zmdb/compiler', 'typescript', '@types/node']],
     ['migrations', ['@zmdb/migrations', '@types/node', 'typescript']],
     ['cli', ['@zmdb/cli']],
-    ['product', ['zmdb', '@types/node', 'typescript']],
+    ['product', ['@zmdb/core', '@types/node', 'typescript']],
   ]) {
     result.roles.push(role);
     try {

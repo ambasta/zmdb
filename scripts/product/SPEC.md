@@ -39,7 +39,7 @@ export interface ProductPackage {
   /** Exact root symbols and zmdb subpaths delegated to this package. */
   readonly facade: {
     readonly root: readonly string[];
-    readonly subpaths: readonly `zmdb/${string}`[];
+    readonly subpaths: readonly `@zmdb/core/${string}`[];
   };
   /** Whether one-install users always receive it or choose the technology explicitly. */
   readonly optionality: { readonly kind: 'required' } | { readonly kind: 'tooling' } | { readonly kind: 'integration'; readonly technology: string };
@@ -77,7 +77,7 @@ The earlier measured table and admission history are preserved in [ADR 0004](../
 
 The following surfaces consume the catalog directly:
 
-1. **Facade ownership verifier/generator** — checks every root symbol and `zmdb/*` subpath has exactly one owner, and that `packages/zmdb` delegates rather than implements it.
+1. **Facade ownership verifier/generator** — checks every root symbol and `@zmdb/core/*` subpath has exactly one owner, and that `packages/zmdb` delegates rather than implements it.
 2. **Package reference generator** — emits role, install mode, facade exposure, docs link, and manifest-derived package name/version into `docs-site/content/package-reference.md`.
 3. **Support/integration matrix generator** — combines catalog optionality with each integration's authoritative support record; it does not hand-copy package names.
 4. **Packed-consumer inventory** — discovers each package's fixture or verifies its explicit no-fixture reason.

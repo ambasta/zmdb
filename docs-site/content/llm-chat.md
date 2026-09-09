@@ -81,7 +81,7 @@ interface for another provider.
 ## The tables
 
 ```ts {"mode":"compile","id":"example-002"}
-import type { HasDefault, OneToMany, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+import type { HasDefault, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Conversation extends Table<'conversations'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

@@ -1,7 +1,7 @@
 `@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. Core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, Redis
 Pub/Sub ships from `@zmdb/transport-redis`, and typed gRPC ships from `@zmdb/transport-grpc`. Applications own those transports through the same module graph and bounded lifecycle as HTTP.
 
-None of those four adapters or their peers is installed by `yarn add zmdb@1.0.0-beta.1`. The exact optional edges are:
+None of those four adapters or their peers is installed by `yarn add @zmdb/core@1.0.0-beta.1`. The exact optional edges are:
 
 | Adapter                    | Required peer                    | Lifecycle owner                                                          |
 | -------------------------- | -------------------------------- | ------------------------------------------------------------------------ |

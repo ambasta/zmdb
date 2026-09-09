@@ -5,8 +5,8 @@ import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOTS = Object.freeze({
-  default: Object.freeze(['zmdb']),
-  sqlite: Object.freeze(['zmdb', '@zmdb/app', '@zmdb/jobs', '@zmdb/jobs-sqlite']),
+  default: Object.freeze(['@zmdb/core']),
+  sqlite: Object.freeze(['@zmdb/core', '@zmdb/app', '@zmdb/jobs', '@zmdb/jobs-sqlite']),
   postgres: Object.freeze(['@zmdb/app', '@zmdb/jobs', '@zmdb/jobs-postgres', 'pg']),
 });
 
@@ -29,7 +29,7 @@ export async function inspectInstalledConsumer(directory, lane, approvedIntegrit
     const lockPath = relative(root, path).split(sep).join('/');
     const locked = lock.packages[lockPath];
     assert(locked && locked.version === data.version, `unlocked installed package ${data.name}`);
-    if (data.name === 'zmdb' || data.name.startsWith('@zmdb/')) {
+    if (data.name.startsWith('@zmdb/')) {
       assert(approvedIntegrities.has(data.name), `undeclared tarball ${data.name}`);
       assert.equal(locked.integrity, approvedIntegrities.get(data.name), `wrong tarball integrity ${data.name}`);
     }
@@ -101,7 +101,7 @@ console.log(JSON.stringify(Object.fromEntries(names.map(name => {
     assert.equal(typeof resolutions[name].url, 'string', `${name} public ESM root does not resolve`);
     const resolved = await realpath(fileURLToPath(resolutions[name].url));
     assert(resolved.startsWith(`${root}${sep}`), `${name} root resolves outside consumer`);
-    if (name === 'zmdb' || name.startsWith('@zmdb/')) {
+    if (name.startsWith('@zmdb/')) {
       assert(resolved.includes(`${sep}dist${sep}`) && !resolved.endsWith('.ts'), `${name} resolves workspace source`);
     }
   }

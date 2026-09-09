@@ -1,5 +1,5 @@
 // Runtime validation, rule composition, and serialization. Compiler-backed
-// reflection and transforms live under `zmdb/compiler`.
+// reflection and transforms live under `@zmdb/core/compiler`.
 
 export {
   AssertError,

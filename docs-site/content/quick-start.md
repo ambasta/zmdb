@@ -7,10 +7,10 @@ issued a typed query. Continue with the [blog API tutorial](./tutorial-blog-api.
 ## 1. Install
 
 ```bash
-yarn add zmdb@1.0.0-beta.1
+yarn add @zmdb/core@1.0.0-beta.1
 ```
 
-`zmdb` includes SQLite and exposes its driver through `zmdb/sqlite`. (Prefer granular installs? See [Installation](./installation.html).) Then wire the transformer once — see
+`@zmdb/core` includes SQLite and exposes its driver through `@zmdb/core/sqlite`. (Prefer granular installs? See [Installation](./installation.html).) Then wire the transformer once — see
 [AOT setup](./aot-setup.html). It is not an optimisation you can skip: `schemaOf<T>()` and the validators read a type argument, which does not exist at runtime, so an untransformed build throws rather
 than quietly checking nothing.
 
@@ -19,7 +19,7 @@ than quietly checking nothing.
 A table is a TypeScript type. That declaration is the single source of truth, and everything else derives from it.
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from 'zmdb';
+import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/core';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -43,7 +43,7 @@ The build reads the TypeScript declaration. No separate builder declaration or g
 ## 3. Types derive automatically
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
-import type { CreateDTO, Entity, UpdateDTO } from 'zmdb';
+import type { CreateDTO, Entity, UpdateDTO } from '@zmdb/core';
 
 type Row = Entity<User>;
 //   { id: number; email: string; role: 'admin' | 'user'; createdAt: Date }
@@ -61,12 +61,12 @@ type UpdateUser = UpdateDTO<User>; //  Partial<CreateUser>
 
 ## 4. CRUD through a repository
 
-A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the included `zmdb/sqlite` adapter for `node:sqlite`:
+A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the included `@zmdb/core/sqlite` adapter for `node:sqlite`:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { DatabaseSync } from 'node:sqlite';
-import { defineRepository, schemaOf } from 'zmdb';
-import { sqliteDriver } from 'zmdb/sqlite';
+import { defineRepository, schemaOf } from '@zmdb/core';
+import { sqliteDriver } from '@zmdb/core/sqlite';
 
 const db = new DatabaseSync('app.db'); // or ':memory:'
 const users = defineRepository(schemaOf<User>(), sqliteDriver(db));
@@ -82,7 +82,7 @@ const gone = await users.delete(u.id); // boolean
 Prefer a class? Subclassing works identically:
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies User, db, schemaOf, sqliteDriver; this excerpt does not repeat those declarations."}
-import { BaseRepository } from 'zmdb/orm';
+import { BaseRepository } from '@zmdb/core/orm';
 
 const userSchema = schemaOf<User>();
 class UserRepository extends BaseRepository<User> {
@@ -103,7 +103,7 @@ const users = new UserRepository(sqliteDriver(db));
 ## 5. Query your data (typed)
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver, since, users; this excerpt does not repeat those declarations."}
-import { applyOrderBy, buildListResult, compileWhere } from 'zmdb/schema';
+import { applyOrderBy, buildListResult, compileWhere } from '@zmdb/core/schema';
 
 let qb = users.query.selectFrom('users');
 qb = compileWhere(qb, { role: 'admin', createdAt: { gte: since } });
@@ -124,7 +124,7 @@ The filter, ordering and pagination are all typed against `User`. See [Filters](
 ## 6. Atomic writes with transactions
 
 ```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies connection, orders, users; this excerpt does not repeat those declarations."}
-import { createTransactionalDb } from 'zmdb/orm';
+import { createTransactionalDb } from '@zmdb/core/orm';
 
 const db = createTransactionalDb(connection);
 await db.transaction(async tx => {
@@ -138,7 +138,7 @@ await db.transaction(async tx => {
 ## 7. Validate at the boundary
 
 ```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies User, req, users; this excerpt does not repeat those declarations."}
-import { assert, type CreateDTO } from 'zmdb';
+import { assert, type CreateDTO } from '@zmdb/core';
 
 // In an HTTP handler: validate the inbound body against the derived Create DTO.
 const payload = assert<CreateDTO<User>>(await req.json());

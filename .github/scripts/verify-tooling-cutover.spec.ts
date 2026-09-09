@@ -10,7 +10,7 @@ const ROOT = process.cwd();
 describe('tooling package imports', () => {
   it('keeps Metro owned by its explicit adapter entry', async () => {
     const adapter = await import('@zmdb/compiler/metro');
-    const facade = await import('zmdb/compiler');
+    const facade = await import('@zmdb/core/compiler');
     for (const name of ['getCacheKey', 'transform', 'withZmdb'] as const) {
       expect(typeof adapter[name]).toBe('function');
       expect(facade).not.toHaveProperty(name);

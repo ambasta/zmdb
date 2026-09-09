@@ -2,7 +2,7 @@
 > checked TypeIR.
 
 Install the dependency-free call and wire runtime with `yarn add @zmdb/protobuf@1.0.0-beta.1`; add `@zmdb/compiler@1.0.0-beta.1` as a development dependency for the build transform or project
-compiler. `@zmdb/protobuf` is not included in the `zmdb` default install and declares no peer.
+compiler. `@zmdb/protobuf` is not included in the `@zmdb/core` default install and declares no peer.
 
 ## Encode a tagged message
 

@@ -3,7 +3,7 @@ Postgres full-text search is fast when the `tsvector` is stored and indexed rath
 ## The declaration
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { Fts, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { Fts, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Article extends Table<'articles'>, Fts<'articles_fts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

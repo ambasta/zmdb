@@ -13,7 +13,7 @@ model User {
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 import { schemaOf } from '@zmdb/schema';
-import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

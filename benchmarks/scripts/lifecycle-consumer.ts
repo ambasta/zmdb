@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 
-import { Controller, Get, Module, createApp } from 'zmdb';
-import { sqliteDriver } from 'zmdb/sqlite';
+import { Controller, Get, Module, createApp } from '@zmdb/core';
+import { sqliteDriver } from '@zmdb/core/sqlite';
 
 const database = new DatabaseSync(':memory:');
 const driver = sqliteDriver(database);

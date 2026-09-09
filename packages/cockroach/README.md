@@ -15,7 +15,7 @@ For the TypeScript snippets, install the declaration inputs used by the packed c
 yarn add --dev typescript@7.0.2 @types/node@26.4.1 @types/pg@8.23.1
 ```
 
-Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `zmdb` adds its selected
+Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `@zmdb/core` adds its selected
 database package and client rather than replacing the product facade.
 
 The package installs its PostgreSQL-family parent, not `pg`. Install `pg` explicitly for this recipe; no client or pool is loaded by importing the vertical.

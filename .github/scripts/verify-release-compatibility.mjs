@@ -13,7 +13,7 @@ import { RELEASE_PACKAGE_POLICY } from '../../scripts/release/policy.mjs';
 import { publishCatalog, publishManifest } from './lib/publish-manifest.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const official = name => name === 'zmdb' || name.startsWith('@zmdb/');
+const official = name => name.startsWith('@zmdb/');
 const json = path => JSON.parse(readFileSync(path, 'utf8'));
 const manifestsAt = root =>
   Object.fromEntries(

@@ -13,8 +13,8 @@ yarn add --dev @zmdb/compiler@1.0.0-beta.1 typescript@^7
 
 > **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-`@zmdb/protobuf` has no runtime dependency or peer dependency and is not installed by `yarn add zmdb@1.0.0-beta.1`. Its development dependency is `@zmdb/compiler`, the build-time reflector/emitter;
-generated code imports the wire runtime from this package.
+`@zmdb/protobuf` has no runtime dependency or peer dependency and is not installed by `yarn add @zmdb/core@1.0.0-beta.1`. Its development dependency is `@zmdb/compiler`, the build-time
+reflector/emitter; generated code imports the wire runtime from this package.
 
 ## Usage
 

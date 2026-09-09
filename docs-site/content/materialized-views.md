@@ -33,7 +33,7 @@ indexed views require a different declaration shape. Cockroach inherits the Post
 A materialized view is a relation, so declare it like a table and use the normal repository:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies defineRepository, driver, schemaOf; this excerpt does not repeat those declarations."}
-import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface AuthorStats extends Table<'author_stats'> {
   authorId: number & Sql<'integer'> & PrimaryKey;

@@ -72,7 +72,7 @@ Application source imports all five transformed calls from `@zmdb/protobuf`. Cal
 - a direct or aliased binding that resolves to a named root export is recognised;
 - a namespace property may be recognised only when its symbol resolves to the same export;
 - a local function, shadowed binding or same-named export from another module is ignored; and
-- re-exporting these calls through `zmdb`, `@zmdb/validator` or another package is not a supported compiler entry.
+- re-exporting these calls through `@zmdb/core`, `@zmdb/validator` or another package is not a supported compiler entry.
 
 The untransformed functions throw by name because an erased type argument cannot be reconstructed at runtime. No slow parser fallback is permitted.
 

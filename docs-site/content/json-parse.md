@@ -57,7 +57,7 @@ their IR from the transformer:
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies text; this excerpt does not repeat those declarations."}
 import { parse } from '@zmdb/validator/serialization';
 import { validate } from '@zmdb/validator';
-import type { Min, Pattern } from 'zmdb/tags';
+import type { Min, Pattern } from '@zmdb/core/tags';
 
 interface Signup {
   email: string & Pattern<'^[^@]+@[^@]+$'>;
@@ -108,7 +108,7 @@ anywhere in the graph throws a `TypeError` with one message rather than the engi
 A `json` column's shape is part of its declaration, so the type to check a parsed payload against is already written:
 
 ```ts {"mode":"compile","id":"example-006"}
-import type { Sql, Table, PrimaryKey, Serial } from 'zmdb/tags';
+import type { Sql, Table, PrimaryKey, Serial } from '@zmdb/core/tags';
 
 interface Payload {
   kind: string;

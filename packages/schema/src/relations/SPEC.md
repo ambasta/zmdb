@@ -7,7 +7,7 @@ Originally frozen for TDD as issue #30, and rewritten when the relation DSL went
 `ResolvedRelation` and `resolveRelation` are pure metadata resolution and move to `@zmdb/schema/relations`. `PopulateDialect`, `PopulateQuery`, `compilePopulate`, `attachPopulated`, `JoinRow`, and
 `aliasRow` move to `@zmdb/orm/relations` as populate execution. This removes the SQL import from schema while retaining one relation resolver.
 
-The `zmdb/relations` facade explicitly re-exports from both new owners. Neither old `@zmdb/schema/relations` nor a compatibility forwarding module remains.
+The `@zmdb/core/relations` facade explicitly re-exports from both new owners. Neither old `@zmdb/schema/relations` nor a compatibility forwarding module remains.
 
 ## 1. Where a relation is written
 

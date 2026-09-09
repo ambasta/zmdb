@@ -92,7 +92,7 @@ A stale tree is reported as a sentence, not a bare exit code: it is an error in 
 ## Amendment: HTTP-contract orchestration (#679)
 
 Project compilation remains the validator-rewrite path and its scanner remains the 17-call list in §2. It does not rewrite `httpOperation<T>()`, generate an HTTP client, read OpenAPI, or gain a static
-dependency on `zmdb`/`@zmdb/web`.
+dependency on `@zmdb/core`/`@zmdb/web`.
 
 The existing programmatic codegen boundary and the web contract compiler both accept a caller-owned `ReflectSession`. `zmdb client generate` owns orchestration and passes one session to each
 build-time consumer it invokes; supplied sessions remain open. HTTP declarations remain intact source, and validator witnesses and generated clients neither scan nor rewrite one another.

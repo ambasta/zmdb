@@ -1,6 +1,6 @@
 # Runtime foundation
 
-Start with `zmdb` for the complete application journey. Its default install includes SQLite and the CLI/compiler tooling used to build the application. The four foundation packages below are the
+Start with `@zmdb/core` for the complete application journey. Its default install includes SQLite and the CLI/compiler tooling used to build the application. The four foundation packages below are the
 advanced standalone choices when an application needs a smaller runtime surface. The umbrella package does not inherit their zero-external-dependency guarantee.
 
 ## Responsibilities and dependencies

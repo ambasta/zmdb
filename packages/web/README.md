@@ -5,8 +5,8 @@ protocol-neutral `@zmdb/app` kernel. It does not use `reflect-metadata` or runti
 
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
-Applications normally install `zmdb` and use `zmdb/web`; see the [server journey](https://ambasta.github.io/zmdb/docs/web-overview.html). Select this package directly when an advanced dependency
-boundary needs HTTP without the full product facade.
+Applications normally install `@zmdb/core` and use `@zmdb/core/web`; see the [server journey](https://ambasta.github.io/zmdb/docs/web-overview.html). Select this package directly when an advanced
+dependency boundary needs HTTP without the full product facade.
 
 ## Advanced: install HTTP alone
 

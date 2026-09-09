@@ -50,7 +50,7 @@ describe('documented HTTP and selected jobs application (#652)', () => {
     async () => {
       const report = await journey();
       expect(report.installed).toEqual({
-        directDependencies: ['@zmdb/jobs', '@zmdb/jobs-sqlite', 'zmdb'],
+        directDependencies: ['@zmdb/core', '@zmdb/jobs', '@zmdb/jobs-sqlite'],
         typecheck: 0,
         workspaceLinks: [],
       });

@@ -8,11 +8,11 @@ Typed queues, workers, dead letters, scheduling, leases, and explicit provider p
 yarn add @zmdb/jobs@1.0.0-beta.1
 ```
 
-The package is ESM-only and requires Node.js 26 or later. It has no third-party runtime peer. `yarn add zmdb@1.0.0-beta.1` does not install it, and there is no `zmdb/jobs` facade.
+The package is ESM-only and requires Node.js 26 or later. It has no third-party runtime peer. `yarn add @zmdb/core@1.0.0-beta.1` does not install it, and there is no `@zmdb/core/jobs` facade.
 
 ## Choose the capability and its storage
 
-The default [SQLite HTTP application](https://ambasta.github.io/zmdb/docs/web-overview.html) starts with `yarn add zmdb@1.0.0-beta.1`. Add jobs when the application needs background work:
+The default [SQLite HTTP application](https://ambasta.github.io/zmdb/docs/web-overview.html) starts with `yarn add @zmdb/core@1.0.0-beta.1`. Add jobs when the application needs background work:
 
 | Choice                                  | Install                                                                        | Public imports                            |
 | --------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------- |
@@ -75,9 +75,9 @@ Update the selected dependency and import together:
 | Removed or branch-only import | Current import                                  | Required selection                             |
 | ----------------------------- | ----------------------------------------------- | ---------------------------------------------- |
 | `@zmdb/jobs/memory`           | `createMemoryJobStore` from `@zmdb/jobs-sqlite` | Add `@zmdb/jobs-sqlite` alongside `@zmdb/jobs` |
-| `zmdb/jobs`                   | `@zmdb/jobs`                                    | Add `@zmdb/jobs` explicitly                    |
-| `zmdb/jobs/schedule`          | `@zmdb/jobs/schedule`                           | Add `@zmdb/jobs` explicitly                    |
-| `zmdb/jobs/memory`            | `createMemoryJobStore` from `@zmdb/jobs-sqlite` | Add both jobs and the SQLite provider          |
+| `@zmdb/core/jobs`             | `@zmdb/jobs`                                    | Add `@zmdb/jobs` explicitly                    |
+| `@zmdb/core/jobs/schedule`    | `@zmdb/jobs/schedule`                           | Add `@zmdb/jobs` explicitly                    |
+| `@zmdb/core/jobs/memory`      | `createMemoryJobStore` from `@zmdb/jobs-sqlite` | Add both jobs and the SQLite provider          |
 
 The memory constructor now belongs to the SQLite provider. Keep portable queues, workers and schedules imported from `@zmdb/jobs`; supply the chosen provider through its public ports. The retired
 entries have no runtime forwarders. The [queues guide](https://ambasta.github.io/zmdb/docs/web-queues.html) covers provider migrations, transactions and bounded shutdown.

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
+import { zmdbAot } from '@zmdb/core/compiler';
 import { build } from 'esbuild';
-import { zmdbAot } from 'zmdb/compiler';
 
 const [entry, outfile] = process.argv.slice(2);
 if (entry === undefined || outfile === undefined) {

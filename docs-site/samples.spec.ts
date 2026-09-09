@@ -273,7 +273,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
         fixture,
         fixtureDocument(
           sampleFence(JSON.stringify({ mode: 'compile', id: 'valid-public-import' }), [
-            "import type { Table } from 'zmdb/tags';",
+            "import type { Table } from '@zmdb/core/tags';",
             "interface User extends Table<'users'> { readonly id: number }",
             'const user: User = { id: 1 };',
             'void user;',

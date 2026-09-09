@@ -1,6 +1,6 @@
 // The application-facing zmdb vocabulary. This file is deliberately only
 // named re-exports: implementations remain in their owning packages, while
-// advanced surfaces live under concern-based `zmdb/*` entry points.
+// advanced surfaces live under concern-based `@zmdb/core/*` entry points.
 
 export { AssertError, assert, is, validate } from '@zmdb/validator';
 export { type ValidateResult } from '@zmdb/validator';

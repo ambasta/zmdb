@@ -6,12 +6,12 @@ Requires Node.js 26+, TypeScript 7+, ESM and Stage-3 decorators. Set `experiment
 ## Start with the product
 
 ```bash
-yarn add zmdb@1.0.0-beta.1
+yarn add @zmdb/core@1.0.0-beta.1
 yarn add --dev typescript@7.0.2 @types/node@26.4.1 esbuild@0.28.2
 ```
 
-SQLite is included. Use `zmdb` for the common vocabulary and focused concerns such as `zmdb/app`, `zmdb/web`, `zmdb/orm` and `zmdb/sqlite` when needed. The [quick start](./quick-start.html) introduces
-schema types; [AOT setup](./aot-setup.html) explains the required compiler transform.
+SQLite is included. Use `@zmdb/core` for the common vocabulary and focused concerns such as `@zmdb/core/app`, `@zmdb/core/web`, `@zmdb/core/orm` and `@zmdb/core/sqlite` when needed. The
+[quick start](./quick-start.html) introduces schema types; [AOT setup](./aot-setup.html) explains the required compiler transform.
 
 The [complete runnable server](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-server-core/src/documented-server.ts) uses the tested
 [Order schema](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-product/src/schema.ts), [configuration](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-product/zmdb.config.ts)
@@ -31,7 +31,7 @@ not handwrite its own table definition.
 ## Validate before persistence
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Order, orders, queue; this excerpt does not repeat those declarations."}
-import { Controller, Post, assert, type CreateDTO, type Ctx } from 'zmdb';
+import { Controller, Post, assert, type CreateDTO, type Ctx } from '@zmdb/core';
 
 @Controller('/orders')
 class OrdersController {
@@ -55,11 +55,11 @@ yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-sqlite@1.0.0-beta.1
 ```
 
 The core jobs package supplies queues, workers, schedules and provider ports. `@zmdb/jobs-sqlite` supplies both durable SQLite storage and the memory store used by this runnable example. Jobs are
-absent from a default product install; there is no `zmdb/jobs` facade.
+absent from a default product install; there is no `@zmdb/core/jobs` facade.
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ServerModule, worker; this excerpt does not repeat those declarations."}
 import { jobsExtension } from '@zmdb/jobs';
-import { createApp } from 'zmdb';
+import { createApp } from '@zmdb/core';
 
 const app = createApp(ServerModule, {
   graceMs: 1000,
@@ -88,14 +88,14 @@ measured HTTP/job/cleanup result. It exits after the demonstration and removes i
 
 ## Advanced package boundaries
 
-| Need                          | Public choice                   | Owner and dependency direction                                  |
-| ----------------------------- | ------------------------------- | --------------------------------------------------------------- |
-| Cohesive server               | `zmdb`, `zmdb/app`, `zmdb/web`  | Product concerns delegate to their canonical owners             |
-| Application kernel alone      | `@zmdb/app`                     | DI, modules, lifecycle, commands and protocol-neutral ports     |
-| HTTP alone                    | `@zmdb/web`                     | Depends on app; owns routes, request contexts and HTTP adapters |
-| Selected jobs                 | `@zmdb/jobs`                    | Depends on app; owns queues, workers and scheduling             |
-| Selected SQLite job store     | `@zmdb/jobs-sqlite`             | Depends on the jobs protocol and SQLite owner                   |
-| Selected PostgreSQL job store | `@zmdb/jobs-postgres` with `pg` | Borrows a caller-owned PostgreSQL pool/client                   |
+| Need                          | Public choice                                    | Owner and dependency direction                                  |
+| ----------------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
+| Cohesive server               | `@zmdb/core`, `@zmdb/core/app`, `@zmdb/core/web` | Product concerns delegate to their canonical owners             |
+| Application kernel alone      | `@zmdb/app`                                      | DI, modules, lifecycle, commands and protocol-neutral ports     |
+| HTTP alone                    | `@zmdb/web`                                      | Depends on app; owns routes, request contexts and HTTP adapters |
+| Selected jobs                 | `@zmdb/jobs`                                     | Depends on app; owns queues, workers and scheduling             |
+| Selected SQLite job store     | `@zmdb/jobs-sqlite`                              | Depends on the jobs protocol and SQLite owner                   |
+| Selected PostgreSQL job store | `@zmdb/jobs-postgres` with `pg`                  | Borrows a caller-owned PostgreSQL pool/client                   |
 
 See [application lifecycle](./web-app.html), [installation](./installation.html) and [package reference](./package-reference.html). Select broker transports and other integrations separately; they are
 not prerequisites for this server journey.

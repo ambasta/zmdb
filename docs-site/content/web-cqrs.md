@@ -117,7 +117,7 @@ The state change and the event commit together or not at all. In-process emissio
 A separate projection table, updated from the outbox, queried through its own schema:
 
 ```ts {"mode":"compile","id":"example-006"}
-import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface PostSummary extends Table<'post_summaries'> {
   postId: number & Sql<'integer'> & PrimaryKey;

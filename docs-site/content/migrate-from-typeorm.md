@@ -14,7 +14,7 @@ export class User extends BaseEntity {
 
 ```ts {"mode":"compile","id":"example-002"}
 // zmdb
-import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -57,7 +57,7 @@ TypeORM's `Repository<T>` is the closest thing in either library, so this part m
 `@ManyToOne` / `@OneToMany` / `@JoinTable` become entries in a relations map:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies References, Sql, Table, User; this excerpt does not repeat those declarations."}
-import type { ManyToOne, OneToMany } from 'zmdb/tags';
+import type { ManyToOne, OneToMany } from '@zmdb/core/tags';
 
 export interface Post extends Table<'posts'> {
   authorId: number & Sql<'integer'> & References<'users.id'>;

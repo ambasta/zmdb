@@ -1,7 +1,7 @@
 `zmdb.config.ts` is the build-tool and database-command configuration file. `@zmdb/compiler/config` owns discovery and loading; `@zmdb/compiler/config/contract` owns `defineConfig` and its authoring
-types. The product exposes these APIs through `zmdb/config`. Loading discovers one file, executes it with Node, validates its data fields and returns absolute paths.
+types. The product exposes these APIs through `@zmdb/core/config`. Loading discovers one file, executes it with Node, validates its data fields and returns absolute paths.
 
-It does not initialise an application. Repositories still receive an explicit driver, and importing `zmdb` does not read the filesystem.
+It does not initialise an application. Repositories still receive an explicit driver, and importing `@zmdb/core` does not read the filesystem.
 
 ## A minimal config
 
@@ -32,8 +32,8 @@ config.outDir; // absolute migration output directory
 ```
 
 The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, `client generate`, and `studio` commands consume this loader; `codegen` uses it when a
-config is present. The configured plugin from `@zmdb/compiler` or `zmdb/compiler` also loads these project and naming settings. A direct `compileProject` caller supplies them explicitly.
-`zmdb new project` emits the product config import and a build adapter using `zmdb/compiler`; its generated runtime entry never imports the loader.
+config is present. The configured plugin from `@zmdb/compiler` or `@zmdb/core/compiler` also loads these project and naming settings. A direct `compileProject` caller supplies them explicitly.
+`zmdb new project` emits the product config import and a build adapter using `@zmdb/core/compiler`; its generated runtime entry never imports the loader.
 
 ## The resolved path is observable
 
@@ -72,8 +72,8 @@ schema reflection. The configured compiler plugin and `zmdb codegen` pass the sa
 Every glob must match at least one file, and every matched file must belong to the configured TypeScript project. A match outside the project is an error rather than a silently omitted table.
 
 ```ts {"mode":"compile","id":"example-003"}
-import { postgres } from 'zmdb/postgres';
-import { defineConfig } from 'zmdb/config';
+import { postgres } from '@zmdb/core/postgres';
+import { defineConfig } from '@zmdb/core/config';
 
 export default defineConfig({
   schema: ['src/accounts.schema.ts', 'src/billing/**/*.schema.ts'],
@@ -98,8 +98,8 @@ export default defineConfig({
 HTTP generation is explicit and inert:
 
 ```ts {"mode":"compile","id":"example-004"}
-import { postgres } from 'zmdb/postgres';
-import { defineConfig } from 'zmdb/config';
+import { postgres } from '@zmdb/core/postgres';
+import { defineConfig } from '@zmdb/core/config';
 
 export default defineConfig({
   schema: './src/schema.ts',
@@ -169,8 +169,8 @@ Functions and imported dialect objects cannot be validated as plain data. The lo
 The following example demonstrates callable-boundary validation and the custom strategy path:
 
 ```ts {"mode":"illustrative","id":"example-007","reason":"The application supplies the local database module dynamically imported by this configuration."}
-import { postgres } from 'zmdb/postgres';
-import { defineConfig } from 'zmdb/config';
+import { postgres } from '@zmdb/core/postgres';
+import { defineConfig } from '@zmdb/core/config';
 
 export default defineConfig({
   schema: 'src/**/*.schema.ts',

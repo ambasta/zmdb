@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 
-import { Container, createToken } from 'zmdb';
-import { createToken as appToken } from 'zmdb/app';
-import { validate } from 'zmdb/validator';
+import { Container, createToken } from '@zmdb/core';
+import { createToken as appToken } from '@zmdb/core/app';
+import { validate } from '@zmdb/core/validator';
 
 assert.equal(createToken, appToken);
 const container = new Container();

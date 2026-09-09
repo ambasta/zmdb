@@ -8,6 +8,9 @@ import {
   type Application as AppPackageApplication,
   type ApplicationOptions as AppPackageApplicationOptions,
 } from '@zmdb/app';
+import { type Application as AppFacadeApplication } from '@zmdb/core/app';
+// @ts-expect-error selected jobs intentionally has no product facade
+import { type Worker as ForbiddenJobsFacadeWorker } from '@zmdb/core/jobs';
 import { type Worker as JobsPackageWorker } from '@zmdb/jobs';
 import { type Equal, type Expect } from '@zmdb/schema';
 import {
@@ -19,9 +22,6 @@ import {
   type WebApplication as WebPackageApplication,
   type WebApplicationOptions as WebPackageApplicationOptions,
 } from '@zmdb/web/app';
-import { type Application as AppFacadeApplication } from 'zmdb/app';
-// @ts-expect-error selected jobs intentionally has no product facade
-import { type Worker as ForbiddenJobsFacadeWorker } from 'zmdb/jobs';
 
 interface FrozenContainer {}
 interface FrozenLazyModuleHandle {

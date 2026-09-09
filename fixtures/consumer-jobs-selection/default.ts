@@ -1,11 +1,11 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { assert } from 'zmdb';
-import { schemaFromIR, type SchemaIR } from 'zmdb/ir';
-import { BaseRepository } from 'zmdb/orm';
-import { sqliteDriver } from 'zmdb/sqlite';
-import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
-import { Controller, createApp, Get, Module } from 'zmdb/web';
+import { assert } from '@zmdb/core';
+import { schemaFromIR, type SchemaIR } from '@zmdb/core/ir';
+import { BaseRepository } from '@zmdb/core/orm';
+import { sqliteDriver } from '@zmdb/core/sqlite';
+import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
+import { Controller, createApp, Get, Module } from '@zmdb/core/web';
 
 interface Order extends Table<'orders'> {
   readonly id: number & Sql<'integer'> & PrimaryKey;

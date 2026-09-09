@@ -326,8 +326,8 @@ No arrow points from a base adapter to a meta-framework adapter, from `@zmdb/cli
 
 `@zmdb/next` also declares `server-only@0.0.1` as a direct non-workspace dependency. It is Next's executable server/client boundary marker, not a framework peer or a second client runtime.
 
-These packages are not dependencies or re-exports of the default `zmdb` package. Doing so would make an application that chose one framework install the release surface and peer constraints of all
-nine. Cohesion is provided by one generated-client contract and one documentation journey, not by a facade that imports every optional ecosystem.
+These packages are not dependencies or re-exports of the default `@zmdb/core` package. Doing so would make an application that chose one framework install the release surface and peer constraints of
+all nine. Cohesion is provided by one generated-client contract and one documentation journey, not by a facade that imports every optional ecosystem.
 
 ### 4.3 Environment-separated exports
 
@@ -443,7 +443,7 @@ The tests freeze in #689 must name and execute at least:
 - server entries are absent from browser/device bundles;
 - no adapter contains client transport, URL or response-validation implementation;
 - exact fixture versions satisfy the frozen peer ranges;
-- a default `zmdb` installation contains none of the adapter packages or framework peers.
+- a default `@zmdb/core` installation contains none of the adapter packages or framework peers.
 
 ## 8. Rejected alternatives
 
@@ -454,6 +454,6 @@ The tests freeze in #689 must name and execute at least:
 - No built-in cache, retry engine, polling or refetch-on-focus policy.
 - No automatic forwarding of all cookies or headers.
 - No root barrel that mixes server and client exports.
-- No `zmdb/react`, `zmdb/next` or other umbrella re-export that would pull optional peers into the default product.
+- No `@zmdb/core/react`, `@zmdb/core/next` or other umbrella re-export that would pull optional peers into the default product.
 - No package for a two-line wrapper or application-owned native service.
 - No runtime adapter implementation in issue #688.

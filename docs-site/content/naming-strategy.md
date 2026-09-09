@@ -57,8 +57,8 @@ the built-in rules.
 
 ```ts {"mode":"compile","id":"example-003"}
 // zmdb.config.ts
-import { postgres } from 'zmdb/postgres';
-import { defineConfig } from 'zmdb/config';
+import { postgres } from '@zmdb/core/postgres';
+import { defineConfig } from '@zmdb/core/config';
 
 export default defineConfig({
   schema: 'src/**/*.schema.ts',
@@ -89,7 +89,7 @@ export default defineConfig({
 Database commands, `@zmdb/compiler` project compilation, and the product compiler entry all pass `resolvedNaming` into reflection automatically:
 
 ```ts {"mode":"compile","id":"example-005"}
-import { zmdbAot } from 'zmdb/compiler';
+import { zmdbAot } from '@zmdb/core/compiler';
 
 const plugin = await zmdbAot();
 ```
@@ -102,7 +102,7 @@ physical names.
 Import `Physical` from either documented tag subpath:
 
 ```ts {"mode":"compile","id":"example-006"}
-import type { Physical, PrimaryKey, Sql, Table } from 'zmdb/tags';
+import type { Physical, PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface User extends Table<'userAccount'>, Physical<'legacy_users'> {
   id: number & Sql<'integer'> & PrimaryKey;

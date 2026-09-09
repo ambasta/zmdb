@@ -7,8 +7,8 @@ yarn add @zmdb/aot-validator@1.0.0-beta.1
 yarn add --dev @zmdb/compiler@1.0.0-beta.1
 ```
 
-None of these optional packages or grpc-js is installed by `yarn add zmdb@1.0.0-beta.1`. `@zmdb/protobuf` owns the service calls and generated artifact types; `@zmdb/compiler` owns reflection and
-emission; `@zmdb/validator` owns the generated validation-helper ABI; and `@zmdb/transport-grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by
+None of these optional packages or grpc-js is installed by `yarn add @zmdb/core@1.0.0-beta.1`. `@zmdb/protobuf` owns the service calls and generated artifact types; `@zmdb/compiler` owns reflection
+and emission; `@zmdb/validator` owns the generated validation-helper ABI; and `@zmdb/transport-grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by
 `createGrpcClient` is caller-owned and must be closed.
 
 ## One TypeScript contract, including the wire format

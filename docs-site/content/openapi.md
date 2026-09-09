@@ -14,8 +14,8 @@ The `toOpenApiComponents` function generates a map of schemas ready for OpenAPI 
 
 ```ts {"mode":"compile","id":"example-001"}
 import { toOpenApiComponents } from '@zmdb/schema/openapi';
-import { schemaOf } from 'zmdb';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import { schemaOf } from '@zmdb/core';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -78,8 +78,8 @@ Combine OpenAPI generation with your HTTP framework:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 import { toJsonSchema, toListSchema } from '@zmdb/schema/openapi';
-import { schemaOf } from 'zmdb';
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import { schemaOf } from '@zmdb/core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

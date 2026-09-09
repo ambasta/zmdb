@@ -1,5 +1,5 @@
 {
-  "name": "zmdb",
+  "name": "@zmdb/core",
   "version": "1.0.0-beta.1",
   "description": "The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.",
   "keywords": [

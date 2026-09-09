@@ -1,5 +1,3 @@
-import { jobsExtension, type JobStore, type Queue, type Worker } from '@zmdb/jobs';
-import { createMemoryJobStore } from '@zmdb/jobs-sqlite';
 import {
   createApp,
   type CreateDTO,
@@ -9,9 +7,11 @@ import {
   type Serial,
   type Sql,
   type Table,
-} from 'zmdb';
-import type { ModuleClass } from 'zmdb/app';
-import type { BaseRepository } from 'zmdb/orm';
+} from '@zmdb/core';
+import type { ModuleClass } from '@zmdb/core/app';
+import type { BaseRepository } from '@zmdb/core/orm';
+import { jobsExtension, type JobStore, type Queue, type Worker } from '@zmdb/jobs';
+import { createMemoryJobStore } from '@zmdb/jobs-sqlite';
 
 interface Order extends Table<'orders'> {
   readonly id: number & Sql<'integer'> & PrimaryKey & Serial;

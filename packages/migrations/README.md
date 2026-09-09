@@ -4,7 +4,7 @@ Schema snapshots, deterministic migration plans, ledger runners, embedded execut
 
 Part of **[zmdb](https://github.com/ambasta/zmdb)**.
 
-Applications that install the product package can import the curated lifecycle surface from `zmdb/migrations`. Direct package consumers and advanced tooling use the entry points below.
+Applications that install the product package can import the curated lifecycle surface from `@zmdb/core/migrations`. Direct package consumers and advanced tooling use the entry points below.
 
 ## Install
 

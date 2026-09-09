@@ -6,15 +6,15 @@ Background jobs are a first-party capability selected independently from the def
 yarn add @zmdb/jobs@1.0.0-beta.1
 ```
 
-Import queues, workers, schedules, and `jobsExtension` directly from `@zmdb/jobs`. The `zmdb` package neither installs jobs nor exposes a `zmdb/jobs` facade; application startup and bounded shutdown
-still run through the same `@zmdb/app` extension lifecycle.
+Import queues, workers, schedules, and `jobsExtension` directly from `@zmdb/jobs`. The `@zmdb/core` package neither installs jobs nor exposes a `@zmdb/core/jobs` facade; application startup and
+bounded shutdown still run through the same `@zmdb/app` extension lifecycle.
 
 The [server journey](./web-overview.html) attaches a real worker with `createApp(Module, { extensions: [jobsExtension({ workers })] })`. HTTP and jobs use one application lifecycle; no jobs facade or
 second application is required.
 
 The portable jobs install supplies APIs and storage ports. Both `createQueue` and `createWorker` require an explicit `store`; omitting it throws `TypeError`. Installing jobs alone does not select
-SQLite, create a database or apply migrations. Choose the [SQLite or PostgreSQL provider](#choosing-a-backend) before constructing persistent queues and workers. The default `zmdb` application still
-includes its own SQLite database concern; that is separate from selecting jobs storage.
+SQLite, create a database or apply migrations. Choose the [SQLite or PostgreSQL provider](#choosing-a-backend) before constructing persistent queues and workers. The default `@zmdb/core` application
+still includes its own SQLite database concern; that is separate from selecting jobs storage.
 
 ## Delivery is at-least-once: make the effect idempotent
 
@@ -40,7 +40,7 @@ Marker cleanup is deliberately application policy. Retention must exceed the ret
 but it does not choose the retention interval.
 
 `@zmdb/jobs` owns queue, worker, retry, dead-letter, scheduling, and lifecycle behavior. It has no `pg` peer. PostgreSQL storage is separately installed as `@zmdb/jobs-postgres` with required peers
-`@zmdb/jobs@1.0.0-alpha.4` and `pg@^8.23.0`; neither is part of the `zmdb` default install.
+`@zmdb/jobs@1.0.0-alpha.4` and `pg@^8.23.0`; neither is part of the `@zmdb/core` default install.
 
 ## What ships
 
@@ -234,7 +234,8 @@ If the final lease write fails, the original lease still expires and another wor
 ## Alpha migration: select the provider explicitly
 
 Replace `createMemoryJobStore` imports from `@zmdb/jobs/memory` with the same named constructor from `@zmdb/jobs-sqlite`, and install `@zmdb/jobs-sqlite` alongside `@zmdb/jobs`. A branch-only
-`zmdb/jobs/memory` import has the same destination. The selected memory provider owns its fresh database and applies its migrations automatically; durable providers require explicit migration setup.
+`@zmdb/core/jobs/memory` import has the same destination. The selected memory provider owns its fresh database and applies its migrations automatically; durable providers require explicit migration
+setup.
 
 Replace branch-only `zmdb/jobs` and `zmdb/jobs/schedule` imports with `@zmdb/jobs` and `@zmdb/jobs/schedule`. The default product does not install these packages or expose compatibility aliases. Pass
 the selected provider's store to the existing queue, worker and scheduler APIs, and keep caller-owned connection shutdown after application disposal.

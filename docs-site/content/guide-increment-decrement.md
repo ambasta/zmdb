@@ -1,7 +1,7 @@
 Increment through the repository when the new value depends on the value already stored. The update is one SQL statement, so concurrent callers do not lose one another's increments.
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies authorId, id, postRepo; this excerpt does not repeat those declarations."}
-import { dec, inc } from 'zmdb/sql';
+import { dec, inc } from '@zmdb/core/sql';
 
 const post = await postRepo.increment(id, 'views'); // +1
 await postRepo.increment(id, 'views', 5); // +5
@@ -46,8 +46,8 @@ it is not a general SQL AST.
 The same constructor works directly with the query compiler:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
-import { createQueryCompiler, inc } from 'zmdb/sql';
-import { postgres } from 'zmdb/postgres';
+import { createQueryCompiler, inc } from '@zmdb/core/sql';
+import { postgres } from '@zmdb/core/postgres';
 
 const query = createQueryCompiler(postgres)
   .updateTable('posts')

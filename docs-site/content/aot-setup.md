@@ -33,8 +33,9 @@ export default defineConfig({
 });
 ```
 
-The async compiler root entry discovers `zmdb.config.ts`, including its project and naming strategy. `zmdb/compiler` exposes the same configured factory for product consumers. Tooling that owns config
-loading can use the synchronous `@zmdb/compiler/unplugin` entry and pass `project` and `naming` explicitly. [Tooling Boundaries](./tooling-boundaries.html) explains the package and runtime graph.
+The async compiler root entry discovers `zmdb.config.ts`, including its project and naming strategy. `@zmdb/core/compiler` exposes the same configured factory for product consumers. Tooling that owns
+config loading can use the synchronous `@zmdb/compiler/unplugin` entry and pass `project` and `naming` explicitly. [Tooling Boundaries](./tooling-boundaries.html) explains the package and runtime
+graph.
 
 ## Metro for React Native and Expo
 
@@ -73,7 +74,7 @@ source file cannot distinguish those working configurations from a missing one w
 Add a build-path smoke test instead:
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The application supplies its schema module and the test runner declarations used by this test excerpt."}
-import { schemaOf } from 'zmdb';
+import { schemaOf } from '@zmdb/core';
 import type { User } from './schema.js';
 
 it('runs the zmdb AOT transform', () => {

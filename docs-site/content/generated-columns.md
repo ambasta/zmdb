@@ -87,7 +87,7 @@ const totalPriceDef = {
 Declare the base columns and stop there. A generated column has no property, which is exactly how it stays out of `CreateDTO` and `UpdateDTO`:
 
 ```ts {"mode":"compile","id":"example-005"}
-import type { Numeric, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { Numeric, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Order extends Table<'orders'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

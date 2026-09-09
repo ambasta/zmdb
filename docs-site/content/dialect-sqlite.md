@@ -1,4 +1,4 @@
-`@zmdb/sqlite` is the official SQLite vertical. The default `zmdb` application includes it through `zmdb/sqlite`; independently installed consumers can select `@zmdb/sqlite` directly.
+`@zmdb/sqlite` is the official SQLite vertical. The default `@zmdb/core` application includes it through `@zmdb/core/sqlite`; independently installed consumers can select `@zmdb/sqlite` directly.
 
 ## Database-selection workflow
 

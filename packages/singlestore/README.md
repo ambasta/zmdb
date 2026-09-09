@@ -15,7 +15,7 @@ For the TypeScript snippets, install the declaration inputs used by the packed c
 yarn add --dev typescript@7.0.2 @types/node@26.4.1
 ```
 
-Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `zmdb` adds its selected
+Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `@zmdb/core` adds its selected
 database package and client rather than replacing the product facade.
 
 `mysql2` is an optional peer in package metadata; install it explicitly for this recipe. The package depends on its MySQL-family parent and accepts an application-owned client.

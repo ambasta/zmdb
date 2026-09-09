@@ -45,4 +45,4 @@ Assertion library / matchers (use the project's vitest).
 `createTestApp`, `TestApp` and `TestAppOptions` remain at `@zmdb/web/testing` because the harness drives HTTP requests and returns `WebResponse`. Internally it compiles through app's public module and
 lifecycle APIs; it does not retain a second copy of DI, module or hook code.
 
-Provider overrides retain app token identity. A token imported from `@zmdb/app`, `zmdb/app` or the curated root resolves the same override in the HTTP test app.
+Provider overrides retain app token identity. A token imported from `@zmdb/app`, `@zmdb/core/app` or the curated root resolves the same override in the HTTP test app.

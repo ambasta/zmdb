@@ -56,7 +56,7 @@ describe('atomic runtime foundation public ownership (#638)', () => {
   it('uses one validation error constructor and distinct value and rule operations', async () => {
     const validator = await load('@zmdb/validator');
     const orm = await load('@zmdb/orm');
-    const product = await load('zmdb');
+    const product = await load('@zmdb/core');
     expect(orm.ValidationError).toBe(validator.ValidationError);
     expect(product.ValidationError).toBe(validator.ValidationError);
     expect(product.validate).toBe(validator.validate);
@@ -64,10 +64,10 @@ describe('atomic runtime foundation public ownership (#638)', () => {
   });
 
   it('keeps application bootstrap and configuration vocabulary on the product root', async () => {
-    const product = await load('zmdb');
+    const product = await load('@zmdb/core');
     const app = await load('@zmdb/app');
     const web = await load('@zmdb/web');
-    const config = await load('zmdb/config');
+    const config = await load('@zmdb/core/config');
     expect(product.createApp).toBe(web.createApp);
     expect(product.Controller).toBe(web.Controller);
     expect(product.Module).toBe(app.Module);

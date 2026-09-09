@@ -1,5 +1,5 @@
 {
-  "name": "zmdb",
+  "name": "@zmdb/core",
   "private": true,
   "type": "module",
   "exports": {

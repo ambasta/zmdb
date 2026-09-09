@@ -288,9 +288,9 @@ function typeImportLines(imports: readonly TypeImport[], style: string): string[
  * The runtime API the witness calls, and the types its signatures mention.
  *
  * Values come from the specifier the *source* used, never from an implementation package: a
- * project that installed only `zmdb` has no direct `@zmdb/validator` dependency. Support
+ * project that installed only `@zmdb/core` has no direct `@zmdb/validator` dependency. Support
  * types normally share that entry. The one deliberate split is root `schemaOf`: the curated
- * root keeps the callable, while `TaggedSchema` belongs to the complete `zmdb/schema` concern.
+ * root keeps the callable, while `TaggedSchema` belongs to the complete `@zmdb/core/schema` concern.
  */
 function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<string, string>, style: string): string[] {
   const values = new Map<string, Set<string>>();
@@ -306,7 +306,8 @@ function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<strin
     into(values, specifier, entry.callee);
     const support = SUPPORT_TYPES[entry.callee];
     if (support) {
-      const supportSpecifier = entry.callee === 'schemaOf' && specifier === 'zmdb' ? 'zmdb/schema' : specifier;
+      const supportSpecifier =
+        entry.callee === 'schemaOf' && specifier === '@zmdb/core' ? '@zmdb/core/schema' : specifier;
       for (const name of support) into(types, supportSpecifier, name);
     }
   }
@@ -574,7 +575,7 @@ export function rewriteSource(input: RewriteInput): string {
  * Every name the file still uses after the rewrite, as names rather than as text.
  *
  * This decides whether a callee's import is now dead, and it has to be an AST walk. Searching
- * the text for `is` finds it in `import { is } from 'zmdb'`, which is the statement being
+ * the text for `is` finds it in `import { is } from '@zmdb/core'`, which is the statement being
  * judged, and finds it in a comment — this file's own fixture said "the type argument *is* the
  * input" and kept a compiled-away import alive on the strength of it. A regex has no way to
  * know which of those is a reference and the parser already does.
@@ -682,7 +683,7 @@ interface EditContext {
 /**
  * Add the generated import, and take away the ones the rewrite just orphaned.
  *
- * The second half is not tidiness: `import { is } from 'zmdb'` with no `is` left in the file
+ * The second half is not tidiness: `import { is } from '@zmdb/core'` with no `is` left in the file
  * is an error under `noUnusedLocals`, so a codegen that left it behind would break the build
  * it was supposed to speed up. Only bindings this rewrite could have orphaned are considered
  * — the callee names, and a namespace or default binding of a module a callee came

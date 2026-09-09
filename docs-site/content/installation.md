@@ -1,29 +1,30 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7+. Install `zmdb` for schema, validation, ORM, migrations, configuration, CLI, application lifecycle and HTTP,
-with SQLite included. Add jobs, other database providers and protocol integrations only when the application selects them. The [server journey](./web-overview.html) demonstrates these choices in one
-application; the [package reference](./package-reference.html) lists the independently usable owners.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7+. Install `@zmdb/core` for schema, validation, ORM, migrations, configuration, CLI, application lifecycle and
+HTTP, with SQLite included. Add jobs, other database providers and protocol integrations only when the application selects them. The [server journey](./web-overview.html) demonstrates these choices in
+one application; the [package reference](./package-reference.html) lists the independently usable owners.
 
 ## Recommended: one product install
 
 ```bash
-yarn add zmdb@1.0.0-beta.1
+yarn add @zmdb/core@1.0.0-beta.1
 ```
 
 ```ts {"mode":"compile","id":"example-001"}
-import { defineRepository, is, schemaOf, type CreateDTO, type Entity, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
-import { sqliteDriver } from 'zmdb/sqlite';
+import { defineRepository, is, schemaOf, type CreateDTO, type Entity, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/core';
+import { sqliteDriver } from '@zmdb/core/sqlite';
 ```
 
-The `zmdb` package re-exports the curated public API of its required workspace dependencies, with complete concerns under `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`, `zmdb/web`,
-`zmdb/compiler`, `zmdb/migrations`, and `zmdb/testing`. SQLite is included by default and exposed through `zmdb/sqlite`. Each database package owns its compiler traits, migrations, introspection and
-structural driver. The `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach` and `zmdb/singlestore` facades resolve when their optional database package is installed. The `zmdb/web` facade
-combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
+The `@zmdb/core` package re-exports the curated public API of its required workspace dependencies, with complete concerns under `@zmdb/core/schema`, `@zmdb/core/sql`, `@zmdb/core/validator`,
+`@zmdb/core/orm`, `@zmdb/core/web`, `@zmdb/core/compiler`, `@zmdb/core/migrations`, and `@zmdb/core/testing`. SQLite is included by default and exposed through `@zmdb/core/sqlite`. Each database
+package owns its compiler traits, migrations, introspection and structural driver. The `@zmdb/core/postgres`, `@zmdb/core/mysql`, `@zmdb/core/mssql`, `@zmdb/core/cockroach` and
+`@zmdb/core/singlestore` facades resolve when their optional database package is installed. The `@zmdb/core/web` facade combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific
+`@zmdb/web` package.
 
-The focused `zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, and `zmdb/relations` entries expose their documented concerns. Type-only imports from either the root or those paths disappear from
-emitted JavaScript.
+The focused `@zmdb/core/tags`, `@zmdb/core/derive`, `@zmdb/core/ir`, `@zmdb/core/dto`, and `@zmdb/core/relations` entries expose their documented concerns. Type-only imports from either the root or
+those paths disappear from emitted JavaScript.
 
 `@zmdb/mysql` is independently installable and is not pulled in by the default product. Install it with `mysql2` when the application selects MySQL; importing the package does not load the client.
 
-`zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime export, so those two imports vanish entirely from your build output.
+`@zmdb/core/tags` and `@zmdb/core/derive` are **types only** — nothing there has a runtime export, so those two imports vanish entirely from your build output.
 
 Applications that publish an HTTP API add the independently installable `@zmdb/client` runtime beside their generated module. The [Generated HTTP Client](./generated-client.html) guide shows one
 contract feeding runtime routing, OpenAPI, and browser/Node client output.
@@ -33,7 +34,7 @@ compares all nine official packages, and links to their framework-native lifecyc
 
 ## Optional server integrations
 
-`yarn add zmdb@1.0.0-beta.1` installs none of the packages or peers below. Add only the integration selected by the application:
+`yarn add @zmdb/core@1.0.0-beta.1` installs none of the packages or peers below. Add only the integration selected by the application:
 
 | Capability         | Install                                                                                        | Lifecycle and ownership                                                          |
 | ------------------ | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -63,7 +64,7 @@ compatibility facade or automatically install jobs.
 {
   "type": "module",
   "dependencies": {
-    "zmdb": "^1.0.0-beta.1"
+    "@zmdb/core": "^1.0.0-beta.1"
   }
 }
 ```
@@ -223,7 +224,7 @@ zmdb declares tables as **types**, and a type does not exist at runtime. The tra
 
 ```ts {"mode":"compile","id":"example-002"}
 // vite.config.ts / rollup / esbuild / webpack — one factory for all
-import { zmdbAot } from 'zmdb/compiler';
+import { zmdbAot } from '@zmdb/core/compiler';
 
 const plugin = await zmdbAot({ project: new URL('./tsconfig.json', import.meta.url).pathname });
 export default {
@@ -231,8 +232,8 @@ export default {
 };
 ```
 
-`zmdb/compiler` discovers `zmdb.config.ts` when `project` is omitted. If neither config nor an explicit project or session is available, the plugin cannot ask the checker what a type is, so it leaves
-every `f<T>(…)` call alone — and an untransformed `schemaOf<T>()` throws when called. A refused call site is a build error by default, not a silent fallback. See [AOT Setup](./aot-setup.html).
+`@zmdb/core/compiler` discovers `zmdb.config.ts` when `project` is omitted. If neither config nor an explicit project or session is available, the plugin cannot ask the checker what a type is, so it
+leaves every `f<T>(…)` call alone — and an untransformed `schemaOf<T>()` throws when called. A refused call site is a build error by default, not a silent fallback. See [AOT Setup](./aot-setup.html).
 
 For a project that only needs the query compiler, there is no build step at all — see [Pure TypeScript](./pure-typescript.html).
 
@@ -241,8 +242,8 @@ For a project that only needs the query compiler, there is no build step at all 
 The query compiler is plain runtime code, so it verifies the install without the transformer in the way:
 
 ```ts {"mode":"compile","id":"example-003"}
-import { createQueryCompiler } from 'zmdb/sql';
-import { sqlite } from 'zmdb/sqlite';
+import { createQueryCompiler } from '@zmdb/core/sql';
+import { sqlite } from '@zmdb/core/sqlite';
 
 const q = createQueryCompiler(sqlite).selectFrom('users').select(['id']).compile();
 console.log(q.text); // SELECT "id" FROM "users"
@@ -251,7 +252,7 @@ console.log(q.text); // SELECT "id" FROM "users"
 Then verify the transformer is wired, which is the part that actually goes wrong:
 
 ```ts {"mode":"compile","id":"example-004"}
-import { schemaOf, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
+import { schemaOf, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/core';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

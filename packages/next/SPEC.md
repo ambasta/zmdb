@@ -10,7 +10,7 @@
 - `@zmdb/next/server` begins with `import 'server-only'` and owns every request, credential and cache concern.
 
 The package depends inward on `@zmdb/client` and `@zmdb/react`. `server-only@0.0.1` is the executable Next boundary marker. Next 16.3, React 19.2 and React DOM 19.2 are required peers; React
-declaration packages are fixture/dev dependencies rather than production peers. The package is not re-exported by `zmdb`.
+declaration packages are fixture/dev dependencies rather than production peers. The package is not re-exported by `@zmdb/core`.
 
 ## 2. Server request scope
 

@@ -176,7 +176,7 @@ function installedPackageNames(nodeModules) {
 }
 
 function verifyCoreInstall(packages, scratch) {
-  const names = workspaceClosure(packages, ['zmdb']);
+  const names = workspaceClosure(packages, ['@zmdb/core']);
   const tarballs = packWorkspace(packages, names, scratch);
   const app = join(scratch, 'core-consumer');
   mkdirSync(app, { recursive: true });

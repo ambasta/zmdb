@@ -5,7 +5,7 @@ import { test } from 'node:test';
 
 import { inspectInstalledConsumer, ROOTS } from './verify-installed.mjs';
 
-const packageNames = ['zmdb', '@zmdb/jobs', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres', '@zmdb/app', 'pg'];
+const packageNames = ['@zmdb/core', '@zmdb/jobs', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres', '@zmdb/app', 'pg'];
 
 async function fixture(lane, change, inspect) {
   const root = await mkdtemp(join(resolve(import.meta.dirname, '../../..'), 'selected-jobs-controls-'));
@@ -73,11 +73,14 @@ await test('[RF757-C03] refuses a wrong installed tarball integrity', async () =
   await fixture(
     'default',
     async ({ root, packages }) => {
-      packages['node_modules/zmdb'].integrity = 'sha512-wrong';
+      packages['node_modules/@zmdb/core'].integrity = 'sha512-wrong';
       await writeFile(join(root, 'package-lock.json'), JSON.stringify({ packages }));
     },
     async (root, integrities) => {
-      await assert.rejects(inspectInstalledConsumer(root, 'default', integrities), /wrong tarball integrity zmdb/);
+      await assert.rejects(
+        inspectInstalledConsumer(root, 'default', integrities),
+        /wrong tarball integrity @zmdb\/core/,
+      );
     },
   );
 });
@@ -86,8 +89,8 @@ await test('[RF757-C04] refuses resolution into a workspace package', async () =
   await fixture(
     'default',
     async ({ root }) => {
-      await rm(join(root, 'node_modules/zmdb'), { recursive: true });
-      await symlink(join(import.meta.dirname, '../../packages/zmdb'), join(root, 'node_modules/zmdb'));
+      await rm(join(root, 'node_modules/@zmdb/core'), { recursive: true });
+      await symlink(join(import.meta.dirname, '../../packages/zmdb'), join(root, 'node_modules/@zmdb/core'));
     },
     async (root, integrities) => {
       await assert.rejects(

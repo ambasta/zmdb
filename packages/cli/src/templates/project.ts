@@ -21,8 +21,8 @@ export const projectTemplate: TemplateFactory = ({ name, packageVersion }) => ({
           typecheck: 'tsc --noEmit',
         },
         dependencies: {
+          '@zmdb/core': packageVersion,
           '@zmdb/sqlite': packageVersion,
-          zmdb: packageVersion,
         },
         devDependencies: {
           '@types/node': '26.4.1',
@@ -67,7 +67,7 @@ import { fileURLToPath } from 'node:url';
 
 import { build } from 'esbuild';
 import { format } from 'oxfmt';
-import { zmdbAot } from 'zmdb/compiler';
+import { zmdbAot } from '@zmdb/core/compiler';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const formatOptions = ${JSON.stringify(FORMAT_OPTIONS)};
@@ -161,8 +161,8 @@ export default defineConfig({
       source: `import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-import { defineConfig } from 'zmdb';
-import { sqlite, sqliteDriver } from 'zmdb/sqlite';
+import { defineConfig } from '@zmdb/core';
+import { sqlite, sqliteDriver } from '@zmdb/core/sqlite';
 
 const databasePath = fileURLToPath(new URL('./database.sqlite', import.meta.url));
 
@@ -177,7 +177,7 @@ export default defineConfig({
     },
     {
       path: 'src/app.module.ts',
-      source: `import { Module } from 'zmdb';
+      source: `import { Module } from '@zmdb/core';
 
 import { HealthController } from './health.controller.js';
 
@@ -189,7 +189,7 @@ export class AppModule {}
       path: 'src/main.ts',
       source: `import { createServer } from 'node:http';
 
-import { compileModule, createRouter, toNodeHandler } from 'zmdb/web';
+import { compileModule, createRouter, toNodeHandler } from '@zmdb/core/web';
 
 import { AppModule } from './app.module.js';
 
@@ -235,7 +235,7 @@ server.listen(port, '127.0.0.1', () => {
     },
     {
       path: 'src/health.controller.ts',
-      source: `import { Controller, Get } from 'zmdb';
+      source: `import { Controller, Get } from '@zmdb/core';
 
 @Controller('/health')
 export class HealthController {
@@ -248,8 +248,8 @@ export class HealthController {
     },
     {
       path: 'src/health.controller.spec.ts',
-      source: `import { createTestApp } from 'zmdb/testing';
-import { bodyText } from 'zmdb/web';
+      source: `import { createTestApp } from '@zmdb/core/testing';
+import { bodyText } from '@zmdb/core/web';
 import { describe, expect, it } from 'vitest';
 
 import config from '../zmdb.config.js';

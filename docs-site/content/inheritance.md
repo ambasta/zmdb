@@ -8,8 +8,8 @@ Store all subtypes in one table with a discriminator column. Each subtype has a 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseRepository; this excerpt does not repeat those declarations."}
 import { rowToSubtype, discriminatorFor } from '@zmdb/schema/entity-modeling';
 import { assert } from '@zmdb/validator';
-import { schemaOf } from 'zmdb';
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import { schemaOf } from '@zmdb/core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 // The table: every subtype's columns, with the type-specific ones nullable
 export interface EventRow extends Table<'events'> {
