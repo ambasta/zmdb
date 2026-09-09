@@ -344,8 +344,8 @@ Registration is `createScheduler({ tasks: [instances] })` — instances the cont
 apps in one process must not share them, and nothing registers itself at module load".
 
 **The decorator is defined in this module and never applied inside it.** `ARCHITECTURE.md:112-114` states the constraint: "no module on a path reachable from an entry point may contain syntax that is
-not type syntax, / which rules out a decorator." `@Cron` is a function and a type, so defining it is legal; a `@Cron` in this package's own source would break `yarn verify:exports`, which imports
-every subpath under plain `node`.
+not type syntax, / which rules out a decorator." `@Cron` is a function and a type, so defining it is legal; a `@Cron` in this package's own source would prevent plain Node from importing that source
+entry.
 
 Tests may apply it, because `vitest.config.ts`'s `stage3Decorators()` esbuild plugin transpiles files matching `/(^|\n)\s*@[A-Za-z_$]/` — and its comment says why that is test-execution only.
 

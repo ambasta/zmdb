@@ -11,8 +11,7 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 ## Release model
 
 The release-group contract in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md) defines one core train and independently versioned integration and tooling packages. The generated
-[package reference](./docs-site/content/package-reference.md) lists every current package's release unit, supported internal ranges and external peers directly from the catalog and release policy. The
-installed compatibility qualifier is implemented in [verify-release-compatibility.mjs](./.github/scripts/verify-release-compatibility.mjs); it derives its cases from that same policy.
+[package reference](./docs-site/content/package-reference.md) lists every current package's release unit, supported internal ranges and external peers directly from the catalog and release policy.
 
 ### Authorities and release plan
 
@@ -53,8 +52,8 @@ Read the generated [package reference](./docs-site/content/package-reference.md)
 | `tested`   | Explicit versions selected for consumer qualification; this is not a claim about the newest version on npm. |
 | `evidence` | The owning consumer program or verifier for the compatibility promise.                                      |
 
-For example, `@zmdb/ai-vercel` declares `ai` range `^7.0.93`, floor `7.0.93`, and tested input `7.0.93`. The compatibility qualifier selects that exact floor and also requires an install below it to
-fail. A wider dependency range alone is not evidence that its lower bound works. Historical pre-extraction versions in the AI specification are dated inputs, not current supported floors.
+For example, `@zmdb/ai-vercel` declares `ai` range `^7.0.93`, floor `7.0.93`, and tested input `7.0.93`. Framework-specific integration tests exercise the selected SDK version. A wider dependency
+range alone is not evidence that its lower bound works. Historical pre-extraction versions in the AI specification are dated inputs, not current supported floors.
 
 | Change                   | Application upgrade                                                                                           | Maintainer preparation                                                                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -80,62 +79,11 @@ node --input-type=module -e 'import { releaseCompatibilityPlan } from "./.github
 The release plan contains the selected npm names, version, changelog entry and dependency-ordered publication list. The compatibility plan names supported inputs, below-floor refusals, one independent
 integration release and an incompatible core selection. It is a plan, not a passing test report.
 
-Run the affected installed consumer after changing a compatibility promise. For example:
+Run `yarn verify:publish` to build the packages, install their tarballs in one temporary consumer, import their public entries and typecheck their declarations. Package-local integration tests
+exercise framework and database behavior.
 
-```bash
-node .github/scripts/verify-release-compatibility.mjs --package ai-vercel --evidence ./artifacts/compatibility-ai-vercel.json
-```
-
-The qualifier builds the selected package closure, produces real npm archives, installs and reinstalls external consumers, checks their strict declarations and executes their scoped programs. A
-supplied `--archives <json-file>` can reuse real archives whose manifests and integrity it verifies. Successful output is
-`release compatibility: <count> cases passed; consumers, caches and registries cleaned`. The JSON report attributes package versions, installed dependency locations, commands, refusals and cleanup.
-Missing services, incorrect integrity, failed commands and incomplete cleanup fail the run.
-
-Omit `--package` for the complete policy-derived matrix. Its broker cases require `ZMDB_PG`, `ZMDB_NATS_URL`, `ZMDB_RABBITMQ_URL`, `ZMDB_REDIS_URL`, `ZMDB_KAFKA_URL`, `ZMDB_760_SQS_ENDPOINT` and
-`ZMDB_760_WIRE_ENDPOINT` for their declared local services. The individual transport fixtures describe and start their corresponding broker or wiremock setup. Database and framework cases state their
-actual boundary in the report; a driver-binding case does not claim a live database workflow.
-
-When a case fails, inspect its command and diagnostic, fix that package or fixture, and rerun its `--package` selection. Keep successful reports attributed to their original source and archive
-identities; do not relabel them as a new complete run. Release planning and package preparation are separate from this evidence and never publish by themselves.
-
-### Admit a package to the current train
-
-Admission is atomic. A new publishable package is not official, or releasable until one change supplies all of these:
-
-1. the package manifest, public exports, README, license and external-consumer evidence;
-2. one product-catalog row with the package directory, npm name, role, optionality, docs owner and consumer proof;
-3. one same-id release-policy row with the release group, every cross-unit range, and every external peer floor;
-4. `workspace:^` for same-core edges, explicit release-policy ranges for crossing edges, and matching optional-peer metadata;
-5. a root `CHANGELOG.md` bullet owned by that catalog id; and
-6. updated package and release documentation.
-
-Do not add the package to a publish loop, array, package-count sentence or copied graph. Regenerate and run the affected packaging checks:
-
-```bash
-node docs-site/generated.mjs
-yarn verify:package-metadata
-yarn verify:docs-generated
-```
-
-Package metadata checks validate versions, dependency ranges and export targets.
-
-### Current version and manifest rules
-
-- The eight core packages share one valid SemVer version. Each integration and tooling package owns its independent version.
-- Every committed dependency, optional dependency or peer dependency on another catalog package creates an architecture edge or selected optional-peer edge. Same-core dependencies use `workspace:^`;
-  every crossing edge uses the explicit release-policy compatibility range and may use a development dependency only to qualify a required peer locally.
-- The publish manifest replaces a same-core workspace range with the exact core version for a prerelease and `^<core version>` for a stable release. For a crossing edge it removes only the
-  `workspace:` protocol and preserves the policy range.
-- `publishConfig.access` is `public`. A prerelease channel is `alpha`, `beta` or `rc`; a stable release uses `latest`. The existing highest-precedence `latest` decision remains a publication concern,
-  not a product-catalog field.
-- The lockfile is regenerated after a bump and must agree with every committed workspace range before release preparation completes.
-
-### One project changelog
-
-The repository has exactly one release changelog, `CHANGELOG.md`; catalog packages do not carry independent changelogs. Its machine-checkable shape is:
-
-```md
-# Changelog
+The combined smoke uses `--legacy-peer-deps` because independent frameworks declare conflicting optional TypeScript peer ranges. Framework-specific consumers check supported application
+configurations.
 
 ## [Unreleased]
 
@@ -148,7 +96,8 @@ The repository has exactly one release changelog, `CHANGELOG.md`; catalog packag
 ### Fixed
 
 - **repository:** describe the released user-visible fix
-```
+
+````
 
 `Unreleased` exists exactly once and precedes all versions. A released heading is exactly `## [<release-id>@<SemVer>] - <YYYY-MM-DD>`, appears once, and sections for each release id are newest first.
 Allowed category headings are `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` and `Security`; a release has at least one non-empty bullet owned by that release unit. `product` is also valid for
@@ -164,11 +113,10 @@ RELEASE_VERSION=1.0.0-beta.2
 RELEASE_TAG="$RELEASE_ID-v$RELEASE_VERSION"
 
 node scripts/release/bump.mjs "$RELEASE_ID" "$RELEASE_VERSION"
-yarn verify:package-metadata
 yarn verify:publish
 node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --json
 node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --publish-tsv
-```
+````
 
 The final release flow is:
 

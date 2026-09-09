@@ -83,50 +83,50 @@ never accepted by `RELEASE_PACKAGE_POLICY`. A package is publishable only when i
 
 The current public inventory is classified exactly once:
 
-| Catalog id           | npm package                | Release group | Existing external-consumer evidence         |
-| -------------------- | -------------------------- | ------------- | ------------------------------------------- |
-| `ai`                 | `@zmdb/ai`                 | integration   | `yarn verify:publish`                       |
-| `ai-anthropic`       | `@zmdb/ai-anthropic`       | integration   | `yarn verify:publish`                       |
-| `ai-langchain`       | `@zmdb/ai-langchain`       | integration   | `fixtures/llm-adapters`                     |
-| `ai-vercel`          | `@zmdb/ai-vercel`          | integration   | `fixtures/llm-adapters` plus the #746 probe |
-| `angular`            | `@zmdb/angular`            | integration   | `fixtures/client-adapters`                  |
-| `aot-validator`      | `@zmdb/validator`          | core          | `yarn verify:publish`                       |
-| `app`                | `@zmdb/app`                | core          | `yarn verify:publish`                       |
-| `cli`                | `@zmdb/cli`                | tooling       | `fixtures/consumer-cli`                     |
-| `client`             | `@zmdb/client`             | integration   | `fixtures/consumer-http-client`             |
-| `cockroach`          | `@zmdb/cockroach`          | integration   | `fixtures/database-cockroach`               |
-| `compiler`           | `@zmdb/compiler`           | tooling       | `fixtures/consumer-compiler`                |
-| `jobs`               | `@zmdb/jobs`               | core          | `fixtures/consumer-jobs-providers`          |
-| `jobs-postgres`      | `@zmdb/jobs-postgres`      | integration   | `fixtures/consumer-jobs-providers`          |
-| `jobs-sqlite`        | `@zmdb/jobs-sqlite`        | integration   | `fixtures/consumer-jobs-providers`          |
-| `mcp`                | `@zmdb/mcp`                | integration   | `fixtures/consumer-mcp`                     |
-| `migrations`         | `@zmdb/migrations`         | tooling       | `yarn verify:publish`                       |
-| `mssql`              | `@zmdb/mssql`              | integration   | `fixtures/database-mssql`                   |
-| `mysql`              | `@zmdb/mysql`              | integration   | `fixtures/database-mysql`                   |
-| `next`               | `@zmdb/next`               | integration   | `fixtures/next-app-router`                  |
-| `nuxt`               | `@zmdb/nuxt`               | integration   | `fixtures/client-adapters/nuxt`             |
-| `otel`               | `@zmdb/otel`               | integration   | `fixtures/consumer-server-integrations`     |
-| `postgres`           | `@zmdb/postgres`           | integration   | `fixtures/database-postgres`                |
-| `protobuf`           | `@zmdb/protobuf`           | integration   | `yarn verify:publish`                       |
-| `query-compiler`     | `@zmdb/sql`                | core          | `yarn verify:publish`                       |
-| `react`              | `@zmdb/react`              | integration   | `fixtures/client-adapters`                  |
-| `react-native`       | `@zmdb/react-native`       | integration   | `fixtures/client-adapters`                  |
-| `repository`         | `@zmdb/orm`                | core          | `yarn verify:publish`                       |
-| `schema-core`        | `@zmdb/schema`             | core          | `yarn verify:publish`                       |
-| `singlestore`        | `@zmdb/singlestore`        | integration   | `fixtures/database-singlestore`             |
-| `solid`              | `@zmdb/solid`              | integration   | `fixtures/client-adapters`                  |
-| `sqlite`             | `@zmdb/sqlite`             | integration   | `fixtures/database-sqlite`                  |
-| `svelte`             | `@zmdb/svelte`             | integration   | `fixtures/client-adapters`                  |
-| `sveltekit`          | `@zmdb/sveltekit`          | integration   | `fixtures/client-adapters/sveltekit-packed` |
-| `transport-grpc`     | `@zmdb/transport-grpc`     | integration   | `fixtures/consumer-server-integrations`     |
-| `transport-kafka`    | `@zmdb/transport-kafka`    | integration   | `fixtures/consumer-transport-kafka`         |
-| `transport-nats`     | `@zmdb/transport-nats`     | integration   | `fixtures/consumer-server-integrations`     |
-| `transport-rabbitmq` | `@zmdb/transport-rabbitmq` | integration   | `fixtures/consumer-server-integrations`     |
-| `transport-redis`    | `@zmdb/transport-redis`    | integration   | `fixtures/consumer-server-integrations`     |
-| `transport-sqs`      | `@zmdb/transport-sqs`      | integration   | `fixtures/consumer-transport-sqs`           |
-| `vue`                | `@zmdb/vue`                | integration   | `fixtures/client-adapters/vue`              |
-| `web`                | `@zmdb/web`                | core          | `yarn verify:publish`                       |
-| `@zmdb/core`         | `@zmdb/core`               | core          | `fixtures/consumer-product`                 |
+| Catalog id           | npm package                | Release group | Existing external-consumer evidence            |
+| -------------------- | -------------------------- | ------------- | ---------------------------------------------- |
+| `ai`                 | `@zmdb/ai`                 | integration   | `yarn verify:publish`                          |
+| `ai-anthropic`       | `@zmdb/ai-anthropic`       | integration   | `yarn verify:publish`                          |
+| `ai-langchain`       | `@zmdb/ai-langchain`       | integration   | `fixtures/llm-adapters`                        |
+| `ai-vercel`          | `@zmdb/ai-vercel`          | integration   | `fixtures/llm-adapters` plus the #746 probe    |
+| `angular`            | `@zmdb/angular`            | integration   | `fixtures/client-adapters`                     |
+| `aot-validator`      | `@zmdb/validator`          | core          | `yarn verify:publish`                          |
+| `app`                | `@zmdb/app`                | core          | `yarn verify:publish`                          |
+| `cli`                | `@zmdb/cli`                | tooling       | `fixtures/consumer-cli`                        |
+| `client`             | `@zmdb/client`             | integration   | `packages/client/src/runtime.spec.ts`          |
+| `cockroach`          | `@zmdb/cockroach`          | integration   | `fixtures/database-cockroach`                  |
+| `compiler`           | `@zmdb/compiler`           | tooling       | `fixtures/consumer-compiler`                   |
+| `jobs`               | `@zmdb/jobs`               | core          | `packages/jobs/src/provider-lifecycle.spec.ts` |
+| `jobs-postgres`      | `@zmdb/jobs-postgres`      | integration   | `packages/jobs-postgres/src/index.spec.ts`     |
+| `jobs-sqlite`        | `@zmdb/jobs-sqlite`        | integration   | `packages/jobs-sqlite/src/index.spec.ts`       |
+| `mcp`                | `@zmdb/mcp`                | integration   | `fixtures/consumer-mcp`                        |
+| `migrations`         | `@zmdb/migrations`         | tooling       | `yarn verify:publish`                          |
+| `mssql`              | `@zmdb/mssql`              | integration   | `fixtures/database-mssql`                      |
+| `mysql`              | `@zmdb/mysql`              | integration   | `fixtures/database-mysql`                      |
+| `next`               | `@zmdb/next`               | integration   | `fixtures/next-app-router`                     |
+| `nuxt`               | `@zmdb/nuxt`               | integration   | `fixtures/client-adapters/nuxt`                |
+| `otel`               | `@zmdb/otel`               | integration   | `fixtures/consumer-server-integrations`        |
+| `postgres`           | `@zmdb/postgres`           | integration   | `fixtures/database-postgres`                   |
+| `protobuf`           | `@zmdb/protobuf`           | integration   | `yarn verify:publish`                          |
+| `query-compiler`     | `@zmdb/sql`                | core          | `yarn verify:publish`                          |
+| `react`              | `@zmdb/react`              | integration   | `fixtures/client-adapters`                     |
+| `react-native`       | `@zmdb/react-native`       | integration   | `fixtures/client-adapters`                     |
+| `repository`         | `@zmdb/orm`                | core          | `yarn verify:publish`                          |
+| `schema-core`        | `@zmdb/schema`             | core          | `yarn verify:publish`                          |
+| `singlestore`        | `@zmdb/singlestore`        | integration   | `fixtures/database-singlestore`                |
+| `solid`              | `@zmdb/solid`              | integration   | `fixtures/client-adapters`                     |
+| `sqlite`             | `@zmdb/sqlite`             | integration   | `fixtures/database-sqlite`                     |
+| `svelte`             | `@zmdb/svelte`             | integration   | `fixtures/client-adapters`                     |
+| `sveltekit`          | `@zmdb/sveltekit`          | integration   | `fixtures/client-adapters/sveltekit-packed`    |
+| `transport-grpc`     | `@zmdb/transport-grpc`     | integration   | `fixtures/consumer-server-integrations`        |
+| `transport-kafka`    | `@zmdb/transport-kafka`    | integration   | `fixtures/consumer-transport-kafka`            |
+| `transport-nats`     | `@zmdb/transport-nats`     | integration   | `fixtures/consumer-server-integrations`        |
+| `transport-rabbitmq` | `@zmdb/transport-rabbitmq` | integration   | `fixtures/consumer-server-integrations`        |
+| `transport-redis`    | `@zmdb/transport-redis`    | integration   | `fixtures/consumer-server-integrations`        |
+| `transport-sqs`      | `@zmdb/transport-sqs`      | integration   | `fixtures/consumer-transport-sqs`              |
+| `vue`                | `@zmdb/vue`                | integration   | `fixtures/client-adapters/vue`                 |
+| `web`                | `@zmdb/web`                | core          | `yarn verify:publish`                          |
+| `@zmdb/core`         | `@zmdb/core`               | core          | `fixtures/consumer-product`                    |
 
 Counts are therefore eight core packages, 28 independently versioned integrations, and two independently versioned tooling packages.
 

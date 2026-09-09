@@ -2,7 +2,7 @@
 //
 // Publish staging and consumer verification use this transform for installed entry
 // points and dependency ranges. Source manifests remain suitable for workspace
-// development. Metadata validation checks these same transformations before build.
+// development.
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
