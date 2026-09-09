@@ -1285,7 +1285,14 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           );
         }
         const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
-        addBoundRoute(ctor, route, middlewareHandler(handler, middleware, opts), opts?.validateBody, guards, serializeFn);
+        addBoundRoute(
+          ctor,
+          route,
+          middlewareHandler(handler, middleware, opts),
+          opts?.validateBody,
+          guards,
+          serializeFn,
+        );
       }
     },
 
