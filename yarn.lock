@@ -4915,7 +4915,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/core@workspace:packages/zmdb"
   dependencies:
-    "@zmdb/ai": "workspace:1.0.0-beta.2"
+    "@zmdb/ai": "workspace:^"
     "@zmdb/app": "workspace:^"
     "@zmdb/cli": "workspace:1.0.0-beta.2"
     "@zmdb/cockroach": "workspace:^"

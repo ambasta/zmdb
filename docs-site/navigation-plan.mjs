@@ -25,8 +25,8 @@ export const DOCUMENTATION_BASELINE = {
   },
   target: {
     groups: 10,
-    canonicalPages: 278,
-    retainedCurrentPages: 266,
+    canonicalPages: 276,
+    retainedCurrentPages: 264,
     addedCanonicalPages: 12,
     redirectArtifacts: 12,
   },

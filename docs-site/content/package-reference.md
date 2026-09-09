@@ -86,8 +86,7 @@ Provider-neutral AI tool documents, bounded chat orchestration, shared tool invo
 - **Engines:**
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
-- **Facade exposure:**
-  - `zmdb/llm`
+- **Facade exposure:** None.
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/ai-anthropic`
@@ -367,30 +366,21 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `./cockroach` → `./src/database-cockroach.ts`
   - `./compiler` → `./src/compiler.ts`
   - `./config` → `./src/config/index.ts`
-  - `./custom-types` → `./src/custom-types.ts`
   - `./derive` → `./src/derive.ts`
   - `./dto` → `./src/dto.ts`
-  - `./entity-modeling` → `./src/entity-modeling.ts`
-  - `./integrations` → `./src/integrations.ts`
   - `./ir` → `./src/ir.ts`
-  - `./llm` → `./src/llm.ts`
   - `./migrations` → `./src/migrations.ts`
   - `./mssql` → `./src/database-mssql.ts`
   - `./mysql` → `./src/database-mysql.ts`
-  - `./openapi` → `./src/openapi.ts`
   - `./orm` → `./src/orm.ts`
   - `./postgres` → `./src/database-postgres.ts`
-  - `./query` → `./src/query.ts`
   - `./relations` → `./src/relations.ts`
-  - `./replicas` → `./src/replicas.ts`
   - `./schema` → `./src/schema.ts`
-  - `./seeding` → `./src/seeding.ts`
   - `./singlestore` → `./src/database-singlestore.ts`
   - `./sql` → `./src/sql.ts`
   - `./sqlite` → `./src/database-sqlite.ts`
   - `./tags` → `./src/tags.ts`
   - `./testing` → `./src/testing.ts`
-  - `./transactions` → `./src/transactions.ts`
   - `./validator` → `./src/validator.ts`
   - `./web` → `./src/web.ts`
   - `./web/app` → `./src/web-app.ts`
@@ -413,7 +403,6 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `./web/upload` → `./src/web-upload.ts`
   - `./web/versioning` → `./src/web-versioning.ts`
 - **Dependencies:**
-  - `@zmdb/ai` → `workspace:1.0.0-beta.2`
   - `@zmdb/app` → `workspace:^`
   - `@zmdb/cli` → `workspace:1.0.0-beta.2`
   - `@zmdb/compiler` → `workspace:1.0.0-beta.2`
@@ -665,11 +654,7 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `UpdatePatch`
   - `ValidationError`
   - `defineRepository`
-  - `@zmdb/core/entity-modeling`
   - `@zmdb/core/orm`
-  - `@zmdb/core/replicas`
-  - `@zmdb/core/seeding`
-  - `@zmdb/core/transactions`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/otel`
@@ -815,11 +800,9 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `Unique`
   - `UpdateDTO`
   - `schemaOf`
-  - `@zmdb/core/custom-types`
   - `@zmdb/core/derive`
   - `@zmdb/core/dto`
   - `@zmdb/core/ir`
-  - `@zmdb/core/openapi`
   - `@zmdb/core/relations`
   - `@zmdb/core/schema`
   - `@zmdb/core/tags`
@@ -888,7 +871,6 @@ SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, f
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
-  - `@zmdb/core/query`
   - `@zmdb/core/sql`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
@@ -1195,7 +1177,6 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
   - `@zmdb/core/web/testing`
   - `@zmdb/core/web/upload`
   - `@zmdb/core/web/versioning`
-  - `@zmdb/core/integrations`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 <!-- /generated: product-catalog package-reference -->
