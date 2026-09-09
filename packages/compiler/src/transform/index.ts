@@ -538,88 +538,56 @@ export function splitArgs(s: string): string[] {
 }
 
 function splitLexical(s: string, maxSplits: number): string[] {
+  const scanner = createScanner(false, LanguageVariant.Standard);
+  scanner.setText(s);
+
   const parts: string[] = [];
-  let cur = '';
-  let depth = 0;
-  let inString: string | null = null;
-  let isEscaped = false;
-  let inComment: 'line' | 'block' | null = null;
+  let partStart = 0;
+  const stack: number[] = [];
+  let templateDepth = 0;
 
-  for (let k = 0; k < s.length; k++) {
-    const ch = s.charAt(k);
-    const next = s[k + 1];
-
-    if (inComment === 'line') {
-      cur += ch;
-      if (ch === '\n') inComment = null;
-      continue;
+  let token = scanner.scan();
+  while (token !== SyntaxKind.EndOfFile) {
+    if (token === SyntaxKind.TemplateHead) {
+      templateDepth++;
     }
 
-    if (inComment === 'block') {
-      cur += ch;
-      if (ch === '*' && next === '/') {
-        cur += next;
-        k++;
-        inComment = null;
+    if (token === SyntaxKind.CloseBraceToken && templateDepth > 0) {
+      token = scanner.reScanTemplateToken(false);
+      if (
+        (token as number) === (SyntaxKind.TemplateTail as number) ||
+        (token as number) === (SyntaxKind.LastTemplateToken as number)
+      ) {
+        templateDepth--;
       }
-      continue;
     }
 
-    if (inString !== null) {
-      cur += ch;
-      if (isEscaped) {
-        isEscaped = false;
-      } else if (ch === '\\') {
-        isEscaped = true;
-      } else if (ch === inString) {
-        inString = null;
-      }
-      continue;
+    const tokenStart = scanner.getTokenStart();
+    const tokenEnd = scanner.getTokenEnd();
+
+    if (token === SyntaxKind.OpenParenToken) {
+      stack.push(1);
+    } else if (token === SyntaxKind.OpenBracketToken) {
+      stack.push(2);
+    } else if (token === SyntaxKind.OpenBraceToken) {
+      stack.push(3);
+    } else if (token === SyntaxKind.CloseParenToken) {
+      if (stack.length > 0 && stack[stack.length - 1] === 1) stack.pop();
+    } else if (token === SyntaxKind.CloseBracketToken) {
+      if (stack.length > 0 && stack[stack.length - 1] === 2) stack.pop();
+    } else if (token === SyntaxKind.CloseBraceToken) {
+      if (stack.length > 0 && stack[stack.length - 1] === 3) stack.pop();
+    } else if (token === SyntaxKind.CommaToken && stack.length === 0 && parts.length < maxSplits) {
+      parts.push(s.slice(partStart, tokenStart).trim());
+      partStart = tokenEnd;
     }
 
-    if (ch === '/' && next === '/') {
-      inComment = 'line';
-      cur += '//';
-      k++;
-      continue;
-    }
-
-    if (ch === '/' && next === '*') {
-      inComment = 'block';
-      cur += '/*';
-      k++;
-      continue;
-    }
-
-    if (ch === '"' || ch === "'" || ch === '`') {
-      inString = ch;
-      cur += ch;
-      continue;
-    }
-
-    if (ch === '(' || ch === '[' || ch === '{') {
-      depth++;
-      cur += ch;
-      continue;
-    }
-
-    if (ch === ')' || ch === ']' || ch === '}') {
-      if (depth > 0) depth--;
-      cur += ch;
-      continue;
-    }
-
-    if (ch === ',' && depth === 0 && parts.length < maxSplits) {
-      parts.push(cur.trim());
-      cur = '';
-      continue;
-    }
-
-    cur += ch;
+    token = scanner.scan();
   }
 
-  if (cur.trim() || parts.length > 0) {
-    parts.push(cur.trim());
+  const remainder = s.slice(partStart).trim();
+  if (remainder || parts.length > 0) {
+    parts.push(remainder);
   }
 
   return parts;

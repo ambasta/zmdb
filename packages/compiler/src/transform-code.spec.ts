@@ -100,6 +100,17 @@ describe('the scanner', () => {
     expect(transformCode(source)).toBe(source);
   });
 
+  it('correctly splits top-level commas and args respecting JS lexical boundaries (strings, comments, regex, object literals)', () => {
+    const srcObj = 'const ok = validate(tags.Min(0), { a: 1, b: 2 });';
+    expect(norm(transformCode(srcObj))).toContain('typeof { a: 1, b: 2 } === "number" && { a: 1, b: 2 } >= 0');
+
+    const srcQuoted = 'const ok = validate(tags.Pattern("a, b"), input.val);';
+    expect(norm(transformCode(srcQuoted))).toContain('/a, b/.test(input.val)');
+
+    const srcComment = 'const ok = validate(tags.Min(/* comma, here */ 5), x);';
+    expect(norm(transformCode(srcComment))).toContain('typeof x === "number" && x >= /* comma, here */ 5');
+  });
+
   it('does not throw on constructs it has no opinion about', () => {
     const source = 'const result = unknownFunction<number>(x); const custom = customValidate(tags.Min(1), y);';
     expect(transformCode(source)).toBe(source);

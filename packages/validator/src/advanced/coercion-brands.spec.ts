@@ -5,9 +5,55 @@ import { describe, it, expect } from 'vitest';
 // #49: coercion, branded types, object strictness.
 
 describe('coercion', () => {
-  it('coerce.number converts numeric strings and throws on NaN', () => {
+  it('coerce.number accepts finite numbers and nonblank numeric strings', () => {
+    expect(coerce.number(42)).toBe(42);
+    expect(coerce.number(0)).toBe(0);
+    expect(coerce.number(-3.14)).toBe(-3.14);
     expect(coerce.number('42')).toBe(42);
+    expect(coerce.number('  123.45  ')).toBe(123.45);
+    expect(coerce.number('1e3')).toBe(1000);
+  });
+
+  it('coerce.number throws TypeError on non-finite numbers and invalid strings', () => {
+    expect(() => coerce.number(NaN)).toThrow(TypeError);
+    expect(() => coerce.number(Infinity)).toThrow(TypeError);
+    expect(() => coerce.number(-Infinity)).toThrow(TypeError);
     expect(() => coerce.number('nope')).toThrow(TypeError);
+    expect(() => coerce.number('')).toThrow(TypeError);
+    expect(() => coerce.number('   ')).toThrow(TypeError);
+    expect(() => coerce.number('Infinity')).toThrow(TypeError);
+  });
+
+  it('coerce.number throws TypeError on nullish, booleans, collections, objects, symbols, and functions', () => {
+    expect(() => coerce.number(null)).toThrow(TypeError);
+    expect(() => coerce.number(undefined)).toThrow(TypeError);
+    expect(() => coerce.number(true)).toThrow(TypeError);
+    expect(() => coerce.number(false)).toThrow(TypeError);
+    expect(() => coerce.number(Symbol('test'))).toThrow(TypeError);
+    expect(() => coerce.number(BigInt(100))).toThrow(TypeError);
+    expect(() => coerce.number([])).toThrow(TypeError);
+    expect(() => coerce.number([1, 2])).toThrow(TypeError);
+    expect(() => coerce.number({})).toThrow(TypeError);
+    expect(() => coerce.number(() => 42)).toThrow(TypeError);
+  });
+
+  it('coerce.number rejects objects without executing user conversion hooks (valueOf / toString)', () => {
+    let valueOfCalls = 0;
+    let toStringCalls = 0;
+    const objWithHooks = {
+      valueOf() {
+        valueOfCalls++;
+        return 42;
+      },
+      toString() {
+        toStringCalls++;
+        return '42';
+      },
+    };
+
+    expect(() => coerce.number(objWithHooks)).toThrow(TypeError);
+    expect(valueOfCalls).toBe(0);
+    expect(toStringCalls).toBe(0);
   });
 });
 

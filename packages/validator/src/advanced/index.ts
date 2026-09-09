@@ -122,21 +122,31 @@ export function evalRule(rule: Rule, value: unknown): boolean {
 
 export const coerce = {
   number(expr: unknown): number {
-    if (typeof expr === 'boolean' || expr === null || expr === undefined || Array.isArray(expr)) {
-      throw new TypeError(`cannot coerce ${Array.isArray(expr) ? 'array' : String(expr)} to number`);
-    }
     if (typeof expr === 'number') {
-      if (Number.isNaN(expr)) throw new TypeError(`cannot coerce NaN to number`);
+      if (!Number.isFinite(expr)) {
+        if (Number.isNaN(expr)) throw new TypeError('cannot coerce NaN to number');
+        throw new TypeError('cannot coerce Infinity to number');
+      }
       return expr;
     }
     if (typeof expr === 'string') {
       if (expr.trim() === '') {
-        throw new TypeError(`cannot coerce empty string to number`);
+        throw new TypeError('cannot coerce empty string to number');
       }
       const n = Number(expr);
-      if (Number.isNaN(n)) throw new TypeError(`cannot coerce to number: ${expr}`);
+      if (!Number.isFinite(n)) {
+        throw new TypeError(`cannot coerce to number: ${expr}`);
+      }
       return n;
     }
+    if (expr === null) throw new TypeError('cannot coerce null to number');
+    if (expr === undefined) throw new TypeError('cannot coerce undefined to number');
+    if (typeof expr === 'boolean') throw new TypeError('cannot coerce boolean to number');
+    if (typeof expr === 'symbol') throw new TypeError('cannot coerce symbol to number');
+    if (typeof expr === 'bigint') throw new TypeError('cannot coerce bigint to number');
+    if (Array.isArray(expr)) throw new TypeError('cannot coerce array to number');
+    if (typeof expr === 'function') throw new TypeError('cannot coerce function to number');
+    if (typeof expr === 'object') throw new TypeError('cannot coerce object to number');
     throw new TypeError(`cannot coerce ${typeof expr} to number`);
   },
 } as const;

@@ -32,7 +32,8 @@ source. No current validator or emitter path applies the rule, so callers that i
 
 ## 4. Coercion, branded types, object strictness
 
-- `coerce.number(expr)` → inline `Number(expr)` with NaN guard.
+- `coerce.number(expr)` → finite number boundary coercion (accepts finite numbers and nonblank numeric strings, rejects non-numeric types, blank strings, NaN, and Infinities without executing object
+  conversion hooks).
 - Branded types: compile-time only nominal typing; no runtime footprint.
 - Object modes: `strict` (reject excess keys), `strip` (delete excess), `passthrough`.
 
