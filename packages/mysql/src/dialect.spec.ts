@@ -81,7 +81,6 @@ describe('MySQL compiler and capabilities', () => {
     );
 
     expect(statements).toEqual([
-      'CREATE INDEX `posts_account_fkey_idx` ON `posts` (`account_id`)',
       'ALTER TABLE `posts` ADD CONSTRAINT `posts_account_fkey` FOREIGN KEY (`account_id`) ' +
         'REFERENCES `accounts` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT',
     ]);
@@ -115,13 +114,10 @@ describe('MySQL compiler and capabilities', () => {
     );
     expect(
       mysql.migrations.emitUp({
-        kind: 'alter_column_type',
+        kind: 'alter_column',
         table: 'posts',
-        column: 'account_id',
-        from: 'integer',
-        to: 'bigint',
-        fromNullable: false,
-        toNullable: false,
+        from: { name: 'account_id', type: 'integer', nullable: false, primaryKey: false },
+        to: { name: 'account_id', type: 'bigint', nullable: false, primaryKey: false },
       }),
     ).toBe('ALTER TABLE `posts` MODIFY COLUMN `account_id` BIGINT NOT NULL');
     expect(
@@ -130,6 +126,22 @@ describe('MySQL compiler and capabilities', () => {
         definition: { name: 'slug_key', type: 'VARCHAR(120)', expression: 'lower(`slug`)', stored: true },
       }),
     ).toEqual(['`slug_key` VARCHAR(120) GENERATED ALWAYS AS (lower(`slug`)) STORED']);
+  });
+
+  it('renders literal text defaults as expressions when altering and reversing a column', () => {
+    const column = { name: 'role', type: 'text', nullable: false, primaryKey: false } as const;
+    const operation = {
+      kind: 'alter_column',
+      table: 'users',
+      from: { ...column, default: { kind: 'literal', value: 'member' } },
+      to: { ...column, default: { kind: 'literal', value: 'viewer' } },
+    } as const;
+    expect(mysql.migrations.emitUp(operation)).toBe(
+      "ALTER TABLE `users` MODIFY COLUMN `role` TEXT NOT NULL DEFAULT ('viewer')",
+    );
+    expect(mysql.migrations.emitDown(operation)).toBe(
+      "ALTER TABLE `users` MODIFY COLUMN `role` TEXT NOT NULL DEFAULT ('member')",
+    );
   });
 
   it('refuses unsupported MySQL schema objects during migration validation', () => {

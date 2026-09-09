@@ -4,6 +4,7 @@
 // admitted to the product vocabulary rather than leaking through `export *`.
 export {
   CHANGE_PHASES,
+  columnDefaultSql,
   ddlType,
   diff,
   down,

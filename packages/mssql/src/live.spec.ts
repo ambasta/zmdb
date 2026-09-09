@@ -375,7 +375,7 @@ describe.skipIf(probe.kind === 'unreachable')('@zmdb/mssql against real SQL Serv
     expect(catalogTable.columns.find(column => column.name === 'active')).toMatchObject({
       type: 'boolean',
       catalogType: 'BIT',
-      default: '((1))',
+      default: { kind: 'expression', sql: '((1))' },
     });
     expect(catalogTable.columns.find(column => column.name === 'guid')).toMatchObject({
       type: 'UNIQUEIDENTIFIER',

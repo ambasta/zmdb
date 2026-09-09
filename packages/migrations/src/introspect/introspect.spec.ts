@@ -6,7 +6,6 @@ import { detectDrift, normalizeDriftSnapshot } from './index.js';
 
 type CatalogColumn = ColumnSnapshot & {
   readonly catalogType?: string;
-  readonly default?: string;
 };
 
 type CatalogTable = Omit<TableSnapshot, 'columns'> & {
@@ -88,7 +87,7 @@ describe('vendor-neutral drift comparison', () => {
     });
   });
 
-  it('normalizes catalog spellings and defaults without vendor selection', () => {
+  it('normalizes catalog types while retaining distinct defaults', () => {
     const live = snapshot([
       table('events', [
         {
@@ -97,7 +96,7 @@ describe('vendor-neutral drift comparison', () => {
           catalogType: 'timestamp with time zone',
           nullable: false,
           primaryKey: false,
-          default: "'now()'",
+          default: { kind: 'expression', sql: "'now()'" },
         },
       ]),
     ]);
@@ -109,7 +108,7 @@ describe('vendor-neutral drift comparison', () => {
           catalogType: 'timestamptz',
           nullable: false,
           primaryKey: false,
-          default: 'now()',
+          default: { kind: 'expression', sql: 'now()' },
         },
       ]),
     ]);
@@ -119,8 +118,9 @@ describe('vendor-neutral drift comparison', () => {
       type: 'timestamp',
       nullable: false,
       primaryKey: false,
+      default: { kind: 'expression', sql: "'now()'" },
     });
-    expect(detectDrift(live, declared, { dialect: postgresDialect }).clean).toBe(true);
+    expect(detectDrift(live, declared, { dialect: postgresDialect }).clean).toBe(false);
   });
 
   it('lets a database-owned introspector remove its own catalog noise', () => {

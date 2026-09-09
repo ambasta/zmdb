@@ -116,17 +116,23 @@ interface FrozenCreateTable {
 
 type FrozenChangeOp =
   | FrozenCreateTable
-  | { readonly kind: 'drop_table'; readonly table: string }
-  | { readonly kind: 'add_column'; readonly table: string; readonly column: FrozenColumn }
-  | { readonly kind: 'drop_column'; readonly table: string; readonly column: string }
   | {
-      readonly kind: 'alter_column_type';
+      readonly kind: 'drop_table';
       readonly table: string;
-      readonly column: string;
-      readonly from: string;
-      readonly to: string;
-      readonly fromNullable?: boolean;
-      readonly toNullable?: boolean;
+      readonly definition: {
+        readonly name: string;
+        readonly columns: readonly FrozenColumn[];
+        readonly primaryKey: readonly string[];
+        readonly foreignKeys: readonly [];
+      };
+    }
+  | { readonly kind: 'add_column'; readonly table: string; readonly column: FrozenColumn }
+  | { readonly kind: 'drop_column'; readonly table: string; readonly column: FrozenColumn }
+  | {
+      readonly kind: 'alter_column';
+      readonly table: string;
+      readonly from: FrozenColumn;
+      readonly to: FrozenColumn;
     };
 
 type Outcome =
@@ -907,7 +913,15 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'change op: drop_table',
-    build: dialect => emitUp({ kind: 'drop_table', table: 'events' }, dialect),
+    build: dialect =>
+      emitUp(
+        {
+          kind: 'drop_table',
+          table: 'events',
+          definition: { name: 'events', columns: [], primaryKey: [], foreignKeys: [] },
+        },
+        dialect,
+      ),
     expected: {
       postgres: value('DROP TABLE "events"'),
       mysql: value('DROP TABLE `events`'),
@@ -939,7 +953,15 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'change op: drop_column',
-    build: dialect => emitUp({ kind: 'drop_column', table: 'users', column: 'age' }, dialect),
+    build: dialect =>
+      emitUp(
+        {
+          kind: 'drop_column',
+          table: 'users',
+          column: { name: 'age', type: 'integer', nullable: false, primaryKey: false },
+        },
+        dialect,
+      ),
     expected: {
       postgres: value('ALTER TABLE "users" DROP COLUMN "age"'),
       mysql: value('ALTER TABLE `users` DROP COLUMN `age`'),
@@ -950,24 +972,21 @@ const MATRIX: readonly MatrixCase[] = [
     },
   },
   {
-    name: 'change op: alter_column_type',
+    name: 'change op: alter_column',
     build: dialect =>
       emitUp(
         {
-          kind: 'alter_column_type',
+          kind: 'alter_column',
           table: 'events',
-          column: 'at',
-          from: 'text',
-          to: 'timestamp',
-          fromNullable: false,
-          toNullable: false,
+          from: { name: 'at', type: 'text', nullable: false, primaryKey: false },
+          to: { name: 'at', type: 'timestamp', nullable: false, primaryKey: false },
         },
         dialect,
       ),
     expected: {
       postgres: value('ALTER TABLE "events" ALTER COLUMN "at" TYPE TIMESTAMPTZ'),
       mysql: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(3) NOT NULL'),
-      sqlite: refused('alter column type', 'sqlite'),
+      sqlite: refused('alter column', 'sqlite'),
       mssql: value('ALTER TABLE [events] ALTER COLUMN [at] DATETIMEOFFSET(3) NOT NULL'),
       cockroach: value('ALTER TABLE "events" ALTER COLUMN "at" TYPE TIMESTAMPTZ'),
       singlestore: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(6) NOT NULL'),
@@ -1019,7 +1038,7 @@ const EXPECTED_CONSTRUCTS: readonly [
   'change op: drop_table',
   'change op: add_column',
   'change op: drop_column',
-  'change op: alter_column_type',
+  'change op: alter_column',
 ] = [
   'select: where + order + limit',
   'select: chained predicates',
@@ -1064,7 +1083,7 @@ const EXPECTED_CONSTRUCTS: readonly [
   'change op: drop_table',
   'change op: add_column',
   'change op: drop_column',
-  'change op: alter_column_type',
+  'change op: alter_column',
 ];
 
 function matrixCase(name: string): MatrixCase {

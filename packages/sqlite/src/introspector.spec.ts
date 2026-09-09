@@ -105,7 +105,7 @@ describe('sqlite catalog introspection', () => {
           catalogType: 'TEXT',
           nullable: false,
           primaryKey: false,
-          default: 'CURRENT_TIMESTAMP',
+          default: { kind: 'expression', sql: 'CURRENT_TIMESTAMP' },
         },
         { name: 'email', type: 'text', catalogType: 'TEXT', nullable: false, primaryKey: false },
         { name: 'id', type: 'serial', catalogType: 'INTEGER', nullable: false, primaryKey: true },
@@ -116,7 +116,7 @@ describe('sqlite catalog introspection', () => {
           catalogType: 'TEXT',
           nullable: false,
           primaryKey: false,
-          default: "'active'",
+          default: { kind: 'expression', sql: "'active'" },
         },
       ]);
       expect(table(actual, 'accounts').primaryKey).toEqual(['id']);
@@ -171,8 +171,11 @@ describe('sqlite catalog introspection', () => {
     const database = fixture();
     try {
       const actual = await sqliteIntrospector.snapshot(sqliteDriver(database));
-      expect(column(actual, 'accounts', 'status').default).toBe("'active'");
-      expect(column(actual, 'accounts', 'created_at').default).toBe('CURRENT_TIMESTAMP');
+      expect(column(actual, 'accounts', 'status').default).toEqual({ kind: 'expression', sql: "'active'" });
+      expect(column(actual, 'accounts', 'created_at').default).toEqual({
+        kind: 'expression',
+        sql: 'CURRENT_TIMESTAMP',
+      });
     } finally {
       database.close();
     }

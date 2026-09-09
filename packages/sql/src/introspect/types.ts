@@ -26,7 +26,6 @@ export interface CatalogIndexSnapshot {
 
 export interface CatalogColumnSnapshot extends ColumnSnapshot {
   readonly catalogType: string;
-  readonly default?: string;
   /** Dialect catalog evidence for a generated column. Drift comparison may ignore it. */
   readonly generated?: {
     readonly expression: string;

@@ -108,6 +108,60 @@ const { NamingUser: compileNamingUserSchema } = schemasFrom<{ NamingUser: Naming
 );
 
 describe('diff engine', () => {
+  it.each([
+    { nullable: false },
+    { unique: true },
+    { default: { kind: 'literal' as const, value: 'guest' } },
+    { nullable: false, unique: true, default: { kind: 'literal' as const, value: 'guest' } },
+  ])('detects a column constraint change without a type change: %j', changed => {
+    const column = { name: 'email', type: 'text', nullable: true, primaryKey: false };
+    const before = snap([{ name: 'users', columns: [column], primaryKey: [], foreignKeys: [] }]);
+    const afterColumn = { ...column, ...changed };
+    const after = snap([{ name: 'users', columns: [afterColumn], primaryKey: [], foreignKeys: [] }]);
+    expect(diff(before, after)).toEqual([{ kind: 'alter_column', table: 'users', from: column, to: afterColumn }]);
+    expect(diff(after, after)).toEqual([]);
+    const operation = diff(before, after)[0];
+    if (operation === undefined) throw new Error('constraint change was omitted');
+    expect(emitUp(operation, postgresDialect)).toContain('ALTER TABLE "users"');
+    expect(emitDown(operation, postgresDialect)).toContain('ALTER TABLE "users"');
+    expect(() => diff(before, after, { dialect: sqliteDialect })).toThrow(UnsupportedFeatureError);
+  });
+
+  it('distinguishes removing a default from an explicit NULL and escapes literal defaults', () => {
+    const column = { name: 'email', type: 'text', nullable: true, primaryKey: false };
+    const initial = { ...column, default: { kind: 'literal' as const, value: "O'Reilly" } };
+    const state = (entry: ColumnSnapshot) =>
+      snap([{ name: 'users', columns: [entry], primaryKey: [], foreignKeys: [] }]);
+    const removed = diff(state(initial), state(column))[0];
+    const nullDefault = { ...column, default: { kind: 'literal' as const, value: null } };
+    const explicitNull = diff(state(column), state(nullDefault))[0];
+    if (removed === undefined || explicitNull === undefined) throw new Error('default change was omitted');
+    expect(emitUp(removed, postgresDialect)).toContain('DROP DEFAULT');
+    expect(emitDown(removed, postgresDialect)).toContain("SET DEFAULT 'O''Reilly'");
+    expect(emitUp(explicitNull, postgresDialect)).toContain('SET DEFAULT NULL');
+  });
+
+  it('retains complete dropped schema definitions for inverse DDL', () => {
+    const column = {
+      name: 'label',
+      type: 'text',
+      nullable: false,
+      primaryKey: false,
+      unique: true,
+      default: { kind: 'literal' as const, value: 'guest' },
+    };
+    const table = { name: 'labels', columns: [column], primaryKey: [], foreignKeys: [] };
+    const dropTable = diff(snap([table]), snap([]))[0];
+    const dropColumn = diff(snap([table]), snap([{ ...table, columns: [] }]))[0];
+    if (dropTable === undefined || dropColumn === undefined) throw new Error('drop was omitted');
+    expect(dropTable).toEqual({ kind: 'drop_table', table: 'labels', definition: table });
+    expect(dropColumn).toEqual({ kind: 'drop_column', table: 'labels', column });
+    expect(emitDown(dropTable, postgresDialect)).toContain('"label" TEXT NOT NULL');
+    expect(emitDown(dropTable, postgresDialect)).toContain("DEFAULT 'guest'");
+    expect(emitDown(dropTable, postgresDialect)).toContain('UNIQUE');
+    expect(emitDown(dropColumn, postgresDialect)).toContain('ADD COLUMN "label" TEXT NOT NULL');
+  });
+
   it('identical snapshots → no ops', () => {
     expect(diff(usersV1, usersV1)).toEqual([]);
   });
@@ -293,7 +347,7 @@ interface AddForeignKey {
 interface DropForeignKey {
   readonly kind: 'drop_foreign_key';
   readonly table: string;
-  readonly name: string;
+  readonly fk: FrozenForeignKeySnapshot;
 }
 
 type FrozenChangeOp = ChangeOp | FrozenCreateTable | AddForeignKey | DropForeignKey;
@@ -311,10 +365,6 @@ function capture(run: () => unknown): SqlOutcome {
     const value = run();
     return {
       kind: 'sql',
-      // The public emitter returns one string. MySQL's required supporting index
-      // makes that string contain two statements; the separator is not part of the
-      // frozen contract, so compare the two complete statements rather than inventing
-      // whether the join is `; ` or `;\n`.
       statements:
         typeof value === 'string'
           ? value
@@ -370,10 +420,6 @@ function addStatement(dialect: Exclude<OfficialDialectName, 'sqlite'>, fk: Froze
   );
 }
 
-function mysqlIndexStatement(fk: FrozenForeignKeySnapshot): string {
-  return `CREATE INDEX \`${fk.name}_idx\` ON \`posts\` (` + fk.columns.map(column => `\`${column}\``).join(', ') + ')';
-}
-
 function sqliteCreateStatement(fk: FrozenForeignKeySnapshot, nullable = false): string {
   const local = fk.columns.map(column => `"${column}"`).join(', ');
   const target = fk.targetColumns.map(column => `"${column}"`).join(', ');
@@ -400,7 +446,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
       postgres: { kind: 'sql', statements: [addStatement('postgres', postsUserId)] },
       mysql: {
         kind: 'sql',
-        statements: [mysqlIndexStatement(postsUserId), addStatement('mysql', postsUserId)],
+        statements: [addStatement('mysql', postsUserId)],
       },
       sqlite: { kind: 'sql', statements: [sqliteCreateStatement(postsUserId)] },
     });
@@ -453,7 +499,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
                   }
                 : {
                     kind: 'sql',
-                    statements: [mysqlIndexStatement(fk), addStatement('mysql', fk)],
+                    statements: [addStatement('mysql', fk)],
                   },
             sqlite: { kind: 'sql', statements: [sqliteCreateStatement(fk, nullable)] },
           },
@@ -480,12 +526,14 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
     });
   });
 
-  // actual today: the add op returns undefined, so neither statement exists.
-  it('creates the supporting index MySQL requires', () => {
+  it('leaves foreign-key supporting index ownership to MySQL', () => {
     expect(capture(() => up(addPostsUserId, 'mysql'))).toEqual({
       kind: 'sql',
-      statements: [mysqlIndexStatement(postsUserId), addStatement('mysql', postsUserId)],
+      statements: [addStatement('mysql', postsUserId)],
     });
+    const removed = { kind: 'drop_foreign_key', table: 'posts', fk: postsUserId } as const;
+    expect(emitUp(removed, officialDialects.mysql)).toBe('ALTER TABLE `posts` DROP FOREIGN KEY `posts_user_id_fkey`');
+    expect(emitDown(removed, officialDialects.mysql)).toBe(addStatement('mysql', postsUserId));
     expect(capture(() => up(addPostsUserId, 'postgres'))).toEqual({
       kind: 'sql',
       statements: [addStatement('postgres', postsUserId)],
@@ -518,8 +566,6 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
       'ALTER TABLE "memberships" ADD CONSTRAINT "memberships_tenant_id_user_id_fkey" ' +
       'FOREIGN KEY ("tenant_id", "user_id") REFERENCES "users" ("tenant_id", "id") ' +
       'ON DELETE CASCADE ON UPDATE RESTRICT';
-    const mysqlIndex =
-      'CREATE INDEX `memberships_tenant_id_user_id_fkey_idx` ON `memberships` (`tenant_id`, `user_id`)';
     const mysql =
       'ALTER TABLE `memberships` ADD CONSTRAINT `memberships_tenant_id_user_id_fkey` ' +
       'FOREIGN KEY (`tenant_id`, `user_id`) REFERENCES `users` (`tenant_id`, `id`) ' +
@@ -536,7 +582,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
       sqlite: capture(() => up(createMemberships, 'sqlite')),
     }).toEqual({
       postgres: { kind: 'sql', statements: [postgres] },
-      mysql: { kind: 'sql', statements: [mysqlIndex, mysql] },
+      mysql: { kind: 'sql', statements: [mysql] },
       sqlite: { kind: 'sql', statements: [sqlite] },
     });
   });
@@ -723,7 +769,7 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
   // actual today: [] — diff compares table/column names and column types only.
   it('diffs a changed action into a drop and an add', () => {
     expect(diff(asSnapshot([noActionPosts]), asSnapshot([cascadePosts]))).toEqual([
-      { kind: 'drop_foreign_key', table: 'posts', name: 'posts_user_id_fkey' },
+      { kind: 'drop_foreign_key', table: 'posts', fk: noActionPosts.foreignKeys[0] },
       { kind: 'add_foreign_key', table: 'posts', fk: postsUserId },
     ]);
   });
@@ -1022,20 +1068,19 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
       { kind: 'create_extension', name: 'vector' },
       { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'], foreignKeys: [] },
     ]);
-    expect(extensionDiff(vectorItems, noExtensions)).toEqual([{ kind: 'drop_table', table: 'items' }]);
+    expect(extensionDiff(vectorItems, noExtensions)).toEqual([
+      { kind: 'drop_table', table: 'items', definition: vectorItems.tables[0] },
+    ]);
   });
 
   it('compares extension type arguments structurally and emits a dimension change as an alter', () => {
     const changes = extensionDiff(vectorItems, vectorItems3072);
     expect(changes).toEqual([
       {
-        kind: 'alter_column_type',
+        kind: 'alter_column',
         table: 'items',
-        column: 'embedding',
-        from: vector1536,
-        to: vector3072,
-        fromNullable: false,
-        toNullable: false,
+        from: { name: 'embedding', type: vector1536, nullable: false, primaryKey: false },
+        to: { name: 'embedding', type: vector3072, nullable: false, primaryKey: false },
       },
     ]);
     expect(changes.map(op => extensionUp(op, 'postgres'))).toEqual([

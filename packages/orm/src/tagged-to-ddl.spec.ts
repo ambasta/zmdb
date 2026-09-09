@@ -10,8 +10,8 @@
 // The corpus is worth keeping on its own, and so is asking it a question a differential cannot
 // ask. Between these three tables: every `SqlType`, a composite primary key, a non-serial
 // primary key, foreign keys, nullable and defaulted columns, a sensitive column, a json column
-// with a payload shape, and an FTS table. Two of those are still dropped on the way to the
-// DDL; the composite key is preserved as one ordered table constraint. The old version could
+// with a payload shape, and an FTS table. The composite key is preserved as one ordered
+// table constraint. The old version could
 // not have noticed any of it, because both sides of the comparison were wrong in the same way.
 
 import { schemasFrom } from '@zmdb/compiler/testing';
@@ -60,9 +60,8 @@ export interface User extends Table<'users'> {
   score: (number & Sql<'numeric'>) | null;
   visits: bigint & Sql<'bigint'>;
   bio: (string & Sql<'text'> & MaxLength<2000>) | null;
-  // `HasDefault` says a default exists, not what it is: a type cannot carry a runtime value, so
-  // the value belongs to the migration. The flag is the half that has to survive, because it is
-  // what keeps the column out of `CreateDTO`.
+  // `HasDefault` makes the field optional in CreateDTO. The migration must also
+  // supply the concrete default; a flag alone cannot produce its SQL.
   active: boolean & Sql<'boolean'> & HasDefault;
   createdAt: Date & Sql<'timestamp'> & HasDefault;
   role: ('admin' | 'editor' | 'viewer') & HasDefault;
@@ -100,6 +99,15 @@ const {
 
 const DIALECTS: readonly OfficialDialectName[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
 const EMPTY: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
+const UsersWithDefaults = schemaFromIR({
+  ...Users.ir,
+  columns: Users.ir.columns.map(column => {
+    if (column.name === 'active') return { ...column, default: true };
+    if (column.name === 'createdAt') return { ...column, default: { kind: 'expression', sql: 'CURRENT_TIMESTAMP' } };
+    if (column.name === 'role') return { ...column, default: 'viewer' };
+    return column;
+  }),
+});
 
 function target(dialect: OfficialDialectName): DialectTarget {
   return officialDialects[dialect];
@@ -167,39 +175,39 @@ describe('the DDL a tagged declaration reaches the database as', () => {
   // could only ever say the two sides agreed, which is why nobody had read these strings.
 
   it('renders every column type for postgres', () => {
-    expect(ddl(Users, 'postgres')).toEqual([
-      'CREATE TABLE "users" ("active" BOOLEAN NOT NULL, "age" INTEGER NOT NULL, "bio" TEXT, ' +
-        '"createdAt" TIMESTAMPTZ NOT NULL, "email" VARCHAR(255) NOT NULL, "id" SERIAL PRIMARY KEY, ' +
-        '"passwordHash" TEXT NOT NULL, "role" TEXT NOT NULL, "score" NUMERIC, "settings" JSONB NOT NULL, ' +
+    expect(ddl(UsersWithDefaults, 'postgres')).toEqual([
+      'CREATE TABLE "users" ("active" BOOLEAN NOT NULL DEFAULT TRUE, "age" INTEGER NOT NULL, "bio" TEXT, ' +
+        '"createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, "email" VARCHAR(255) NOT NULL UNIQUE, "id" SERIAL PRIMARY KEY, ' +
+        '"passwordHash" TEXT NOT NULL, "role" TEXT NOT NULL DEFAULT \'viewer\', "score" NUMERIC, "settings" JSONB NOT NULL, ' +
         '"visits" BIGINT NOT NULL)',
     ]);
   });
 
   it('renders every column type for mysql', () => {
-    expect(ddl(Users, 'mysql')).toEqual([
-      'CREATE TABLE `users` (`active` TINYINT(1) NOT NULL, `age` INT NOT NULL, `bio` TEXT, ' +
-        '`createdAt` DATETIME(3) NOT NULL, `email` VARCHAR(255) NOT NULL UNIQUE, ' +
+    expect(ddl(UsersWithDefaults, 'mysql')).toEqual([
+      'CREATE TABLE `users` (`active` TINYINT(1) NOT NULL DEFAULT 1, `age` INT NOT NULL, `bio` TEXT, ' +
+        '`createdAt` DATETIME(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP), `email` VARCHAR(255) NOT NULL UNIQUE, ' +
         '`id` INT AUTO_INCREMENT PRIMARY KEY, ' +
-        '`passwordHash` TEXT NOT NULL, `role` TEXT NOT NULL, `score` DECIMAL, `settings` JSON NOT NULL, ' +
+        "`passwordHash` TEXT NOT NULL, `role` TEXT NOT NULL DEFAULT ('viewer'), `score` DECIMAL, `settings` JSON NOT NULL, " +
         '`visits` BIGINT NOT NULL)',
     ]);
   });
 
   it('renders every column type for sqlite', () => {
-    expect(ddl(Users, 'sqlite')).toEqual([
-      'CREATE TABLE "users" ("active" INTEGER NOT NULL, "age" INTEGER NOT NULL, "bio" TEXT, ' +
-        '"createdAt" TEXT NOT NULL, "email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY, ' +
-        '"passwordHash" TEXT NOT NULL, "role" TEXT NOT NULL, "score" NUMERIC, "settings" TEXT NOT NULL, ' +
+    expect(ddl(UsersWithDefaults, 'sqlite')).toEqual([
+      'CREATE TABLE "users" ("active" INTEGER NOT NULL DEFAULT (1), "age" INTEGER NOT NULL, "bio" TEXT, ' +
+        '"createdAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP), "email" TEXT NOT NULL UNIQUE, "id" INTEGER PRIMARY KEY, ' +
+        '"passwordHash" TEXT NOT NULL, "role" TEXT NOT NULL DEFAULT (\'viewer\'), "score" NUMERIC, "settings" TEXT NOT NULL, ' +
         '"visits" INTEGER NOT NULL)',
     ]);
   });
 
   it('renders every column type for mssql', () => {
-    expect(ddl(Users, 'mssql')).toEqual([
-      'CREATE TABLE [users] ([active] BIT NOT NULL, [age] INT NOT NULL, [bio] NVARCHAR(MAX), ' +
-        '[createdAt] DATETIMEOFFSET(3) NOT NULL, [email] NVARCHAR(255) NOT NULL, ' +
+    expect(ddl(UsersWithDefaults, 'mssql')).toEqual([
+      'CREATE TABLE [users] ([active] BIT NOT NULL DEFAULT 1, [age] INT NOT NULL, [bio] NVARCHAR(MAX), ' +
+        '[createdAt] DATETIMEOFFSET(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, [email] NVARCHAR(255) NOT NULL UNIQUE, ' +
         '[id] INT IDENTITY(1,1) PRIMARY KEY, [passwordHash] NVARCHAR(MAX) NOT NULL, ' +
-        '[role] NVARCHAR(MAX) NOT NULL, [score] DECIMAL, [settings] NVARCHAR(MAX) NOT NULL, ' +
+        "[role] NVARCHAR(MAX) NOT NULL DEFAULT 'viewer', [score] DECIMAL, [settings] NVARCHAR(MAX) NOT NULL, " +
         '[visits] BIGINT NOT NULL)',
     ]);
   });
@@ -223,7 +231,7 @@ describe('the DDL a tagged declaration reaches the database as', () => {
     // that does not depend on it. A column missing from the DDL is a column the application
     // writes to and the database has never heard of.
     for (const dialect of DIALECTS) {
-      const create = ddl(Users, dialect)[0] ?? '';
+      const create = ddl(UsersWithDefaults, dialect)[0] ?? '';
       expect(create, dialect).toContain('CREATE TABLE');
       for (const column of Object.keys(Users.columns)) {
         expect(create, `${dialect}: ${column}`).toContain(column);
@@ -235,8 +243,8 @@ describe('the DDL a tagged declaration reaches the database as', () => {
     expect(Users.columns.email?.flags.unique).toBe(true);
     expect(Memberships.ir.columns.find(column => column.name === 'userId')?.references).toBe('users.id');
     for (const dialect of DIALECTS) {
-      if (dialect === 'mysql') expect(ddl(Users, dialect)[0], dialect).toContain('UNIQUE');
-      else expect(ddl(Users, dialect)[0], dialect).not.toContain('UNIQUE');
+      expect(() => ddl(Users, dialect), dialect).toThrow('unresolved default');
+      expect(ddl(UsersWithDefaults, dialect)[0], dialect).toContain('UNIQUE');
       const statements = ddl(Memberships, dialect).join('; ');
       expect(statements, dialect).toContain('REFERENCES');
       expect(statements, dialect).toContain('ON DELETE NO ACTION ON UPDATE NO ACTION');
@@ -249,12 +257,12 @@ describe('the DDL a tagged declaration reaches the database as', () => {
       'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
         'PRIMARY KEY ("userId", "groupId"))',
     );
-    expect(ddl(Memberships, 'mysql')[0]).toBe(
+    expect(ddl(Memberships, 'mysql')).toEqual([
       'CREATE TABLE `memberships` (`groupId` INT NOT NULL, `note` TEXT, `userId` INT NOT NULL, ' +
-        'PRIMARY KEY (`userId`, `groupId`), INDEX `memberships_userId_fkey_idx` (`userId`), ' +
-        'CONSTRAINT `memberships_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users` (`id`) ' +
-        'ON DELETE NO ACTION ON UPDATE NO ACTION)',
-    );
+        'PRIMARY KEY (`userId`, `groupId`))',
+      'ALTER TABLE `memberships` ADD CONSTRAINT `memberships_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users` (`id`) ' +
+        'ON DELETE NO ACTION ON UPDATE NO ACTION',
+    ]);
     expect(ddl(Memberships, 'sqlite')[0]).toBe(
       'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
         'PRIMARY KEY ("userId", "groupId"), FOREIGN KEY ("userId") REFERENCES "users" ("id") ' +

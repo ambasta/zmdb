@@ -267,9 +267,15 @@ describe('@zmdb/sqlite vertical', () => {
       const children = snapshot.tables.find(table => table.name === 'children');
 
       expect(parents?.primaryKey).toEqual(['tenant_id', 'id']);
-      expect(parents?.columns.find(column => column.name === 'label')?.default).toBe("'new'");
+      expect(parents?.columns.find(column => column.name === 'label')?.default).toEqual({
+        kind: 'expression',
+        sql: "'new'",
+      });
       expect(children?.primaryKey).toEqual(['tenant_id', 'id']);
-      expect(children?.columns.find(column => column.name === 'active')?.default).toBe('1');
+      expect(children?.columns.find(column => column.name === 'active')?.default).toEqual({
+        kind: 'expression',
+        sql: '1',
+      });
       expect(children?.foreignKeys).toEqual([
         {
           name: 'children_parent_tenant_id_parent_id_fkey',
@@ -455,11 +461,21 @@ describe('@zmdb/sqlite vertical', () => {
   it('refuses unsupported ALTER operations explicitly', () => {
     const operations: readonly ChangeOp[] = [
       {
-        kind: 'alter_column_type',
+        kind: 'add_column',
         table: 'users',
-        column: 'visits',
-        from: 'integer',
-        to: 'text',
+        column: {
+          name: 'created_at',
+          type: 'timestamp',
+          nullable: false,
+          primaryKey: false,
+          default: { kind: 'expression', sql: 'CURRENT_TIMESTAMP' },
+        },
+      },
+      {
+        kind: 'alter_column',
+        table: 'users',
+        from: { name: 'visits', type: 'integer', nullable: false, primaryKey: false },
+        to: { name: 'visits', type: 'text', nullable: false, primaryKey: false },
       },
       { kind: 'alter_primary_key', table: 'users', from: ['id'], to: ['email'] },
       {
@@ -474,7 +490,18 @@ describe('@zmdb/sqlite vertical', () => {
           onUpdate: 'no action',
         },
       },
-      { kind: 'drop_foreign_key', table: 'users', name: 'users_org_id_fkey' },
+      {
+        kind: 'drop_foreign_key',
+        table: 'users',
+        fk: {
+          name: 'users_org_id_fkey',
+          columns: ['org_id'],
+          targetTable: 'orgs',
+          targetColumns: ['id'],
+          onDelete: 'cascade',
+          onUpdate: 'no action',
+        },
+      },
     ];
     for (const operation of operations) {
       expect(() => sqlite.migrations.emitUp(operation), operation.kind).toThrow(UnsupportedFeatureError);
@@ -501,13 +528,38 @@ describe('@zmdb/sqlite vertical', () => {
     ).toThrow(UnsupportedFeatureError);
   });
 
-  it('refuses lossy down migrations instead of guessing dropped schema', () => {
-    expect(() => sqlite.migrations.emitDown({ kind: 'drop_table', table: 'users' })).toThrow(
-      'drop operation carries no columns',
-    );
-    expect(() => sqlite.migrations.emitDown({ kind: 'drop_column', table: 'users', column: 'email' })).toThrow(
-      'drop operation carries no type, nullability, key, or default metadata',
-    );
+  it('recreates dropped schema from complete inverse definitions', () => {
+    const email = {
+      name: 'email',
+      type: 'text',
+      nullable: false,
+      primaryKey: false,
+      default: { kind: 'literal' as const, value: 'guest' },
+    };
+    const database = new DatabaseSync(':memory:');
+    try {
+      database.exec(
+        sqlite.migrations.emitDown({
+          kind: 'drop_table',
+          table: 'users',
+          definition: { name: 'users', columns: [email], primaryKey: [], foreignKeys: [] },
+        }),
+      );
+      database.exec('INSERT INTO users DEFAULT VALUES');
+      expect(database.prepare('SELECT email FROM users').get()).toEqual({ email: 'guest' });
+      database.exec(
+        sqlite.migrations.emitUp({
+          kind: 'add_column',
+          table: 'users',
+          column: { name: 'id', type: 'integer', nullable: true, primaryKey: false },
+        }),
+      );
+      database.exec(sqlite.migrations.emitUp({ kind: 'drop_column', table: 'users', column: email }));
+      database.exec(sqlite.migrations.emitDown({ kind: 'drop_column', table: 'users', column: email }));
+      expect(database.prepare('SELECT email FROM users').get()).toEqual({ email: 'guest' });
+    } finally {
+      database.close();
+    }
   });
 
   it.each([

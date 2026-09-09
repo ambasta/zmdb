@@ -385,7 +385,15 @@ export async function mysqlSnapshot(
           nullable: column.nullable,
           primaryKey: primaryKey.includes(column.name),
           ...(mapped.length === undefined ? {} : { length: mapped.length }),
-          ...(column.default === null ? {} : { default: column.default }),
+          ...(column.default === null
+            ? {}
+            : {
+                default:
+                  column.extra.toLowerCase().includes('default_generated') ||
+                  ['integer', 'bigint', 'numeric', 'boolean'].includes(mapped.type)
+                    ? { kind: 'expression' as const, sql: column.default }
+                    : { kind: 'literal' as const, value: column.default },
+              }),
           ...(generated === undefined ? {} : { generated }),
         };
       })

@@ -115,17 +115,14 @@ describe('emitUp uses the map', () => {
 
   it('maps the target of an alter, in every dialect', () => {
     const alter: ChangeOp = {
-      kind: 'alter_column_type',
+      kind: 'alter_column',
       table: 'events',
-      column: 'at',
-      from: 'text',
-      to: 'timestamp',
-      fromNullable: false,
-      toNullable: false,
+      from: { name: 'at', type: 'text', nullable: false, primaryKey: false },
+      to: { name: 'at', type: 'timestamp', nullable: false, primaryKey: false },
     };
     expect(emitUp(alter, postgresDialect)).toContain('TYPE TIMESTAMPTZ');
     expect(emitUp(alter, mysqlDialect)).toContain('MODIFY COLUMN `at` DATETIME(3)');
-    expect(() => emitUp(alter, sqliteDialect)).toThrow('sqlite cannot alter a column type in place');
+    expect(() => emitUp(alter, sqliteDialect)).toThrow('sqlite cannot alter a column type or constraint in place');
   });
 });
 

@@ -21,6 +21,41 @@ const UserSchema = {
 };
 
 describe('snapshot serializer', () => {
+  it('retains literal, null and explicit expression defaults without guessing HasDefault values', () => {
+    const schema = {
+      table: 'defaults',
+      primaryKey: [],
+      columns: {
+        label: { type: 'text', flags: { nullable: false }, default: "O'Reilly" },
+        empty: { type: 'text', flags: { nullable: true }, default: null },
+        created: {
+          type: 'timestamp',
+          flags: { nullable: false },
+          default: { kind: 'expression', sql: 'CURRENT_TIMESTAMP' },
+        },
+        unknown: { type: 'text', flags: { nullable: false, hasDefault: true } },
+      },
+    };
+    const table = snapshot([schema]).tables[0];
+    expect(table?.columns.find(column => column.name === 'label')).toHaveProperty('default', {
+      kind: 'literal',
+      value: "O'Reilly",
+    });
+    expect(table?.columns.find(column => column.name === 'empty')).toHaveProperty('default', {
+      kind: 'literal',
+      value: null,
+    });
+    expect(table?.columns.find(column => column.name === 'created')).toHaveProperty('default', {
+      kind: 'expression',
+      sql: 'CURRENT_TIMESTAMP',
+    });
+    expect(table?.columns.find(column => column.name === 'unknown')).toHaveProperty('default', { kind: 'unresolved' });
+    const operations = diff({ version: 1, tables: [], extensions: [] }, snapshot([schema]));
+    expect(() => operations.map(operation => emitUp(operation, postgresDialect))).toThrow(
+      /default.*unknown|unknown.*default/i,
+    );
+  });
+
   it('produces a version-1 snapshot with tables sorted by name and columns sorted by name', () => {
     const snap = snapshot([UserSchema]);
     expect(snap.version).toBe(1);

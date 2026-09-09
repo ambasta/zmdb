@@ -1,3 +1,4 @@
+import { columnDefaultSql } from '@zmdb/migrations';
 import type {
   ChangeOp,
   ColumnSnapshot,
@@ -99,6 +100,17 @@ function ddlType<Name extends string>(name: Name, types: DialectTypeMap, column:
   return scalar;
 }
 
+function defaultClause(column: ColumnSnapshot): string {
+  const value = columnDefaultSql(column, true);
+  const expressionDefault =
+    column.default?.kind === 'expression' ||
+    column.type === 'text' ||
+    column.type === 'json' ||
+    column.type === 'jsonEnum' ||
+    (column.type === 'varchar' && column.length === undefined);
+  return value === undefined ? '' : ` DEFAULT ${expressionDefault ? `(${value})` : value}`;
+}
+
 function columnDdl<Name extends string>(
   name: Name,
   types: DialectTypeMap,
@@ -109,7 +121,7 @@ function columnDdl<Name extends string>(
   const primary = key.inline ? ' PRIMARY KEY' : '';
   const notNull = !key.inline && (!column.nullable || key.tableLevel) ? ' NOT NULL' : '';
   const unique = column.unique === true && column.type !== 'serial' && !key.inline ? ' UNIQUE' : '';
-  return `${quote(column.name)} ${ddlType(name, types, column)}${primary}${notNull}${unique}`;
+  return `${quote(column.name)} ${ddlType(name, types, column)}${primary}${notNull}${unique}${defaultClause(column)}`;
 }
 
 function keyColumns(columns: readonly string[]): string {
@@ -206,39 +218,28 @@ function createTable<Name extends string>(
 }
 
 function addForeignKey<Name extends string>(name: Name, table: string, foreignKey: ForeignKeySnapshot): string {
-  const index =
-    `CREATE INDEX ${quote(supportIndexName(name, foreignKey))} ON ${quote(table)} ` +
-    `(${keyColumns(foreignKey.columns)})`;
-  const constraint = `ALTER TABLE ${quote(table)} ADD ${foreignKeyConstraint(name, foreignKey)}`;
-  return `${index}; ${constraint}`;
+  return `ALTER TABLE ${quote(table)} ADD ${foreignKeyConstraint(name, foreignKey)}`;
 }
 
-function dropForeignKey(table: string, constraint: string, supportIndex: boolean): string {
-  const drop = `ALTER TABLE ${quote(table)} DROP FOREIGN KEY ${quote(constraint)}`;
-  return supportIndex ? `${drop}; DROP INDEX ${quote(`${constraint}_idx`)} ON ${quote(table)}` : drop;
+function dropForeignKey(table: string, constraint: string): string {
+  return `ALTER TABLE ${quote(table)} DROP FOREIGN KEY ${quote(constraint)}`;
 }
 
-function alteredType<Name extends string>(
+function alterColumn<Name extends string>(
   name: Name,
   types: DialectTypeMap,
-  operation: Extract<ChangeOp, { readonly kind: 'alter_column_type' }>,
-  direction: 'up' | 'down',
+  table: string,
+  from: ColumnSnapshot,
+  to: ColumnSnapshot,
 ): string {
-  const nullable = direction === 'up' ? operation.toNullable : operation.fromNullable;
-  if (nullable === undefined) {
+  if ((from.unique === true) !== (to.unique === true))
     throw unsupported(
       name,
-      `altering "${operation.table}"."${operation.column}" without nullability metadata`,
-      'MySQL MODIFY COLUMN must restate NULL or NOT NULL; generate the operation from snapshots or provide nullability explicitly',
+      `altering uniqueness on "${table}"."${to.name}"`,
+      'changing a unique constraint requires its index name; use a hand-written migration',
     );
-  }
-  const type = direction === 'up' ? operation.to : operation.from;
-  return `${ddlType(name, types, {
-    name: operation.column,
-    type,
-    nullable,
-    primaryKey: false,
-  })}${nullable ? ' NULL' : ' NOT NULL'}`;
+  columnDefaultSql(from, true);
+  return `ALTER TABLE ${quote(table)} MODIFY COLUMN ${quote(to.name)} ${ddlType(name, types, to)}${to.nullable ? ' NULL' : ' NOT NULL'}${defaultClause(to)}`;
 }
 
 function alterPrimaryKey(table: string, from: readonly string[], to: readonly string[]): string {
@@ -266,61 +267,52 @@ function emitUp<Name extends string>(
       return (
         `ALTER TABLE ${quote(operation.table)} ADD COLUMN ` +
         columnDdl(name, types, operation.table, operation.column, {
-          inline: operation.column.primaryKey,
+          inline: false,
           tableLevel: false,
         })
       );
     case 'drop_column':
-      return `ALTER TABLE ${quote(operation.table)} DROP COLUMN ${quote(operation.column)}`;
-    case 'alter_column_type':
-      return (
-        `ALTER TABLE ${quote(operation.table)} MODIFY COLUMN ${quote(operation.column)} ` +
-        alteredType(name, types, operation, 'up')
-      );
+      return `ALTER TABLE ${quote(operation.table)} DROP COLUMN ${quote(operation.column.name)}`;
+    case 'alter_column':
+      return alterColumn(name, types, operation.table, operation.from, operation.to);
     case 'alter_primary_key':
       return alterPrimaryKey(operation.table, operation.from, operation.to);
     case 'add_foreign_key':
       return addForeignKey(name, operation.table, operation.fk);
     case 'drop_foreign_key':
-      return dropForeignKey(operation.table, operation.name, false);
+      return dropForeignKey(operation.table, operation.fk.name);
   }
 }
 
-function emitDown<Name extends string>(name: Name, types: DialectTypeMap, operation: ChangeOp): string {
+function emitDown<Name extends string>(
+  name: Name,
+  types: DialectTypeMap,
+  tableExtension: MysqlTableDdlExtension | undefined,
+  operation: ChangeOp,
+): string {
   switch (operation.kind) {
     case 'create_extension':
       throw unsupported(name, `extension "${operation.name}"`);
     case 'create_table':
       return `DROP TABLE ${quote(operation.table)}`;
     case 'drop_table':
-      throw unsupported(
-        name,
-        `recreating dropped table "${operation.table}"`,
-        `the drop operation for "${operation.table}" carries no columns; write the down migration explicitly`,
-      );
+      return createTable(name, types, tableExtension, {
+        ...operation.definition,
+        kind: 'create_table',
+        table: operation.table,
+      });
     case 'add_column':
       return `ALTER TABLE ${quote(operation.table)} DROP COLUMN ${quote(operation.column.name)}`;
     case 'drop_column':
-      throw unsupported(
-        name,
-        `recreating dropped column "${operation.table}"."${operation.column}"`,
-        'the drop operation carries no type or nullability; write the down migration explicitly',
-      );
-    case 'alter_column_type':
-      return (
-        `ALTER TABLE ${quote(operation.table)} MODIFY COLUMN ${quote(operation.column)} ` +
-        alteredType(name, types, operation, 'down')
-      );
+      return emitUp(name, types, tableExtension, { ...operation, kind: 'add_column' });
+    case 'alter_column':
+      return alterColumn(name, types, operation.table, operation.to, operation.from);
     case 'alter_primary_key':
       return alterPrimaryKey(operation.table, operation.to, operation.from);
     case 'add_foreign_key':
-      return dropForeignKey(operation.table, operation.fk.name, true);
+      return dropForeignKey(operation.table, operation.fk.name);
     case 'drop_foreign_key':
-      throw unsupported(
-        name,
-        `recreating foreign key "${operation.name}"`,
-        'the drop operation carries no columns or referential actions; write the down migration explicitly',
-      );
+      return addForeignKey(name, operation.table, operation.fk);
   }
 }
 
@@ -624,7 +616,7 @@ export function mysqlFamilyMigrations<Name extends string>(
     },
     ddlType: (column: ColumnSnapshot) => ddlType(name, types, column),
     emitUp: (operation: ChangeOp) => emitUp(name, types, tableExtension, operation),
-    emitDown: (operation: ChangeOp) => emitDown(name, types, operation),
+    emitDown: (operation: ChangeOp) => emitDown(name, types, tableExtension, operation),
     emitSchemaObject: (operation: SchemaObjectOperation) => emitSchemaObject(name, types, operation),
     connection: (driver: MigrationDriver<Name>, options?: MigrationTableOptions) =>
       migrationConnection(name, driver, options, ledger),

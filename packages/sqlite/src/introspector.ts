@@ -225,7 +225,7 @@ function snapshotColumns(
         nullable: !row.notNull && !serial,
         primaryKey: row.primaryKeyOrdinal > 0,
         ...(mapped.length === undefined ? {} : { length: mapped.length }),
-        ...(row.default === null ? {} : { default: row.default }),
+        ...(row.default === null ? {} : { default: { kind: 'expression' as const, sql: row.default } }),
       };
     })
     .toSorted((left, right) => left.name.localeCompare(right.name));

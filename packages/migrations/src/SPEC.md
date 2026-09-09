@@ -20,12 +20,11 @@ interface ColumnSnapshot {
   readonly catalogType?: string;
   readonly nullable: boolean;
   readonly primaryKey: boolean;
-  /** Present only for a `varchar`; omitted otherwise, so old snapshots still match. */
+  /** Present when the type has an explicit length. */
   readonly length?: number;
   /** Present only when the declaration carries `Unique`; used by dialect-specific DDL validation. */
   readonly unique?: boolean;
-  /** A catalog default expression, verbatim. Recorded, never diffed — `./introspect/SPEC.md` §4. */
-  readonly default?: string;
+  readonly default?: { readonly kind: 'literal'; readonly value: string | number | boolean | null } | { readonly kind: 'expression'; readonly sql: string } | { readonly kind: 'unresolved' };
 }
 
 type IndexColumnSnapshot = string | { readonly column: string; readonly opclass?: string } | { readonly expr: string; readonly opclass?: string };
@@ -202,12 +201,15 @@ installed, not what is declared, and recording it would make every `CREATE EXTEN
 needs, so a `vector` column and a declared `vector` extension cannot disagree. Introspection reads the list from the catalog instead (`./introspect/SPEC.md` §2), which is the one place the two can
 differ, and that difference is the drift `check` exists to report.
 
-`ColumnSnapshot.default` goes the other way: only introspection ever sets it, because a schema value holds `hasDefault` and no expression. That is a third reason `diff` leaves it alone — one of the
-two things a diff compares can never produce the field at all.
+`ColumnSnapshot.default` records a concrete scalar literal, an explicit SQL expression, or an unresolved `HasDefault` declaration. Absence means no default; a null literal means `DEFAULT NULL`. Serial
+columns keep their database-owned generated default. An unresolved default refuses SQL generation instead of inventing a value.
 
-`ColumnSnapshot.type` widens to `string | ExtensionType` (see `schema-core/src/ir/SPEC.md` §4.3), which makes `alter_column_type`'s `from` and `to` the same union and its comparison **structural**.
-The operation also records `fromNullable` and `toNullable`: SQL Server's `ALTER COLUMN` must restate nullability, and `emitDown` needs the old value. `args` order is significant, so
-`geometry(Point, 4326)` and `geometry(4326, Point)` are different types rather than the same set.
+`alter_column` carries complete `from` and `to` column snapshots. Diff compares type and ordered extension arguments, length, nullability, uniqueness and defaults. The selected dialect emits supported
+changes and refuses unsupported constraint changes before execution. SQLite requires a manual rebuild for in-place column alterations and adding columns with expression defaults; MySQL and SQL Server
+refuse constraint changes whose index or constraint name is unavailable.
+
+Dropped tables and columns retain their definitions, and dropped foreign keys retain their complete mappings and actions. Down generation restores schema, not deleted rows. Drops run
+child-before-parent; the inverse recreates targets first. Mutually-referencing table drops require a hand-written constraint-removal plan.
 
 ```ts
 | { kind: 'create_extension'; name: string; schema?: string }
@@ -221,13 +223,13 @@ contains no removal; callers that need unmanaged-object reporting must compare t
 1. `create_extension` — before anything that could name a type it provides.
 2. `drop_foreign_key` — before a column or table the constraint names is dropped.
 3. Renames (§1.4) — before the adds and drops they would otherwise collide with.
-4. Table and column drops, then target-before-child table creates and column adds, then `alter_column_type` and `alter_primary_key`.
+4. Child-before-parent table drops, target-before-child table creates and column adds, then column and primary-key alterations, then column drops.
 5. `add_foreign_key` — after every table and column it names exists.
 6. Index creation last, so an index over a column added in the same plan has a column to be over.
 
-A dimension change — `vector(1536)` to `vector(3072)` — is an ordinary `alter_column_type` and the emitter produces the `ALTER` for it. It will fail on a non-empty table, because Postgres cannot
-rewrite one embedding into another, and that failure is the correct outcome: re-embedding a corpus is a data migration and there is no DDL that can stand in for it. The emitter does not soften it into
-a comment.
+A dimension change — `vector(1536)` to `vector(3072)` — is an ordinary `alter_column` and the emitter produces the `ALTER` for it. It will fail on a non-empty table, because Postgres cannot rewrite
+one embedding into another, and that failure is the correct outcome: re-embedding a corpus is a data migration and there is no DDL that can stand in for it. The emitter does not soften it into a
+comment.
 
 ### 1.6 Foreign keys and referential actions (frozen — epic "Referential actions")
 
@@ -334,7 +336,7 @@ finding rather than a silence, and `PRAGMA foreign_key_check` is the way to find
 
 ```ts
 | { kind: 'add_foreign_key'; table: string; fk: ForeignKeySnapshot }
-| { kind: 'drop_foreign_key'; table: string; name: string }
+| { kind: 'drop_foreign_key'; table: string; fk: ForeignKeySnapshot }
 ```
 
 An action change is a **drop then an add**, on both Postgres and MySQL, because neither has an `ALTER TABLE … ALTER CONSTRAINT` form that reaches `ON DELETE` — Postgres's only touches deferrability.
@@ -348,9 +350,9 @@ The statement order in §1.5 includes two positions forced by dependency:
 1. `create_extension`.
 2. **`drop_foreign_key`** — before any column or table drop, because a constraint referencing a column blocks dropping it.
 3. Renames.
-4. Table and column drops, then creates, then `alter_column_type` and `alter_primary_key`.
+4. Child-before-parent table drops, creates and column adds, then column and primary-key alterations, then column drops.
 5. **`add_foreign_key`** — after every table and column it names exists.
-6. Index creation last. On MySQL the supporting index of a foreign key is the exception and is emitted with its constraint, since the constraint cannot be created without it.
+6. Index creation last. MySQL selects or creates supporting indexes when adding a foreign key; dropping the constraint does not guess ownership of an existing index.
 
 ### 1.7 Indexes in the snapshot (frozen — epic "Introspection")
 
@@ -377,23 +379,20 @@ type ChangeOp =
       primaryKey: readonly string[]; // §1.3
       foreignKeys: ForeignKeySnapshot[]; // §1.6
     }
-  | { kind: 'drop_table'; table: string }
+  | { kind: 'drop_table'; table: string; definition: TableSnapshot }
   | { kind: 'add_column'; table: string; column: ColumnSnapshot }
-  | { kind: 'drop_column'; table: string; column: string }
+  | { kind: 'drop_column'; table: string; column: ColumnSnapshot }
   | {
-      kind: 'alter_column_type';
+      kind: 'alter_column';
       table: string;
-      column: string;
-      from: string;
-      to: string;
-      fromNullable?: boolean;
-      toNullable?: boolean;
+      from: ColumnSnapshot;
+      to: ColumnSnapshot;
     }
   | { kind: 'alter_primary_key'; table: string; from: readonly string[]; to: readonly string[] } // §1.3
   | RenameOp // §1.4
   | { kind: 'create_extension'; name: string; schema?: string } // §1.5
   | { kind: 'add_foreign_key'; table: string; fk: ForeignKeySnapshot } // §1.6
-  | { kind: 'drop_foreign_key'; table: string; name: string }; // §1.6
+  | { kind: 'drop_foreign_key'; table: string; fk: ForeignKeySnapshot }; // §1.6
 ```
 
 `diff(x, x)` returns `[]`. Passing a rename alongside two identical snapshots is refused rather than ignored, by §1.4's stale-list rule: the target name is absent from `next`, because `next` still has

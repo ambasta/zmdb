@@ -1,4 +1,5 @@
 import type { ExtensionType, SchemaSnapshot } from '@zmdb/migrations';
+import { normalizeDriftSnapshot } from '@zmdb/migrations/introspect/runtime';
 import type {
   CatalogColumnSnapshot,
   CatalogForeignKeySnapshot,
@@ -21,8 +22,8 @@ export interface PostgresCatalogOverrides {
     options?: IntrospectOptions,
   ) => Promise<CatalogSchemaSnapshot>;
   readonly normalizeForDrift?: (
-    parent: (snapshot: CatalogSchemaSnapshot, role: 'live' | 'declared') => SchemaSnapshot,
-    snapshot: CatalogSchemaSnapshot,
+    parent: (snapshot: SchemaSnapshot, role: 'live' | 'declared') => SchemaSnapshot,
+    snapshot: SchemaSnapshot,
     role: 'live' | 'declared',
   ) => SchemaSnapshot;
 }
@@ -561,7 +562,9 @@ async function postgresSnapshot(
             nullable: column.nullable,
             primaryKey: primaryKey.includes(column.name),
             ...(mapped.length === undefined ? {} : { length: mapped.length }),
-            ...(column.default === null || generatedBySequence ? {} : { default: column.default }),
+            ...(column.default === null || generatedBySequence
+              ? {}
+              : { default: { kind: 'expression' as const, sql: column.default } }),
             ...(column.generated === 'ALWAYS' && column.generationExpression !== null
               ? { generated: { expression: column.generationExpression, stored: true } }
               : {}),
@@ -596,39 +599,14 @@ async function postgresSnapshot(
   };
 }
 
-function normalizeForDrift(snapshot: CatalogSchemaSnapshot): SchemaSnapshot {
-  return {
-    version: 1,
-    tables: snapshot.tables
-      .filter(table => table.name !== '_zmdb_migrations')
-      .map(table => ({
-        name: table.name,
-        columns: table.columns.map(column => ({
-          name: column.name,
-          type: column.type,
-          nullable: column.nullable,
-          primaryKey: column.primaryKey,
-          ...(column.length === undefined ? {} : { length: column.length }),
-          ...(column.unique === undefined ? {} : { unique: column.unique }),
-        })),
-        primaryKey: table.primaryKey,
-        foreignKeys: table.foreignKeys,
-        indexes: table.indexes,
-        ...(table.tableOptions === undefined ? {} : { tableOptions: table.tableOptions }),
-      }))
-      .toSorted((left, right) => left.name.localeCompare(right.name)),
-    extensions: snapshot.extensions.toSorted((left, right) => left.name.localeCompare(right.name)),
-  };
-}
-
 export function postgresFamilyIntrospector<Name extends string>(
   name: Name,
   overrides: PostgresCatalogOverrides = {},
 ): Introspector<Name> {
   const parentSnapshot = (driver: IntrospectionDriver, options?: IntrospectOptions): Promise<CatalogSchemaSnapshot> =>
     postgresSnapshot(driver, options);
-  const parentNormalize = (snapshot: CatalogSchemaSnapshot, _role: 'live' | 'declared'): SchemaSnapshot =>
-    normalizeForDrift(snapshot);
+  const parentNormalize = (snapshot: SchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot =>
+    normalizeDriftSnapshot(snapshot, role);
 
   return Object.freeze({
     name,
@@ -637,7 +615,7 @@ export function postgresFamilyIntrospector<Name extends string>(
       overrides.snapshot === undefined
         ? parentSnapshot(driver, options)
         : overrides.snapshot(parentSnapshot, driver, options),
-    normalizeForDrift: (snapshot: CatalogSchemaSnapshot, role: 'live' | 'declared') =>
+    normalizeForDrift: (snapshot: SchemaSnapshot, role: 'live' | 'declared') =>
       overrides.normalizeForDrift === undefined
         ? parentNormalize(snapshot, role)
         : overrides.normalizeForDrift(parentNormalize, snapshot, role),

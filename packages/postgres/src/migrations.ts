@@ -1,3 +1,4 @@
+import { columnDefaultSql } from '@zmdb/migrations';
 import type {
   ChangeOp,
   ColumnSnapshot,
@@ -99,7 +100,10 @@ function columnDdl(
 ): string {
   const primaryKey = key.inline ? ' PRIMARY KEY' : '';
   const notNull = !key.inline && (!column.nullable || key.tableLevel) ? ' NOT NULL' : '';
-  return `${quoteIdentifier(column.name)} ${postgresDdlType(types, column)}${primaryKey}${notNull}`;
+  const unique = column.unique === true && !key.inline ? ' UNIQUE' : '';
+  const value = columnDefaultSql(column);
+  const defaultClause = value === undefined ? '' : ` DEFAULT ${value}`;
+  return `${quoteIdentifier(column.name)} ${postgresDdlType(types, column)}${primaryKey}${notNull}${unique}${defaultClause}`;
 }
 
 function primaryKeyDdl(columns: readonly string[]): string {
@@ -388,6 +392,31 @@ function schemaObjectStatements(types: DialectTypeMap, operation: SchemaObjectOp
   }
 }
 
+function alterColumnDdl(types: DialectTypeMap, table: string, from: ColumnSnapshot, to: ColumnSnapshot): string {
+  const column = quoteIdentifier(to.name);
+  const clauses: string[] = [];
+  const beforeDefault = columnDefaultSql(from);
+  const afterDefault = columnDefaultSql(to);
+  const defaultChanged = JSON.stringify(from.default) !== JSON.stringify(to.default);
+  if (defaultChanged && beforeDefault !== undefined) clauses.push(`ALTER COLUMN ${column} DROP DEFAULT`);
+  if (postgresDdlType(types, from) !== postgresDdlType(types, to))
+    clauses.push(`ALTER COLUMN ${column} TYPE ${postgresDdlType(types, to)}`);
+  if (from.nullable !== to.nullable) clauses.push(`ALTER COLUMN ${column} ${to.nullable ? 'DROP' : 'SET'} NOT NULL`);
+  if ((from.unique === true) !== (to.unique === true)) {
+    const name = `${table}_${to.name}_key`;
+    if (name.length > 63)
+      throw new TypeError(`unique constraint name "${name}" exceeds PostgreSQL's identifier limit; use shorter names`);
+    clauses.push(
+      to.unique === true
+        ? `ADD CONSTRAINT ${quoteIdentifier(name)} UNIQUE (${column})`
+        : `DROP CONSTRAINT ${quoteIdentifier(name)}`,
+    );
+  }
+  if (defaultChanged && afterDefault !== undefined) clauses.push(`ALTER COLUMN ${column} SET DEFAULT ${afterDefault}`);
+  if (clauses.length === 0) throw new TypeError(`column "${table}"."${to.name}" has no supported alteration`);
+  return `ALTER TABLE ${quoteIdentifier(table)} ${clauses.join(', ')}`;
+}
+
 function emitUp(types: DialectTypeMap, operation: ChangeOp): string {
   switch (operation.kind) {
     case 'create_extension':
@@ -397,26 +426,17 @@ function emitUp(types: DialectTypeMap, operation: ChangeOp): string {
     case 'drop_table':
       return `DROP TABLE ${quoteIdentifier(operation.table)}`;
     case 'add_column':
-      return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD COLUMN ` + columnDdl(types, operation.column);
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD COLUMN ${columnDdl(types, operation.column, { inline: false, tableLevel: false })}`;
     case 'drop_column':
-      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP COLUMN ` + quoteIdentifier(operation.column);
-    case 'alter_column_type':
-      return (
-        `ALTER TABLE ${quoteIdentifier(operation.table)} ALTER COLUMN ` +
-        `${quoteIdentifier(operation.column)} TYPE ` +
-        postgresDdlType(types, {
-          name: operation.column,
-          type: operation.to,
-          nullable: true,
-          primaryKey: false,
-        })
-      );
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP COLUMN ${quoteIdentifier(operation.column.name)}`;
+    case 'alter_column':
+      return alterColumnDdl(types, operation.table, operation.from, operation.to);
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(operation.table, operation.from, operation.to);
     case 'add_foreign_key':
       return addForeignKeyDdl(operation.table, operation.fk);
     case 'drop_foreign_key':
-      return dropForeignKeyDdl(operation.table, operation.name);
+      return dropForeignKeyDdl(operation.table, operation.fk.name);
   }
 }
 
@@ -428,32 +448,25 @@ function emitDown(types: DialectTypeMap, operation: ChangeOp): string {
       );
     case 'create_table':
       return `DROP TABLE ${quoteIdentifier(operation.table)}`;
-    case 'drop_table':
-      return `CREATE TABLE ${quoteIdentifier(operation.table)} ()`;
+    case 'drop_table': {
+      const definition = operation.definition;
+      return [
+        createTableDdl(types, { ...definition, kind: 'create_table', table: operation.table }),
+        ...definition.foreignKeys.map(fk => addForeignKeyDdl(operation.table, fk)),
+      ].join('; ');
+    }
     case 'add_column':
-      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP COLUMN ` + quoteIdentifier(operation.column.name);
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP COLUMN ${quoteIdentifier(operation.column.name)}`;
     case 'drop_column':
-      return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD COLUMN ` + quoteIdentifier(operation.column);
-    case 'alter_column_type':
-      return (
-        `ALTER TABLE ${quoteIdentifier(operation.table)} ALTER COLUMN ` +
-        `${quoteIdentifier(operation.column)} TYPE ` +
-        postgresDdlType(types, {
-          name: operation.column,
-          type: operation.from,
-          nullable: true,
-          primaryKey: false,
-        })
-      );
+      return emitUp(types, { ...operation, kind: 'add_column' });
+    case 'alter_column':
+      return alterColumnDdl(types, operation.table, operation.to, operation.from);
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(operation.table, operation.to, operation.from);
     case 'add_foreign_key':
       return dropForeignKeyDdl(operation.table, operation.fk.name);
     case 'drop_foreign_key':
-      throw new Error(
-        `foreign key "${operation.name}" on "${operation.table}" cannot be recreated automatically because the drop operation ` +
-          'does not carry its columns or referential actions; write the down migration by hand',
-      );
+      return addForeignKeyDdl(operation.table, operation.fk);
   }
 }
 
@@ -555,8 +568,14 @@ export function postgresFamilyMigrations<Name extends string>(
     name,
     foreignKeyMode: 'deferred',
     embedded: false,
-    validateSnapshot(_snapshot: SchemaSnapshot): void {},
-    validatePlan(_plan: MigrationPlan): void {},
+    validateSnapshot(snapshot: SchemaSnapshot): void {
+      for (const table of snapshot.tables) for (const column of table.columns) columnDefaultSql(column);
+    },
+    validatePlan(plan: MigrationPlan): void {
+      for (const snapshot of [plan.before, plan.after])
+        for (const table of snapshot.tables) for (const column of table.columns) columnDefaultSql(column);
+      for (const operation of plan.operations) emitUp(types, operation);
+    },
     ddlType(column: ColumnSnapshot): string {
       return postgresDdlType(types, column);
     },

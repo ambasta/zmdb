@@ -12,6 +12,7 @@ import {
   type ReferentialAction,
   type SchemaSnapshot,
   type TableSnapshot,
+  type TableOptions,
 } from '../index.js';
 import { detectDrift } from '../introspect/index.js';
 import { migrationTarget, requiredIntrospector, type MigrationProject } from '../project.js';
@@ -174,17 +175,28 @@ function tableSnapshot(value: unknown, path: string, index: number): TableSnapsh
   const columns = array(table.columns, `stored snapshot ${path} table ${name} columns`).map((column, columnIndex) =>
     columnSnapshot(column, path, name, columnIndex),
   );
-  const primaryKey =
-    table.primaryKey === undefined
-      ? columns.filter(column => column.primaryKey).map(column => column.name)
-      : stringArray(table.primaryKey, `stored snapshot ${path} table ${name} primaryKey`);
-  const foreignKeys =
-    table.foreignKeys === undefined
-      ? []
-      : array(table.foreignKeys, `stored snapshot ${path} table ${name} foreignKeys`).map((foreignKey, keyIndex) =>
-          foreignKeySnapshot(foreignKey, path, name, keyIndex),
-        );
-  return { name, columns, primaryKey, foreignKeys };
+  const primaryKey = stringArray(table.primaryKey, `stored snapshot ${path} table ${name} primaryKey`);
+  const foreignKeys = array(table.foreignKeys, `stored snapshot ${path} table ${name} foreignKeys`).map(
+    (foreignKey, keyIndex) => foreignKeySnapshot(foreignKey, path, name, keyIndex),
+  );
+  return {
+    name,
+    columns,
+    primaryKey,
+    foreignKeys,
+    ...(table.tableOptions === undefined ? {} : { tableOptions: tableOptions(table.tableOptions) }),
+  };
+}
+
+function tableOptions(value: unknown): TableOptions {
+  const options = record(value, 'table options');
+  if (options.rowstore !== undefined && options.rowstore !== true)
+    throw new TypeError('rowstore must be true when declared');
+  return {
+    ...(options.shardKey === undefined ? {} : { shardKey: stringArray(options.shardKey, 'shardKey') }),
+    ...(options.sortKey === undefined ? {} : { sortKey: stringArray(options.sortKey, 'sortKey') }),
+    ...(options.rowstore === undefined ? {} : { rowstore: true }),
+  };
 }
 
 function columnSnapshot(value: unknown, path: string, table: string, index: number): ColumnSnapshot {
@@ -199,7 +211,29 @@ function columnSnapshot(value: unknown, path: string, table: string, index: numb
     nullable: flag(column.nullable, `stored snapshot ${path} table ${table} column ${String(index)} nullable`),
     primaryKey: flag(column.primaryKey, `stored snapshot ${path} table ${table} column ${String(index)} primaryKey`),
     ...(length === undefined ? {} : { length }),
+    ...(column.unique === undefined ? {} : { unique: flag(column.unique, 'column unique') }),
+    ...(column.default === undefined ? {} : { default: columnDefault(column.default) }),
   };
+}
+
+function columnDefault(value: unknown): NonNullable<ColumnSnapshot['default']> {
+  const definition = record(value, 'column default');
+  if (definition.kind === 'unresolved') return { kind: 'unresolved' };
+  if (definition.kind === 'expression') {
+    const sql = text(definition.sql, 'default expression');
+    if (sql.trim() === '') throw new TypeError('default expression must not be empty');
+    return { kind: 'expression', sql };
+  }
+  const literal = definition.value;
+  if (
+    definition.kind === 'literal' &&
+    (literal === null ||
+      typeof literal === 'string' ||
+      typeof literal === 'boolean' ||
+      (typeof literal === 'number' && Number.isFinite(literal)))
+  )
+    return { kind: 'literal', value: literal };
+  throw new TypeError('column default must be a scalar literal, SQL expression, or unresolved declaration');
 }
 
 function columnType(value: unknown, path: string, table: string, index: number): string | ExtensionType {

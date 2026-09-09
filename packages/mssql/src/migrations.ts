@@ -1,3 +1,4 @@
+import { columnDefaultSql } from '@zmdb/migrations';
 import type { ChangeOp, ColumnSnapshot, ForeignKeySnapshot, SchemaSnapshot } from '@zmdb/migrations';
 import {
   quoteIdentifier,
@@ -133,7 +134,9 @@ function columnDdl(
 ): string {
   const primaryKey = options.inlinePrimaryKey ? ' PRIMARY KEY' : '';
   const notNull = !options.inlinePrimaryKey && (!column.nullable || options.tablePrimaryKey) ? ' NOT NULL' : '';
-  return `${identifier(column.name)} ${mssqlDdlType(column)}${primaryKey}${notNull}`;
+  const unique = column.unique === true && !options.inlinePrimaryKey ? ' UNIQUE' : '';
+  const value = columnDefaultSql(column, true);
+  return `${identifier(column.name)} ${mssqlDdlType(column)}${primaryKey}${notNull}${unique}${value === undefined ? '' : ` DEFAULT ${value}`}`;
 }
 
 function action(actionName: ForeignKeySnapshot['onDelete']): string {
@@ -164,32 +167,15 @@ function createTable(operation: Extract<ChangeOp, { readonly kind: 'create_table
   return `CREATE TABLE ${table(operation.table)} (${definitions.join(', ')})`;
 }
 
-function alterNullability(
-  operation: Extract<ChangeOp, { readonly kind: 'alter_column_type' }>,
-  direction: 'up' | 'down',
-): string {
-  const nullable = direction === 'up' ? operation.toNullable : operation.fromNullable;
-  if (nullable === undefined) {
+function alterColumn(tableName: string, from: ColumnSnapshot, to: ColumnSnapshot): string {
+  if ((from.unique === true) !== (to.unique === true) || columnDefaultSql(from, true) !== columnDefaultSql(to, true)) {
     throw new UnsupportedFeatureError(
-      `altering the type of "${operation.table}"."${operation.column}" without nullability metadata`,
+      'changing a default or unique constraint',
       'mssql',
-      'mssql ALTER COLUMN must restate NULL or NOT NULL; generate this operation from snapshots or provide ' +
-        `${direction === 'up' ? 'toNullable' : 'fromNullable'} explicitly`,
+      'mssql requires the existing default or unique constraint name; use a hand-written migration',
     );
   }
-  return nullable ? ' NULL' : ' NOT NULL';
-}
-
-function alteredType(
-  operation: Extract<ChangeOp, { readonly kind: 'alter_column_type' }>,
-  direction: 'up' | 'down',
-): string {
-  return mssqlDdlType({
-    name: operation.column,
-    type: direction === 'up' ? operation.to : operation.from,
-    nullable: direction === 'up' ? (operation.toNullable ?? true) : (operation.fromNullable ?? true),
-    primaryKey: false,
-  });
+  return `ALTER TABLE ${table(tableName)} ALTER COLUMN ${identifier(to.name)} ${mssqlDdlType(to)}${to.nullable ? ' NULL' : ' NOT NULL'}`;
 }
 
 function primaryKeyRefusal(operation: Extract<ChangeOp, { readonly kind: 'alter_primary_key' }>): never {
@@ -216,16 +202,19 @@ function emitUp(operation: ChangeOp): string {
       return `DROP TABLE ${table(operation.table)}`;
     case 'add_column':
       return `ALTER TABLE ${table(operation.table)} ADD ${columnDdl(operation.column, {
-        inlinePrimaryKey: operation.column.primaryKey,
+        inlinePrimaryKey: false,
         tablePrimaryKey: false,
       })}`;
     case 'drop_column':
-      return `ALTER TABLE ${table(operation.table)} DROP COLUMN ${identifier(operation.column)}`;
-    case 'alter_column_type':
-      return (
-        `ALTER TABLE ${table(operation.table)} ALTER COLUMN ${identifier(operation.column)} ` +
-        `${alteredType(operation, 'up')}${alterNullability(operation, 'up')}`
-      );
+      if (operation.column.primaryKey || operation.column.unique || operation.column.default !== undefined)
+        throw new UnsupportedFeatureError(
+          'dropping a constrained column',
+          'mssql',
+          'mssql requires constraint names before dropping a constrained column; use a hand-written migration',
+        );
+      return `ALTER TABLE ${table(operation.table)} DROP COLUMN ${identifier(operation.column.name)}`;
+    case 'alter_column':
+      return alterColumn(operation.table, operation.from, operation.to);
     case 'alter_primary_key':
       return primaryKeyRefusal(operation);
     case 'add_foreign_key':
@@ -234,7 +223,7 @@ function emitUp(operation: ChangeOp): string {
         foreignKeyDdl(operation.fk)
       );
     case 'drop_foreign_key':
-      return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(operation.name)}`;
+      return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(operation.fk.name)}`;
   }
 }
 
@@ -245,25 +234,16 @@ function emitDown(operation: ChangeOp): string {
     case 'create_table':
       return `DROP TABLE ${table(operation.table)}`;
     case 'drop_table':
-      throw new UnsupportedFeatureError(
-        `recreating dropped table "${operation.table}"`,
-        'mssql',
-        `mssql cannot recreate dropped table "${operation.table}" because the drop operation carries no columns; ` +
-          'write the down migration by hand',
-      );
+      return [
+        createTable({ ...operation.definition, kind: 'create_table', table: operation.table }),
+        ...operation.definition.foreignKeys.map(fk => emitUp({ kind: 'add_foreign_key', table: operation.table, fk })),
+      ].join('; ');
     case 'add_column':
-      return `ALTER TABLE ${table(operation.table)} DROP COLUMN ${identifier(operation.column.name)}`;
+      return emitUp({ ...operation, kind: 'drop_column' });
     case 'drop_column':
-      throw new UnsupportedFeatureError(
-        `recreating dropped column "${operation.table}"."${operation.column}"`,
-        'mssql',
-        'the drop operation carries no SQL type or nullability; write the down migration by hand',
-      );
-    case 'alter_column_type':
-      return (
-        `ALTER TABLE ${table(operation.table)} ALTER COLUMN ${identifier(operation.column)} ` +
-        `${alteredType(operation, 'down')}${alterNullability(operation, 'down')}`
-      );
+      return emitUp({ ...operation, kind: 'add_column' });
+    case 'alter_column':
+      return alterColumn(operation.table, operation.to, operation.from);
     case 'alter_primary_key':
       return primaryKeyRefusal({
         ...operation,
@@ -273,11 +253,7 @@ function emitDown(operation: ChangeOp): string {
     case 'add_foreign_key':
       return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(operation.fk.name)}`;
     case 'drop_foreign_key':
-      throw new UnsupportedFeatureError(
-        `recreating foreign key "${operation.name}" on "${operation.table}"`,
-        'mssql',
-        'the drop operation carries no columns, target or referential actions; write the down migration by hand',
-      );
+      return emitUp({ ...operation, kind: 'add_foreign_key' });
   }
 }
 

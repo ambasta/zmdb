@@ -40,7 +40,7 @@ export async function generateMigration(
   const versionText = migrationVersion(options.now ?? new Date());
   const migrationPath = join(project.outDir, `${versionText}_${name}.sql`);
   const up = ops.map(operation => configuredEmitUp(operation, target));
-  const down = downStatements(ops, previous, target);
+  const down = downStatements(ops, target);
   const migration = `-- zmdb:up\n${statements(up)}-- zmdb:down\n${statements(down)}`;
 
   await writeTextAtomically(migrationPath, migration);
@@ -54,24 +54,11 @@ export async function generateMigration(
   };
 }
 
-function downStatements(ops: readonly ChangeOp[], previous: SchemaSnapshot, dialect: SqlDialect): readonly string[] {
+function downStatements(ops: readonly ChangeOp[], dialect: SqlDialect): readonly string[] {
   return ops
     .toReversed()
     .filter(operation => operation.kind !== 'create_extension')
-    .map(operation => {
-      if (operation.kind !== 'drop_foreign_key') {
-        return emitDown(operation, dialect);
-      }
-      const table = previous.tables.find(candidate => candidate.name === operation.table);
-      const foreignKey = table?.foreignKeys?.find(candidate => candidate.name === operation.name);
-      if (foreignKey === undefined) {
-        throw new Error(
-          `cannot generate the down migration for foreign key "${operation.name}" on "${operation.table}": ` +
-            'the previous snapshot does not contain its columns and referential actions',
-        );
-      }
-      return configuredEmitUp({ kind: 'add_foreign_key', table: operation.table, fk: foreignKey }, dialect);
-    });
+    .map(operation => emitDown(operation, dialect));
 }
 
 function configuredEmitUp(operation: ChangeOp, dialect: SqlDialect): string {
@@ -121,15 +108,15 @@ function derivedName(ops: readonly ChangeOp[]): string {
     case 'add_column':
       return `add_${operation.table}_${operation.column.name}`;
     case 'drop_column':
-      return `drop_${operation.table}_${operation.column}`;
-    case 'alter_column_type':
-      return `alter_${operation.table}_${operation.column}`;
+      return `drop_${operation.table}_${operation.column.name}`;
+    case 'alter_column':
+      return `alter_${operation.table}_${operation.to.name}`;
     case 'alter_primary_key':
       return `alter_${operation.table}_primary_key`;
     case 'add_foreign_key':
       return `add_${operation.table}_${operation.fk.name}`;
     case 'drop_foreign_key':
-      return `drop_${operation.table}_${operation.name}`;
+      return `drop_${operation.table}_${operation.fk.name}`;
   }
 }
 

@@ -1,3 +1,4 @@
+import { columnDefaultSql } from '@zmdb/migrations';
 import type {
   ChangeOp,
   ColumnSnapshot,
@@ -90,7 +91,9 @@ function columnDdl(
   const rowidPrimaryKey = key.inline && column.type === 'serial';
   const primaryKey = key.inline ? ' PRIMARY KEY' : '';
   const notNull = rowidPrimaryKey || (!key.inline && column.nullable && !key.tableLevel) ? '' : ' NOT NULL';
-  return `${q(column.name)} ${type}${primaryKey}${notNull}`;
+  const unique = column.unique === true && !key.inline ? ' UNIQUE' : '';
+  const value = columnDefaultSql(column, true);
+  return `${q(column.name)} ${type}${primaryKey}${notNull}${unique}${value === undefined ? '' : ` DEFAULT (${value})`}`;
 }
 
 function primaryKeyDdl(columns: readonly string[]): string {
@@ -160,24 +163,6 @@ function refuseForeignKey(action: 'add' | 'drop', table: string, foreignKey: For
   );
 }
 
-function refuseRecreateDroppedTable(table: string): never {
-  throw new UnsupportedFeatureError(
-    `recreating dropped table "${table}"`,
-    'sqlite',
-    `sqlite cannot recreate dropped table "${table}" because the drop operation carries no columns; ` +
-      'write the down migration by hand',
-  );
-}
-
-function refuseRecreateDroppedColumn(table: string, column: string): never {
-  throw new UnsupportedFeatureError(
-    `recreating dropped column "${table}"."${column}"`,
-    'sqlite',
-    `sqlite cannot recreate dropped column "${table}"."${column}" because the drop operation carries no type, ` +
-      'nullability, key, or default metadata; write the down migration by hand',
-  );
-}
-
 function validateSnapshot(snapshot: SchemaSnapshot): void {
   if (snapshot.extensions.length > 0) {
     const extension = snapshot.extensions[0];
@@ -196,6 +181,7 @@ function validateSnapshot(snapshot: SchemaSnapshot): void {
       );
     }
     for (const column of table.columns) {
+      columnDefaultSql(column, true);
       if (typeof column.type !== 'string') unsupportedExtensionType(column.type, column.name, table.name);
       if (column.type === 'serial' && (table.primaryKey.length !== 1 || table.primaryKey[0] !== column.name)) {
         refuseNonRowidSerial(column.name, table.name);
@@ -209,6 +195,7 @@ function validatePlan(plan: MigrationPlan): void {
   validateSnapshot(plan.after);
 
   for (const operation of plan.operations) {
+    emitUp(operation);
     switch (operation.kind) {
       case 'create_extension':
         throw new UnsupportedFeatureError(
@@ -216,18 +203,18 @@ function validatePlan(plan: MigrationPlan): void {
           'sqlite',
           `sqlite does not support database extensions ("${operation.name}")`,
         );
-      case 'alter_column_type':
+      case 'alter_column':
         throw new UnsupportedFeatureError(
-          'alter column type',
+          'alter column',
           'sqlite',
-          'sqlite cannot alter a column type in place; use a hand-written table rebuild',
+          'sqlite cannot alter a column type or constraint in place; use a hand-written table rebuild',
         );
       case 'alter_primary_key':
         refuseAlterPrimaryKey(operation.table, operation.from, operation.to);
       case 'add_foreign_key':
         refuseForeignKey('add', operation.table, operation.fk);
       case 'drop_foreign_key':
-        refuseForeignKey('drop', operation.table, operation.name);
+        refuseForeignKey('drop', operation.table, operation.fk);
       default:
         break;
     }
@@ -247,24 +234,42 @@ function emitUp(operation: ChangeOp): string {
     case 'drop_table':
       return `DROP TABLE ${q(operation.table)}`;
     case 'add_column':
+      if (operation.column.default?.kind === 'expression')
+        throw new UnsupportedFeatureError(
+          'adding a column with an expression default',
+          'sqlite',
+          'sqlite requires a table rebuild to add a column with an expression default; use a literal default or a hand-written migration',
+        );
+      if (operation.column.primaryKey || operation.column.unique)
+        throw new UnsupportedFeatureError(
+          'adding a constrained column',
+          'sqlite',
+          'sqlite requires a table rebuild to add a PRIMARY KEY or UNIQUE column',
+        );
       return `ALTER TABLE ${q(operation.table)} ADD COLUMN ${columnDdl(operation.column, operation.table, {
         inline: false,
         tableLevel: false,
       })}`;
     case 'drop_column':
-      return `ALTER TABLE ${q(operation.table)} DROP COLUMN ${q(operation.column)}`;
-    case 'alter_column_type':
+      if (operation.column.primaryKey || operation.column.unique)
+        throw new UnsupportedFeatureError(
+          'dropping a constrained column',
+          'sqlite',
+          'sqlite requires a table rebuild to drop a PRIMARY KEY or UNIQUE column',
+        );
+      return `ALTER TABLE ${q(operation.table)} DROP COLUMN ${q(operation.column.name)}`;
+    case 'alter_column':
       throw new UnsupportedFeatureError(
-        'alter column type',
+        'alter column',
         'sqlite',
-        'sqlite cannot alter a column type in place; use a hand-written table rebuild',
+        'sqlite cannot alter a column type or constraint in place; use a hand-written table rebuild',
       );
     case 'alter_primary_key':
       return refuseAlterPrimaryKey(operation.table, operation.from, operation.to);
     case 'add_foreign_key':
       return refuseForeignKey('add', operation.table, operation.fk);
     case 'drop_foreign_key':
-      return refuseForeignKey('drop', operation.table, operation.name);
+      return refuseForeignKey('drop', operation.table, operation.fk);
   }
 }
 
@@ -279,28 +284,23 @@ function emitDown(operation: ChangeOp): string {
     case 'create_table':
       return `DROP TABLE ${q(operation.table)}`;
     case 'drop_table':
-      return refuseRecreateDroppedTable(operation.table);
+      return createTableDdl({ ...operation.definition, kind: 'create_table', table: operation.table });
     case 'add_column':
       return `ALTER TABLE ${q(operation.table)} DROP COLUMN ${q(operation.column.name)}`;
     case 'drop_column':
-      return refuseRecreateDroppedColumn(operation.table, operation.column);
-    case 'alter_column_type':
+      return emitUp({ ...operation, kind: 'add_column' });
+    case 'alter_column':
       throw new UnsupportedFeatureError(
-        'alter column type',
+        'alter column',
         'sqlite',
-        'sqlite cannot alter a column type in place; use a hand-written table rebuild',
+        'sqlite cannot alter a column type or constraint in place; use a hand-written table rebuild',
       );
     case 'alter_primary_key':
       return refuseAlterPrimaryKey(operation.table, operation.to, operation.from);
     case 'add_foreign_key':
       return refuseForeignKey('drop', operation.table, operation.fk);
     case 'drop_foreign_key':
-      throw new UnsupportedFeatureError(
-        `recreating foreign key "${operation.name}" on "${operation.table}"`,
-        'sqlite',
-        `foreign key "${operation.name}" on "${operation.table}" cannot be recreated automatically because the ` +
-          'drop operation does not carry its columns or referential actions; write the down migration by hand',
-      );
+      return refuseForeignKey('add', operation.table, operation.fk);
   }
 }
 
