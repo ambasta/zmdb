@@ -1,5 +1,6 @@
-import { BaseRepository, IncompleteKeyError, ValidationError } from '@zmdb/orm';
-import { schemaFromIR, type SchemaIR } from '@zmdb/schema/ir';
+import { schemasFrom } from '@zmdb/compiler/testing';
+import { defineRepository, IncompleteKeyError, ValidationError, type Driver } from '@zmdb/orm';
+import type { Sql, Table } from '@zmdb/schema/tags';
 import { describe, it, expect } from 'vitest';
 
 import { ProductsRepo, recorder, TenantUsersRepo } from './typed-methods.fixture.js';
@@ -13,54 +14,15 @@ import { ProductsRepo, recorder, TenantUsersRepo } from './typed-methods.fixture
 // scalar compiles `WHERE "id" = $1`. None of that is repeated here. This file covers the exact
 // refusal contract, own-property checking, and the full-key pagination tie-breaker.
 
-/**
- * A table with no primary key, which `schema-core/src/ir/SPEC.md` §4.1 says is legal IR.
- *
- * Built from IR rather than from a tagged interface on purpose: `schemasFrom` goes through
- * `@zmdb/compiler`'s reflector, and that refuses a table with no `PrimaryKey` column
- * outright, so there is no way to declare this shape in TypeScript today. Since §4.1 freezes the
- * shape as legal, the repository's behaviour for it is asserted from the IR the reflector will
- * eventually be able to produce. That contradiction is itself a finding, not a workaround.
- */
-const keylessIr: SchemaIR = {
-  table: 'audit_log',
-  physicalTable: 'audit_log',
-  columns: [
-    {
-      name: 'at',
-      physicalName: 'at',
-      sql: 'timestamp',
-      nullable: false,
-      primaryKey: false,
-      serial: false,
-      unique: false,
-      hasDefault: false,
-      sensitive: false,
-      constraints: {},
-      rules: [],
-    },
-    {
-      name: 'what',
-      physicalName: 'what',
-      sql: 'text',
-      nullable: false,
-      primaryKey: false,
-      serial: false,
-      unique: false,
-      hasDefault: false,
-      sensitive: false,
-      constraints: {},
-      rules: [],
-    },
-  ],
-  primaryKey: [],
-  relations: [],
-  foreignKeys: [],
-};
+/** A keyless tagged table travels through the ordinary compiler reflection path. */
+export interface AuditLog extends Table<'audit_log'> {
+  at: Date & Sql<'timestamp'>;
+  what: string & Sql<'text'>;
+}
 
-/** The keyless schema as a repository. `never` because no tagged interface can describe it yet. */
-class AuditLogRepo extends BaseRepository<never> {
-  static override readonly schema = schemaFromIR(keylessIr);
+function auditLogRepo(driver: Driver) {
+  const { AuditLog: schema } = schemasFrom<{ AuditLog: AuditLog }>(import.meta.url, ['AuditLog']);
+  return defineRepository(schema, driver);
 }
 
 /** Cross the same untyped boundary a request-derived key crosses, without suppressing TypeScript. */
@@ -178,7 +140,7 @@ describe('a keyless table (frozen: repository/SPEC.md 2.1)', () => {
   // so pinning `Error` here would freeze an inconsistency the spec did not decide.
   it('throws from every keyed method, naming the table', async () => {
     const { driver, calls } = recorder();
-    const repo = new AuditLogRepo(driver);
+    const repo = auditLogRepo(driver);
 
     await expect(repo.findById(1 as never)).rejects.toThrow('audit_log');
     await expect(repo.update(1 as never, {})).rejects.toThrow('audit_log');
@@ -190,7 +152,7 @@ describe('a keyless table (frozen: repository/SPEC.md 2.1)', () => {
   // whole of the restriction.
   it('still reads every row', async () => {
     const { driver, calls } = recorder([]);
-    const repo = new AuditLogRepo(driver);
+    const repo = auditLogRepo(driver);
 
     expect(await repo.findAll()).toEqual([]);
     expect(calls[0]?.text).toBe('SELECT * FROM "audit_log"');

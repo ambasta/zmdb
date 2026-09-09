@@ -13,7 +13,7 @@
 // `schemaOf` is never called here: it is compiled away at build time, and calling it in a
 // test that is not transformed would throw.
 
-import { defineRepository, type Driver, type UpdatePatch } from '@zmdb/orm';
+import { createLoaderScope, defineRepository, type Driver, type UpdatePatch } from '@zmdb/orm';
 import { schemaOf, type Equal, type Expect, type Extends } from '@zmdb/schema';
 import { type CreateDTO, type Entity, type PrimaryKeyOf } from '@zmdb/schema/derive';
 import { type ListResult, type WhereDTO } from '@zmdb/schema/dto';
@@ -91,3 +91,19 @@ export const _byCompositeKey: Promise<Entity<Membership> | undefined> = membersh
 });
 // @ts-expect-error — a composite key is not a scalar.
 export const _byScalarKey = memberships.findById(1);
+
+// Keyless declarations support ordinary reads but cannot supply an entity key.
+interface AuditLog extends Table<'audit_log'> {
+  what: string & Sql<'text'>;
+}
+const auditLog = defineRepository(schemaOf<AuditLog>(), driver);
+export const _keylessRows: Promise<readonly Entity<AuditLog>[]> = auditLog.findAll();
+// @ts-expect-error a keyless table has no row identity
+void auditLog.findById(1);
+// @ts-expect-error a keyless table has no row identity
+void auditLog.update(1, { what: 'updated' });
+// @ts-expect-error a keyless table has no row identity
+void auditLog.delete(1);
+const auditLoader = createLoaderScope().loaderFor(auditLog);
+// @ts-expect-error an entity loader cannot accept a key for a keyless table
+void auditLoader.load(1);

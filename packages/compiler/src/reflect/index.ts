@@ -431,20 +431,6 @@ export class Reflector {
       );
     }
 
-    // A table with no primary key is refused rather than accepted with an empty one. This is
-    // the one rule `defineSchema` enforced that has no other home: it threw a `SchemaError`,
-    // synchronously, on a column map with no `primaryKey()` in it. The reason outlives the
-    // function — `findById`, `update` and `delete` all build their `WHERE` out of
-    // `primaryKey`, so an empty one compiles a statement with no conditions. `delete(1)` on a
-    // key-less table is `DELETE FROM users`.
-    if (typeof table === 'string' && primaryKey.length === 0) {
-      this.#refuse(
-        tableName,
-        'no PrimaryKey column. Every table needs one: findById, update and delete build their ' +
-          'WHERE clause from it, and an empty key compiles to a statement with no conditions.',
-      );
-    }
-
     const tableOptions: TableOptions | undefined =
       shardKey === undefined && sortKey === undefined && !rowstore
         ? undefined

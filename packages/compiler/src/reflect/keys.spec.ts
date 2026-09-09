@@ -13,10 +13,6 @@ import type { ReflectDiagnostic } from './index.js';
 // arrays and nothing can tell which the author wrote. The interfaces below are declared in this
 // file and reflected out of it, which is what `schemasFrom` is for — a fixture two directories
 // away is a fixture nobody reads.
-//
-// `it.fails` for the frozen claims, with the current output recorded above each one. See
-// `@zmdb/migrations`'s `src/composite-keys.spec.ts` for why `it.fails` rather than
-// `.skip` or a stub.
 
 /**
  * A two-column key whose declaration order is the reverse of alphabetical.
@@ -117,22 +113,7 @@ describe('a Serial column in a composite key (frozen: ir/SPEC.md 4.1)', () => {
 });
 
 describe('a table with no key (frozen: ir/SPEC.md 4.1)', () => {
-  // §4.1: "A table may declare no key at all, and `primaryKey` is then `[]`. That is a legal IR,
-  // not a defect to normalise: a join table written as two `References` columns with no
-  // `PrimaryKey` tag is expressible, and the back-ends each refuse it in their own terms."
-  //
-  // actual today: the IR is produced correctly — `primaryKey` is `[]` and no column is flagged —
-  // and the reflector raises a diagnostic anyway:
-  //   "no PrimaryKey column. Every table needs one: findById, update and delete build their WHERE
-  //    clause from it, and an empty key compiles to a statement with no conditions."
-  // With the default `onDiagnostics`, `schemasFrom` throws on it and a build fails.
-  //
-  // This is a direct contradiction between two frozen specs, not an unimplemented feature: the
-  // reflector's own `SPEC.md` requires that refusal under REQ-TF-8 and
-  // `schema-values.spec.ts`'s "refuses a missing table name, and a missing primary key" asserts
-  // it. #409 cannot resolve it, so the test states what §4.1 says and the divergence is written
-  // down in the tests-freeze notes for whoever implements the slice.
-  it.fails('is reflected without a diagnostic, because a keyless table is legal IR', () => {
+  it('is reflected without a diagnostic, because a keyless table is legal IR', () => {
     expect(forTable('keyless')).toEqual([]);
   });
 
