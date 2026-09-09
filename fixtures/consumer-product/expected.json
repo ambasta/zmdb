@@ -1,5 +1,5 @@
 {
-  "directZmdbDependencies": ["zmdb"],
+  "directZmdbDependencies": ["@zmdb/core"],
   "invalidStatus": 400,
   "validStatus": 200,
   "rowsAfterInvalid": 0,
@@ -24,16 +24,16 @@
   "deleteStatus": 200,
   "shutdowns": 1,
   "publicImports": [
-    "zmdb",
-    "zmdb/cli",
-    "zmdb/compiler",
-    "zmdb/config",
-    "zmdb/migrations",
-    "zmdb/orm",
-    "zmdb/schema",
-    "zmdb/sqlite",
-    "zmdb/validator",
-    "zmdb/web"
+    "@zmdb/core",
+    "@zmdb/core/cli",
+    "@zmdb/core/compiler",
+    "@zmdb/core/config",
+    "@zmdb/core/migrations",
+    "@zmdb/core/orm",
+    "@zmdb/core/schema",
+    "@zmdb/core/sqlite",
+    "@zmdb/core/validator",
+    "@zmdb/core/web"
   ],
   "columns": [
     {

@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/protobuf",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.",
   "keywords": [
     "aot",

@@ -74,7 +74,7 @@ Generate the declarations, review every `TODO`, make any application-specific ed
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Order, User, driver, expect, it, schemaOf; this excerpt does not repeat those declarations."}
 import { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
 import { postgres } from '@zmdb/postgres';
-import { snapshot } from 'zmdb/migrations';
+import { snapshot } from '@zmdb/core/migrations';
 
 it('declarations match the live database', async () => {
   const live = await createIntrospector(postgres).snapshot(driver, {

@@ -45,7 +45,7 @@ unsettled; only the newest-started call may update `error()`. Results and errors
 - Public export: `.` only.
 - ESM-only, `sideEffects: false`, no Node built-in or private conformance-harness import.
 
-The package is not re-exported by `zmdb`; applications install it only when they choose Solid.
+The package is not re-exported by `@zmdb/core`; applications install it only when they choose Solid.
 
 ## 5. Qualification
 

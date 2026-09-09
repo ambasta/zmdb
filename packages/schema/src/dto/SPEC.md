@@ -17,7 +17,7 @@ Epics: #163 (read/query DTO family), #177 (typed query & filter surface).
 The target package split keeps pure DTO/result types, cursor encoding, projection, `getResult`, `buildListResult`, `buildSearchResult`, and `describeAggregate` in `@zmdb/schema/dto`.
 
 The SQL-facing structural targets and folds — `WhereTarget`, `OrderTarget`, `compileWhere`, `applyOrderBy`, `applyKeysetFilter`, and `applyPagination` — move together to `@zmdb/orm/dto`. That move
-removes both `@zmdb/sql` imports from schema. No symbol is exported from both destinations, and the `zmdb/dto` facade enumerates the two owners explicitly.
+removes both `@zmdb/sql` imports from schema. No symbol is exported from both destinations, and the `@zmdb/core/dto` facade enumerates the two owners explicitly.
 
 ## 1. WhereDTO + operator set (#178/#179/#180)
 

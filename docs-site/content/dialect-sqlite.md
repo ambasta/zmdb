@@ -1,4 +1,4 @@
-`@zmdb/sqlite` is the official SQLite vertical. The default `zmdb` application includes it through `zmdb/sqlite`; independently installed consumers can select `@zmdb/sqlite` directly.
+`@zmdb/sqlite` is the official SQLite vertical. The default `@zmdb/core` application includes it through `@zmdb/core/sqlite`; independently installed consumers can select `@zmdb/sqlite` directly.
 
 ## Database-selection workflow
 
@@ -7,7 +7,7 @@ The six official database packages use the same selection workflow. The [package
 
 | Step             | SQLite selection                                                                                                                                                                                                                                    |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install          | `yarn add @zmdb/sqlite@1.0.0-beta.1`                                                                                                                                                                                                                |
+| Install          | `yarn add @zmdb/sqlite@1.0.0-beta.2`                                                                                                                                                                                                                |
 | Configure        | Supply an application-owned `node:sqlite` client to `sqliteDriver(client)`; the application closes it.                                                                                                                                              |
 | Compile          | `createQueryCompiler(sqlite)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                         |
 | Migrate          | `sqlite.migrations.emitUp(operation)` and `sqlite.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                             |

@@ -5,7 +5,7 @@
 ## 1. Package boundary
 
 `@zmdb/react` is ESM-only, has `sideEffects: false`, depends only on `@zmdb/client`, and declares React 19.2 as a required peer. The package's type and packed-consumer fixtures compile the published
-declarations against `@types/react`; declaration packages remain a TypeScript consumer concern rather than a production peer. The package is not re-exported by `zmdb`.
+declarations against `@types/react`; declaration packages remain a TypeScript consumer concern rather than a production peer. The package is not re-exported by `@zmdb/core`.
 
 The package receives an opaque application-generated client. It does not inspect generated operations, construct URLs, encode requests, validate responses, normalize client errors, install a global
 client, or import server, ORM, schema, compiler, validator, cache-library, or meta-framework code.

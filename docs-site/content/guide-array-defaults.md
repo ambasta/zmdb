@@ -3,7 +3,7 @@ A `json` column holds arrays and objects, and its shape is part of the declarati
 ## Declaring one
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 interface Preferences {
   theme: 'light' | 'dark';
@@ -84,7 +84,7 @@ Usually `json` is fine. Where you need `ANY`, `@>` or a GIN index over array ele
 ## Prefer a join table when you query the contents
 
 ```ts {"mode":"compile","id":"example-004"}
-import type { Length, PrimaryKey, References, Sql, Table } from 'zmdb/tags';
+import type { Length, PrimaryKey, References, Sql, Table } from '@zmdb/core/tags';
 
 export interface UserTag extends Table<'user_tags'> {
   userId: number & Sql<'integer'> & References<'users.id'> & PrimaryKey;

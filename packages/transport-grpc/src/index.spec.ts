@@ -389,12 +389,14 @@ describe('deadlines and cancellation', () => {
   it('unary: a caller that cancels aborts the signal and the handler runs its finally', async () => {
     const started = deferred<void>();
     const finished = deferred<void>();
+    let remainingAfterCancellation = Number.POSITIVE_INFINITY;
     await using harness = await start({
       ...standardHandlers(),
       get: async call => {
         started.resolve();
         try {
           await waitForAbort(call.signal);
+          remainingAfterCancellation = call.remainingMs();
           throw call.signal.reason;
         } finally {
           finished.resolve();
@@ -408,6 +410,7 @@ describe('deadlines and cancellation', () => {
 
     await expect(pending).rejects.toMatchObject({ code: status.CANCELLED });
     await expect(finished.promise).resolves.toBeUndefined();
+    expect(remainingAfterCancellation).toBe(0);
   });
 
   it('server streaming: a caller that stops reading aborts the signal and runs the handler finally', async () => {

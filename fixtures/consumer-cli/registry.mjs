@@ -186,7 +186,7 @@ export async function startRegistry(records) {
         );
         return;
       }
-      if (name === 'zmdb' || name.startsWith('@zmdb/')) {
+      if (name.startsWith('@zmdb/')) {
         response.writeHead(404);
         response.end('{}');
         return;
@@ -299,7 +299,7 @@ export async function createFixture() {
         visit(dependency);
       }
     }
-    for (const name of [...appRoots, '@zmdb/cli', 'zmdb']) visit(name);
+    for (const name of [...appRoots, '@zmdb/cli', '@zmdb/core']) visit(name);
     const { publishManifest } = await import(
       pathToFileURL(join(root, '.github/scripts/lib/publish-manifest.mjs')).href
     );

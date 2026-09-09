@@ -122,7 +122,7 @@ function generatedSnapshot(root: string): string {
 function publicPackageManifests(): PackageManifest[] {
   return ARCHITECTURE.workspacePackages
     .map(packageRecord => packageRecord.manifest as PackageManifest)
-    .filter(manifest => manifest.name === 'zmdb' || manifest.name.startsWith('@zmdb/'))
+    .filter(manifest => manifest.name.startsWith('@zmdb/'))
     .toSorted((left, right) => left.name.localeCompare(right.name));
 }
 

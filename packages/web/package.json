@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/web",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.",
   "keywords": [
     "decorators",
@@ -72,7 +72,7 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/compiler": "1.0.0-beta.1",
+    "@zmdb/compiler": "1.0.0-beta.2",
     "typescript": ">=7.0.2 <8.0.0"
   },
   "peerDependenciesMeta": {

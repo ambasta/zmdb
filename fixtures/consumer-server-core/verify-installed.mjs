@@ -24,7 +24,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURE = join(ROOT, 'fixtures', 'consumer-server-core');
 const PACKAGES_DIR = join(ROOT, 'packages');
 const JOBS_ROOTS = ['@zmdb/jobs', '@zmdb/jobs-sqlite'];
-const TARGET_ROOTS = ['@zmdb/app', '@zmdb/web', 'zmdb'];
+const TARGET_ROOTS = ['@zmdb/app', '@zmdb/web', '@zmdb/core'];
 const OPTIONAL_SERVER_PACKAGES = [
   '@zmdb/jobs-postgres',
   '@zmdb/otel',
@@ -255,14 +255,14 @@ function assertNoOptionalServerPackages(app, workspaceCount, label = 'core') {
 
 function assertWorkspaceClosure(app, expected) {
   const names = installedPackageNames(join(app, 'node_modules'));
-  const observed = [...names].filter(name => name === 'zmdb' || name.startsWith('@zmdb/')).toSorted();
+  const observed = [...names].filter(name => name.startsWith('@zmdb/')).toSorted();
   if (JSON.stringify(observed) !== JSON.stringify([...expected].toSorted())) {
     throw new Error(`installed zmdb packages ${JSON.stringify(observed)}, expected ${JSON.stringify(expected)}`);
   }
 }
 
 function verifyPlain(packages, scratch) {
-  const names = workspaceClosure(packages, ['zmdb']);
+  const names = workspaceClosure(packages, ['@zmdb/core']);
   const app = installConsumer(packWorkspace(packages, names, scratch), scratch, { includeTypecheckTools: false });
   assertNoOptionalServerPackages(app, names.length);
   assertWorkspaceClosure(app, names);
@@ -334,7 +334,7 @@ async function verifyDocumented() {
   const { command } = await import('../consumer-cli/registry.mjs');
   const { startRegistry } = await import('../consumer-jobs-providers/registry.mjs');
   const packages = workspacePackages();
-  const roots = ['@zmdb/jobs', '@zmdb/jobs-sqlite', 'zmdb'];
+  const roots = ['@zmdb/jobs', '@zmdb/jobs-sqlite', '@zmdb/core'];
   const names = workspaceClosure(packages, roots);
   const scratch = mkdtempSync(join(tmpdir(), 'zmdb-documented-server-'));
   const report = { failures: [], cleaned: false };
@@ -385,7 +385,7 @@ async function verifyDocumented() {
           dependencies: Object.fromEntries(
             roots.map(name => [
               name,
-              name === 'zmdb' ? `file:${archives.get(name)}` : packages.get(name).manifest.version,
+              name === '@zmdb/core' ? `file:${archives.get(name)}` : packages.get(name).manifest.version,
             ]),
           ),
           devDependencies: { typescript: '7.0.2', '@types/node': '26.4.1', esbuild: '0.28.2' },

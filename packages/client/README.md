@@ -6,10 +6,10 @@ decoding, cancellation, authentication patches, and stable protocol errors witho
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.1
+yarn add @zmdb/client@1.0.0-beta.2
 ```
 
-> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. The runtime uses web-platform APIs and works with either an injected transport or Fetch.
+> **Prerelease** (`1.0.0-beta.2`). Requires **Node.js 26+** and is **ESM-only**. The runtime uses web-platform APIs and works with either an injected transport or Fetch.
 
 ## Entry points
 

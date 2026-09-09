@@ -1,4 +1,4 @@
-import { is, schemaOf } from 'zmdb';
+import { is, schemaOf } from '@zmdb/core';
 
 import type { User } from './model.js';
 

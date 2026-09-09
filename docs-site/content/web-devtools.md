@@ -139,8 +139,8 @@ controller list.
 
 ## The production boundary
 
-The inspector is available only from `@zmdb/web/devtools`; it is not re-exported from `@zmdb/web`, `zmdb/web` or the application entry points. The `zmdb/cli` subpath is separately classified as
-build-time-only.
+The inspector is available only from `@zmdb/web/devtools`; it is not re-exported from `@zmdb/web`, `@zmdb/core/web` or the application entry points. The `@zmdb/core/cli` subpath is separately
+classified as build-time-only.
 
 `yarn verify:runtime-reachability` walks every package export and executable transitively under the canonical architecture policy. It fails if an ordinary entry reaches the devtools directory or
 `node:repl`, and CI runs the gate; `yarn verify:devtools-boundary` remains a compatibility alias. That structural rule is why the project does not offer a `/__graph` endpoint: a route exposing every

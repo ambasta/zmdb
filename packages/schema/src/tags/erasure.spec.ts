@@ -69,7 +69,7 @@ ${runtime}`;
       'Length',
       'Min',
       'HasDefault',
-      'zmdb',
+      '@zmdb/core',
     ]) {
       expect(code).not.toContain(name);
     }

@@ -21,7 +21,7 @@ dependency and entry-point boundary. Optional build tooling and integration boun
 ## Build and publication
 
 The [source TypeScript project](./tsconfig.json), [emit project](./tsconfig.build.json), [product catalog](../../scripts/product/catalog.mjs), and [publication workflow](../../PUBLISHING.md) define
-the current build and package delivery. The `zmdb/web` facade forwards the HTTP public owner.
+the current build and package delivery. The `@zmdb/core/web` facade forwards the HTTP public owner.
 
 ## HTTP-only package boundary (#649)
 
@@ -477,14 +477,14 @@ The current source layout does not define ownership. These mixed files must be s
 ### Migration and no-forwarder rule
 
 Moved old subpaths are deleted from `@zmdb/web` in the same changes that add their new owners. No source forwarding module, deprecated export alias, tombstone package or runtime warning remains.
-Consumers migrate by changing import specifiers. Runtime values reached through the default `zmdb/app` and `zmdb/web` facades are direct re-exports and preserve `===` identity. Issue #753 removes the
-planned runtime `zmdb/jobs` facade: selected jobs values are imported directly from `@zmdb/jobs`, and storage values come from the selected provider.
+Consumers migrate by changing import specifiers. Runtime values reached through the default `@zmdb/core/app` and `@zmdb/core/web` facades are direct re-exports and preserve `===` identity. Issue #753
+removes the planned runtime `@zmdb/core/jobs` facade: selected jobs values are imported directly from `@zmdb/jobs`, and storage values come from the selected provider.
 
 ### Evidence
 
 Implementation must prove:
 
-- the exact acyclic package DAG, the empty third-party peer sets for app/web/portable jobs, and absence of jobs from the default `zmdb` graph;
+- the exact acyclic package DAG, the empty third-party peer sets for app/web/portable jobs, and absence of jobs from the default `@zmdb/core` graph;
 - every old path is absent and every new path imports from packed tarballs outside the workspace;
 - `createApp` uses the same application/container/lifecycle identities as `createApplication`;
 - route handling performs no extension walk or package-boundary wrapper per request;

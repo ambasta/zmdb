@@ -31,7 +31,7 @@ UPDATE [users] SET [role] = @p1 OUTPUT INSERTED.[id], INSERTED.[role] WHERE [id]
 ## Through the repository (validated)
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies posts, users; this excerpt does not repeat those declarations."}
-import { inc, not } from 'zmdb/sql';
+import { inc, not } from '@zmdb/core/sql';
 
 const updated = await users.update(1, { role: 'admin' });
 const counted = await posts.increment(1, 'views', 2);

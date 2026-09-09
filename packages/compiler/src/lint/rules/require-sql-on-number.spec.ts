@@ -14,7 +14,7 @@ it('does not report a number with an integer SQL tag', async () => {
     valid: [
       {
         code:
-          "import type { Sql, Table } from '@zmdb/schema/tags';\n" +
+          "import type { Sql, Table } from '@zmdb/core/tags';\n" +
           "interface Score extends Table<'scores'> { value: number & Sql<'integer'>; }\n",
       },
     ],
@@ -27,7 +27,7 @@ it('does not report a tagged number hidden behind a type alias', async () => {
     valid: [
       {
         code:
-          "import type { Sql, Table } from '@zmdb/schema/tags';\n" +
+          "import type { Sql, Table } from '@zmdb/core/tags';\n" +
           "type Money = number & Sql<'numeric'>;\n" +
           "interface Invoice extends Table<'invoices'> { total: Money; }\n",
       },
@@ -45,7 +45,7 @@ it('does not report a bare number outside a Table declaration', async () => {
 
 it('reports a bare number on a Table property', async () => {
   const code =
-    "import type { Table } from '@zmdb/schema/tags';\n\n" +
+    "import type { Table } from '@zmdb/core/tags';\n\n" +
     "interface Score extends Table<'scores'> {\n" +
     '  value: number;\n' +
     '}\n';

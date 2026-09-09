@@ -51,7 +51,7 @@ parameters exist for the same reason — a codec that named only two left the th
 A column names its codec with the `Codec<'Name'>` tag, and says what JSON carries with `WireAs<W>`:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Money; this excerpt does not repeat those declarations."}
-import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from 'zmdb/tags';
+import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/core/tags';
 
 export interface Order extends Table<'orders'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

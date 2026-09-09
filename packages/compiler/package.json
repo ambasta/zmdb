@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/compiler",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "The single TypeScript front end for zmdb reflection, AOT emission, code generation, build adapters, lint rules, and project configuration.",
   "keywords": [
     "aot",
@@ -51,7 +51,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/ai": "workspace:1.0.0-beta.1"
+    "@zmdb/ai": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@zmdb/mssql": "workspace:^",
@@ -68,9 +68,9 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/schema": "1.0.0-beta.1",
-    "@zmdb/sql": "1.0.0-beta.1",
-    "@zmdb/validator": "1.0.0-beta.1",
+    "@zmdb/schema": "1.0.0-beta.2",
+    "@zmdb/sql": "1.0.0-beta.2",
+    "@zmdb/validator": "1.0.0-beta.2",
     "metro": ">=0.87.0 <0.88.0",
     "metro-babel-transformer": ">=0.87.0 <0.88.0",
     "oxlint": ">=1.81.0 <1.82.0",

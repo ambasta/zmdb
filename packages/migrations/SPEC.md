@@ -25,7 +25,7 @@ zmdb CLI adapters ──> @zmdb/migrations/files ──> @zmdb/migrations ──
 ```
 
 `@zmdb/migrations` has a required dependency on `@zmdb/sql` and on the pinned `oxfmt` version used only by generated declarations. It has no dependency on `@zmdb/compiler`, `@zmdb/cli`, `@zmdb/orm`,
-`@zmdb/web` or `zmdb`.
+`@zmdb/web` or `@zmdb/core`.
 
 Schema and driver inputs are structural. The CLI may obtain schema values from `@zmdb/compiler/testing` and pass them in, but the migrations package never opens a TypeScript project. Database-specific
 DDL, catalog queries and connection adapters arrive through the explicit database/migration protocols; no mutable dialect registry or import-for-side-effect mechanism is permitted.
@@ -48,8 +48,8 @@ The package exports exactly:
 | `@zmdb/migrations/files`              | migration files, atomic persistence and reusable project command operations |
 | `@zmdb/migrations/testing`            | in-memory protocols, golden helpers and conformance suites                  |
 
-`zmdb/migrations` is the stable product facade over the root lifecycle, runner and file-backed project APIs. Advanced consumers use the explicit package subpaths. There are no compatibility entries
-under `@zmdb/sql`. The root, runner and product facade have no `runCli`; command dispatch belongs only to `@zmdb/cli`, while the engine retains `up`, `down` and `status`.
+`@zmdb/core/migrations` is the stable product facade over the root lifecycle, runner and file-backed project APIs. Advanced consumers use the explicit package subpaths. There are no compatibility
+entries under `@zmdb/sql`. The root, runner and product facade have no `runCli`; command dispatch belongs only to `@zmdb/cli`, while the engine retains `up`, `down` and `status`.
 
 ### 3.1 Root API
 
@@ -109,9 +109,9 @@ The implementation removed:
 - `@zmdb/sql/migrations`
 - `@zmdb/sql/migrations/runner`
 - `@zmdb/sql/migrations/embedded`
-- the `migrations` namespace export from the `zmdb` root
+- the `migrations` namespace export from the `@zmdb/core` root
 
-No implementation-owner forwarding subpath remains. Product imports use `zmdb/migrations`; advanced imports use `@zmdb/migrations` and its explicit subpaths. The old query-compiler paths do not
+No implementation-owner forwarding subpath remains. Product imports use `@zmdb/core/migrations`; advanced imports use `@zmdb/migrations` and its explicit subpaths. The old query-compiler paths do not
 resolve.
 
 ## 5. Packed-consumer evidence

@@ -96,7 +96,7 @@ function linkExternalDependencies(nodeModules: string, excluded: ReadonlySet<str
   const source = join(ROOT, 'node_modules');
   mkdirSync(nodeModules, { recursive: true });
   for (const entry of readdirSync(source, { withFileTypes: true })) {
-    if (entry.name === '.bin' || entry.name === '@zmdb' || entry.name === 'zmdb') continue;
+    if (entry.name === '.bin' || entry.name === '@zmdb') continue;
     const from = join(source, entry.name);
     if (!entry.name.startsWith('@')) {
       if (excluded.has(entry.name)) continue;
@@ -263,10 +263,10 @@ process.stdout.write(JSON.stringify(out));
 
 function productIdentityChecks(app: string): Readonly<Record<string, IdentityResult>> {
   const checks = {
-    compiler: ['zmdb/compiler', '@zmdb/compiler', ['compileProject', 'writeCompileResult']],
-    config: ['zmdb/config', '@zmdb/compiler/config', ['defineConfig', 'loadConfig', 'resolveConfig']],
-    migrations: ['zmdb/migrations', '@zmdb/migrations', ['diff', 'planMigration', 'snapshot']],
-    cli: ['zmdb/cli', '@zmdb/cli', ['runCli']],
+    compiler: ['@zmdb/core/compiler', '@zmdb/compiler', ['compileProject', 'writeCompileResult']],
+    config: ['@zmdb/core/config', '@zmdb/compiler/config', ['defineConfig', 'loadConfig', 'resolveConfig']],
+    migrations: ['@zmdb/core/migrations', '@zmdb/migrations', ['diff', 'planMigration', 'snapshot']],
+    cli: ['@zmdb/core/cli', '@zmdb/cli', ['runCli']],
   };
   const source = `const out = {};
 for (const [name, [productSpecifier, implementationSpecifier, exports]] of Object.entries(${JSON.stringify(checks)})) {

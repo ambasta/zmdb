@@ -1,4 +1,4 @@
-import { Command, Controller, Get, Module, createApp, createCommandApp } from 'zmdb';
+import { Command, Controller, Get, Module, createApp, createCommandApp } from '@zmdb/core';
 
 let commandRuns = 0;
 

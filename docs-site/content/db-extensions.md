@@ -6,7 +6,7 @@ it also exposes closed pgvector distance expressions and the two typed PostGIS p
 `SqlType` remains the closed core vocabulary. An extension type uses `Ext` instead, keeping the installable extension, the SQL type it provides and its parameters separate:
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { Ext, PrimaryKey, Sql, Table } from 'zmdb/tags';
+import type { Ext, PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 interface GeoJsonPoint {
   readonly type: 'Point';

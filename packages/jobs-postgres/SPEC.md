@@ -95,12 +95,12 @@ and misses. No private node-postgres protocol state is accessed.
 ## 5. Installation, refusals, and evidence
 
 ```sh
-npm install zmdb@alpha @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
+npm install @zmdb/core@alpha @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
 ```
 
 The package must not:
 
-- appear in the packed `@zmdb/jobs` or `zmdb` closure;
+- appear in the packed `@zmdb/jobs` or `@zmdb/core` closure;
 - depend on SQLite, `@zmdb/jobs-sqlite`, or another jobs provider;
 - make `pg` optional, bundle it, or import it through an undeclared path;
 - auto-migrate;

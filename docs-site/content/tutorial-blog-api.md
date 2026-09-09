@@ -1,5 +1,5 @@
-Build a small blog API with the same `zmdb` installation used in the [quick start](./quick-start.html). One table declaration supplies repository types, migration input and request validation. The
-application serves that repository through HTTP; the [generated-client workflow](./generated-client.html) then gives callers a public contract.
+Build a small blog API with the same `@zmdb/core` installation used in the [quick start](./quick-start.html). One table declaration supplies repository types, migration input and request validation.
+The application serves that repository through HTTP; the [generated-client workflow](./generated-client.html) then gives callers a public contract.
 
 This tutorial uses the included SQLite provider and caller-owned database connection. The
 [complete installed server example](https://github.com/ambasta/zmdb/blob/main/fixtures/consumer-server-core/src/documented-server.ts) demonstrates the same schema, repository, HTTP and shutdown
@@ -8,7 +8,7 @@ boundaries with a real Node listener and an optional worker.
 ## 1. Create the project
 
 ```bash
-yarn dlx zmdb@1.0.0-beta.1 new project blog
+yarn dlx -p @zmdb/cli@1.0.0-beta.2 zmdb new project blog
 cd blog
 yarn install
 ```
@@ -21,7 +21,7 @@ The CLI supplies the strict TypeScript configuration, AOT build and application 
 Replace `src/schema.ts` with the table declaration:
 
 ```ts {"mode":"compile","id":"schema","group":"blog-app","file":"src/schema.ts","environment":"node"}
-import type { MinLength, PrimaryKey, Serial, Sql, Table } from 'zmdb';
+import type { MinLength, PrimaryKey, Serial, Sql, Table } from '@zmdb/core';
 
 export interface BlogPost extends Table<'posts'> {
   readonly id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -39,8 +39,8 @@ Use the public configuration in `zmdb.config.ts`. Both the CLI and application b
 
 ```ts {"mode":"compile","id":"configuration","group":"blog-app","file":"zmdb.config.ts","environment":"node"}
 import { DatabaseSync } from 'node:sqlite';
-import { defineConfig } from 'zmdb/config';
-import { sqlite, sqliteDriver } from 'zmdb/sqlite';
+import { defineConfig } from '@zmdb/core/config';
+import { sqlite, sqliteDriver } from '@zmdb/core/sqlite';
 
 export default defineConfig({
   schema: './src/schema.ts',
@@ -71,8 +71,8 @@ Replace `src/main.ts` with this program. The repository uses the same schema and
 
 ```ts {"mode":"compile","id":"application","group":"blog-app","file":"src/main.ts","environment":"node"}
 import { DatabaseSync } from 'node:sqlite';
-import { Controller, Get, Module, Post, assert, createApp, defineRepository, schemaOf, type CreateDTO, type Ctx } from 'zmdb';
-import { sqlite, sqliteDriver } from 'zmdb/sqlite';
+import { Controller, Get, Module, Post, assert, createApp, defineRepository, schemaOf, type CreateDTO, type Ctx } from '@zmdb/core';
+import { sqlite, sqliteDriver } from '@zmdb/core/sqlite';
 
 import type { BlogPost } from './schema.js';
 

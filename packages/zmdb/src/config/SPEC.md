@@ -1,33 +1,33 @@
 # The config file — Spec (epic "The zmdb executable")
 
-> Implemented by `@zmdb/compiler/config` and exposed by the `zmdb/config` product facade. Read by the executable (`../cli/SPEC.md`); an application never has to import it.
+> Implemented by `@zmdb/compiler/config` and exposed by the `@zmdb/core/config` product facade. Read by the executable (`../cli/SPEC.md`); an application never has to import it.
 
 ## 0. Product ownership and the stable entry point
 
-`@zmdb/compiler/config` is the sole implementation of the public project-configuration contract, and `zmdb/config` is its stable product facade. CLI commands, compiler adapters, schema discovery,
-naming, migrations, introspection, Studio, and scaffolding consume either `loadConfig` or the same `ResolvedConfig` returned by it. They do not declare a second public config shape, repeat discovery,
-apply their own defaults, or resolve paths again.
+`@zmdb/compiler/config` is the sole implementation of the public project-configuration contract, and `@zmdb/core/config` is its stable product facade. CLI commands, compiler adapters, schema
+discovery, naming, migrations, introspection, Studio, and scaffolding consume either `loadConfig` or the same `ResolvedConfig` returned by it. They do not declare a second public config shape, repeat
+discovery, apply their own defaults, or resolve paths again.
 
-The implementation move is invisible to product consumers: `zmdb/config` remains the stable entry point and only `packages/compiler/src/config/index.ts` owns discovery, execution, validation,
+The implementation move is invisible to product consumers: `@zmdb/core/config` remains the stable entry point and only `packages/compiler/src/config/index.ts` owns discovery, execution, validation,
 defaulting, path resolution, and the path-keyed cache. A package may accept explicit per-invocation or runtime options where those values are not project configuration; it must not call that object
 another `ZmdbConfig`.
 
-The `zmdb` root may re-export `defineConfig` and the author-facing `ZmdbConfig` type from a dependency-free contract module. It must not re-export the loader module itself, because a root import may
-not reach filesystem, compiler, migration, or CLI code. `loadConfig`, `resolveConfig`, `ResolvedConfig`, and `LoadConfigOptions` remain on `zmdb/config`.
+The `@zmdb/core` root may re-export `defineConfig` and the author-facing `ZmdbConfig` type from a dependency-free contract module. It must not re-export the loader module itself, because a root import
+may not reach filesystem, compiler, migration, or CLI code. `loadConfig`, `resolveConfig`, `ResolvedConfig`, and `LoadConfigOptions` remain on `@zmdb/core/config`.
 
 The authoring owner is `packages/compiler/src/config/contract.ts`. It contains the identity helper and author-facing types, uses type-only dependency imports, and performs no discovery, validation,
-defaulting, path resolution, caching, or module execution. The adjacent `index.ts` is the one loader owner and re-exports those authoring identities, so `zmdb/config` exposes one contract while a
-runtime facade can reuse the dependency-light half without importing tooling.
+defaulting, path resolution, caching, or module execution. The adjacent `index.ts` is the one loader owner and re-exports those authoring identities, so `@zmdb/core/config` exposes one contract while
+a runtime facade can reuse the dependency-light half without importing tooling.
 
 The consumer inventory is deliberate:
 
-| Consumer                                                                 | Project-config route                                                                                         | Explicit non-project options                                                                         |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| database commands, migrations, introspection, HTTP generation and Studio | one `ResolvedConfig` from `loadConfig`; `--project` is reapplied through `resolveConfig`                     | confirmation, check/watch, migration name/target, generated output override, dry-run and Studio port |
-| `zmdb/compiler`                                                          | optional `loadConfig`, then the canonical `project` and `resolvedNaming`                                     | caller-owned compiler session, emit settings and diagnostic callback                                 |
-| direct `@zmdb/compiler` project compilation                              | receives the explicit project path and naming strategy selected by its caller                                | selected source files, check/write mode and diagnostics                                              |
-| `zmdb new project`                                                       | emits a config importing `defineConfig` from `zmdb/config`; its generated build adapter uses `zmdb/compiler` | scaffold kind, name, workspace package and dry-run                                                   |
-| application/runtime APIs                                                 | never load project config                                                                                    | drivers, base URLs, authentication, retries, DI values and all other runtime settings                |
+| Consumer                                                                 | Project-config route                                                                                                     | Explicit non-project options                                                                         |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| database commands, migrations, introspection, HTTP generation and Studio | one `ResolvedConfig` from `loadConfig`; `--project` is reapplied through `resolveConfig`                                 | confirmation, check/watch, migration name/target, generated output override, dry-run and Studio port |
+| `@zmdb/core/compiler`                                                    | optional `loadConfig`, then the canonical `project` and `resolvedNaming`                                                 | caller-owned compiler session, emit settings and diagnostic callback                                 |
+| direct `@zmdb/compiler` project compilation                              | receives the explicit project path and naming strategy selected by its caller                                            | selected source files, check/write mode and diagnostics                                              |
+| `zmdb new project`                                                       | emits a config importing `defineConfig` from `@zmdb/core/config`; its generated build adapter uses `@zmdb/core/compiler` | scaffold kind, name, workspace package and dry-run                                                   |
+| application/runtime APIs                                                 | never load project config                                                                                                | drivers, base URLs, authentication, retries, DI values and all other runtime settings                |
 
 These invocation and runtime objects are not alternate `ZmdbConfig` declarations. They stay explicit because they select one operation or one running application rather than describe the shared schema
 project.
@@ -214,7 +214,7 @@ architecture currently does without".
 ```ts
 // zmdb.config.ts
 import { postgres } from '@zmdb/postgres';
-import { defineConfig } from 'zmdb/config';
+import { defineConfig } from '@zmdb/core/config';
 
 export default defineConfig({
   schema: ['src/**/*.schema.ts'],
@@ -270,12 +270,12 @@ Base URLs, credentials, authentication providers, timeouts, retries, and deploym
 This behavioral contract's filesystem-backed implementation lives in `@zmdb/compiler/config`. The loader, generated validator pair and witness moved together; there is one
 discovery/cache/validation/path-resolution boundary.
 
-`zmdb/config` remains public as a direct identity re-export, so the default product import stays:
+`@zmdb/core/config` remains public as a direct identity re-export, so the default product import stays:
 
 ```ts
-import { defineConfig } from 'zmdb/config';
+import { defineConfig } from '@zmdb/core/config';
 ```
 
 Advanced tooling imports `@zmdb/compiler/config`. The current `zmdb` CLI uses that subpath directly; the future `@zmdb/cli` extraction must keep the same dependency and must not publish another config
-API. The `zmdb` root may re-export only the dependency-free authoring contract described in §0; it must not reach the compiler loader. The config's driver contract is structural, avoiding a compiler
-dependency on `@zmdb/orm`; application runtimes still never evaluate the config.
+API. The `@zmdb/core` root may re-export only the dependency-free authoring contract described in §0; it must not reach the compiler loader. The config's driver contract is structural, avoiding a
+compiler dependency on `@zmdb/orm`; application runtimes still never evaluate the config.

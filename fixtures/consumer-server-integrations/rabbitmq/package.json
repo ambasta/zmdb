@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@zmdb/transport-rabbitmq": "1.0.0-beta.1",
+    "@zmdb/transport-rabbitmq": "1.0.0-beta.2",
     "amqplib": "2.0.1"
   },
   "devDependencies": {

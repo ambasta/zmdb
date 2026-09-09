@@ -4,10 +4,10 @@ export const repositoryTemplate: TemplateFactory = ({ name }) => ({
   files: [
     {
       path: `src/${name.fileStem}.repository.ts`,
-      source: `import { defineRepository, schemaOf, type Driver } from 'zmdb';
-import type { BaseRepository } from 'zmdb/orm';
-import { repositoryToken } from 'zmdb/app/data';
-import type { ProviderDef } from 'zmdb/app/modules';
+      source: `import { defineRepository, schemaOf, type Driver } from '@zmdb/core';
+import type { BaseRepository } from '@zmdb/core/orm';
+import { repositoryToken } from '@zmdb/core/app/data';
+import type { ProviderDef } from '@zmdb/core/app/modules';
 
 import type { ${name.pascal} } from './${name.fileStem}.js';
 
@@ -27,9 +27,9 @@ export function ${name.camel}RepositoryProvider(driver: Driver): ProviderDef<Bas
       path: `src/${name.fileStem}.repository.spec.ts`,
       source: `import { DatabaseSync } from 'node:sqlite';
 
-import { sqliteDriver } from 'zmdb/sqlite';
-import { createTestApp } from 'zmdb/testing';
-import { Module } from 'zmdb';
+import { sqliteDriver } from '@zmdb/core/sqlite';
+import { createTestApp } from '@zmdb/core/testing';
+import { Module } from '@zmdb/core';
 import { describe, expect, it } from 'vitest';
 
 import {

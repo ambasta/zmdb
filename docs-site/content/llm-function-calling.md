@@ -1,4 +1,4 @@
-> **Install:** `yarn add @zmdb/ai@1.0.0-beta.1 @zmdb/schema-core@1.0.0-beta.1 @zmdb/aot-validator@1.0.0-beta.1`. Provider document dialects live in `@zmdb/ai`; that package has no provider SDK or
+> **Install:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/schema-core@1.0.0-beta.2 @zmdb/aot-validator@1.0.0-beta.2`. Provider document dialects live in `@zmdb/ai`; that package has no provider SDK or
 > framework peer.
 
 zmdb derives a tool's input document from the table's `create` shape. Use `toolFor` when you know the target provider; it applies that provider's framing and schema rules before the document is

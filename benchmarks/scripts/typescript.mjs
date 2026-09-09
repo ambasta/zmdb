@@ -165,7 +165,7 @@ function run(selected) {
       writeFileSync(
         file,
         [
-          "import type { CreateDTO } from 'zmdb';",
+          "import type { CreateDTO } from '@zmdb/core';",
           `import type { Order } from '${schemaImport.startsWith('.') ? schemaImport : `./${schemaImport}`}';`,
           "export const draft: CreateDTO<Order> = { name: 'fixture' };",
           'export const copied = draft.name;',

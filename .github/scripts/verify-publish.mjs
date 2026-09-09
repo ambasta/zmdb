@@ -128,7 +128,7 @@ async function smokeStudio(app, binPath) {
   const configPath = join(app, 'zmdb.config.mjs');
   writeFileSync(
     configPath,
-    `import { sqlite } from 'zmdb/sqlite';
+    `import { sqlite } from '@zmdb/core/sqlite';
 
 export default {
   schema: './schema.ts',
@@ -148,7 +148,7 @@ export default {
   );
   writeFileSync(
     join(app, 'schema.ts'),
-    `import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+    `import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface Widget extends Table<'widgets'> {
   id: number & Sql<'integer'> & PrimaryKey;
@@ -181,8 +181,8 @@ export const WIDGET_HTTP_CONTRACT = {};
       '--input-type=module',
       '--eval',
       `import { join } from 'node:path';
-const configModule = await import('zmdb/config');
-const { sqlite } = await import('zmdb/sqlite');
+const configModule = await import('@zmdb/core/config');
+const { sqlite } = await import('@zmdb/core/sqlite');
 const authored = {
   schema: './schema.ts',
   dialect: sqlite,
@@ -538,8 +538,8 @@ writeFileSync(
   type HttpGenerationConfig,
   type ResolvedConfig,
   type ZmdbConfig,
-} from 'zmdb/config';
-import { sqlite } from 'zmdb/sqlite';
+} from '@zmdb/core/config';
+import { sqlite } from '@zmdb/core/sqlite';
 
 const http = {
   contracts: './src/http.contract.ts#HTTP_CONTRACT',

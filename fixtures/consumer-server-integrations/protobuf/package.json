@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@zmdb/protobuf": "1.0.0-beta.1"
+    "@zmdb/protobuf": "1.0.0-beta.2"
   },
   "zmdbFixture": {
     "target": "@zmdb/protobuf"

@@ -90,7 +90,7 @@ things to take from them:
 ## What is not AOT
 
 The query compiler is string concatenation over data, with no transformer and no codegen. The derived types — `Entity`, `CreateDTO`, `UpdateDTO`, `WhereDTO` — are types, so they have no runtime
-footprint at all, and the tag vocabulary in `zmdb/tags` is types only too: those imports disappear from your output.
+footprint at all, and the tag vocabulary in `@zmdb/core/tags` is types only too: those imports disappear from your output.
 
 What _does_ need the build step is the crossing from the type to a value. `schemaOf<T>()` is that crossing, and the repository and the migration snapshot both take a schema value, so a project that
 uses them is a project that runs the transformer even if it never calls a validator. Only the query compiler, used directly against table and column names, is genuinely build-free — see

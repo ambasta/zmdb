@@ -48,7 +48,7 @@ const DEFAULT_CLOSURE = [
   '@zmdb/sqlite',
   '@zmdb/validator',
   '@zmdb/web',
-  'zmdb',
+  '@zmdb/core',
 ] as const;
 const PORTABLE_CLOSURE = [
   '@zmdb/app',
@@ -85,9 +85,9 @@ const DEFAULT_IDENTITY_SOURCE = `
 import { assert as directAssert } from '@zmdb/validator';
 import { BaseRepository as DirectBaseRepository } from '@zmdb/orm';
 import { createApp as directCreateApp } from '@zmdb/web';
-import { assert } from 'zmdb';
-import { BaseRepository } from 'zmdb/orm';
-import { createApp } from 'zmdb/web';
+import { assert } from '@zmdb/core';
+import { BaseRepository } from '@zmdb/core/orm';
+import { createApp } from '@zmdb/core/web';
 
 if (assert !== directAssert || BaseRepository !== DirectBaseRepository || createApp !== directCreateApp) {
   throw new Error('packed default facade duplicated a canonical runtime value');
@@ -492,8 +492,8 @@ function installConsumer(options: {
   assertPackedInstall(application, options.tarballs, closure);
 
   const consumerManifest = readManifest(join(application, 'package.json'));
-  const installedSelections = Object.keys(consumerManifest.dependencies ?? {}).filter(
-    name => name === 'zmdb' || name.startsWith('@zmdb/'),
+  const installedSelections = Object.keys(consumerManifest.dependencies ?? {}).filter(name =>
+    name.startsWith('@zmdb/'),
   );
   if (JSON.stringify(installedSelections) !== JSON.stringify(selectedOfficial)) {
     throw new Error(
@@ -519,7 +519,7 @@ function prepareMatrix(): PackedMatrix {
   const directory = mkdtempSync(join(tmpdir(), 'zmdb-selection-754-'));
   try {
     const workspace = workspacePackages();
-    const roots = ['zmdb', '@zmdb/jobs', '@zmdb/jobs-postgres'];
+    const roots = ['@zmdb/core', '@zmdb/jobs', '@zmdb/jobs-postgres'];
     if (workspace.has('@zmdb/jobs-sqlite')) roots.push('@zmdb/jobs-sqlite');
     const names = workspaceClosure(workspace, roots);
     const tarballs = withPackedBuildLock(ROOT, () => {
@@ -532,7 +532,7 @@ function prepareMatrix(): PackedMatrix {
     };
     const defaultConsumer = installConsumer({
       label: 'selection-default',
-      root: 'zmdb',
+      root: '@zmdb/core',
       workspace,
       tarballs,
       directory,
@@ -608,7 +608,7 @@ function prepareMatrix(): PackedMatrix {
 }
 
 function official(name: string): boolean {
-  return name === 'zmdb' || name.startsWith('@zmdb/');
+  return name.startsWith('@zmdb/');
 }
 
 function directOfficial(manifest: PackageManifest): readonly string[] {
@@ -639,7 +639,7 @@ function selectionDiagnostics(
   const closure = graph.closure.filter(official).toSorted();
   const direct = directOfficial(rootPackage.manifest);
 
-  if (graph.root === 'zmdb') {
+  if (graph.root === '@zmdb/core') {
     for (const name of JOBS_PACKAGES) {
       if (closure.includes(name)) problems.push(`SELECTION_DEFAULT_LEAK: ${formatPath(graph, name)}`);
     }
@@ -820,7 +820,7 @@ afterAll(() => {
 
 describe('default dependency graph and opt-in identity boundaries (#754)', () => {
   it('keeps SQLite in the packed default product graph without jobs or other databases', () => {
-    const rootPackage = matrix.defaultConsumer.graph.packages.get('zmdb');
+    const rootPackage = matrix.defaultConsumer.graph.packages.get('@zmdb/core');
     if (rootPackage === undefined) throw new Error('packed default consumer omitted zmdb');
     expect(rootPackage.manifest.dependencies).toHaveProperty('@zmdb/sqlite');
     expect(matrix.defaultConsumer.graph.closure.filter(official).toSorted()).toEqual(
@@ -979,7 +979,7 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
     const installedJobs = matrix.portableConsumer.graph.packages.get('@zmdb/jobs');
     if (installedJobs === undefined) throw new Error('packed portable consumer omitted @zmdb/jobs');
     mutation.packages.set('@zmdb/jobs', installedJobs);
-    replaceManifest(mutation.packages, 'zmdb', manifest => ({
+    replaceManifest(mutation.packages, '@zmdb/core', manifest => ({
       ...manifest,
       dependencies: {
         ...manifest.dependencies,
@@ -1031,7 +1031,7 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
 
   it('rejects changed direct-edge or closure budgets with SELECTION_BUDGET_DRIFT', () => {
     const mutation = cloneInstalledGraph(matrix.defaultConsumer.graph);
-    replaceManifest(mutation.packages, 'zmdb', manifest => {
+    replaceManifest(mutation.packages, '@zmdb/core', manifest => {
       const dependencies = { ...manifest.dependencies };
       delete dependencies['@zmdb/web'];
       return { ...manifest, dependencies };
@@ -1052,7 +1052,7 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
 
   it('rejects a zmdb jobs facade with SELECTION_FACADE_FORBIDDEN', () => {
     const mutation = cloneInstalledGraph(matrix.defaultConsumer.graph);
-    replaceManifest(mutation.packages, 'zmdb', manifest => ({
+    replaceManifest(mutation.packages, '@zmdb/core', manifest => ({
       ...manifest,
       exports: { ...manifest.exports, './jobs': './dist/jobs.js' },
     }));

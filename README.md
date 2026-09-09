@@ -10,7 +10,7 @@
 
 ## Build one application
 
-Install `zmdb` to define a schema, generate its migration, validate requests and persist typed records behind an HTTP controller. SQLite is included. Start with the
+Install `@zmdb/core` to define a schema, generate its migration, validate requests and persist typed records behind an HTTP controller. SQLite is included. Start with the
 [quick start](./docs-site/content/quick-start.md), then follow the [blog API tutorial](./docs-site/content/tutorial-blog-api.md) and [generated client](./docs-site/content/generated-client.md).
 
 The product uses the same schema through validation, SQL, repositories and HTTP. The [runnable server journey](./docs-site/content/web-overview.md) demonstrates a real HTTP request, persistence and a
@@ -29,7 +29,7 @@ Advanced dependency boundaries are explained in the [runtime foundation](./docs-
 Create a formatter-clean SQLite project with the packaged CLI:
 
 ```bash
-yarn dlx zmdb@1.0.0-beta.1 new project blog
+yarn dlx -p @zmdb/cli@1.0.0-beta.2 zmdb new project blog
 cd blog
 yarn install
 yarn check
@@ -48,8 +48,8 @@ yarn zmdb migrate
 
 ```typescript
 import { DatabaseSync } from 'node:sqlite';
-import { defineRepository, schemaOf, type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
-import { sqliteDriver } from 'zmdb/sqlite';
+import { defineRepository, schemaOf, type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/core';
+import { sqliteDriver } from '@zmdb/core/sqlite';
 
 // A table is a TypeScript type. Tags carry the database details that TypeScript
 // cannot express on its own, and disappear from the emitted JavaScript.
@@ -67,13 +67,13 @@ const admins = await users.find({ role: 'admin' }); // typed WhereDTO<S>
 const page = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
 ```
 
-The default import is the lazy, logic-free application surface. Focused APIs remain available from `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`, `zmdb/web`, `zmdb/migrations`,
-`zmdb/compiler`, and `zmdb/testing`; optional integrations are installed separately.
+The default import is the lazy, logic-free application surface. Focused APIs remain available from `@zmdb/core/schema`, `@zmdb/core/sql`, `@zmdb/core/validator`, `@zmdb/core/orm`, `@zmdb/core/web`,
+`@zmdb/core/migrations`, `@zmdb/core/compiler`, and `@zmdb/core/testing`; optional integrations are installed separately.
 
 `schemaOf<T>()` is resolved at build time because TypeScript erases type arguments before the program runs. Set up the build plugin, or run the code generator, as described in
 [AOT setup](https://ambasta.github.io/zmdb/docs/aot-setup.html). Calling untransformed code fails with a clear error instead of returning an empty schema.
 
-You can also install individual packages or subclass `BaseRepository` from `zmdb/orm`. Continue through the [full quick start](https://ambasta.github.io/zmdb/docs/quick-start.html) and
+You can also install individual packages or subclass `BaseRepository` from `@zmdb/core/orm`. Continue through the [full quick start](https://ambasta.github.io/zmdb/docs/quick-start.html) and
 [blog API tutorial](https://ambasta.github.io/zmdb/docs/tutorial-blog-api.html).
 
 ## One HTTP contract, two public artifacts

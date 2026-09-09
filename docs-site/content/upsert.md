@@ -10,7 +10,7 @@ table's primary key, and has return type `Promise<Entity<T> | undefined>`. It re
 Its `updateFields` option accepts either column names or an expression-aware `UpdatePatch<T>`:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
-import { inc, proposed } from 'zmdb/sql';
+import { inc, proposed } from '@zmdb/core/sql';
 
 await repo.upsert(
   { id: 1, email: 'ada@example.com', name: 'Ada', hits: 1 },

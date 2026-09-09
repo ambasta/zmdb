@@ -549,10 +549,10 @@ process.stdout.write('bootstrapped');
     const build = files.get('orders/scripts/build.mjs');
     const runtime = files.get('orders/src/main.ts');
 
-    expect(config).toContain("from 'zmdb'");
-    expect(build).toContain("from 'zmdb/compiler'");
+    expect(config).toContain("from '@zmdb/core'");
+    expect(build).toContain("from '@zmdb/core/compiler'");
     expect(build).toContain('zmdbAot({ cwd: root })');
-    expect(runtime).not.toContain('zmdb/config');
+    expect(runtime).not.toContain('@zmdb/core/config');
     expect(runtime).not.toContain('loadConfig');
   });
 

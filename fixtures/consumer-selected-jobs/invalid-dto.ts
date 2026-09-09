@@ -1,4 +1,4 @@
-import type { CreateDTO, PrimaryKey, Sql, Table } from 'zmdb';
+import type { CreateDTO, PrimaryKey, Sql, Table } from '@zmdb/core';
 
 interface Order extends Table<'orders'> {
   readonly id: number & Sql<'integer'> & PrimaryKey;

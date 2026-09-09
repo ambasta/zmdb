@@ -8,8 +8,8 @@ The embeddable is a plain interface. The table declares one column per field, an
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseRepository; this excerpt does not repeat those declarations."}
 import { flattenEmbeddable, liftEmbeddable } from '@zmdb/schema/entity-modeling';
 import { assert } from '@zmdb/validator';
-import { schemaOf } from 'zmdb';
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import { schemaOf } from '@zmdb/core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 interface Address {
   street: string;

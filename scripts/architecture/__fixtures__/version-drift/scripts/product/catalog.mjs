@@ -21,7 +21,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'application',
     facade: Object.freeze({
       root: freezeArray(['appValue']),
-      subpaths: freezeArray(['zmdb/app']),
+      subpaths: freezeArray(['@zmdb/core/app']),
     }),
     optionality: Object.freeze({ kind: 'required' }),
     docsOwner: 'fixture-app',

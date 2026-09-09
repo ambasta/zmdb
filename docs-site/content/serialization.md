@@ -18,7 +18,7 @@ rather than the engine's own wording.
 To drop keys, drop them from the value — a projection, not a serializer:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User, row, stringify; this excerpt does not repeat those declarations."}
-import type { ReadDTO } from 'zmdb/derive';
+import type { ReadDTO } from '@zmdb/core/derive';
 
 const { passwordHash, ...visible } = row;
 const json = stringify(visible satisfies ReadDTO<User>);
@@ -79,8 +79,8 @@ const dto = assert<CreateDTO<User>>(alreadyParsed);
 `ReadDTO<T>` is the type-level answer, and it is unconditional: a `Sensitive` column is _removed from the type_, so naming it is a compile error rather than something a serializer has to remember.
 
 ```ts {"mode":"compile","id":"example-007"}
-import type { PrimaryKey, Sensitive, Serial, Sql, Table } from 'zmdb/tags';
-import type { Entity, ReadDTO } from 'zmdb/derive';
+import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/core/tags';
+import type { Entity, ReadDTO } from '@zmdb/core/derive';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

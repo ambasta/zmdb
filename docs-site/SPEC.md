@@ -173,7 +173,7 @@ export interface IntegrationRecord {
 
 Status semantics:
 
-- `built-in`: shipped through the default `zmdb` product surface with no additional integration package.
+- `built-in`: shipped through the default `@zmdb/core` product surface with no additional integration package.
 - `optional`: shipped by the named official package; every framework library is a declared peer of that package.
 - `documented`: a tested recipe over public APIs exists, but no official dedicated package exists.
 - `not-planned`: this documentation release claims no official integration; `docs` explains the unavailability and supported alternative.

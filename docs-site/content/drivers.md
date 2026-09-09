@@ -26,8 +26,8 @@ client and returns rows; it does not parse SQL. `Driver` lives in `@zmdb/orm`, n
 | [CockroachDB](./dialect-cockroach.html)   | `@zmdb/cockroach`   | `cockroachDriver`   | `pg`                               | depends on the PostgreSQL family |
 | [SingleStore](./dialect-singlestore.html) | `@zmdb/singlestore` | `singlestoreDriver` | `mysql2/promise`                   | depends on the MySQL family      |
 
-Each dialect guide follows the same install, configure, compile, migrate, introspect, execute, capability, refusal and evidence workflow. `zmdb` includes SQLite; applications select another provider
-and its client explicitly. The child packages own their differing schema, catalog and refusal rules. Neither parent imports or depends on its child.
+Each dialect guide follows the same install, configure, compile, migrate, introspect, execute, capability, refusal and evidence workflow. `@zmdb/core` includes SQLite; applications select another
+provider and its client explicitly. The child packages own their differing schema, catalog and refusal rules. Neither parent imports or depends on its child.
 
 ## Configure the client
 

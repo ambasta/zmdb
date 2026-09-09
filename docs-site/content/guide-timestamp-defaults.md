@@ -3,7 +3,7 @@
 ## Database clock
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Post extends Table<'posts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

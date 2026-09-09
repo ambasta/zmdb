@@ -26,7 +26,7 @@ const FORBIDDEN_SERVER_PACKAGES = new Set([
   '@zmdb/transport-rabbitmq',
   '@zmdb/transport-redis',
   '@zmdb/web',
-  'zmdb',
+  '@zmdb/core',
 ]);
 
 const FORBIDDEN_DATA_PACKAGES = new Set([

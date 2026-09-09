@@ -42,7 +42,7 @@ Nile's model is that a table can be declared tenant-aware, after which the datab
 Then declare the column on the interface so it appears in the row type:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies schemaOf; this excerpt does not repeat those declarations."}
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Todo extends Table<'todos'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

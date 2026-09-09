@@ -31,7 +31,7 @@ The final ownership is:
 | `@zmdb/web/openapi`           | A pure `HttpContractIR` to OpenAPI 3.1 emitter                                                                              |
 | `@zmdb/client`                | Dependency-free transport, request execution, body limits, cancellation, authentication injection, and stable error classes |
 | generated application module  | Operation-specific input/output types and precomputed request/response plans; imports only `@zmdb/client` at runtime        |
-| `zmdb`                        | Curated product re-exports; no contract collection, reflection, generation, or transport implementation                     |
+| `@zmdb/core`                  | Curated product re-exports; no contract collection, reflection, generation, or transport implementation                     |
 
 The dependency direction is acyclic:
 

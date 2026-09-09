@@ -343,7 +343,7 @@ try {
     }),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
-    const portable = await consumer('portable', { '@zmdb/jobs': '1.0.0-beta.1' });
+    const portable = await consumer('portable', { '@zmdb/jobs': '1.0.0-beta.2' });
     const manifest = portable.packages.get('@zmdb/jobs');
     assert.deepEqual(Object.keys(manifest.dependencies).toSorted(), ['@zmdb/app']);
     assert.deepEqual(Object.keys(manifest.exports).toSorted(), ['.', './schedule']);
@@ -365,16 +365,16 @@ try {
     await record(`${provider} packed provider workflow`, async () => {
       assert(packageRecords.has(`@zmdb/jobs-${provider}`), `Required public package @zmdb/jobs-${provider} is absent`);
       const dependencies = {
-        '@zmdb/app': '1.0.0-beta.1',
-        '@zmdb/jobs': '1.0.0-beta.1',
-        [`@zmdb/jobs-${provider}`]: '1.0.0-beta.1',
+        '@zmdb/app': '1.0.0-beta.2',
+        '@zmdb/jobs': '1.0.0-beta.2',
+        [`@zmdb/jobs-${provider}`]: '1.0.0-beta.2',
         ...(provider === 'postgres' ? { pg: '8.23.0' } : {}),
       };
       const installed = await consumer(provider, dependencies);
       const providerManifest = installed.packages.get(`@zmdb/jobs-${provider}`);
-      assert.deepEqual(providerManifest.dependencies, { [`@zmdb/${provider}`]: '1.0.0-beta.1' });
+      assert.deepEqual(providerManifest.dependencies, { [`@zmdb/${provider}`]: '1.0.0-beta.2' });
       assert.deepEqual(providerManifest.peerDependencies, {
-        '@zmdb/jobs': '1.0.0-beta.1',
+        '@zmdb/jobs': '1.0.0-beta.2',
         ...(provider === 'postgres' ? { pg: '^8.23.0' } : {}),
       });
       assert.equal(providerManifest.peerDependenciesMeta, undefined);

@@ -1,4 +1,4 @@
-import { runCli as facade } from 'zmdb/cli';
+import { runCli as facade } from '@zmdb/core/cli';
 
 import { runCli, type CliEnvironment, type RollbackResult } from './index.js';
 const options: CliEnvironment = {

@@ -17,8 +17,8 @@ import { readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { zmdbAot } from '@zmdb/core/compiler';
 import { build } from 'esbuild';
-import { zmdbAot } from 'zmdb/compiler';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outdir = process.argv[2] ?? join(here, 'dist');

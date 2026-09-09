@@ -33,7 +33,7 @@ closes that gap:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Driver, PGlite, allSchemas; this excerpt does not repeat those declarations."}
 import { beforeEach } from 'vitest';
-import { diff, emitUp, snapshot } from 'zmdb/migrations';
+import { diff, emitUp, snapshot } from '@zmdb/core/migrations';
 
 let driver: Driver;
 

@@ -2,8 +2,6 @@ import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { createQueue, createWorker, jobsExtension, type Clock } from '@zmdb/jobs';
-import { createMemoryJobStore } from '@zmdb/jobs-sqlite';
 import {
   Controller,
   Module,
@@ -14,8 +12,10 @@ import {
   schemaOf,
   type CreateDTO,
   type Ctx,
-} from 'zmdb';
-import { sqlite, sqliteDriver } from 'zmdb/sqlite';
+} from '@zmdb/core';
+import { sqlite, sqliteDriver } from '@zmdb/core/sqlite';
+import { createQueue, createWorker, jobsExtension, type Clock } from '@zmdb/jobs';
+import { createMemoryJobStore } from '@zmdb/jobs-sqlite';
 
 import type { Order } from './schema.js';
 

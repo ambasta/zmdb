@@ -139,7 +139,7 @@ limit shown above. Cap at the proxy as well.
 ## Storing the record
 
 ```ts {"mode":"compile","id":"example-006"}
-import type { HasDefault, Length, PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { HasDefault, Length, PrimaryKey, References, Serial, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface FileRecord extends Table<'files'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

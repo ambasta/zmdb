@@ -6,7 +6,7 @@ driver contracts come from `@zmdb/orm`. `mysqlVertical` pairs this dialect with 
 ## Install
 
 ```bash
-yarn add @zmdb/mysql@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/migrations@1.0.0-beta.1 mysql2@^3.24.3
+yarn add @zmdb/mysql@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2 @zmdb/migrations@1.0.0-beta.2 mysql2@^3.24.3
 ```
 
 For the TypeScript snippets, install the declaration inputs used by the packed consumer:
@@ -15,7 +15,7 @@ For the TypeScript snippets, install the declaration inputs used by the packed c
 yarn add --dev typescript@7.0.2 @types/node@26.4.1
 ```
 
-Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `zmdb` adds its selected
+Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `@zmdb/core` adds its selected
 database package and client rather than replacing the product facade.
 
 `mysql2` is an optional peer in package metadata; install it explicitly for this recipe. The vertical neither imports the SDK nor creates a pool. Applications choose pool options such as charset and

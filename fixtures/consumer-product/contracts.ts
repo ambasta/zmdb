@@ -1,4 +1,4 @@
-import { defineRepository, schemaOf, type CreateDTO, type Driver, type Entity } from 'zmdb';
+import { defineRepository, schemaOf, type CreateDTO, type Driver, type Entity } from '@zmdb/core';
 
 import type { OrdersController } from './src/main.js';
 import type { Order } from './src/schema.js';

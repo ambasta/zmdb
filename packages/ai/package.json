@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/ai",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, and OpenAPI-derived tools for zmdb.",
   "keywords": [
     "ai",
@@ -52,8 +52,8 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/schema": "1.0.0-beta.1",
-    "@zmdb/validator": "1.0.0-beta.1"
+    "@zmdb/schema": "1.0.0-beta.2",
+    "@zmdb/validator": "1.0.0-beta.2"
   },
   "engines": {
     "node": ">=26"

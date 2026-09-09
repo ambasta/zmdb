@@ -7,6 +7,6 @@ export const PRODUCT_CATALOG = Object.freeze([
   Object.freeze({
     id: 'zmdb',
     directory: 'packages/zmdb',
-    npmName: 'zmdb',
+    npmName: '@zmdb/core',
   }),
 ]);

@@ -6,7 +6,7 @@ and driver contracts come from `@zmdb/orm`. `mssqlVertical` pairs this dialect w
 ## Install
 
 ```bash
-yarn add @zmdb/mssql@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/migrations@1.0.0-beta.1 mssql@^12.7.0
+yarn add @zmdb/mssql@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2 @zmdb/migrations@1.0.0-beta.2 mssql@^12.7.0
 ```
 
 For the TypeScript snippets, install the declaration inputs used by the packed consumer:
@@ -15,7 +15,7 @@ For the TypeScript snippets, install the declaration inputs used by the packed c
 yarn add --dev typescript@7.0.2 @types/node@26.4.1 @types/mssql@12.3.0
 ```
 
-Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `zmdb` adds its selected
+Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `@zmdb/core` adds its selected
 database package and client rather than replacing the product facade.
 
 `mssql` is an optional peer in package metadata; install it explicitly for this recipe. Importing the vertical does not import the SDK or open a connection. Pass an already-connected pool to

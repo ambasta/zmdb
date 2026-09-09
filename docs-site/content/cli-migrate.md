@@ -84,7 +84,7 @@ The runner does not take a distributed lock. If two deploy processes can race, t
 The executable delegates to the public runner:
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver, migrations; this excerpt does not repeat those declarations."}
-import { driverMigrationConnection, up } from 'zmdb/migrations';
+import { driverMigrationConnection, up } from '@zmdb/core/migrations';
 
 const connection = driverMigrationConnection(driver, 'postgres');
 await up(connection, migrations);

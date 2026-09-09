@@ -10,8 +10,8 @@
 // they are still as written, and the bundler's copy of the plugin rewrites them on the way
 // into the bundle. Same program either way — that is the thing being tested.
 
-import { type ValidateResult } from 'zmdb';
-import { type JsonSchemaObject, type TaggedSchema } from 'zmdb/schema';
+import { type ValidateResult } from '@zmdb/core';
+import { type JsonSchemaObject, type TaggedSchema } from '@zmdb/core/schema';
 
 import type { Order } from './model.js';
 import {

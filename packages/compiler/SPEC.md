@@ -28,7 +28,7 @@ Required package edges are one-way:
 ```
 
 `typescript >=7.0.2 <8` is a peer dependency and exact `7.0.2` is the development and packed-consumer version. `oxlint`, `metro` and `metro-babel-transformer` are optional peers reached only by their
-explicit integration subpaths. The package has no dependency on `@zmdb/migrations`, `@zmdb/cli`, `@zmdb/web` or `zmdb`. No runtime foundation package imports `@zmdb/compiler`.
+explicit integration subpaths. The package has no dependency on `@zmdb/migrations`, `@zmdb/cli`, `@zmdb/web` or `@zmdb/core`. No runtime foundation package imports `@zmdb/compiler`.
 
 The `@zmdb/ai` edge supplies provider-neutral tool-document emission. The `@zmdb/sql` edge exists for the config's dialect and structural query/driver protocols. It does not let compiler code emit
 SQL. The `@zmdb/validator` edge is the runtime ABI that generated validators call; it never points back to this package.
@@ -52,7 +52,7 @@ The package exports exactly these subpaths:
 
 There is no `./plugin`, `./codegen` or `./transformer` compatibility subpath. The new names are the only names.
 
-The stable product entry is `zmdb/compiler`, an identity facade over this package's approved core tooling surface. `zmdb/unplugin` is absent. The configured asynchronous
+The stable product entry is `@zmdb/core/compiler`, an identity facade over this package's approved core tooling surface. `@zmdb/core/unplugin` is absent. The configured asynchronous
 `zmdbAot(options?: ConfiguredZmdbAotOptions): Promise<UnpluginLike>` is owned by the compiler root; its optional `config` path controls discovery, and explicit project/cwd/naming values retain
 precedence. The direct synchronous adapter remains at `@zmdb/compiler/unplugin`. Metro value/type exports remain solely at `@zmdb/compiler/metro`, so the core facade requires no optional Metro
 declarations.
@@ -141,11 +141,11 @@ export interface ToolingDriver {
 
 The concrete database-package drivers satisfy this interface. Config remains tooling-only; importing an application runtime never discovers or evaluates it.
 
-`zmdb/config` is the sole stable product config entry and is a direct identity facade over this implementation. It contains no loader implementation. `@zmdb/cli` imports the compiler subpath directly
-and publishes no second config API.
+`@zmdb/core/config` is the sole stable product config entry and is a direct identity facade over this implementation. It contains no loader implementation. `@zmdb/cli` imports the compiler subpath
+directly and publishes no second config API.
 
-The `zmdb` root may expose only the dependency-free authoring contract (`defineConfig` and its author-facing type). That narrow contract must not load this module's filesystem, TypeScript or cache
-implementation; the exact shared contract owner is resolved with #621 without creating a second config shape.
+The `@zmdb/core` root may expose only the dependency-free authoring contract (`defineConfig` and its author-facing type). That narrow contract must not load this module's filesystem, TypeScript or
+cache implementation; the exact shared contract owner is resolved with #621 without creating a second config shape.
 
 ## 5. Emitted-runtime boundary
 
@@ -155,9 +155,9 @@ Generated application JavaScript may import runtime values only. The low-level e
 import { AssertError } from '@zmdb/validator/errors';
 ```
 
-Project compilation preserves the source call's public runtime module when it must keep the consumer dependency-complete: a source importing validator calls from `zmdb` produces generated JavaScript
-that imports `AssertError` from `zmdb`, while a direct validator-utilities source may retain that runtime subpath. If no source call supplies an owner, the generated output uses a published validator
-runtime helper. It never imports a compiler module.
+Project compilation preserves the source call's public runtime module when it must keep the consumer dependency-complete: a source importing validator calls from `@zmdb/core` produces generated
+JavaScript that imports `AssertError` from `@zmdb/core`, while a direct validator-utilities source may retain that runtime subpath. If no source call supplies an owner, the generated output uses a
+published validator runtime helper. It never imports a compiler module.
 
 A generated witness may repeat the source module's type imports and validator call imports. A generated declaration may import the source types it names. No generated `.js`, declaration or witness may
 import:
@@ -185,7 +185,7 @@ Implementation removed these old public entries after their new entries worked:
 - `@zmdb/validator/unplugin`
 
 The package has no permanent implementation-package forwarding files. The standalone `zmdb-codegen` executable is removed; #630 adds the replacement command to the sole unified CLI. The old
-`zmdb/unplugin` product spelling may remain only for the compatibility interval selected by #721/#728. This spec does not choose a deprecation or removal release.
+`@zmdb/core/unplugin` product spelling may remain only for the compatibility interval selected by #721/#728. This spec does not choose a deprecation or removal release.
 
 ## 7. Verification and release
 
@@ -195,9 +195,9 @@ The compiler implementation is complete only when:
 2. every public subpath imports and typechecks from a packed standalone consumer;
 3. unplugin, Metro and no-bundler compilation produce byte-equivalent runtime artifacts;
 4. the generated-import oracle rejects a planted compiler import;
-5. config identity holds: `defineConfig` and `loadConfig` from `zmdb/config` are `===` the compiler exports;
+5. config identity holds: `defineConfig` and `loadConfig` from `@zmdb/core/config` are `===` the compiler exports;
 6. one-session and snapshot-update budgets still pass at 8 and 64 files; and
-7. the runtime roots of schema, query, validator, repository, web and `zmdb` cannot reach this package.
+7. the runtime roots of schema, query, validator, repository, web and `@zmdb/core` cannot reach this package.
 
 ## 8. Non-goals
 

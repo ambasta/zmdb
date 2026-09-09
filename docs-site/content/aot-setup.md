@@ -18,7 +18,7 @@ const ok = typeof input === 'object' && input !== null && typeof input.email ===
 Install the compiler and its required TypeScript peer in the build environment:
 
 ```bash
-yarn add --dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/compiler@1.0.0-beta.2 typescript@^7.0.2
 ```
 
 The configured root plugin is available for Vite, esbuild, Webpack, and Rollup:
@@ -33,8 +33,9 @@ export default defineConfig({
 });
 ```
 
-The async compiler root entry discovers `zmdb.config.ts`, including its project and naming strategy. `zmdb/compiler` exposes the same configured factory for product consumers. Tooling that owns config
-loading can use the synchronous `@zmdb/compiler/unplugin` entry and pass `project` and `naming` explicitly. [Tooling Boundaries](./tooling-boundaries.html) explains the package and runtime graph.
+The async compiler root entry discovers `zmdb.config.ts`, including its project and naming strategy. `@zmdb/core/compiler` exposes the same configured factory for product consumers. Tooling that owns
+config loading can use the synchronous `@zmdb/compiler/unplugin` entry and pass `project` and `naming` explicitly. [Tooling Boundaries](./tooling-boundaries.html) explains the package and runtime
+graph.
 
 ## Metro for React Native and Expo
 
@@ -73,7 +74,7 @@ source file cannot distinguish those working configurations from a missing one w
 Add a build-path smoke test instead:
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The application supplies its schema module and the test runner declarations used by this test excerpt."}
-import { schemaOf } from 'zmdb';
+import { schemaOf } from '@zmdb/core';
 import type { User } from './schema.js';
 
 it('runs the zmdb AOT transform', () => {
@@ -88,7 +89,7 @@ precise from syntax alone.
 
 The transformer recognizes these seventeen generic entry points:
 
-`toolFor<T>()` is imported from `@zmdb/ai`; install it with `yarn add @zmdb/ai@1.0.0-beta.1`. The five protobuf/gRPC entries are imported from `@zmdb/protobuf`; `@zmdb/compiler` compiles them and does
+`toolFor<T>()` is imported from `@zmdb/ai`; install it with `yarn add @zmdb/ai@1.0.0-beta.2`. The five protobuf/gRPC entries are imported from `@zmdb/protobuf`; `@zmdb/compiler` compiles them and does
 not re-export either package.
 
 | Function                            | Emits                                       |

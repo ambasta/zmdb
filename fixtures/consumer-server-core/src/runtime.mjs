@@ -1,36 +1,36 @@
 const pairs = [
-  ['@zmdb/app', 'zmdb/app'],
-  ['@zmdb/app/commands', 'zmdb/app/commands'],
-  ['@zmdb/app/cqrs', 'zmdb/app/cqrs'],
-  ['@zmdb/app/data', 'zmdb/app/data'],
-  ['@zmdb/app/di', 'zmdb/app/di'],
-  ['@zmdb/app/events', 'zmdb/app/events'],
-  ['@zmdb/app/health', 'zmdb/app/health'],
-  ['@zmdb/app/lifecycle', 'zmdb/app/lifecycle'],
-  ['@zmdb/app/messaging', 'zmdb/app/messaging'],
-  ['@zmdb/app/modules', 'zmdb/app/modules'],
-  ['@zmdb/app/observability', 'zmdb/app/observability'],
-  ['@zmdb/app/state', 'zmdb/app/state'],
-  ['@zmdb/web', 'zmdb/web'],
-  ['@zmdb/web/app', 'zmdb/web/app'],
-  ['@zmdb/web/compression', 'zmdb/web/compression'],
-  ['@zmdb/web/context', 'zmdb/web/context'],
-  ['@zmdb/web/contract', 'zmdb/web/contract'],
-  ['@zmdb/web/contract/compiler', 'zmdb/web/contract/compiler'],
-  ['@zmdb/web/csrf', 'zmdb/web/csrf'],
-  ['@zmdb/web/data', 'zmdb/web/data'],
-  ['@zmdb/web/devtools', 'zmdb/web/devtools'],
-  ['@zmdb/web/dto-pipes', 'zmdb/web/dto-pipes'],
-  ['@zmdb/web/gateways', 'zmdb/web/gateways'],
-  ['@zmdb/web/health', 'zmdb/web/health'],
-  ['@zmdb/web/middleware', 'zmdb/web/middleware'],
-  ['@zmdb/web/openapi', 'zmdb/web/openapi'],
-  ['@zmdb/web/pipeline', 'zmdb/web/pipeline'],
-  ['@zmdb/web/routing', 'zmdb/web/routing'],
-  ['@zmdb/web/static', 'zmdb/web/static'],
-  ['@zmdb/web/testing', 'zmdb/web/testing'],
-  ['@zmdb/web/upload', 'zmdb/web/upload'],
-  ['@zmdb/web/versioning', 'zmdb/web/versioning'],
+  ['@zmdb/app', '@zmdb/core/app'],
+  ['@zmdb/app/commands', '@zmdb/core/app/commands'],
+  ['@zmdb/app/cqrs', '@zmdb/core/app/cqrs'],
+  ['@zmdb/app/data', '@zmdb/core/app/data'],
+  ['@zmdb/app/di', '@zmdb/core/app/di'],
+  ['@zmdb/app/events', '@zmdb/core/app/events'],
+  ['@zmdb/app/health', '@zmdb/core/app/health'],
+  ['@zmdb/app/lifecycle', '@zmdb/core/app/lifecycle'],
+  ['@zmdb/app/messaging', '@zmdb/core/app/messaging'],
+  ['@zmdb/app/modules', '@zmdb/core/app/modules'],
+  ['@zmdb/app/observability', '@zmdb/core/app/observability'],
+  ['@zmdb/app/state', '@zmdb/core/app/state'],
+  ['@zmdb/web', '@zmdb/core/web'],
+  ['@zmdb/web/app', '@zmdb/core/web/app'],
+  ['@zmdb/web/compression', '@zmdb/core/web/compression'],
+  ['@zmdb/web/context', '@zmdb/core/web/context'],
+  ['@zmdb/web/contract', '@zmdb/core/web/contract'],
+  ['@zmdb/web/contract/compiler', '@zmdb/core/web/contract/compiler'],
+  ['@zmdb/web/csrf', '@zmdb/core/web/csrf'],
+  ['@zmdb/web/data', '@zmdb/core/web/data'],
+  ['@zmdb/web/devtools', '@zmdb/core/web/devtools'],
+  ['@zmdb/web/dto-pipes', '@zmdb/core/web/dto-pipes'],
+  ['@zmdb/web/gateways', '@zmdb/core/web/gateways'],
+  ['@zmdb/web/health', '@zmdb/core/web/health'],
+  ['@zmdb/web/middleware', '@zmdb/core/web/middleware'],
+  ['@zmdb/web/openapi', '@zmdb/core/web/openapi'],
+  ['@zmdb/web/pipeline', '@zmdb/core/web/pipeline'],
+  ['@zmdb/web/routing', '@zmdb/core/web/routing'],
+  ['@zmdb/web/static', '@zmdb/core/web/static'],
+  ['@zmdb/web/testing', '@zmdb/core/web/testing'],
+  ['@zmdb/web/upload', '@zmdb/core/web/upload'],
+  ['@zmdb/web/versioning', '@zmdb/core/web/versioning'],
 ];
 
 for (const [directName, facadeName] of pairs) {
@@ -46,7 +46,7 @@ for (const [directName, facadeName] of pairs) {
   }
 }
 
-const product = await import('zmdb');
+const product = await import('@zmdb/core');
 const app = await import('@zmdb/app');
 const appCommands = await import('@zmdb/app/commands');
 const appData = await import('@zmdb/app/data');
@@ -89,8 +89,8 @@ const metadataCarrier = Object.defineProperty({}, Symbol.metadata, { value: meta
 if (app.metadataOf(metadataCarrier) !== metadata) {
   throw new Error('@zmdb/app did not preserve the Stage-3 metadata record');
 }
-if ((await import('zmdb/app')).metadataOf !== app.metadataOf) {
-  throw new Error('zmdb/app created a second metadata reader');
+if ((await import('@zmdb/core/app')).metadataOf !== app.metadataOf) {
+  throw new Error('@zmdb/core/app created a second metadata reader');
 }
 
 for (const oldPath of [
@@ -116,7 +116,7 @@ for (const oldPath of [
   }
 }
 
-for (const removedFacade of ['zmdb/jobs', 'zmdb/jobs/memory', 'zmdb/jobs/schedule']) {
+for (const removedFacade of ['@zmdb/core/jobs', '@zmdb/core/jobs/memory', '@zmdb/core/jobs/schedule']) {
   try {
     await import(removedFacade);
     throw new Error(`${removedFacade} remains resolvable`);

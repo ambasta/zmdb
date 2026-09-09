@@ -1,10 +1,10 @@
+import { runCli } from '@zmdb/core/cli';
 import { type Driver } from '@zmdb/orm';
 import { type CoreSchema } from '@zmdb/schema';
 import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema/ir';
 import { type CompiledQuery } from '@zmdb/sql';
 import { sqlite as sqliteDialect } from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
-import { runCli } from 'zmdb/cli';
 
 // Focused renderer and listener regressions complement installed TCP coverage.
 

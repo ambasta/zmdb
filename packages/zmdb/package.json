@@ -1,6 +1,6 @@
 {
-  "name": "zmdb",
-  "version": "1.0.0-beta.1",
+  "name": "@zmdb/core",
+  "version": "1.0.0-beta.2",
   "description": "The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.",
   "keywords": [
     "data-layer",
@@ -94,13 +94,13 @@
   },
   "dependencies": {
     "@zmdb/app": "workspace:^",
-    "@zmdb/cli": "workspace:1.0.0-beta.1",
-    "@zmdb/compiler": "workspace:1.0.0-beta.1",
-    "@zmdb/migrations": "workspace:1.0.0-beta.1",
+    "@zmdb/cli": "workspace:1.0.0-beta.2",
+    "@zmdb/compiler": "workspace:1.0.0-beta.2",
+    "@zmdb/migrations": "workspace:1.0.0-beta.2",
     "@zmdb/orm": "workspace:^",
     "@zmdb/schema": "workspace:^",
     "@zmdb/sql": "workspace:^",
-    "@zmdb/sqlite": "workspace:1.0.0-beta.1",
+    "@zmdb/sqlite": "workspace:1.0.0-beta.2",
     "@zmdb/validator": "workspace:^",
     "@zmdb/web": "workspace:^",
     "esbuild": "^0.28.2",
@@ -116,11 +116,11 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/cockroach": "1.0.0-beta.1",
-    "@zmdb/mssql": "1.0.0-beta.1",
-    "@zmdb/mysql": "1.0.0-beta.1",
-    "@zmdb/postgres": "1.0.0-beta.1",
-    "@zmdb/singlestore": "1.0.0-beta.1"
+    "@zmdb/cockroach": "1.0.0-beta.2",
+    "@zmdb/mssql": "1.0.0-beta.2",
+    "@zmdb/mysql": "1.0.0-beta.2",
+    "@zmdb/postgres": "1.0.0-beta.2",
+    "@zmdb/singlestore": "1.0.0-beta.2"
   },
   "peerDependenciesMeta": {
     "@zmdb/cockroach": {

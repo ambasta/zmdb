@@ -135,7 +135,7 @@ Set an absolute expiry as well as an idle one. A session that refreshes forever 
 If you already have Postgres, you do not need Redis:
 
 ```ts {"mode":"compile","id":"example-010"}
-import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, References, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Session extends Table<'sessions'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

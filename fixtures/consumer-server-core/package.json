@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@zmdb/app": "1.0.0-beta.1",
-    "@zmdb/web": "1.0.0-beta.1",
-    "zmdb": "1.0.0-beta.1"
+    "@zmdb/app": "1.0.0-beta.2",
+    "@zmdb/core": "1.0.0-beta.2",
+    "@zmdb/web": "1.0.0-beta.2"
   },
   "devDependencies": {
     "@types/node": "26.4.1",

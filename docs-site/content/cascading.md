@@ -49,7 +49,7 @@ CREATE TABLE "posts" (
 Each `References<'table.column'>` is one single-column constraint. A composite foreign key is declared explicitly at table level so separate references are never grouped by guesswork:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Table; this excerpt does not repeat those declarations."}
-import type { ForeignKey } from 'zmdb/tags';
+import type { ForeignKey } from '@zmdb/core/tags';
 
 interface Membership extends Table<'memberships'>, ForeignKey<'tenantId,userId', 'users', 'tenantId,id'> {
   // columns...

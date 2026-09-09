@@ -8,7 +8,7 @@ The six official database packages use the same selection workflow. The [package
 
 | Step             | CockroachDB selection                                                                                                                                                                                                                                       |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install          | `yarn add @zmdb/cockroach@1.0.0-beta.1 pg@^8.23.0`                                                                                                                                                                                                          |
+| Install          | `yarn add @zmdb/cockroach@1.0.0-beta.2 pg@^8.23.0`                                                                                                                                                                                                          |
 | Configure        | Supply an application-owned `pg` client to `cockroachDriver(client)`; the application closes it.                                                                                                                                                            |
 | Compile          | `createQueryCompiler(cockroach)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                              |
 | Migrate          | `cockroach.migrations.emitUp(operation)` and `cockroach.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                               |
@@ -71,7 +71,7 @@ that raw value as an opaque parameter rather than coercing it to `Number`. Use t
 For a UUID primary key, keep the explicit declaration:
 
 ```ts {"mode":"compile","id":"example-002"}
-import type { HasDefault, PrimaryKey, Sql, Table, Unique } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: string & Sql<'text'> & PrimaryKey & HasDefault;

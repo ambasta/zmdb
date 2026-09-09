@@ -5,7 +5,7 @@ It exposes lifecycle hooks and `await using` graceful shutdown. Its optional sec
 ## Bootstrapping
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
-import { createApp } from 'zmdb/web';
+import { createApp } from '@zmdb/core/web';
 
 const app = createApp(AppModule);
 await app.init(); // run lifecycle init hooks
@@ -22,7 +22,7 @@ await app.fetch(new Request('http://x/ping')); // Fetch (Hono/edge)
 Implement any of these on a controller (or provider) and they run at the right time:
 
 ```ts {"mode":"compile","id":"example-002"}
-import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from 'zmdb/app/lifecycle';
+import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from '@zmdb/core/app/lifecycle';
 
 class Db implements OnModuleInit, OnShutdown {
   onModuleInit() {

@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/sqlite",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.",
   "keywords": [
     "database",
@@ -43,7 +43,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/migrations": "workspace:1.0.0-beta.1"
+    "@zmdb/migrations": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@zmdb/compiler": "workspace:^",
@@ -53,8 +53,8 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/orm": "1.0.0-beta.1",
-    "@zmdb/sql": "1.0.0-beta.1"
+    "@zmdb/orm": "1.0.0-beta.2",
+    "@zmdb/sql": "1.0.0-beta.2"
   },
   "engines": {
     "node": ">=26"

@@ -3,11 +3,11 @@ import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 
-import { assert, type CreateDTO } from 'zmdb';
-import { schemaFromIR, type SchemaIR } from 'zmdb/ir';
-import { BaseRepository, type Driver } from 'zmdb/orm';
-import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
-import { Controller, createApp, Get, Module } from 'zmdb/web';
+import { assert, type CreateDTO } from '@zmdb/core';
+import { schemaFromIR, type SchemaIR } from '@zmdb/core/ir';
+import { BaseRepository, type Driver } from '@zmdb/core/orm';
+import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
+import { Controller, createApp, Get, Module } from '@zmdb/core/web';
 
 import { consumerDialect } from './dialect.js';
 

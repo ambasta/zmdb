@@ -44,8 +44,8 @@ const TSCONFIG = {
     // No `node_modules` here and nothing touching a Node builtin.
     types: [] as string[],
     paths: {
-      zmdb: [`${ROOT}packages/zmdb/src/index.ts`],
-      'zmdb/*': [`${ROOT}packages/zmdb/src/*.ts`],
+      '@zmdb/core': [`${ROOT}packages/zmdb/src/index.ts`],
+      '@zmdb/core/*': [`${ROOT}packages/zmdb/src/*.ts`],
       '@zmdb/app': [`${ROOT}packages/app/src/index.ts`],
       '@zmdb/app/*': [`${ROOT}packages/app/src/*/index.ts`],
       '@zmdb/schema': [`${ROOT}packages/schema/src/index.ts`],
@@ -135,14 +135,14 @@ const ok = (result: CodegenResult): void => {
 
 describe('an import the rewrite compiled away', () => {
   it('goes, and takes its line with it', () => {
-    const run = generate(`import { is } from '@zmdb/validator';
+    const run = generate(`import { is as isOrder } from '@zmdb/core/validator';
 
 import type { Order } from './model.js';
 
-export const accepts = (value: unknown): boolean => is<Order>(value);
+export const accepts = (value: unknown): boolean => isOrder<Order>(value);
 `);
     ok(run.result);
-    expect(run.app).not.toContain("from '@zmdb/validator'");
+    expect(run.app).not.toContain("from '@zmdb/core/validator'");
     expect(run.app).toContain("from './app.zmdb.generated.js'");
     // No blank line where the statement was, and none at the top of the file — a deleted first
     // import used to leave the file beginning with the paragraph break that followed it.
@@ -152,11 +152,11 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
 
   it('loads root schemaOf support types from the schema concern', () => {
     const run = generate(
-      `import { schemaOf } from 'zmdb';
+      `import { schemaOf as tableSchema } from '@zmdb/core';
 
 import type { Order } from './model.js';
 
-export const OrderSchema = schemaOf<Order>();
+export const OrderSchema = tableSchema<Order>();
 `,
       {
         'model.ts': `import type { PrimaryKey, Sql, Table } from '@zmdb/schema/tags';
@@ -170,9 +170,9 @@ export interface Order extends Table<'orders'> {
     ok(run.result);
     const witness = readFileSync(join(run.src, 'app.zmdb.witness.ts'), 'utf8');
     const declaration = readFileSync(join(run.src, 'app.zmdb.generated.d.ts'), 'utf8');
-    expect(witness).toContain("import { schemaOf } from 'zmdb';");
-    expect(witness).toContain("import type { TaggedSchema } from 'zmdb/schema';");
-    expect(declaration).toContain("import type { TaggedSchema } from 'zmdb/schema';");
+    expect(witness).toContain("import { schemaOf } from '@zmdb/core';");
+    expect(witness).toContain("import type { TaggedSchema } from '@zmdb/core/schema';");
+    expect(declaration).toContain("import type { TaggedSchema } from '@zmdb/core/schema';");
   });
 
   it('goes even when a comment says its name', () => {

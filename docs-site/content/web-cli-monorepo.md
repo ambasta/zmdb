@@ -108,7 +108,7 @@ A shared package can own the declaration:
 
 ```ts {"mode":"compile","id":"example-001"}
 // packages/domain/src/post.ts
-import type { Length, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { Length, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Post extends Table<'posts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -119,7 +119,7 @@ export interface Post extends Table<'posts'> {
 Each application imports the same type and derives its own schema value:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
-import { defineRepository, schemaOf } from 'zmdb';
+import { defineRepository, schemaOf } from '@zmdb/core';
 import type { Post } from '@acme/domain';
 
 const posts = defineRepository(schemaOf<Post>(), driver);

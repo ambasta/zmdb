@@ -15,7 +15,7 @@ export const users = pgTable('users', {
 
 ```ts {"mode":"compile","id":"example-002"}
 // zmdb
-import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

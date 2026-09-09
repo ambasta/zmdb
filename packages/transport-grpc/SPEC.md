@@ -57,8 +57,8 @@ createApplication(root, {
 });
 ```
 
-Source imports generated service artifacts from `@zmdb/protobuf` and imports server/client adapters from this package. Core `@zmdb/app`, `@zmdb/web`, `@zmdb/jobs` and `zmdb` do not import or re-export
-this package.
+Source imports generated service artifacts from `@zmdb/protobuf` and imports server/client adapters from this package. Core `@zmdb/app`, `@zmdb/web`, `@zmdb/jobs` and `@zmdb/core` do not import or
+re-export this package.
 
 Installation is:
 

@@ -13,7 +13,7 @@ const root = process.cwd();
 const expected = JSON.parse(readFileSync('expected.json', 'utf8')).compiler;
 const manifest = JSON.parse(readFileSync('node_modules/@zmdb/compiler/package.json', 'utf8'));
 assert.deepEqual(Object.keys(manifest.exports).toSorted(), expected.subpaths);
-for (const name of ['@zmdb/cli', '@zmdb/migrations', 'zmdb'])
+for (const name of ['@zmdb/cli', '@zmdb/migrations', '@zmdb/core'])
   assert.equal(existsSync(join('node_modules', name)), false);
 for (const subpath of expected.subpaths) {
   const specifier = `@zmdb/compiler${subpath === '.' ? '' : subpath.slice(1)}`;

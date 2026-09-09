@@ -12,7 +12,7 @@
       "@zmdb/sql/*": ["__ROOT__/packages/sql/src/*/index.ts"],
       "@zmdb/schema": ["__ROOT__/packages/schema/src/index.ts"],
       "@zmdb/schema/*": ["__ROOT__/packages/schema/src/*/index.ts"],
-      "zmdb/tags": ["__ROOT__/packages/zmdb/src/tags.ts"]
+      "@zmdb/core/tags": ["__ROOT__/packages/zmdb/src/tags.ts"]
     },
     "skipLibCheck": true,
     "strict": true,

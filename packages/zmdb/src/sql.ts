@@ -1,5 +1,5 @@
 // Direct SQL compilation and DDL concern. Migration execution and catalog
-// introspection live under `zmdb/migrations`.
+// introspection live under `@zmdb/core/migrations`.
 
 export {
   DISTANCE_OPERATORS,

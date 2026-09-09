@@ -82,8 +82,8 @@ interface Account extends Table<'accounts'> {
 }
 ```
 
-The autofix runs only inside an interface extending an imported `Table<...>` and only when every outer intersection member is a known declaration tag imported from `@zmdb/schema/tags` or `zmdb/tags`.
-It leaves arbitrary local markers alone because moving those could change behaviour.
+The autofix runs only inside an interface extending an imported `Table<...>` and only when every outer intersection member is a known declaration tag imported from `@zmdb/schema/tags` or
+`@zmdb/core/tags`. It leaves arbitrary local markers alone because moving those could change behaviour.
 
 **Legitimate exception:** none for the matched zmdb-tag shape. If the intersection member is not a declaration tag, the rule does not match it.
 

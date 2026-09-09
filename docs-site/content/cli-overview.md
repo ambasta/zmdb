@@ -37,10 +37,10 @@ verification.
 
 ## A single entry point
 
-Install the CLI and its required TypeScript peer, or install `zmdb@1.0.0-beta.1` for the product that includes the same CLI. Command help comes from the installed version:
+Install the CLI and its required TypeScript peer, or install `@zmdb/core@1.0.0-beta.2` for the product that includes the same CLI. Command help comes from the installed version:
 
 ```bash
-yarn add --dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/cli@1.0.0-beta.2 typescript@^7.0.2
 yarn zmdb --help
 yarn zmdb codegen --help
 ```

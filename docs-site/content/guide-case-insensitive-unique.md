@@ -131,7 +131,7 @@ This approach has a real hole: a migration, data fix or another service can writ
 `citext` makes ordinary equality case-insensitive for every writer:
 
 ```ts {"mode":"compile","id":"example-005"}
-import type { Ext, Table } from 'zmdb/tags';
+import type { Ext, Table } from '@zmdb/core/tags';
 
 interface User extends Table<'users'> {
   email: string & Ext<'citext', 'citext'>;

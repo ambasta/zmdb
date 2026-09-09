@@ -8,10 +8,10 @@ The package does not open sockets, read process streams, mount an HTTP framework
 ## Install
 
 ```bash
-yarn add @zmdb/ai@1.0.0-beta.1 @zmdb/mcp@1.0.0-beta.1
+yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/mcp@1.0.0-beta.2
 ```
 
-> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. The runtime uses platform APIs and caller-supplied transports.
+> **Prerelease** (`1.0.0-beta.2`). Requires **Node.js 26+** and is **ESM-only**. The runtime uses platform APIs and caller-supplied transports.
 
 ## Server
 

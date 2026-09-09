@@ -6,8 +6,8 @@ feature.
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 import { defineRepository } from '@zmdb/orm';
 import { createViewDdl } from '@zmdb/sql/schema-objects';
-import { schemaOf } from 'zmdb';
-import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+import { schemaOf } from '@zmdb/core';
+import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 // 1. the query, as a view
 const ddl = createViewDdl(
@@ -56,7 +56,7 @@ If you cannot create a view — a read replica you do not own DDL on, a query th
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies OrderSummary, driver; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
-import type { Entity } from 'zmdb/derive';
+import type { Entity } from '@zmdb/core/derive';
 
 async function orderSummaries(minTotal: number) {
   const rows = await driver.execute({

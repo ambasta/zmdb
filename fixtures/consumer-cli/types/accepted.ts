@@ -28,7 +28,7 @@ import {
 } from '@zmdb/cli';
 import { watchCodegen, type WatchOptions, type CodegenOptions, type CodegenResult } from '@zmdb/compiler';
 import type { ReflectSession } from '@zmdb/compiler/reflect';
-import { runCli as facadeRunCli } from 'zmdb/cli';
+import { runCli as facadeRunCli } from '@zmdb/core/cli';
 const environment: CliEnvironment = {
   cwd: '.',
   stdout(text) {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { createApplication } from '@zmdb/app';
-import { createApplication as productApplication } from 'zmdb/app';
+import { createApplication as productApplication } from '@zmdb/core/app';
 
 import './dist/default.js';
 import './providers/sqlite.mjs';

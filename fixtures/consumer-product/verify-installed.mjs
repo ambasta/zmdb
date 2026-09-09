@@ -31,6 +31,7 @@ async function privateImports(paths, consumer) {
     if (!/\.[cm]?[jt]s$/.test(file)) continue;
     const text = await readFile(file, 'utf8');
     for (const match of text.matchAll(/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)['"](@zmdb\/[^'"]+)['"]/g)) {
+      if (match[1] === '@zmdb/core' || match[1].startsWith('@zmdb/core/')) continue;
       found.push(`${relative(consumer, file)}: ${match[1]}`);
     }
   }
@@ -61,11 +62,11 @@ export async function qualifyProductConsumer({ tarballs, evidence }) {
       records.set(manifest.name, record);
       report.archives.push({ name: manifest.name, sha256: record.sha256, integrity: record.integrity });
     }
-    assert(records.has('zmdb'));
+    assert(records.has('@zmdb/core'));
     registry = await startRegistry(records);
     consumer = await mkdtemp(join(evidence, 'consumer-'));
     const manifest = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'));
-    manifest.dependencies.zmdb = records.get('zmdb').manifest.version;
+    manifest.dependencies['@zmdb/core'] = records.get('@zmdb/core').manifest.version;
     await writeFile(join(consumer, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
     await writeFile(join(consumer, '.npmrc'), '');
     const flags = [
@@ -107,13 +108,13 @@ export async function qualifyProductConsumer({ tarballs, evidence }) {
         if (!current.peerDependenciesMeta?.[peer]?.optional) visit(peer);
       }
     }
-    visit('zmdb');
+    visit('@zmdb/core');
     const installed = [],
       workspaceLeaks = [];
     for (const [path, locked] of Object.entries(lock.packages)) {
       if (!path) continue;
       const name = path.slice(path.lastIndexOf('node_modules/') + 'node_modules/'.length);
-      if (!name.startsWith('@zmdb/') && name !== 'zmdb') continue;
+      if (!name.startsWith('@zmdb/')) continue;
       const record = records.get(name);
       assert(record, `unprovided product dependency ${name}`);
       assert.equal(locked.resolved, `${registry.origin}/tarballs/${record.sha256}.tgz`);
@@ -127,9 +128,7 @@ export async function qualifyProductConsumer({ tarballs, evidence }) {
       installed.push(name);
     }
     report.installation = {
-      directZmdbDependencies: Object.keys(manifest.dependencies).filter(
-        name => name === 'zmdb' || name.startsWith('@zmdb/'),
-      ),
+      directZmdbDependencies: Object.keys(manifest.dependencies).filter(name => name.startsWith('@zmdb/')),
       packageManager: 'npm',
       workspaceLeaks,
       ci: true,
@@ -260,7 +259,9 @@ export async function qualifyProductConsumer({ tarballs, evidence }) {
         consumer,
       ),
       loaded: [
-        ...new Set(loaded.map(entry => entry.specifier).filter(name => name === 'zmdb' || name.startsWith('zmdb/'))),
+        ...new Set(
+          loaded.map(entry => entry.specifier).filter(name => name === '@zmdb/core' || name.startsWith('@zmdb/core/')),
+        ),
       ].toSorted(),
     };
   } catch (error) {

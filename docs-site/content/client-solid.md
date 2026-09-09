@@ -4,7 +4,7 @@ Start with the [generated HTTP client](./generated-client.html), then add Solid 
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.1 @zmdb/solid@1.0.0-beta.1 solid-js@^1.9
+yarn add @zmdb/client@1.0.0-beta.2 @zmdb/solid@1.0.0-beta.2 solid-js@^1.9
 ```
 
 ## Provide
