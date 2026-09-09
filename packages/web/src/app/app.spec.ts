@@ -103,6 +103,15 @@ describe('@zmdb/web app: createApp', () => {
     expect(order).toEqual(['init', 'bootstrap', 'shutdown']);
   });
 
+  it('forwards the HTTP policy to its router and Fetch entry', async () => {
+    const app = createApp(AppModule, {
+      policy: { cors: { origins: ['https://allowed'] }, securityHeaders: { 'X-Frame-Options': 'DENY' } },
+    });
+    const response = await app.fetch(new Request('http://x/ping', { headers: { origin: 'https://allowed' } }));
+    expect(response.headers.get('access-control-allow-origin')).toBe('https://allowed');
+    expect(response.headers.get('x-frame-options')).toBe('DENY');
+  });
+
   it('handles via the Fetch adapter', async () => {
     const app = createApp(AppModule);
     const response = await app.fetch(new Request('http://x/ping'));

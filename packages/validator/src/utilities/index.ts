@@ -39,20 +39,14 @@ import {
 } from '@zmdb/schema/ir';
 
 import { failWith } from '../errors.js';
-import { type ValidationIssue } from '../index.js';
 import { getCachedRegExp } from '../regex-complexity.js';
+import { type ValidateResult, type ValidationIssue } from '../validation-error.js';
 
 export { AssertError, failWith } from '../errors.js';
 
 /** True for a non-null, non-array object — proves a keyed read is safe. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export interface ValidateResult<T> {
-  readonly success: boolean;
-  readonly data?: T;
-  readonly errors?: readonly ValidationIssue[];
 }
 
 // ---------------------------------------------------------------------------
@@ -658,7 +652,7 @@ export function validate<T = unknown>(input: unknown, schema?: TypeIR): Validate
   if (matches(input, node, refs)) return { success: true, data: certified<T>(input) };
   const issues: ValidationIssue[] = [];
   collectIssues(input, node, 'input', issues, refs);
-  return { success: false, errors: issues };
+  return { success: false, issues };
 }
 
 /**
@@ -694,7 +688,7 @@ export function validateShallow<T = unknown, D extends number = 1>(
   if (matches(input, node, refs, limit)) return { success: true, data: certified<T>(input) };
   const issues: ValidationIssue[] = [];
   collectIssues(input, node, 'input', issues, refs, limit);
-  return { success: false, errors: issues };
+  return { success: false, issues };
 }
 
 export function equals<T = unknown>(input: unknown, schema?: TypeIR): input is T {

@@ -574,3 +574,110 @@ describe('@zmdb/web pipeline: node adapter', () => {
     expect(JSON.parse(state.body ?? '')).toEqual({ error: 'boom' });
   });
 });
+
+describe('HTTP policy', () => {
+  it.each([false, true])('decorates tagged responses and failures with observability %s', async observed => {
+    @Controller('/policy')
+    class PolicyController {
+      @Get()
+      get() {
+        return text('unchanged', {
+          headers: { Vary: 'Accept-Encoding, origin', 'X-Frame-Options': 'SAMEORIGIN', 'X-App': 'kept' },
+        });
+      }
+      @Post()
+      post() {
+        throw new Error('failure');
+      }
+    }
+    const router = createRouter({
+      policy: {
+        cors: { origins: ['https://allowed'], credentials: true },
+        securityHeaders: { 'X-Frame-Options': 'DENY', 'X-App': false },
+      },
+      ...(observed ? { meter: { counter: () => ({ add() {} }), histogram: () => ({ record() {} }) } } : {}),
+    });
+    router.register(new PolicyController());
+    const response = await router.handle({ method: 'GET', path: '/policy', headers: { origin: 'https://allowed' } });
+    expect(await bodyText(response)).toBe('unchanged');
+    const headers = new Headers(response.headers);
+    expect(headers.get('access-control-allow-origin')).toBe('https://allowed');
+    expect(headers.get('access-control-allow-credentials')).toBe('true');
+    expect(headers.get('x-frame-options')).toBe('DENY');
+    expect(headers.get('x-app')).toBe('kept');
+    expect(
+      headers
+        .get('vary')
+        ?.toLowerCase()
+        .split(',')
+        .map(v => v.trim()),
+    ).toEqual(['accept-encoding', 'origin']);
+    const failed = await router.handle({ method: 'POST', path: '/policy', headers: { origin: 'https://denied' } });
+    expect(failed.status).toBe(500);
+    expect(new Headers(failed.headers).has('access-control-allow-origin')).toBe(false);
+    expect(new Headers(failed.headers).get('x-frame-options')).toBe('DENY');
+  });
+
+  it('rejects credentialed wildcard and invalid fixed headers at setup and calls origin predicates once', async () => {
+    expect(() => createRouter({ policy: { cors: { origins: '*', credentials: true } } })).toThrow();
+    expect(() => createRouter({ policy: { securityHeaders: { 'bad name': 'value' } } })).toThrow();
+    expect(() => createRouter({ policy: { securityHeaders: { 'x-header': 'bad\nvalue' } } })).toThrow();
+    let calls = 0;
+    const router = createRouter({
+      policy: {
+        cors: {
+          origins: origin => {
+            calls += 1;
+            return origin === 'https://allowed';
+          },
+        },
+      },
+    });
+    const response = await toFetchHandler(router)(
+      new Request('http://x/', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://allowed', 'access-control-request-method': 'POST' },
+      }),
+    );
+    expect(response.status).toBe(204);
+    expect(calls).toBe(1);
+  });
+
+  it('only intercepts genuine enabled preflights and denies disallowed methods and headers', async () => {
+    const router = createRouter({
+      policy: { cors: { origins: ['https://allowed'], credentials: true, methods: ['post'], headers: ['X-Token'] } },
+    });
+    const headers = {
+      origin: 'https://allowed',
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'x-token',
+    };
+    const response = await router.handle({ method: 'OPTIONS', path: '/unregistered', headers });
+    expect(response.status).toBe(204);
+    expect(new Headers(response.headers).get('access-control-allow-origin')).toBe('https://allowed');
+    expect(new Headers(response.headers).get('access-control-allow-methods')).toBe('POST');
+    expect(
+      (
+        await router.handle({
+          method: 'OPTIONS',
+          path: '/',
+          headers: { ...headers, 'access-control-request-method': 'DELETE' },
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await router.handle({
+          method: 'OPTIONS',
+          path: '/',
+          headers: { ...headers, 'access-control-request-headers': 'x-denied' },
+        })
+      ).status,
+    ).toBe(403);
+    expect((await router.handle({ method: 'OPTIONS', path: '/', headers: { origin: 'https://allowed' } })).status).toBe(
+      404,
+    );
+    const disabled = createRouter({ policy: { cors: false, securityHeaders: { 'X-Frame-Options': 'DENY' } } });
+    expect((await disabled.handle({ method: 'OPTIONS', path: '/', headers })).status).toBe(404);
+  });
+});

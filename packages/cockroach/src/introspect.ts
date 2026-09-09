@@ -222,7 +222,7 @@ async function schemasByTable(
 }
 
 function cockroachColumn(column: CatalogColumnSnapshot): CatalogColumnSnapshot {
-  const defaultValue = column.default?.trim().toLowerCase();
+  const defaultValue = column.default?.kind === 'expression' ? column.default.sql.trim().toLowerCase() : undefined;
   if (
     column.type !== 'bigint' ||
     defaultValue === undefined ||

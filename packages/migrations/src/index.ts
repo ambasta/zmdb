@@ -76,7 +76,9 @@ export interface SnapshotableSchema {
           readonly primaryKey?: boolean | undefined;
           readonly length?: number | undefined;
           readonly unique?: boolean | undefined;
+          readonly hasDefault?: boolean | undefined;
         };
+        readonly default?: unknown;
         readonly references?: { readonly target: string };
       }
     >
@@ -178,6 +180,7 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
             // acquire a meaningless field in the version-1 snapshot.
             ...(meta.flags.length === undefined ? {} : { length: meta.flags.length }),
             ...(meta.flags.unique === true ? { unique: true } : {}),
+            ...snapshotDefault(meta.default, meta.flags.hasDefault === true && meta.type !== 'serial'),
           };
         })
         .toSorted((a, b) => a.name.localeCompare(b.name));
@@ -237,12 +240,76 @@ function sameType(previous: string | ExtensionType, next: string | ExtensionType
   return previousArgs.length === nextArgs.length && previousArgs.every((value, index) => value === nextArgs[index]);
 }
 
+function snapshotDefault(value: unknown, declared: boolean): Pick<ColumnSnapshot, 'default'> {
+  if (value === undefined) return declared ? { default: { kind: 'unresolved' } } : {};
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value))
+  ) {
+    return { default: { kind: 'literal', value } };
+  }
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    value.kind === 'expression' &&
+    'sql' in value &&
+    typeof value.sql === 'string' &&
+    value.sql.trim() !== ''
+  ) {
+    return { default: { kind: 'expression', sql: value.sql } };
+  }
+  throw new TypeError('a column default must be a finite scalar literal or an explicit SQL expression');
+}
+
+/** Render a declared default; a HasDefault flag alone cannot supply SQL. */
+export function columnDefaultSql(column: ColumnSnapshot, numericBoolean = false): string | undefined {
+  const value = column.default;
+  if (value === undefined) return undefined;
+  if (column.type === 'serial')
+    throw new TypeError(`serial column "${column.name}" owns its generated default; remove the explicit default`);
+  if (value.kind === 'unresolved')
+    throw new TypeError(`column "${column.name}" has an unresolved default; provide its literal or SQL expression`);
+  if (value.kind === 'expression') {
+    if (value.sql.trim() === '') throw new TypeError(`column "${column.name}" has an empty default expression`);
+    return value.sql;
+  }
+  if (value.value === null) return 'NULL';
+  if (typeof value.value === 'string') return `'${value.value.replaceAll("'", "''")}'`;
+  if (typeof value.value === 'boolean')
+    return numericBoolean ? (value.value ? '1' : '0') : value.value ? 'TRUE' : 'FALSE';
+  if (!Number.isFinite(value.value)) throw new TypeError(`column "${column.name}" requires a finite default`);
+  return String(value.value);
+}
+
+function sameColumn(previous: ColumnSnapshot, next: ColumnSnapshot): boolean {
+  const before = previous.default;
+  const after = next.default;
+  const sameDefault =
+    before === undefined
+      ? after === undefined
+      : before.kind === 'literal'
+        ? after?.kind === 'literal' && before.value === after.value
+        : before.kind === 'expression'
+          ? after?.kind === 'expression' && before.sql === after.sql
+          : after?.kind === 'unresolved';
+  return (
+    sameType(previous.type, next.type) &&
+    previous.length === next.length &&
+    previous.nullable === next.nullable &&
+    (previous.unique === true) === (next.unique === true) &&
+    sameDefault
+  );
+}
+
 export const CHANGE_PHASES = [
   ['create_extension'],
   ['drop_foreign_key'],
   ['drop_table'],
   ['create_table', 'add_column'],
-  ['alter_column_type', 'alter_primary_key'],
+  ['alter_column', 'alter_primary_key'],
   ['drop_column'],
   ['add_foreign_key'],
 ] as const satisfies readonly (readonly ChangeOp['kind'][])[];
@@ -273,10 +340,7 @@ function sameTableOptions(previous: TableOptions | undefined, next: TableOptions
 }
 
 function foreignKeysOf(table: TableSnapshot): readonly ForeignKeySnapshot[] {
-  // Stored snapshots written before referential actions landed have no field.
-  // Reading them as [] lets the first post-upgrade diff add the declared constraints
-  // instead of failing while loading the migration history.
-  return table.foreignKeys ?? [];
+  return table.foreignKeys;
 }
 
 function foreignKeyIdentity(foreignKey: ForeignKeySnapshot): string {
@@ -304,12 +368,12 @@ function diffForeignKeys(
     }
     unmatchedPrevious.delete(identity);
     if (sameForeignKeyActions(before, foreignKey)) continue;
-    ops.push({ kind: 'drop_foreign_key', table, name: before.name });
+    ops.push({ kind: 'drop_foreign_key', table, fk: before });
     ops.push({ kind: 'add_foreign_key', table, fk: foreignKey });
   }
 
   for (const foreignKey of unmatchedPrevious.values()) {
-    ops.push({ kind: 'drop_foreign_key', table, name: foreignKey.name });
+    ops.push({ kind: 'drop_foreign_key', table, fk: foreignKey });
   }
 }
 
@@ -317,6 +381,7 @@ function createdTablesInOrder(
   previous: ReadonlyMap<string, TableSnapshot>,
   next: readonly TableSnapshot[],
   dialect: SqlDialect | undefined,
+  dropping = false,
 ): readonly TableSnapshot[] {
   const created = new Map(next.filter(table => !previous.has(table.name)).map(table => [table.name, table]));
   const dependencies = new Map<string, Set<string>>();
@@ -360,8 +425,14 @@ function createdTablesInOrder(
   const cyclic = [...created.keys()]
     .filter(name => !orderedNames.has(name))
     .toSorted((left, right) => left.localeCompare(right));
-  if (dialect?.migrations.foreignKeyMode === 'inline') {
-    const databaseName = dialectName(dialect);
+  if (dropping || dialect?.migrations.foreignKeyMode === 'inline') {
+    const databaseName = dialect === undefined ? 'the selected database' : dialectName(dialect);
+    if (dropping)
+      throw new UnsupportedFeatureError(
+        'dropping mutually-referencing tables',
+        databaseName,
+        `dropping mutually-referencing tables ${cyclic.join(', ')} requires an explicit constraint-removal plan; write the migration by hand`,
+      );
     throw new UnsupportedFeatureError(
       `creating mutually-referencing tables ${cyclic.map(tableName => `"${tableName}"`).join(', ')}`,
       databaseName,
@@ -409,8 +480,8 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
   }
 
   // Dropped tables.
-  for (const t of prev.tables) {
-    if (!nextTables.has(t.name)) ops.push({ kind: 'drop_table', table: t.name });
+  for (const t of createdTablesInOrder(nextTables, prev.tables, selectedDialect, true).toReversed()) {
+    ops.push({ kind: 'drop_table', table: t.name, definition: t });
   }
   // Column-level and foreign-key diffs on tables that already exist.
   for (const t of next.tables) {
@@ -428,21 +499,18 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
     const beforeCols = new Map(before.columns.map(c => [c.name, c]));
     const afterCols = new Map(t.columns.map(c => [c.name, c]));
     for (const c of before.columns) {
-      if (!afterCols.has(c.name)) ops.push({ kind: 'drop_column', table: t.name, column: c.name });
+      if (!afterCols.has(c.name)) ops.push({ kind: 'drop_column', table: t.name, column: c });
     }
     for (const c of t.columns) {
       const bc = beforeCols.get(c.name);
       if (!bc) {
         ops.push({ kind: 'add_column', table: t.name, column: c });
-      } else if (!sameType(bc.type, c.type)) {
+      } else if (!sameColumn(bc, c)) {
         ops.push({
-          kind: 'alter_column_type',
+          kind: 'alter_column',
           table: t.name,
-          column: c.name,
-          from: bc.type,
-          to: c.type,
-          fromNullable: bc.nullable,
-          toNullable: c.nullable,
+          from: bc,
+          to: c,
         });
       }
     }
@@ -461,7 +529,7 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
       table: table.name,
       columns: table.columns,
       primaryKey: table.primaryKey,
-      foreignKeys,
+      foreignKeys: selectedDialect?.migrations.foreignKeyMode === 'inline' ? foreignKeys : [],
       ...(table.tableOptions === undefined ? {} : { tableOptions: table.tableOptions }),
     });
     if (selectedDialect?.migrations.foreignKeyMode !== 'inline') {

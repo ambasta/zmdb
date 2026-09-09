@@ -116,7 +116,7 @@ describe('captured real SQL Server catalog rows (#672)', () => {
         catalogType: 'BIT',
         nullable: false,
         primaryKey: false,
-        default: '((1))',
+        default: { kind: 'expression', sql: '((1))' },
       },
       {
         name: 'guid',

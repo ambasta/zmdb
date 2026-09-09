@@ -397,18 +397,17 @@ create_table        CREATE TABLE [events] ([at] DATETIMEOFFSET(3) NOT NULL, [id]
 drop_table          DROP TABLE [events]
 add_column          ALTER TABLE [events] ADD [note] NVARCHAR(MAX)
 drop_column         ALTER TABLE [events] DROP COLUMN [note]
-alter_column_type   ALTER TABLE [events] ALTER COLUMN [note] NVARCHAR(MAX) NOT NULL
+alter_column   ALTER TABLE [events] ALTER COLUMN [note] NVARCHAR(MAX) NOT NULL
 ```
 
 Three divergences in five ops, and the first two are shared with dialects that already ship:
 
 - **`ADD`, not `ADD COLUMN`.** T-SQL rejects the keyword. `../../../migrations/src/index.ts` emits the SQL Server form explicitly.
-- **`ALTER COLUMN [c] <type> NULL|NOT NULL` with no `TYPE` keyword.** SQL Server requires nullability to be restated: omitting it turns an existing `NOT NULL` column nullable. Generated
-  `alter_column_type` operations therefore carry both the old and new nullability so `up` and `down` preserve the schema; a hand-built SQL Server operation without that metadata is refused.
-  `../../../migrations/src/index.ts` emits `MODIFY COLUMN` for the MySQL family and the no-`TYPE` form with explicit nullability for SQL Server.
-- **`emitDown` of a `drop_table` is `CREATE TABLE t ()`**, and an empty column list is a syntax error outside Postgres. The `down` of a dropped table cannot be reconstructed from a `ChangeOp` — the
-  columns are gone — so the correct behaviour on every dialect is to emit a comment and refuse to run, which is what `../../../migrations/src/SPEC.md` §4's `-- zmdb:down` sentinel already provides a
-  place for. Named here because the matrix in §7 would otherwise need an `mssql` expectation for a statement that should not exist.
+- **`ALTER COLUMN [c] <type> NULL|NOT NULL` with no `TYPE` keyword.** SQL Server requires nullability to be restated: omitting it turns an existing `NOT NULL` column nullable. Generated `alter_column`
+  operations carry complete old and new column snapshots so `up` and `down` preserve nullability and length. `../../../migrations/src/index.ts` emits `MODIFY COLUMN` for the MySQL family and the
+  no-`TYPE` form with explicit nullability for SQL Server.
+- A dropped table retains its complete definition for `emitDown`. Its schema can be recreated; its deleted rows cannot. SQL Server refuses individual constraint changes when the necessary constraint
+  name is unavailable.
 
 `varchar` with no `Length<N>`: `NVARCHAR` alone defaults to one character in a DDL context, which is worse than either alternative, so it degrades to `NVARCHAR(MAX)` — the same degradation MySQL
 already applies in `../../../migrations/src/index.ts`, for the same reason.

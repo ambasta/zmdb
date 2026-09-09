@@ -91,5 +91,5 @@ export function validateRule(r: Rule, expr: unknown): boolean {
 }
 
 export { ValidationError, claimsValidationIssues, validationIssuesOf } from './validation-error.js';
-export type { ValidationIssue } from './validation-error.js';
+export type { ValidateResult, ValidationIssue } from './validation-error.js';
 export * from './utilities/index.js';

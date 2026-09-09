@@ -5,6 +5,11 @@ export interface ValidationIssue {
   readonly value?: unknown;
 }
 
+/** A validation success carries its proven value; only failure carries issues. */
+export type ValidateResult<T> =
+  | { readonly success: true; readonly data: T }
+  | { readonly success: false; readonly issues: readonly ValidationIssue[] };
+
 export class ValidationError extends Error {
   readonly issues: readonly ValidationIssue[];
 

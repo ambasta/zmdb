@@ -77,6 +77,8 @@ export function escapePattern(pattern: string): string {
 export type EmitTarget = 'check' | 'excess' | 'issues' | 'sample';
 
 export interface EmitOptions {
+  /** Preserve literal result discriminants when emitting TypeScript. */
+  readonly typescript?: boolean;
   /** Prefix for every emitted identifier. Default `_zmdb`. */
   readonly prefix?: string;
   /** Cap on hoisted helpers per file. Exceeding it is a refusal, not a hang. */
@@ -153,6 +155,7 @@ interface ObjectBodyOptions {
 
 export class Emitter {
   readonly #prefix: string;
+  readonly #typescript: boolean;
   readonly #maxHelpers: number;
   readonly #errorModule: string;
   readonly #protobufModule: string;
@@ -175,6 +178,7 @@ export class Emitter {
 
   constructor(options: EmitOptions = {}) {
     this.#prefix = options.prefix ?? '_zmdb';
+    this.#typescript = options.typescript ?? false;
     this.#maxHelpers = options.maxHelpers ?? DEFAULT_MAX_HELPERS;
     this.#errorModule = options.errorModule ?? '@zmdb/validator/errors';
     this.#protobufModule = options.protobufModule ?? '@zmdb/protobuf/wire';
@@ -269,10 +273,11 @@ export class Emitter {
   emitValidate(node: TypeIR, expr: string, strict = false, maxDepth?: number): string | undefined {
     const plan = this.#twoPass(node, expr, strict, maxDepth);
     if (!plan) return undefined;
+    const literal = this.#typescript ? ' as const' : '';
     return plan.bound.block([
-      `if (${plan.gate}) return { success: true, data: ${plan.bound.ref} };`,
+      `if (${plan.gate}) return { success: true${literal}, data: ${plan.bound.ref} };`,
       `const _e = []; ${plan.collect}(${plan.bound.ref}, "input", _e);`,
-      'return { success: false, errors: _e };',
+      `return { success: false${literal}, issues: _e };`,
     ]);
   }
 

@@ -23,9 +23,10 @@ supported values.
 
 Validates the value (reusing the validation engine) then serializes. On invalid input throws a structured error; on valid input equals `stringify` output.
 
-## 4. parse<T>
+## 4. parse and decode
 
-`parse(text)` → `{ success, data?, issues? }`. Parses JSON then validates into `T`. Malformed JSON or validation failure yields `success:false` with issues.
+`parse(text)` returns the canonical `ValidateResult<unknown>` from `@zmdb/validator`: JSON syntax alone does not prove a user type. `decode<T>(text, schema)` validates the parsed value against its
+witness before returning `ValidateResult<T>`. Success exposes `data`; malformed JSON or validation failure exposes only `issues`, retaining useful messages and paths.
 
 ### Performance acceptance (frozen — #162)
 

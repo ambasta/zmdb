@@ -2,16 +2,10 @@
 
 import { type CoreSchema, type Equal, type Expect } from '@zmdb/schema';
 import { type JsonSchemaObject } from '@zmdb/schema/openapi';
-import { assert } from '@zmdb/validator';
+import { assert, validate, validateShallow, type ValidateResult, type ValidationIssue } from '@zmdb/validator';
+import { parse, decode } from '@zmdb/validator/serialization';
 
-import {
-  lenientParse,
-  type ParseResult,
-  toolFor,
-  type ToolProvider,
-  type ToolSpec,
-  type ToolSpecFor,
-} from './index.js';
+import { lenientParse, toolFor, type ToolProvider, type ToolSpec, type ToolSpecFor } from './index.js';
 
 type FrozenToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
 
@@ -60,15 +54,19 @@ interface ParsedRecord {
 
 const unvalidated = lenientParse('{"name":"record"}');
 const parseThroughHelper = (text: string) => lenientParse(text);
-export type _unvalidated_data_is_unknown = Expect<Equal<typeof unvalidated.data, unknown>>;
-export type _helper_data_is_unknown = Expect<Equal<ReturnType<typeof parseThroughHelper>['data'], unknown>>;
+export type _unvalidated_data_is_unknown = Expect<
+  Equal<Extract<typeof unvalidated, { success: true }>['data'], unknown>
+>;
+export type _helper_data_is_unknown = Expect<
+  Equal<Extract<ReturnType<typeof parseThroughHelper>, { success: true }>['data'], unknown>
+>;
 
 // @ts-expect-error A type argument cannot establish the parsed output without a callback.
 lenientParse<ParsedRecord>('{}');
 // @ts-expect-error An absent callback cannot establish the parsed output.
 lenientParse<ParsedRecord>('{}', undefined);
 // @ts-expect-error Contextual assignment cannot establish the parsed output without a callback.
-const claimed: ParseResult<ParsedRecord> = lenientParse('{}');
+const claimed: ValidateResult<ParsedRecord> = lenientParse('{}');
 void claimed;
 
 const validated = lenientParse<ParsedRecord>('{}', assert<ParsedRecord>);
@@ -79,6 +77,35 @@ const decoded = lenientParse('"record"', value => {
   if (typeof value !== 'string') throw new Error('Expected a string');
   return { name: value };
 });
-export type _explicit_callback_establishes_data = Expect<Equal<typeof validated.data, ParsedRecord | undefined>>;
-export type _inferred_callback_establishes_data = Expect<Equal<typeof inferred.data, ParsedRecord | undefined>>;
-export type _decoder_establishes_data = Expect<Equal<typeof decoded.data, ParsedRecord | undefined>>;
+export type _explicit_callback_establishes_data = Expect<
+  Equal<Extract<typeof validated, { success: true }>['data'], ParsedRecord>
+>;
+export type _inferred_callback_establishes_data = Expect<
+  Equal<Extract<typeof inferred, { success: true }>['data'], ParsedRecord>
+>;
+export type _decoder_establishes_data = Expect<Equal<Extract<typeof decoded, { success: true }>['data'], ParsedRecord>>;
+
+// JSON syntax alone cannot prove an arbitrary output type.
+// @ts-expect-error parse has no unchecked generic output parameter.
+parse<ParsedRecord>('{}');
+export type _parse_is_unknown = Expect<Equal<ReturnType<typeof parse>, ValidateResult<unknown>>>;
+
+function narrowed(result: ValidateResult<ParsedRecord>): void {
+  if (result.success) {
+    const data: ParsedRecord = result.data;
+    void data;
+    // @ts-expect-error Successful results carry only their data.
+    void result.issues;
+  } else {
+    const issues: readonly ValidationIssue[] = result.issues;
+    void issues;
+    // @ts-expect-error Failed results do not expose optional data.
+    void result.data;
+    // @ts-expect-error The superseded errors field is removed.
+    void result.errors;
+  }
+}
+narrowed(validate<ParsedRecord>({}));
+narrowed(validateShallow<ParsedRecord>({}));
+narrowed(decode<ParsedRecord>('{}'));
+narrowed(validated);

@@ -150,7 +150,16 @@ describe('database vertical conformance (#668)', () => {
     ) => string;
 
     expect(injectedDdlType(dialect.migrations, column)).toBe('INTEGER');
-    expect(emitUp({ kind: 'drop_table', table: 'widgets' }, dialect)).toBe('ACME UP drop_table');
+    expect(
+      emitUp(
+        {
+          kind: 'drop_table',
+          table: 'widgets',
+          definition: { name: 'widgets', columns: [], primaryKey: [], foreignKeys: [] },
+        },
+        dialect,
+      ),
+    ).toBe('ACME UP drop_table');
 
     const queries: string[] = [];
     const connection = driverMigrationConnection(

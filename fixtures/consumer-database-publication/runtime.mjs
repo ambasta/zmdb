@@ -66,7 +66,7 @@ const migration = {
   version: 676,
   name: 'public database publication',
   up: dialect.migrations.emitUp(create),
-  down: dialect.migrations.emitUp({ kind: 'drop_table', table }),
+  down: dialect.migrations.emitDown(create),
 };
 const observedQueries = [];
 const label = "quoted'; SELECT 999; --";

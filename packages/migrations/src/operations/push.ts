@@ -74,12 +74,17 @@ export function isDestructive(operation: ChangeOp): boolean {
     case 'drop_table':
     case 'drop_column':
       return true;
-    case 'alter_column_type':
-      return narrowsType(operation.from, operation.to);
+    case 'alter_column':
+      return (
+        narrowsType(operation.from.type, operation.to.type) ||
+        (operation.to.length !== undefined &&
+          (operation.from.length === undefined || operation.to.length < operation.from.length))
+      );
   }
 }
 
 function narrowsType(from: string | ExtensionType, to: string | ExtensionType): boolean {
+  if (JSON.stringify(from) === JSON.stringify(to)) return false;
   if (typeof from !== 'string' || typeof to !== 'string') return true;
   if (from === to) return false;
   return !KNOWN_WIDENINGS.has(`${from}->${to}`);

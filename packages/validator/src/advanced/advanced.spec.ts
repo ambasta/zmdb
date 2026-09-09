@@ -14,7 +14,7 @@ describe('object strictness modes', () => {
   it('strict rejects excess keys with a structured issue', () => {
     const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'strict');
     expect(r.success).toBe(false);
-    expect(r.issues.some(i => i.path.includes('extra'))).toBe(true);
+    expect(!r.success && r.issues.some(i => i.path.includes('extra'))).toBe(true);
   });
 
   it('strip accepts and drops excess keys', () => {
@@ -28,8 +28,8 @@ describe('structured error paths', () => {
     const rule = refine(v => typeof v === 'number' && v >= 0, 'must be >= 0');
     const r = validateObject({ totalPrice: -1 }, { totalPrice: rule }, 'strict');
     expect(r.success).toBe(false);
-    expect(r.issues[0]?.path).toBe('input.totalPrice');
-    expect(r.issues[0]?.message).toBe('must be >= 0');
+    expect(!r.success && r.issues[0]?.path).toBe('input.totalPrice');
+    expect(!r.success && r.issues[0]?.message).toBe('must be >= 0');
   });
 });
 
@@ -49,5 +49,14 @@ describe('string-source guard', () => {
         'refine() requires a function value; source strings are not supported',
       );
     }
+  });
+});
+
+it('validateObject returns successful passthrough data without result getters or issue arrays', () => {
+  const value = { a: 1, extra: { retained: true } };
+  const result = validateObject(value, { a: tags.Min(0) }, 'passthrough');
+  expect(Object.getOwnPropertyDescriptors(result)).toEqual({
+    success: { value: true, enumerable: true, writable: true, configurable: true },
+    data: { value, enumerable: true, writable: true, configurable: true },
   });
 });

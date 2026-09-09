@@ -12,8 +12,9 @@ const witness = {
   ],
 };
 
-const accepted = validate({ email: 'a@example.test' }, witness);
+const input = { email: 'a@example.test' };
+const accepted = validate(input, witness);
 const rejected = validate({ email: 'x' }, witness);
-if (!accepted.success || rejected.success || rejected.errors?.[0]?.path !== 'input.email') {
+if (!accepted.success || accepted.data !== input || rejected.success || rejected.issues[0]?.path !== 'input.email') {
   throw new Error('@zmdb/validator did not execute the installed schema witness');
 }

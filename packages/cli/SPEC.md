@@ -207,7 +207,7 @@ The classification covers every current `ChangeOp` kind rather than a subset, so
 | `create_extension`, `create_table`    | no          | Adds a capability or a new empty table.                                 |
 | `add_column`                          | no          | An added nullable column loses nothing.                                 |
 | `drop_table`, `drop_column`           | yes         | Deletes rows or a column's values.                                      |
-| `alter_column_type`                   | sometimes   | Destructive when the new type is narrower.                              |
+| `alter_column`                        | sometimes   | Destructive when the new type or explicit length is narrower.           |
 | `alter_primary_key`                   | no          | Reindexes existing rows; duplicates can fail it, but no row is deleted. |
 | `add_foreign_key`, `drop_foreign_key` | no          | Changes enforcement without deleting an existing value.                 |
 

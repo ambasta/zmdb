@@ -21,13 +21,9 @@ type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-
 function toolFor<T, P extends ToolProvider>(provider: P, name: string, opts?: { description?: string }): ToolSpecFor[P];
 function toolFor<P extends ToolProvider>(provider: P, name: string, schema: CoreSchema<string>, opts?: { description?: string }): ToolSpecFor[P];
 
-interface ParseResult<T> {
-  success: boolean;
-  data?: T;
-  errors?: readonly string[];
-}
-function lenientParse(text: string): ParseResult<unknown>;
-function lenientParse<T>(text: string, coerce: (v: unknown) => T): ParseResult<T>;
+import type { ValidateResult } from '@zmdb/validator';
+function lenientParse(text: string): ValidateResult<unknown>;
+function lenientParse<T>(text: string, coerce: (v: unknown) => T): ValidateResult<T>;
 ```
 
 ## Frozen behavior
@@ -38,8 +34,8 @@ function lenientParse<T>(text: string, coerce: (v: unknown) => T): ParseResult<T
   - returns unknown data without a callback; typed output requires an `unknown => T` assertion or decoder callback, with callback return-type inference supported,
   - strips Markdown code fences (`json … `) before parsing,
   - tolerates trailing commas is **not** attempted; only fence-stripping + a plain `JSON.parse`,
-  - on parse failure returns `{ success:false, errors:[msg] }`,
-  - applies `coerce` when provided; a throwing coerce ⇒ `success:false`.
+  - on parse failure returns `{ success:false, issues:[{ path: "input", expected: "valid JSON", value: text, message }] }`,
+  - applies `coerce` when provided; a throwing coerce returns canonical issues, preserving assertion paths and messages. Successful coercion retains the callback result by identity.
 - Deterministic; build-time schema generation + runtime lenient parse.
 
 ## 1. What the document contains, which decides every question below

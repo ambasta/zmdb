@@ -727,7 +727,7 @@ async function mssqlSnapshot(
           nullable: column.nullable,
           primaryKey: primaryKey.includes(column.name),
           ...(mapped.length === undefined ? {} : { length: mapped.length }),
-          ...(column.default === null ? {} : { default: column.default }),
+          ...(column.default === null ? {} : { default: { kind: 'expression' as const, sql: column.default } }),
           ...(column.identity
             ? {
                 identity: {

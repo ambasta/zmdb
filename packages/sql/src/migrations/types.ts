@@ -20,6 +20,10 @@ export interface ColumnSnapshot {
   readonly length?: number | undefined;
   /** Carried so dialect-specific DDL can validate or emit the declaration. */
   readonly unique?: boolean;
+  readonly default?:
+    | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
+    | { readonly kind: 'expression'; readonly sql: string }
+    | { readonly kind: 'unresolved' };
 }
 
 export interface TableOptions {
@@ -69,19 +73,14 @@ export type ChangeOp =
       readonly foreignKeys: readonly ForeignKeySnapshot[];
       readonly tableOptions?: TableOptions;
     }
-  | { readonly kind: 'drop_table'; readonly table: string }
+  | { readonly kind: 'drop_table'; readonly table: string; readonly definition: TableSnapshot }
   | { readonly kind: 'add_column'; readonly table: string; readonly column: ColumnSnapshot }
-  | { readonly kind: 'drop_column'; readonly table: string; readonly column: string }
+  | { readonly kind: 'drop_column'; readonly table: string; readonly column: ColumnSnapshot }
   | {
-      readonly kind: 'alter_column_type';
+      readonly kind: 'alter_column';
       readonly table: string;
-      readonly column: string;
-      readonly from: string | ExtensionType;
-      readonly to: string | ExtensionType;
-      /** Required by dialects whose ALTER COLUMN restates nullability. */
-      readonly fromNullable?: boolean;
-      /** Required by dialects whose ALTER COLUMN restates nullability. */
-      readonly toNullable?: boolean;
+      readonly from: ColumnSnapshot;
+      readonly to: ColumnSnapshot;
     }
   | {
       readonly kind: 'alter_primary_key';
@@ -90,4 +89,4 @@ export type ChangeOp =
       readonly to: readonly string[];
     }
   | { readonly kind: 'add_foreign_key'; readonly table: string; readonly fk: ForeignKeySnapshot }
-  | { readonly kind: 'drop_foreign_key'; readonly table: string; readonly name: string };
+  | { readonly kind: 'drop_foreign_key'; readonly table: string; readonly fk: ForeignKeySnapshot };

@@ -209,8 +209,8 @@ interface ColumnSnapshot {
    * Present on an introspected snapshot; `type` remains the normalized abstract type used by diff.
    */
   readonly catalogType?: string;
-  /** The catalog's default expression, exactly as reported. Never evaluated. */
-  readonly default?: string;
+  /** Canonical default metadata from the migration snapshot. */
+  readonly default?: import('@zmdb/migrations').ColumnSnapshot['default'];
 }
 ```
 
@@ -221,18 +221,13 @@ outcome.
 A default in a catalog is a SQL expression string — `now()`, `CURRENT_TIMESTAMP`, `'user'::text`, `uuid_generate_v4()`, `nextval('users_id_seq')` — and none of those is a value. Evaluating one means
 running it, which introspection must not do, and a faithful round trip has to reproduce the _expression_ rather than a photograph of what it returned once.
 
-It lives on the snapshot and not on the IR, and that is the asymmetry [`../../compiler/src/reflect/SPEC.md`](../../compiler/src/reflect/SPEC.md) §8 already records from the other side: `HasDefault`
-says a column has a default, not which one, because a tag payload is a type-level literal and a default may be any expression the dialect accepts. So a declaration emitted from a snapshot carries
-`HasDefault` plus a comment holding the expression, and re-stating it in DDL is a deliberate human act rather than something a generator guesses.
+Catalog defaults use the canonical default field in [ColumnSnapshot](../../../sql/src/migrations/types.ts). SQL expression text is retained without execution; MySQL catalog literals remain literal
+values. A generated declaration records `HasDefault` and the expression comment. `HasDefault` alone cannot provide a concrete default for later SQL generation.
 
-`nextval('…')` is not recorded as a default at all. It is how Postgres spells `serial`, it is consumed by §5, and recording it twice would make `push` emit both a `SERIAL` and a redundant `DEFAULT`.
+Sequence and identity defaults that define `serial` are consumed by the database-owned type mapping. They are not emitted a second time as explicit defaults.
 
-**`diff` does not compare defaults, and this section is where that is frozen.** Servers normalise these strings: MySQL rewrites the case of `CURRENT_TIMESTAMP`, Postgres appends `::text` casts and
-reformats whitespace. Comparing verbatim therefore reports an `alter` after a server upgrade that changed nothing, and comparing loosely means writing an expression normaliser for four root dialect
-families' expression grammars — the same trade `../../../query-compiler/src/schema-objects/SPEC.md` §1.1 refuses for index expressions, for the same reason.
-
-So the default is recorded, shown by `pull`, printed in the generated comment, and not diffed. When a drift report is requested, its normalization boundary explicitly removes `default` and
-`catalogType` evidence before delegating to `diff`: the normalized abstract `type` is compared, while two server spellings of the same default remain review evidence rather than schema drift.
+Default changes participate in diff and drift checks. Drift normalization removes catalog type aliases and normalizes simple scalar wrappers and built-in casts; it does not evaluate expressions or try
+to prove arbitrary SQL expressions equivalent. Distinct expressions remain visible for review. An unresolved declaration requires an explicit default before a migration can be generated.
 
 ## 5. Recognising a generated key column, per dialect
 
@@ -313,16 +308,15 @@ Normalization has three explicit rules:
 
 1. Table selection reuses the catalog reader's glob matcher. With no `exclude`, `_zmdb_migrations` is omitted. An explicit list replaces the default, so a caller adding custom bookkeeping patterns
    also names the ledger when it should remain excluded.
-2. `catalogType` and `default` are removed from the compared copies. Catalog aliases have already collapsed into the abstract `type`, and §4 makes defaults evidence rather than a compared field.
-   Neither input snapshot is mutated.
+2. `catalogType` is omitted. Defaults use the canonical representation and the scalar normalization in §4. Neither input snapshot is mutated.
 3. With `{ dialect: mysql }`, a live non-unique btree index is omitted only when its name is the foreign key name or `<foreign-key>_idx` and its plain column list exactly equals that foreign key's
    columns. That is the index InnoDB creates or zmdb emits solely to support the constraint. A differently named, partial, expression, unique or differently shaped index remains.
 
-The shipped migration comparator currently reports table presence, column presence, normalized type changes, declared extensions, ordered primary keys and foreign keys. Index evidence is preserved by
-normalization for the migration slice that adds its `ChangeOp` arms; drift does not pre-implement it.
+The shipped migration comparator currently reports table presence, column presence, types, nullability, uniqueness, defaults, declared extensions, ordered primary keys and foreign keys. Index evidence
+is preserved by normalization for the migration slice that adds its `ChangeOp` arms; drift does not pre-implement it.
 
-Not compared: default expressions (§4); objects in schemas outside `schemas`; and objects the connecting role cannot see, which `information_schema` reports as absent (§2). The migration ledger and
-configured bookkeeping tables are removed before comparison.
+Not compared: objects in schemas outside `schemas`; and objects the connecting role cannot see, which `information_schema` reports as absent (§2). The migration ledger and configured bookkeeping
+tables are removed before comparison.
 
 Also not reported by the current migration comparator: general indexes and their predicates or access methods, check constraints, triggers, procedures, grants and collations. The command says so in
 its own output. Implying completeness is how a green `check` becomes the reason nobody looked.
@@ -349,7 +343,7 @@ resolved config (#492). Neither side keeps a private copy of the catalog SQL.
 - **Preserving hand edits across a regeneration.** §6.
 - **Inverting a naming strategy.** §6 — not invertible, and the emitter does not need it to be.
 - **Evaluating a default expression.** §4.
-- **Diffing default expressions.** §4 — the drift normalization removes them rather than guessing whether two dialect expressions are equivalent.
+- **Proving arbitrary default expressions equivalent.** §4 keeps distinct expressions visible rather than evaluating or rewriting their SQL.
 - **A hand-written SQL parser for `sqlite_master.sql`.** It is a last resort for facts the pragmas do not carry, every use warns, and it is never the source for a fact a pragma reports.
 
 ## 11. Database-package boundary (issue #666)

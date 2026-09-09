@@ -55,7 +55,14 @@ describe('@zmdb/mssql migrations (#672)', () => {
       mssql.migrations.emitUp({
         kind: 'drop_foreign_key',
         table: 'events',
-        name: 'events_tenant_fkey',
+        fk: {
+          name: 'events_tenant_fkey',
+          columns: ['tenant_id'],
+          targetTable: 'tenants',
+          targetColumns: ['id'],
+          onDelete: 'restrict',
+          onUpdate: 'cascade',
+        },
       }),
     ).toBe('ALTER TABLE [events] DROP CONSTRAINT [events_tenant_fkey]');
     expect(
@@ -90,43 +97,34 @@ describe('@zmdb/mssql migrations (#672)', () => {
   });
 
   it('validates SQL Server ALTER COLUMN nullability before dispatch', () => {
-    expect(() =>
-      mssql.migrations.emitUp({
-        kind: 'alter_column_type',
-        table: 'events',
-        column: 'at',
-        from: 'text',
-        to: 'timestamp',
-      }),
-    ).toThrow('mssql ALTER COLUMN must restate NULL or NOT NULL');
     expect(
       mssql.migrations.emitUp({
-        kind: 'alter_column_type',
+        kind: 'alter_column',
         table: 'events',
-        column: 'at',
-        from: 'text',
-        to: 'timestamp',
-        fromNullable: true,
-        toNullable: false,
+        from: { name: 'at', type: 'text', nullable: true, primaryKey: false },
+        to: { name: 'at', type: 'timestamp', nullable: false, primaryKey: false },
       }),
     ).toBe('ALTER TABLE [events] ALTER COLUMN [at] DATETIMEOFFSET(3) NOT NULL');
     expect(
       mssql.migrations.emitDown({
-        kind: 'alter_column_type',
+        kind: 'alter_column',
         table: 'events',
-        column: 'at',
-        from: 'text',
-        to: 'timestamp',
-        fromNullable: true,
-        toNullable: false,
+        from: { name: 'at', type: 'text', nullable: true, primaryKey: false },
+        to: { name: 'at', type: 'timestamp', nullable: false, primaryKey: false },
       }),
     ).toBe('ALTER TABLE [events] ALTER COLUMN [at] NVARCHAR(MAX) NULL');
-    expect(() =>
+    expect(
       mssql.migrations.emitDown({
         kind: 'drop_table',
         table: 'events',
+        definition: {
+          name: 'events',
+          columns: [{ name: 'at', type: 'timestamp', nullable: false, primaryKey: false }],
+          primaryKey: [],
+          foreignKeys: [],
+        },
       }),
-    ).toThrow('mssql cannot recreate dropped table "events"');
+    ).toBe('CREATE TABLE [events] ([at] DATETIMEOFFSET(3) NOT NULL)');
     expect(() =>
       mssql.migrations.emitUp({
         kind: 'alter_primary_key',

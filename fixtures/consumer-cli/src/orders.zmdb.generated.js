@@ -39,7 +39,7 @@ export function zmdbAssertOrder(value) {
 }
 
 export function zmdbValidateOrder(value) {
-  return ((() => { if ((_zmdbCheckOrder4(value))) return { success: true, data: value }; const _e = []; _zmdbIssues6(value, "input", _e); return { success: false, errors: _e }; })());
+  return ((() => { if ((_zmdbCheckOrder4(value))) return { success: true, data: value }; const _e = []; _zmdbIssues6(value, "input", _e); return { success: false, issues: _e }; })());
 }
 
 export function zmdbRandomOrder() {

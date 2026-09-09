@@ -54,9 +54,9 @@ function validateOperation(operation: ChangeOp): void {
     case 'add_column':
       validateColumn(operation.column);
       return;
-    case 'alter_column_type':
-      if (typeof operation.from !== 'string') refuseExtension(`extension type ${extensionName(operation.from)}`);
-      if (typeof operation.to !== 'string') refuseExtension(`extension type ${extensionName(operation.to)}`);
+    case 'alter_column':
+      validateColumn(operation.from);
+      validateColumn(operation.to);
       return;
     default:
       return;

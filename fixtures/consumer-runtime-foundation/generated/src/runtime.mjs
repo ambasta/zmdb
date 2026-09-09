@@ -22,8 +22,10 @@ for (const name of ['model.js', 'model.zmdb.generated.js']) {
 }
 assert.equal(isMessage({ id: 7, address: 'a@example.test' }), true);
 assert.equal(isMessage({ id: '7', address: 'a@example.test' }), false);
-const accepted = validateMessage({ id: 7, address: 'a@example.test' });
+const input = { id: 7, address: 'a@example.test' };
+const accepted = validateMessage(input);
 assert.equal(accepted.success, true);
+assert.equal(accepted.data, input);
 const rejected = validateMessage({ id: '7', address: 'a@example.test' });
 assert.equal(rejected.success, false);
-assert.equal(rejected.errors[0].path, 'input.id');
+assert.equal(rejected.issues[0].path, 'input.id');

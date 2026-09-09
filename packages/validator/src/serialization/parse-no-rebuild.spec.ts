@@ -17,9 +17,9 @@ describe('parse no-rebuild invariant (#162)', () => {
   };
 
   it('returns data structurally equal to the source', () => {
-    const r = parse<typeof obj>(JSON.stringify(obj));
+    const r = parse(JSON.stringify(obj));
     expect(r.success).toBe(true);
-    expect(r.data).toEqual(obj);
+    expect(r.success && r.data).toEqual(obj);
   });
 
   it('returns the JSON.parse result directly (no field-by-field clone)', () => {
@@ -27,10 +27,10 @@ describe('parse no-rebuild invariant (#162)', () => {
     // JSON.parse passthrough preserves ALL keys, including ones a rebuild would
     // miss. This guards the passthrough contract.
     const withExtra = { ...obj, _unlisted: { a: 1 } };
-    const r = parse<typeof withExtra>(JSON.stringify(withExtra));
+    const r = parse(JSON.stringify(withExtra));
     expect(r.success).toBe(true);
-    expect(r.data).toHaveProperty('_unlisted');
-    expect((r.data as typeof withExtra)._unlisted).toEqual({ a: 1 });
+    expect(r.success && r.data).toHaveProperty('_unlisted');
+    expect(r.success && r.data).toHaveProperty('_unlisted', { a: 1 });
   });
 
   it('does not shape-narrow: a rebuild would drop keys, passthrough keeps them all', () => {
@@ -39,11 +39,11 @@ describe('parse no-rebuild invariant (#162)', () => {
     // result verbatim, so EVERY key survives. This is a robust, noise-free guard
     // for the perf fix (removing the rebuild) without a timing assertion.
     const wide = { ...obj, extraA: 1, extraB: { nested: [1, 2, 3] }, extraC: null };
-    const r = parse<typeof wide>(JSON.stringify(wide));
+    const r = parse(JSON.stringify(wide));
     expect(r.success).toBe(true);
-    expect(Object.keys(r.data as object).toSorted()).toEqual(Object.keys(wide).toSorted());
+    expect(r.success && r.data).toEqual(wide);
     // deep-nested key on the top-level object is preserved (a rebuild reconstructs
     // only listed nested fields; passthrough keeps the whole subtree).
-    expect((r.data as typeof wide).extraB).toEqual({ nested: [1, 2, 3] });
+    expect(r.success && r.data).toHaveProperty('extraB', { nested: [1, 2, 3] });
   });
 });

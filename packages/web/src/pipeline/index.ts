@@ -27,6 +27,10 @@ import { getRoutes, isPublic, type ResolvedRoute } from '../routing/index.js';
 import { versionsOf, type VersionStrategy } from '../versioning/index.js';
 import { jsonMediaTypeForVersion, pathForVersion } from '../versioning/runtime.js';
 import { resolveGuards, type GuardRegistry } from './guards.js';
+import { normalizePolicy, type HttpPolicy, type NormalizedPolicy } from './policy.js';
+
+export type { CorsPolicy, HttpPolicy } from './policy.js';
+const routerPolicies = new WeakMap<Router, NormalizedPolicy>();
 
 export type { Ctx } from '../context/index.js';
 export type { SecurityRequirement } from '../contract/index.js';
@@ -69,6 +73,7 @@ export interface RouteOptions {
 
 /** Router-wide guard configuration shared with OpenAPI generation. */
 export interface RouterOptions extends Observability {
+  readonly policy?: HttpPolicy;
   readonly guardRegistry?: GuardRegistry;
   readonly versioning?: VersionStrategy;
 }
@@ -821,6 +826,7 @@ export interface Router {
 
 /** Create a router. Routes and their effective guards are resolved once at register time. */
 export function createRouter(routerOptions: RouterOptions = {}): Router {
+  const policy = normalizePolicy(routerOptions.policy);
   const buckets: MethodBuckets = new Map();
   const versioning = routerOptions.versioning;
   const requestVersioning = versioning?.kind === 'header' || versioning?.kind === 'media-type' ? versioning : undefined;
@@ -1214,7 +1220,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     }
   }
 
-  return {
+  const router: Router = {
     register(controller: object, options: Readonly<Record<string, RouteOptions>> = {}): void {
       const ctor = controllerCtor(controller);
       if (ctor === undefined) {
@@ -1429,6 +1435,13 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       return jsonResponse(404, { error: `no route for ${method} ${req.path}` });
     },
   };
+  if (policy !== undefined) {
+    const handle = router.handle;
+    router.handle = async req =>
+      policy.preflight(req.method, req.headers) ?? policy.decorate(req.headers, await handle(req));
+    routerPolicies.set(router, policy);
+  }
+  return router;
 }
 
 // The constructor type getRoutes reads metadata from.
@@ -1588,7 +1601,8 @@ export function toNodeHandler(
   options: AdapterOptions = { maxBodyBytes: DEFAULT_MAX_BODY_BYTES },
 ): (req: NodeReqLike, res: NodeResLike) => void {
   validateMaxBodyBytes(options.maxBodyBytes);
-  return function (req: NodeReqLike, res: NodeResLike): void {
+  const policy = routerPolicies.get(router);
+  const handler = function (req: NodeReqLike, res: NodeResLike): void {
     // A request with no body needs no 'data'/'end' listeners, no accumulator and
     // no extra event-loop turn — and per RFC 9112 a request with neither
     // content-length nor transfer-encoding HAS no body, which is the same rule
@@ -1598,7 +1612,7 @@ export function toNodeHandler(
     if (hasRequestBody(req)) {
       const announcedLength = requestContentLength(req);
       if (announcedLength !== undefined && announcedLength > options.maxBodyBytes) {
-        rejectOversizedRequest(res);
+        rejectOversizedRequest(res, policy, req);
         return;
       }
       const binary = hasBinaryContentType(req.headers['content-type']);
@@ -1633,7 +1647,7 @@ export function toNodeHandler(
         }
         if (size > options.maxBodyBytes) {
           exceeded = true;
-          rejectOversizedRequest(res);
+          rejectOversizedRequest(res, policy, req);
         }
       });
       req.on('end', () => {
@@ -1646,6 +1660,15 @@ export function toNodeHandler(
       return;
     }
     dispatch(router, req, res, undefined);
+  };
+  if (policy === undefined) return handler;
+  return (req, res) => {
+    const response = policy.preflight(req.method ?? 'GET', flattenHeaders(req.headers));
+    if (response !== undefined) {
+      send(res, response, req.method ?? 'GET');
+      return;
+    }
+    handler(req, res);
   };
 }
 
@@ -1819,14 +1842,19 @@ export function toFetchHandler(
   options: AdapterOptions = { maxBodyBytes: DEFAULT_MAX_BODY_BYTES },
 ): (request: Request) => Promise<Response> {
   validateMaxBodyBytes(options.maxBodyBytes);
-  return async function (request: Request): Promise<Response> {
+  const policy = routerPolicies.get(router);
+  const handler = async function (request: Request): Promise<Response> {
     const url = new URL(request.url);
     const raw =
       request.method === 'GET' || request.method === 'HEAD'
         ? { ok: true as const, value: undefined }
         : await readFetchBody(request, options.maxBodyBytes);
     if (!raw.ok) {
-      return new Response(null, { status: 413 });
+      const response = policy?.decorate(
+        flattenFetchHeaders(request.headers),
+        jsonResponse(413, { error: 'request body exceeds maxBodyBytes' }),
+      );
+      return new Response(null, { status: 413, ...(response === undefined ? {} : { headers: response.headers }) });
     }
     const response = await router.handle({
       method: request.method,
@@ -1848,6 +1876,12 @@ export function toFetchHandler(
       return new Response(fetchTextBody(response.body.value, headers), { status: response.status, headers });
     }
     return new Response(response.body.value, { status: response.status, headers: fetchHeaders(response) });
+  };
+  if (policy === undefined) return handler;
+  return async request => {
+    const response = policy.preflight(request.method, flattenFetchHeaders(request.headers));
+    if (response !== undefined) return new Response(null, { status: response.status, headers: response.headers });
+    return handler(request);
   };
 }
 
@@ -1968,8 +2002,9 @@ function joinBytes(chunks: readonly Uint8Array<ArrayBuffer>[], size: number): Ui
   return joined;
 }
 
-function rejectOversizedRequest(res: NodeResLike): void {
-  send(res, jsonResponse(413, { error: 'request body exceeds maxBodyBytes' }), 'POST');
+function rejectOversizedRequest(res: NodeResLike, policy: NormalizedPolicy | undefined, req: NodeReqLike): void {
+  const response = jsonResponse(413, { error: 'request body exceeds maxBodyBytes' });
+  send(res, policy === undefined ? response : policy.decorate(flattenHeaders(req.headers), response), 'POST');
   res.destroy(new Error('request body exceeds maxBodyBytes'));
 }
 

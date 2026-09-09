@@ -27,7 +27,7 @@ interface FrozenAddForeignKey {
 interface FrozenDropForeignKey {
   readonly kind: 'drop_foreign_key';
   readonly table: string;
-  readonly name: string;
+  readonly fk: FrozenForeignKeySnapshot;
 }
 
 export type _ForeignKeySnapshotShape = Expect<Equal<ForeignKeySnapshot, FrozenForeignKeySnapshot>>;

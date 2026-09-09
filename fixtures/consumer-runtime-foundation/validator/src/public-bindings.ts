@@ -50,7 +50,6 @@ export type {
 export type { AssertError as Binding42, failWith as Binding43 } from '@zmdb/validator/errors';
 
 export type {
-  ParseResult as Binding44,
   assertStringify as Binding45,
   decode as Binding46,
   parse as Binding47,

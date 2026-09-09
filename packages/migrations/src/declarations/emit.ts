@@ -2,6 +2,7 @@ import { singularPascalCase } from '@zmdb/schema/naming';
 import { type ColumnSnapshot, type SchemaSnapshot, type SqlDialect, type TableSnapshot } from '@zmdb/sql';
 import type { FormatConfig } from 'oxfmt';
 
+import { columnDefaultSql } from '../index.js';
 import { sortWarnings, type CatalogWarning, type ReferentialAction } from '../introspect/common.js';
 import { escapeTypeString, renderTaggedProperty, typescriptPropertyName } from './tagged-property.js';
 
@@ -560,7 +561,7 @@ function snapshotTypeName(type: ColumnSnapshot['type']): string {
 }
 
 function columnDefault(column: ColumnSnapshot): string | undefined {
-  return optionalString(column, 'default');
+  return columnDefaultSql(column);
 }
 
 function columnEnumValues(column: ColumnSnapshot): readonly string[] | undefined {

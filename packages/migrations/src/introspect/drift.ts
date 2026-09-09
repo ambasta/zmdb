@@ -6,7 +6,7 @@ import {
   type TableSnapshot,
 } from '@zmdb/sql';
 
-import { diff } from '../index.js';
+import { columnDefaultSql, diff } from '../index.js';
 import { tableSelected, type CatalogForeignKeySnapshot, type CatalogIndexSnapshot } from './common.js';
 
 export interface DriftOptions {
@@ -34,7 +34,6 @@ export interface DriftReport {
 
 type DriftColumnSnapshot = ColumnSnapshot & {
   readonly catalogType?: string;
-  readonly default?: string;
 };
 
 interface DriftTableSnapshot extends Omit<TableSnapshot, 'columns' | 'foreignKeys'> {
@@ -58,6 +57,22 @@ interface NormalizedDriftSnapshot extends Omit<SchemaSnapshot, 'tables'> {
 
 type SnapshotRole = 'live' | 'declared';
 
+function normalizedDefault(column: ColumnSnapshot): Pick<ColumnSnapshot, 'default'> {
+  if (column.default === undefined || column.default.kind === 'unresolved')
+    return column.default === undefined ? {} : { default: column.default };
+  let sql = columnDefaultSql(column, true)?.trim();
+  if (sql === undefined) return {};
+  // Servers wrap scalar constants and attach built-in casts in their catalogs.
+  sql = sql.replace(/^\(+('(?:[^']|'')*'|[+-]?[0-9]+(?:\.[0-9]+)?|NULL|TRUE|FALSE)\)+$/i, '$1');
+  sql = sql.replace(
+    /^('(?:[^']|'')*'|[+-]?[0-9]+(?:\.[0-9]+)?|NULL|TRUE|FALSE)::(?:text|character varying|varchar|integer|bigint|numeric|boolean)$/i,
+    '$1',
+  );
+  if (/^true$/i.test(sql)) sql = '1';
+  if (/^false$/i.test(sql)) sql = '0';
+  return { default: { kind: 'expression', sql } };
+}
+
 function normalizeColumn(column: DriftColumnSnapshot): ColumnSnapshot {
   return {
     name: column.name,
@@ -66,6 +81,7 @@ function normalizeColumn(column: DriftColumnSnapshot): ColumnSnapshot {
     primaryKey: column.primaryKey,
     ...(column.length === undefined ? {} : { length: column.length }),
     ...(column.unique === undefined ? {} : { unique: column.unique }),
+    ...normalizedDefault(column),
   };
 }
 
@@ -120,8 +136,7 @@ export function normalizeDriftSnapshot(
       const indexes = normalizeIndexes(table, role, options.omitForeignKeySupportIndexes ?? false);
       const normalized: NormalizedDriftTableSnapshot = {
         name: table.name,
-        // Catalog spellings and default expressions are evidence, not drift:
-        // aliases have already collapsed into `type`, and servers rewrite defaults.
+        // Compare canonical types and defaults while retaining catalog index evidence.
         columns: table.columns.map(normalizeColumn),
         primaryKey: table.primaryKey,
         foreignKeys: table.foreignKeys ?? [],

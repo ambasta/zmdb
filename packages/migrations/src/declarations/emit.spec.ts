@@ -26,7 +26,6 @@ interface FrozenForeignKeySnapshot {
 
 type FrozenColumnSnapshot = ColumnSnapshot & {
   readonly catalogType?: string;
-  readonly default?: string;
 };
 
 type FrozenTableSnapshot = Omit<TableSnapshot, 'columns'> & {
@@ -89,7 +88,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
           catalogType: 'TEXT',
           nullable: false,
           primaryKey: false,
-          default: 'CURRENT_TIMESTAMP',
+          default: { kind: 'expression', sql: 'CURRENT_TIMESTAMP' },
         },
         { name: 'email', type: 'text', catalogType: 'TEXT', nullable: false, primaryKey: false },
         { name: 'id', type: 'serial', catalogType: 'INTEGER', nullable: false, primaryKey: true },

@@ -391,7 +391,7 @@ describe('the failure path', () => {
     expect(check({ id: 1, email: 'a@b' })).toEqual({ success: true, data: { id: 1, email: 'a@b' } });
     expect(check({ id: 0, email: 'a@b' })).toEqual({
       success: false,
-      errors: [{ path: 'input.id', expected: 'minimum 1', value: 0, message: 'expected minimum 1' }],
+      issues: [{ path: 'input.id', expected: 'minimum 1', value: 0, message: 'expected minimum 1' }],
     });
   });
 
@@ -399,7 +399,7 @@ describe('the failure path', () => {
     const { check } = build('const check = (input) => validate<Shape>(input);');
     expect(check({ kind: 'triangle', side: 1 })).toEqual({
       success: false,
-      errors: [
+      issues: [
         {
           path: 'input.kind',
           expected: '"circle" | "square"',

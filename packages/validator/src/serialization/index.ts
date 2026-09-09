@@ -1,6 +1,7 @@
 // JSON serialization and validated parsing.
-import { type ValidationIssue } from '../advanced/index.js';
+
 import { assert, AssertError, type TypeIR } from '../index.js';
+import { type ValidateResult } from '../validation-error.js';
 
 // Native JSON owns property traversal and toJSON calls. Primitive bigint is
 // rejected before a root toJSON hook can run; native JSON rejects nested bigint.
@@ -19,25 +20,10 @@ export function assertStringify(value: unknown, schema?: TypeIR): string {
   return stringify(value);
 }
 
-export interface ParseResult<T> {
-  readonly success: boolean;
-  readonly data?: T;
-  readonly issues?: readonly ValidationIssue[];
-}
-
-/**
- * Parse JSON without rebuilding the object graph. Reports malformed input as
- * structured issues instead of throwing.
- *
- * `T` is an *unvalidated* claim about the payload — exactly as much as
- * `JSON.parse` gives you, and no more. Use {@link decode} when you need the
- * claim checked against a schema.
- */
-export function parse<T = unknown>(text: string): ParseResult<T> {
+/** Parse JSON syntax into unknown data, retaining the native parsed object. */
+export function parse(text: string): ValidateResult<unknown> {
   try {
-    // boundary: JSON.parse is `any` by definition; the caller's `T` is asserted,
-    // not proven. `decode` is the proving variant.
-    const data = JSON.parse(text) as T;
+    const data: unknown = JSON.parse(text);
     return { success: true, data };
   } catch (err) {
     return {
@@ -57,14 +43,17 @@ export function parse<T = unknown>(text: string): ParseResult<T> {
 // #54 — typed parse/decode: parse JSON then validate into T against a schema.
 // Malformed JSON or a validation failure yields success:false with structured
 // issues (exact paths).
-export function decode<T = unknown>(text: string, schema?: TypeIR): ParseResult<T> {
-  const parsed = parse<T>(text);
+export function decode<T = unknown>(text: string, schema?: TypeIR): ValidateResult<T> {
+  const parsed = parse(text);
   if (!parsed.success) return parsed;
   try {
     const data = assert<T>(parsed.data, schema);
     return { success: true, data };
   } catch (err) {
-    const issues = err instanceof AssertError ? err.issues : [];
+    const issues =
+      err instanceof AssertError
+        ? err.issues
+        : [{ path: 'input', message: err instanceof Error ? err.message : 'validation failed' }];
     return { success: false, issues };
   }
 }
