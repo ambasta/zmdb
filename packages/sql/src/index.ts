@@ -15,7 +15,7 @@ import {
   type QueryBinding,
   type TrustedTable,
 } from './query-binding.js';
-import type { QueryCompiler } from './query-types.js';
+import type { QueryCompiler, SelectBuilder } from './query-types.js';
 import { SelectQuery } from './select-builder.js';
 export { trustedTable } from './query-binding.js';
 export type { TrustedTable } from './query-binding.js';
@@ -28,8 +28,6 @@ export type {
   OnConflictBuilder,
   QueryPredicate,
 } from './query-types.js';
-// @zmdb/sql — implementation.
-import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 import {
   dialectName,
   dialectTraits,
@@ -109,18 +107,9 @@ export type {
   CatalogWarning,
 } from './introspect/types.js';
 
-import {
-  frozenQuery,
-  isSubqueryTarget,
-  queryTelemetry,
-  tailClause,
-  tailMethods,
-  whereClause,
-  type ComparisonPredicate,
-  type Predicate,
-  type PredicateGroup,
-} from './clauses.js';
+import { frozenQuery, queryTelemetry, whereClause, type Predicate } from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
+import type { AliasedDistanceExpression } from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
@@ -198,10 +187,6 @@ export type ProjectionItem =
 
 export type SelectedColumn = ProjectionItem;
 export type ReturningColumn = string | AliasedColumn;
-
-function isAliasedColumn(column: unknown): column is AliasedColumn {
-  return typeof column === 'object' && column !== null && 'column' in column && 'alias' in column;
-}
 
 export type SubqueryInput =
   | SelectBuilder<unknown>
@@ -373,7 +358,6 @@ interface RuntimeInsertBuilder {
   values(row: Record<string, unknown>): RuntimeInsertBuilder;
   onConflict(target?: string | readonly string[]): RuntimeOnConflictBuilder;
   returning(cols?: readonly ReturningColumn[]): RuntimeInsertBuilder;
-}
   compile(): CompiledQuery;
 }
 interface RuntimeUpdateBuilder {
