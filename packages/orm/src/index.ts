@@ -1419,7 +1419,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const query = this.compileRead(
       'findOne',
       options,
-      () => this.limitOne(compileWhere(this.selectEntity(), where, this.schema)),
+      () => this.limitOne(compileWhere(this.selectEntity(), where, column => this.physicalColumn(column))),
       { additionalKnownNames: this.populateFilterNames(options?.populate) },
     );
     return this.firstResult(query, options, populateFilters);
@@ -1639,9 +1639,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async find(where: WhereDTO<T>, opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async find(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
     const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
-    const query = this.compileRead('find', opts, () => compileWhere(this.selectEntity(), where, this.schema), {
-      additionalKnownNames: this.populateFilterNames(opts?.populate),
-    });
+    const query = this.compileRead(
+      'find',
+      opts,
+      () => compileWhere(this.selectEntity(), where, column => this.physicalColumn(column)),
+      {
+        additionalKnownNames: this.populateFilterNames(opts?.populate),
+      },
+    );
     const rows = await this.rows<EntityRow<T>>(query, opts);
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate, opts, populateFilters);

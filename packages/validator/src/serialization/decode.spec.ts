@@ -62,16 +62,7 @@ describe('decode', () => {
     ]);
   });
 
-  it('fails with structured issue when descriptor is missing', () => {
-    const r = decode('{"id":1}');
-    expect(r.success).toBe(false);
-    expect(r.issues).toEqual([
-      {
-        path: 'descriptor',
-        expected: 'TypeDescriptor',
-        value: undefined,
-        message: 'missing schema type descriptor',
-      },
-    ]);
+  it('throws an explicit configuration error when descriptor is missing', () => {
+    expect(() => decode('{"id":1}')).toThrow('runtime type witness required in test/fallback mode');
   });
 });

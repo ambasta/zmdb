@@ -64,7 +64,9 @@ export function decode<T = unknown>(text: string, schema?: TypeIR): ParseResult<
     const data = assert<T>(parsed.data, schema);
     return { success: true, data };
   } catch (err) {
-    const issues = err instanceof AssertError ? err.issues : [];
-    return { success: false, issues };
+    if (err instanceof AssertError) {
+      return { success: false, issues: err.issues };
+    }
+    throw err;
   }
 }

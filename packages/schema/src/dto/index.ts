@@ -1,6 +1,5 @@
 import { type DeclaredTable, type RelationKeys } from '../derive/index.js';
 import { type Entity } from '../index.js';
-import type { Table } from '../tags/index.js';
 
 // ---------------------------------------------------------------------------
 // WhereDTO + operator set
@@ -15,7 +14,7 @@ import type { Table } from '../tags/index.js';
  * `Record<string, unknown>` so that it stays the one corner of the query surface that is
  * keyed by string; everything else is keyed by the interface the table was declared as.
  */
-export interface UnknownRow extends Table<string> {
+export interface UnknownRow {
   readonly [column: string]: string | number | boolean | bigint | Date | null;
 }
 export type SubqueryTarget<V = unknown> =

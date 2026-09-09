@@ -6,7 +6,7 @@ import { createQueryCompiler } from '@zmdb/sql';
 import { ValidationError } from '@zmdb/validator';
 import { describe, it, expect } from 'vitest';
 
-import { UserSchema, type User } from '../../../schema/src/dto/fixtures.js';
+import { type User } from '../../../schema/src/dto/fixtures.js';
 
 // Fake builder that records the where/orWhere calls (compiler-agnostic).
 function recorder() {
@@ -175,31 +175,24 @@ describe('WhereDTO + operator set (#179)', () => {
     ).toThrow('Builder does not support whereExists');
   });
 
-  describe('schema column and operator validation', () => {
-    it('throws ValidationError when filtering by unknown column if schema is provided', () => {
-      const { b } = recorder();
-      expect(() => compileWhere(b, { unknownCol: 'value' } as unknown as WhereDTO<User>, UserSchema)).toThrow(
-        ValidationError,
-      );
-    });
-
+  describe('operator value shape validation', () => {
     it('throws ValidationError when in operator receives non-array value', () => {
       const { b } = recorder();
-      expect(() => compileWhere(b, { id: { in: 123 as unknown as number[] } } as WhereDTO<User>, UserSchema)).toThrow(
+      expect(() => compileWhere(b, { id: { in: 123 as unknown as number[] } } as WhereDTO<User>)).toThrow(
         ValidationError,
       );
     });
 
     it('throws ValidationError when scalar operator receives array value', () => {
       const { b } = recorder();
-      expect(() =>
-        compileWhere(b, { age: { gt: [10, 20] as unknown as number } } as WhereDTO<User>, UserSchema),
-      ).toThrow(ValidationError);
+      expect(() => compileWhere(b, { age: { gt: [10, 20] as unknown as number } } as WhereDTO<User>)).toThrow(
+        ValidationError,
+      );
     });
 
     it('throws ValidationError when eq bare value receives array value', () => {
       const { b } = recorder();
-      expect(() => compileWhere(b, { role: ['admin'] as unknown as 'admin' } as WhereDTO<User>, UserSchema)).toThrow(
+      expect(() => compileWhere(b, { role: ['admin'] as unknown as 'admin' } as WhereDTO<User>)).toThrow(
         ValidationError,
       );
     });
