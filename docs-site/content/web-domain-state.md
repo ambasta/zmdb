@@ -12,19 +12,8 @@ interface Order {
   total: number;
 }
 
-// Basic state definition (unconditional branding / primitive branding)
-const UserId = defineState<'UserId', string>('UserId');
-
-// State definition with discriminant keying and validation predicates
-const Draft = defineState<'Draft', Order>('Draft', {
-  discriminant: ['status', 'draft'],
-  predicate: o => o.total > 0,
-});
-
-const Paid = defineState<'Paid', Order>('Paid', {
-  discriminant: ['status', 'paid'],
-  predicate: o => o.total > 0,
-});
+const Draft = defineState<'Draft', Order>();
+const Paid = defineState<'Paid', Order>();
 
 type DraftOrder = Brand<Order, 'Draft'>;
 type PaidOrder = Brand<Order, 'Paid'>;
@@ -36,11 +25,10 @@ States are built through a **checked factory**, so you never cast:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Draft; this excerpt does not repeat those declarations."}
 const order = Draft.create({ id: 1, status: 'draft', total: 10 }); // DraftOrder
-Draft.is(order); // type guard → narrows to DraftOrder
 ```
 
-Calling `create` runs structural verification against configured discriminant properties and predicates. If verification fails, `create` throws a detailed `TypeError` (identifying the state name and
-failure cause). On success, it preserves object identity with zero runtime object allocations.
+Calling `create` attaches the brand at compile-time and returns the value unchanged at runtime (zero-cost identity). Base shape validation is performed prior to state construction using
+`@zmdb/validator` (`is<T>` / `assert<T>`).
 
 ## Declaring transitions
 
@@ -59,8 +47,7 @@ This makes "pay an already-paid order" or "ship an unpaid order" **unrepresentab
 
 ## Design notes
 
-- **Compile-time branding with structural verification.** Brands are phantom; `create` validates structural requirements and preserves object identity, so a state machine adds **0 bytes** and **0 ns
-  object allocation cost** to valid payloads.
+- **Compile-time branding.** Brands are phantom; `create` returns the value unchanged at runtime, so a state machine adds **0 bytes** and **0 ns** to valid payloads.
 - **No `as` on the consumer surface** — construction goes through `create`. (The framework contains one isolated, documented brand-attach boundary internally.)
 - Granular import: `import { defineState } from '@zmdb/app/state'`.
 
