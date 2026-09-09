@@ -29,7 +29,6 @@
     "hooks:install": "sh scripts/setup-hooks.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "postinstall": "sh scripts/setup-hooks.sh",
     "test": "vitest run --project unit",
     "test:all": "vitest run",
     "test:integration": "vitest run --project integration",
