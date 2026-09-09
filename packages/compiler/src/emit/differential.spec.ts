@@ -14,7 +14,16 @@
 // a build turns the AOT path on.
 
 import { type TypeIR } from '@zmdb/schema/ir';
-import { equals, is, isShallow, issuesFor, validateShallow, type ValidationIssue } from '@zmdb/validator';
+import {
+  equals,
+  is,
+  isShallow,
+  issuesFor,
+  validate,
+  validateShallow,
+  type ValidationIssue,
+  type ValidateResult,
+} from '@zmdb/validator';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { FixtureProject } from './__testing__/project.js';
@@ -34,7 +43,7 @@ const DECLARATIONS = `  interface User { id: number & Min<1>; email: string & Pa
   function isShallow<T, D extends number = 1>(value: unknown): value is T;
   function validateShallow<T, D extends number = 1>(
     value: unknown,
-  ): { success: boolean; data?: T; errors?: readonly unknown[] };`;
+  ): import("@zmdb/validator").ValidateResult<T>;`;
 
 /**
  * Values thrown at every type, so each check is asked about shapes it was not written
@@ -259,8 +268,8 @@ function compile(type: string): Compiled {
     is: value => predicate.check(value) as boolean,
     equals: value => strict.check(value) as boolean,
     issues: value => {
-      const result = report.check(value) as { success: boolean; errors?: readonly ValidationIssue[] };
-      return result.success ? [] : (result.errors ?? []);
+      const result = report.check(value) as ValidateResult<unknown>;
+      return result.success ? [] : result.issues;
     },
     code: `${predicate.code}\n${strict.code}\n${report.code}`,
   };
@@ -280,8 +289,8 @@ function compileShallow(type: string, depth: number): ShallowCompiled {
     ir,
     is: value => predicate.check(value) as boolean,
     issues: value => {
-      const result = report.check(value) as { success: boolean; errors?: readonly ValidationIssue[] };
-      return result.success ? [] : (result.errors ?? []);
+      const result = report.check(value) as ValidateResult<unknown>;
+      return result.success ? [] : result.issues;
     },
   };
 }
@@ -343,8 +352,26 @@ describe.each(SHALLOW_CASES)('$type at shallow depth $depth', ({ type, depth, va
     for (const value of corpus) {
       const runtime = validateShallow(value, compiled.ir, depth);
       expect(compiled.issues(value), `validateShallow<${type}, ${String(depth)}>(${label(value)})`).toEqual(
-        runtime.success ? [] : (runtime.errors ?? []).map(issue => ({ ...issue })),
+        runtime.success ? [] : runtime.issues.map(issue => ({ ...issue })),
       );
     }
   });
+});
+
+it.each(['validate', 'validateShallow'])('%s emits the canonical result without changing input identity', callee => {
+  const report = project.build(`const check = (input) => ${callee}<User>(input);`);
+  const ir = project.ir('User');
+  const input = { id: 1, email: 'a@b' };
+  const success = report.check(input) as ValidateResult<unknown>;
+  expect(success).toEqual({ success: true, data: input });
+  expect(Object.getOwnPropertyDescriptors(success)).toEqual({
+    success: { value: true, enumerable: true, writable: true, configurable: true },
+    data: { value: input, enumerable: true, writable: true, configurable: true },
+  });
+  if (!success.success) throw new Error('Expected successful validation');
+  expect(success.data).toBe(input);
+  const invalid = { id: 0, email: 'bad' };
+  const expected = { success: false, issues: issuesFor(invalid, ir) };
+  expect(report.check(invalid)).toEqual(expected);
+  expect((callee === 'validate' ? validate : validateShallow)(invalid, ir)).toEqual(expected);
 });

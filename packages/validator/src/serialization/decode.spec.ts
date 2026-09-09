@@ -20,19 +20,29 @@ const user: TypeIR = {
 describe('decode', () => {
   it('parses valid JSON and validates into T', () => {
     const r = decode<{ id: number; email: string }>('{"id":1,"email":"a@b.com"}', user);
+    expect(Object.keys(r).toSorted()).toEqual(['data', 'success']);
     expect(r.success).toBe(true);
-    expect(r.data).toEqual({ id: 1, email: 'a@b.com' });
+    expect(r.success && r.data).toEqual({ id: 1, email: 'a@b.com' });
   });
 
   it('fails on malformed JSON', () => {
     const r = decode('{not json', user);
+    expect(Object.keys(r).toSorted()).toEqual(['issues', 'success']);
     expect(r.success).toBe(false);
-    expect(r.issues?.length).toBeGreaterThan(0);
+    expect(!r.success && r.issues.length).toBeGreaterThan(0);
   });
 
   it('fails on JSON that violates the descriptor (with exact path)', () => {
     const r = decode('{"id":-1,"email":"a@b.com"}', user);
+    expect(Object.keys(r).toSorted()).toEqual(['issues', 'success']);
     expect(r.success).toBe(false);
-    expect(r.issues?.[0]?.path).toBe('input.id');
+    expect(!r.success && r.issues[0]?.path).toBe('input.id');
+  });
+});
+
+it('decode retains a useful diagnostic when validation cannot run', () => {
+  expect(decode('{}')).toEqual({
+    success: false,
+    issues: [{ path: 'input', message: expect.stringContaining('runtime type witness required') }],
   });
 });

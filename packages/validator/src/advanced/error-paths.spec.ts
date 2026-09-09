@@ -41,7 +41,7 @@ describe('structured error reporting (exact paths, E2E)', () => {
     };
     const r = validate(input, customer);
     expect(r.success).toBe(false);
-    const paths = (r.errors ?? []).map(e => e.path);
+    const paths = (r.success ? [] : r.issues).map(e => e.path);
     expect(paths).toContain('input.orders[1].totalPrice');
     expect(paths).toContain('input.orders[2].id');
     // The valid entry produces no error path.
@@ -51,12 +51,12 @@ describe('structured error reporting (exact paths, E2E)', () => {
   it('reports a top-level field failure with its exact path', () => {
     const r = validate({ email: 'x'.repeat(100), orders: [] }, customer);
     expect(r.success).toBe(false);
-    expect((r.errors ?? []).map(e => e.path)).toContain('input.email');
+    expect((r.success ? [] : r.issues).map(e => e.path)).toContain('input.email');
   });
 
   it('each issue carries expected/value/message', () => {
     const r = validate({ email: 'a@b.com', orders: [{ id: -1, totalPrice: 5 }] }, customer);
-    const issue = (r.errors ?? []).find(e => e.path === 'input.orders[0].id');
+    const issue = (r.success ? [] : r.issues).find(e => e.path === 'input.orders[0].id');
     expect(issue).toBeDefined();
     expect(issue!.value).toBe(-1);
     expect(typeof issue!.expected).toBe('string');

@@ -30,7 +30,6 @@ export {
 } from '@zmdb/validator/advanced';
 
 export { assertStringify, decode, parse, stringify } from '@zmdb/validator/serialization';
-export { type ParseResult } from '@zmdb/validator/serialization';
 
 export {
   MAX_REGEX_CACHE_SIZE,

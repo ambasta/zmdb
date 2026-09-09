@@ -35,7 +35,7 @@ No package uses wildcard export-map entries. A package root does not eagerly re-
 
 ```ts
 export { lenientParse, toolFor, toolFromSchema } from '@zmdb/ai';
-export type { ParseResult, ToolOptions, ToolProvider, ToolSchema, ToolSpec, ToolSpecFor } from '@zmdb/ai';
+export type { ToolOptions, ToolProvider, ToolSchema, ToolSpec, ToolSpecFor } from '@zmdb/ai';
 ```
 
 The root owns the five provider document dialects (`openai`, `openai-strict`, `anthropic`, `gemini`, `json-schema`) and their refusal rules. A provider name here selects a document shape; it does not

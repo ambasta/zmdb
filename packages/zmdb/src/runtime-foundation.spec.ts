@@ -326,7 +326,7 @@ describe('runtime foundation package cutover (#636)', () => {
     });
     expect(validate({ email: 'x', age: 17 }, VALIDATOR_WITNESS)).toEqual({
       success: false,
-      errors: [
+      issues: [
         {
           path: 'input.email',
           expected: 'minLength 3',

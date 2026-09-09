@@ -3684,14 +3684,6 @@
     },
     {
       "from": "@zmdb/aot-validator/serialization",
-      "name": "ParseResult",
-      "to": "@zmdb/validator/serialization",
-      "export": "ParseResult",
-      "value": false,
-      "declarationSource": "packages/aot-validator/src/serialization/index.ts"
-    },
-    {
-      "from": "@zmdb/aot-validator/serialization",
       "name": "stringify",
       "to": "@zmdb/validator/serialization",
       "export": "stringify",

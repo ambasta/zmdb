@@ -3,7 +3,8 @@
 // exact error paths). Coercion + object strictness (#49) are co-implemented
 // because the same validateObject drives them. #47 transform remains a rule
 // constructor only; no validator path applies it.
-import { type Rule, type ValidationIssue } from '../index.js';
+import { type Rule } from '../index.js';
+import { type ValidateResult, type ValidationIssue } from '../validation-error.js';
 
 export type { ValidationIssue };
 
@@ -159,19 +160,15 @@ function checkRule(rule: Rule, value: unknown): { ok: boolean; expected: string;
   }
 }
 
-export function validateObject(
-  value: unknown,
-  rules: Record<string, Rule>,
-  mode: ObjectMode,
-): { success: boolean; issues: readonly ValidationIssue[] } {
-  const issues: ValidationIssue[] = [];
+export function validateObject(value: unknown, rules: Record<string, Rule>, mode: ObjectMode): ValidateResult<unknown> {
+  let issues: ValidationIssue[] | undefined;
   const obj = isRecord(value) ? value : {};
 
   // Excess-key handling for strict mode.
   if (mode === 'strict') {
     for (const key of Object.keys(obj)) {
       if (!(key in rules)) {
-        issues.push({
+        (issues ??= []).push({
           path: `input.${key}`,
           expected: 'no excess property',
           value: obj[key],
@@ -184,9 +181,18 @@ export function validateObject(
   for (const [key, rule] of Object.entries(rules)) {
     const res = checkRule(rule, obj[key]);
     if (!res.ok) {
-      issues.push({ path: `input.${key}`, expected: res.expected, value: obj[key], message: res.message });
+      (issues ??= []).push({ path: `input.${key}`, expected: res.expected, value: obj[key], message: res.message });
     }
   }
 
-  return { success: issues.length === 0, issues };
+  if (issues !== undefined) return { success: false, issues };
+  const data =
+    mode === 'strip'
+      ? Object.fromEntries(
+          Object.keys(rules)
+            .filter(key => Object.hasOwn(obj, key))
+            .map(key => [key, obj[key]]),
+        )
+      : value;
+  return { success: true, data };
 }

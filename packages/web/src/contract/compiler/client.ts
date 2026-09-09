@@ -196,18 +196,10 @@ function typeScriptPrelude(source: string): string {
 function typeScriptValidationExpression(source: string): string {
   const wrappedArrow = '((() => {';
   const arrow = '(() => {';
-  const returnType =
-    '{ readonly success: true; readonly data: unknown } | ' +
-    '{ readonly success: false; readonly errors: readonly ValidationIssue[] }';
   if (!source.startsWith(wrappedArrow) && !source.startsWith(arrow)) {
     throw generationError('validator', 'AOT emitter returned an unknown expression shape');
   }
-  return source
-    .replace(
-      source.startsWith(wrappedArrow) ? wrappedArrow : arrow,
-      source.startsWith(wrappedArrow) ? `(((): ${returnType} => {` : `((): ${returnType} => {`,
-    )
-    .replaceAll('const _e = [];', 'const _e: ValidationIssue[] = [];');
+  return source.replaceAll('const _e = [];', 'const _e: ValidationIssue[] = [];');
 }
 
 function collectDefinitions(node: TypeIR, definitions: Map<string, ObjectIR>, seen: Set<TypeIR>): void {
@@ -736,7 +728,7 @@ function sourceContract(contract: HttpContractIR, typeIds: ReadonlySet<string>):
 
 class ModuleGenerator {
   readonly #contract: HttpContractIR;
-  readonly #emitter = new Emitter({ prefix: '_zmdbClient' });
+  readonly #emitter = new Emitter({ prefix: '_zmdbClient', typescript: true });
   readonly #declarations: string[] = [];
   readonly #validators: string[] = [];
   readonly #moduleHelpers = new Map<string, string>();
@@ -858,7 +850,7 @@ class ModuleGenerator {
       `function ${name}(wire: unknown): DecodeResult<${typeName}> { ` +
         `const value: any = ${decoded}; const result = ${expression}; ` +
         `return result.success ? { ok: true, value: result.data as ${typeName} } : ` +
-        `{ ok: false, issues: result.errors }; }`,
+        `{ ok: false, issues: result.issues }; }`,
     );
     return name;
   }
@@ -958,7 +950,7 @@ class ModuleGenerator {
       `function ${decoder}(headers: ClientHeaders): DecodeResult<${typeName}> { ` +
         `const value = { ${values.join(', ')} }; const result = ${expression}; ` +
         `return result.success ? { ok: true, value: result.data as ${typeName} } : ` +
-        `{ ok: false, issues: result.errors }; }`,
+        `{ ok: false, issues: result.issues }; }`,
     );
     return { type: typeName, decoder };
   }

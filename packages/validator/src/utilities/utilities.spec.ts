@@ -127,10 +127,24 @@ describe('failWith', () => {
 });
 
 describe('validate<T>', () => {
+  it.each([validate, validateShallow])('uses only the canonical result fields', check => {
+    const input = { id: 1, email: 'a@b', role: 'admin' };
+    const success = check(input, user);
+    expect(success).toEqual({ success: true, data: input });
+    expect(Object.getOwnPropertyDescriptors(success)).toEqual({
+      success: { value: true, enumerable: true, writable: true, configurable: true },
+      data: { value: input, enumerable: true, writable: true, configurable: true },
+    });
+    if (!success.success) throw new Error('Expected successful validation');
+    expect(success.data).toBe(input);
+    const invalid = { id: -1, email: 123, role: 'nope' };
+    expect(check(invalid, user)).toEqual({ success: false, issues: issuesFor(invalid, user) });
+  });
+
   it('collects all failures without throwing', () => {
     const r = validate({ id: -1, email: 123, role: 'nope' }, user);
     expect(r.success).toBe(false);
-    expect(r.errors?.length).toBe(3);
+    expect(!r.success && r.issues.length).toBe(3);
   });
 });
 
@@ -156,7 +170,7 @@ describe('shallow validator fallback', () => {
     });
     expect(validateShallow<{ user: { id: number } }, 2>(malformedBelowLimit, nested, 2)).toEqual({
       success: false,
-      errors: [
+      issues: [
         {
           path: 'input.user.id',
           expected: 'number',

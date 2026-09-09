@@ -130,9 +130,9 @@ describe('stringify correctness', () => {
 
 describe('parse', () => {
   it('valid JSON yields success + data', () => {
-    const r = parse<{ a: number }>('{"a":1}');
+    const r = parse('{"a":1}');
     expect(r.success).toBe(true);
-    expect(r.data).toEqual({ a: 1 });
+    expect(r.success && r.data).toEqual({ a: 1 });
   });
 
   it('malformed JSON yields success:false', () => {

@@ -3,7 +3,6 @@
 
 import {
   type lenientParse,
-  type ParseResult,
   type toolFor,
   type toolFromSchema,
   type ToolOptions,
@@ -82,7 +81,7 @@ type ExportSet<Values extends string, Types extends string> = {
 type AiExports = {
   readonly '.': ExportSet<
     'lenientParse' | 'toolFor' | 'toolFromSchema',
-    'ParseResult' | 'ToolOptions' | 'ToolProvider' | 'ToolSchema' | 'ToolSpec' | 'ToolSpecFor'
+    'ToolOptions' | 'ToolProvider' | 'ToolSchema' | 'ToolSpec' | 'ToolSpecFor'
   >;
   readonly './chat': ExportSet<
     'defineTools' | 'run',
@@ -180,10 +179,7 @@ export type _AiSubpathsAreExact = Expect<
 >;
 export type _AiRootValuesAreExact = Expect<Equal<keyof AiRootValues, 'lenientParse' | 'toolFor' | 'toolFromSchema'>>;
 export type _AiRootTypesAreExact = Expect<
-  Equal<
-    AiExports['.']['types'],
-    'ParseResult' | 'ToolOptions' | 'ToolProvider' | 'ToolSchema' | 'ToolSpec' | 'ToolSpecFor'
-  >
+  Equal<AiExports['.']['types'], 'ToolOptions' | 'ToolProvider' | 'ToolSchema' | 'ToolSpec' | 'ToolSpecFor'>
 >;
 export type _AiRootDoesNotEagerlyExposeOtherEntries = Expect<
   Equal<
@@ -245,14 +241,7 @@ export type _ProviderNeutralPackagesHaveNoSdkPeer = Expect<
 
 // Keeping these aliases referenced makes the compile-only contract cover every named public type,
 // while preserving their existing behavioral signatures for the later ownership move.
-export type _AiRootTypeSignatures = [
-  ParseResult<unknown>,
-  ToolOptions,
-  ToolProvider,
-  ToolSchema,
-  ToolSpec,
-  ToolSpecFor,
-];
+export type _AiRootTypeSignatures = [ToolOptions, ToolProvider, ToolSchema, ToolSpec, ToolSpecFor];
 export type _ChatTypeSignatures = [ChatDriver, ChatMessage, RunOptions, RunResult, ToolCall, ToolRegistry];
 export type _HttpTypeSignatures = [
   BoundOpenApiTool<unknown>,

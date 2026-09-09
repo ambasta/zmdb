@@ -287,10 +287,11 @@ function typeImportLines(imports: readonly TypeImport[], style: string): string[
 /**
  * The runtime API the witness calls, and the types its signatures mention.
  *
- * Values come from the specifier the *source* used, never from an implementation package: a
- * project that installed only `@zmdb/core` has no direct `@zmdb/validator` dependency. Support
- * types normally share that entry. The one deliberate split is root `schemaOf`: the curated
- * root keeps the callable, while `TaggedSchema` belongs to the complete `@zmdb/core/schema` concern.
+ * Values come from the specifier the source used. Support types normally share that entry,
+ * but ValidateResult comes from its canonical owner, through the core facade for core consumers:
+ * an arbitrary runtime facade need not re-export it.
+ * Root `schemaOf` also splits: the curated root keeps the callable, while `TaggedSchema`
+ * belongs to the complete `@zmdb/core/schema` concern.
  */
 function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<string, string>, style: string): string[] {
   const values = new Map<string, Set<string>>();
@@ -308,7 +309,9 @@ function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<strin
     if (support) {
       const supportSpecifier =
         entry.callee === 'schemaOf' && specifier === '@zmdb/core' ? '@zmdb/core/schema' : specifier;
-      for (const name of support) into(types, supportSpecifier, name);
+      const validationSpecifier =
+        specifier === '@zmdb/core' || specifier.startsWith('@zmdb/core/') ? '@zmdb/core/validator' : '@zmdb/validator';
+      for (const name of support) into(types, name === 'ValidateResult' ? validationSpecifier : supportSpecifier, name);
     }
   }
 

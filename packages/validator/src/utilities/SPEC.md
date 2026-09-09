@@ -87,14 +87,11 @@ interface ValidationIssue {
   readonly message: string;
 }
 
-interface ValidateResult<T> {
-  readonly success: boolean;
-  readonly data?: T;
-  readonly errors?: readonly ValidationIssue[];
-}
+type ValidateResult<T> = { readonly success: true; readonly data: T } | { readonly success: false; readonly issues: readonly ValidationIssue[] };
 ```
 
-`ValidationIssue` is `@zmdb/schema`'s declaration, re-exported rather than redeclared: a repository validation failure and a validator one are the same thing to a caller catching them.
+`ValidationIssue` and `ValidateResult<T>` are declared together in the validator's `validation-error.ts` and exported by `@zmdb/validator`. Success retains the original input with no issue array,
+getter, or copy; failures expose only `issues`.
 
 - `assert` throws an `AssertError` whose `.issues[0]` carries the first failure with an exact path.
 - `validate` collects **all** failures (never throws).

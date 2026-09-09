@@ -19,33 +19,26 @@ const bad = parse('not valid json');
 
 The `message` is the engine's own, passed through — it is the only part of an issue here that zmdb does not choose, and it says where in the text the syntax went wrong.
 
-## `ParseResult<T>`
+## `ValidateResult<unknown>`
 
-```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ValidationIssue; this excerpt does not repeat those declarations."}
-interface ParseResult<T> {
-  readonly success: boolean;
-  readonly data?: T;
-  readonly issues?: readonly ValidationIssue[];
-}
+```ts {"mode":"compile","id":"example-002"}
+import type { ValidateResult } from '@zmdb/validator';
+import { parse } from '@zmdb/validator/serialization';
+
+const result: ValidateResult<unknown> = parse('{}');
 ```
 
-> [!WARNING] `parse<T>()`'s type argument is an **unvalidated claim** — exactly what `JSON.parse` gives you, and no more. `parse<User>(text)` types `data` as `User` without having checked one property
-> of it. Use it when you are about to check the value anyway; do not use it as the check.
+`parse` returns a discriminated result: success provides `data` of type `unknown`, and failure provides `issues`. It takes no type argument; validate the parsed value to prove its shape.
 
 ```ts {"mode":"compile","id":"example-003"}
 import { parse } from '@zmdb/validator/serialization';
 
-interface User {
-  name: string;
-  age: number;
-}
-
-const result = parse<User>('{"name": "bob", "age": 25}');
+const result = parse('{"name": "bob", "age": 25}');
 
 if (result.success) {
-  result.data; // User — claimed, not proven
+  result.data; // unknown — shape has not been checked
 } else {
-  console.error(result.issues?.[0]?.message);
+  console.error(result.issues[0]?.message);
 }
 ```
 
@@ -68,7 +61,7 @@ const parsed = parse(text);
 if (!parsed.success) return reply.status(400).send({ errors: parsed.issues });
 
 const checked = validate<Signup>(parsed.data);
-if (!checked.success) return reply.status(422).send({ errors: checked.errors });
+if (!checked.success) return reply.status(422).send({ errors: checked.issues });
 
 checked.data; // Signup — checked, every property
 ```
@@ -95,8 +88,7 @@ const malformed = decode('not json', ir);
 
 > [!IMPORTANT] `decode` is **not** one of the calls the transformer rewrites — the seventeen it currently does are `is`, `isShallow`, `assert`, `assertShallow`, `equals`, `assertEquals`, `validate`,
 > `validateShallow`, `random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode` `protoEncode`, `grpcDescriptor` and `loadGrpcService`. So `decode<Signup>(text)` with no second
-> argument does not get an inlined schema; it throws `runtime type witness required in test/fallback mode`. `decode` only converts an `AssertError` into a failed result, so that plain `Error` escapes
-> the result object entirely.
+> argument does not get an inlined schema. Supply an explicit generated schema; otherwise `decode` returns a failed result whose issues contain `runtime type witness required in test/fallback mode`.
 >
 > Until `decode` joins the list, prefer `parse` + `validate<T>` above. It is one extra line, it is transformed, and it gives you the two failure modes separately.
 
