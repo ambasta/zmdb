@@ -52,8 +52,7 @@ Compilation is pure: the result carries SQL text and a separate parameter array.
 ## Migrate
 
 Use `mssql.migrations.emitUp(operation)` to obtain this database's DDL and `mssql.migrations.connection(driver)` to create its migration connection. Pass reviewed migration records to `up` and `down`
-from `@zmdb/migrations`; transactional behavior follows the capability table below. The [complete installed workflow](../../fixtures/consumer-database-publication/runtime.mjs) creates a fresh table,
-applies and rolls back its migration, and closes the supplied client.
+from `@zmdb/migrations`; transactional behavior follows the capability table below. Package-local migration, driver and introspection tests cover this workflow.
 
 ## Introspect
 
@@ -98,9 +97,8 @@ SQL Server owns its T-SQL compiler overrides, migration hooks, introspector and 
 
 ## Testing evidence
 
-The [database publication qualification](../../fixtures/consumer-database-publication) builds real npm archives and installs this selected package in an independent consumer. Its public workflow
-covers strict declarations, package/client ownership, parameterized CRUD, transaction rollback, migration application/rollback and catalog introspection. The
-[SQL Server consumer](../../fixtures/database-mssql) adds the database-specific capability and refusal checks.
+Package-local migration, driver, introspection and live tests cover the SQL Server behavior. The [SQL Server consumer](../../fixtures/database-mssql) adds database-specific capability and refusal
+checks.
 
 Issue [#676](https://github.com/ambasta/zmdb/issues/676) records the completed installed workflows. Those observations are scoped to their recorded clients and servers; they do not certify every
 compatible hosted service. Qualification reports identify their source, archive and server inputs. See the [SQL Server guide](../../docs-site/content/dialect-mssql.md) for the detailed contract.
