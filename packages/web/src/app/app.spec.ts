@@ -18,7 +18,7 @@ import { describe, it, expect } from 'vitest';
 import type { Ctx } from '../context/index.js';
 import type { Guard } from '../middleware/index.js';
 import { bodyText } from '../pipeline/index.js';
-import { Controller, Get } from '../routing/index.js';
+import { Controller, Get, Post } from '../routing/index.js';
 import { createApp, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './index.js';
 
 const order: string[] = [];
@@ -108,6 +108,39 @@ describe('@zmdb/web app: createApp', () => {
     const response = await app.fetch(new Request('http://x/ping'));
     expect(response.status).toBe(200);
   });
+
+  it('enforces the configured body byte limit through Fetch before dispatch', async () => {
+    const bodies: unknown[] = [];
+
+    @Controller('/body')
+    class BodyController {
+      @Post()
+      post(ctx: Ctx) {
+        bodies.push(ctx.body);
+        return { accepted: true };
+      }
+    }
+
+    @Module({ controllers: [BodyController] })
+    class BodyModule {}
+
+    const app = createApp(BodyModule, { maxBodyBytes: 4 });
+    const accepted = await app.fetch(new Request('http://x/body', { method: 'POST', body: 'éé' }));
+    expect(accepted.status).toBe(200);
+    expect(await accepted.json()).toEqual({ accepted: true });
+    expect(bodies).toHaveLength(1);
+
+    const rejected = await app.fetch(new Request('http://x/body', { method: 'POST', body: 'ééa' }));
+    expect(rejected.status).toBe(413);
+    expect(bodies).toHaveLength(1);
+  });
+
+  it.each([0, -1, 1.5, Number.POSITIVE_INFINITY, Number.NaN])(
+    'rejects invalid maxBodyBytes %s at application construction',
+    maxBodyBytes => {
+      expect(() => createApp(AppModule, { maxBodyBytes })).toThrow(RangeError);
+    },
+  );
 
   it('serves HTTP and a transport from one process sharing one container', async () => {
     const seen: object[] = [];
