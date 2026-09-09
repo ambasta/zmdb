@@ -1,4 +1,4 @@
-import { createQueryCompiler, type CompiledQuery } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, type CompiledQuery } from '@zmdb/sql';
 import { appendComment, serializeComment, withComments, type CommentPairs } from '@zmdb/sql/comments';
 // Tests for the sqlcommenter query tagging frozen in ./SPEC.md (#580, epic #578).
 // The bodies were recorded before implementation and remain the ratchet for #583.
@@ -33,7 +33,8 @@ const recordingDriver = (): RecordingDriver => {
 };
 
 const compiler = createQueryCompiler(postgresDialect);
-const selectUsers = () => compiler.selectFrom('users').select(['id', 'email']).where('id', '=', 1).compile();
+const selectUsers = () =>
+  compiler.selectFrom(trustedTable('users')).select(['id', 'email']).where('id', '=', 1).compile();
 
 const FULL_PAIRS: CommentPairs = {
   action: 'get',
@@ -52,9 +53,9 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // `node --import scripts/ts-specifier-hook.mjs`.
   it('an untagged compiled query is the byte-identical baseline this freeze recorded', () => {
     const select = selectUsers();
-    const insert = compiler.insertInto('orders').values({ sku: 'X-1', qty: 2 }).compile();
-    const update = compiler.updateTable('users').set({ email: 'a@b.com' }).where('id', '=', 1).compile();
-    const remove = compiler.deleteFrom('users').where('id', '=', 1).compile();
+    const insert = compiler.insertInto(trustedTable('orders')).values({ sku: 'X-1', qty: 2 }).compile();
+    const update = compiler.updateTable(trustedTable('users')).set({ email: 'a@b.com' }).where('id', '=', 1).compile();
+    const remove = compiler.deleteFrom(trustedTable('users')).where('id', '=', 1).compile();
 
     expect(select.text).toBe('SELECT "id", "email" FROM "users" WHERE "id" = $1');
     expect(insert.text).toBe('INSERT INTO "orders" ("sku", "qty") VALUES ($1, $2)');

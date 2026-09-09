@@ -39,13 +39,16 @@ const full = project(row, undefined);
 When you specify `select` in a repository call, the compiler emits only those columns in the SELECT clause.
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies qb; this excerpt does not repeat those declarations."}
-const q = qb.selectFrom('users').select(['email', 'role']).where('id', '=', 1).compile();
+import { trustedTable } from '@zmdb/sql';
+
+const q = qb.selectFrom(trustedTable('users')).select(['email', 'role']).where('id', '=', 1).compile();
 
 console.log(q.text);
 // SELECT "email", "role" FROM "users" WHERE "id" = $1
 ```
 
-> [!IMPORTANT] Projections are compile-time checked against the schema. If you reference a column that doesn't exist, TypeScript will error before your code runs.
+> [!IMPORTANT] Repository projections and compiler projections bound to a declared schema are compile-time checked. The explicit `trustedTable` boundary above accepts physical column names without a
+> schema-derived column check.
 
 ## Use Cases
 

@@ -5,13 +5,15 @@
 `SelectBuilder` has nine `EXISTS` methods — `whereExists`, `andWhereExists`, `orWhereExists` and the `NotExists` counterparts:
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies createQueryCompiler; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { postgres } from '@zmdb/postgres';
 
 const c = createQueryCompiler(postgres);
 
 const authorsWithPosts = c
-  .selectFrom('users')
-  .whereExists(c.selectFrom('posts').where('author_id', '=', c.ref('users.id')))
+  .selectFrom(trustedTable('users'))
+  .whereExists(c.selectFrom(trustedTable('posts')).where('author_id', '=', c.ref('users.id')))
   .orderBy('name', 'asc')
   .compile();
 ```
@@ -36,8 +38,10 @@ paper over it — which then forces a sort.
 Users who have never posted:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies c; this excerpt does not repeat those declarations."}
-c.selectFrom('users')
-  .whereNotExists(c.selectFrom('posts').where('author_id', '=', c.ref('users.id')))
+import { trustedTable } from '@zmdb/sql';
+
+c.selectFrom(trustedTable('users'))
+  .whereNotExists(c.selectFrom(trustedTable('posts')).where('author_id', '=', c.ref('users.id')))
   .compile();
 ```
 
@@ -49,8 +53,10 @@ c.selectFrom('users')
 Every `FieldOps` operator accepts a `SubqueryTarget`, so a repository call can carry a subquery:
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies c, userRepo; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 await userRepo.find({
-  id: { in: c.selectFrom('posts').select(['author_id']).where('published', '=', true) },
+  id: { in: c.selectFrom(trustedTable('posts')).select(['author_id']).where('published', '=', true) },
 });
 ```
 
@@ -60,9 +66,11 @@ builder.
 ## Combining with other filters
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies c; this excerpt does not repeat those declarations."}
-c.selectFrom('users')
+import { trustedTable } from '@zmdb/sql';
+
+c.selectFrom(trustedTable('users'))
   .where('active', '=', true)
-  .andWhereExists(c.selectFrom('orders').where('user_id', '=', c.ref('users.id')).where('total', '>', 100))
+  .andWhereExists(c.selectFrom(trustedTable('orders')).where('user_id', '=', c.ref('users.id')).where('total', '>', 100))
   .compile();
 ```
 

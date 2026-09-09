@@ -1,12 +1,12 @@
-import { createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { batch } from '@zmdb/sql/set-ops';
 import { describe, it, expect, vi } from 'vitest';
 
 import { postgresDialect } from '../testing/official-dialects.fixture.js';
 
 const qc = createQueryCompiler(postgresDialect);
-const a = qc.selectFrom('users').compile();
-const b = qc.insertInto('users').values({ email: 'x@y.com' }).compile();
+const a = qc.selectFrom(trustedTable('users')).compile();
+const b = qc.insertInto(trustedTable('users')).values({ email: 'x@y.com' }).compile();
 
 describe('batch API (#123)', () => {
   it('exposes the statements in order', () => {

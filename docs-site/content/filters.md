@@ -19,8 +19,10 @@ and SQL Server `!<`, while refusing quotes, whitespace, semicolons, SQL comment 
 > before a query is returned:
 >
 > ```ts
+> import { trustedTable } from '@zmdb/sql';
+>
 > // throws TypeError: invalid unmapped SQL operator …
-> qb.selectFrom('users').where('role', "= 'x' OR 1=1 --", 1).compile();
+> qb.selectFrom(trustedTable('users')).where('role', "= 'x' OR 1=1 --", 1).compile();
 > ```
 
 ## Typed filters — WhereDTO

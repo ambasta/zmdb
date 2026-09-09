@@ -1,4 +1,4 @@
-import { joinableSelectFrom } from '@zmdb/sql/joins';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { describe, it, expect } from 'vitest';
 
 import { postgresDialect } from '../testing/official-dialects.fixture.js';
@@ -7,9 +7,10 @@ import { postgresDialect } from '../testing/official-dialects.fixture.js';
 
 describe('multi-join (2+ chained joins)', () => {
   it('chains two joins in order with correct ON clauses', () => {
-    const q = joinableSelectFrom('order_details', postgresDialect)
-      .innerJoin('orders', 'orders.id', 'order_details.order_id')
-      .innerJoin('customers', 'customers.id', 'orders.customer_id')
+    const q = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('order_details'))
+      .innerJoin(trustedTable('orders'), 'orders', [{ leftCol: 'orders.id', rightCol: 'order_details.order_id' }])
+      .innerJoin(trustedTable('customers'), 'customers', [{ leftCol: 'customers.id', rightCol: 'orders.customer_id' }])
       .where('customers.id', '=', 7)
       .compile();
     expect(q.text).toBe(
@@ -22,9 +23,10 @@ describe('multi-join (2+ chained joins)', () => {
   });
 
   it('mixes left + inner joins with aliases', () => {
-    const q = joinableSelectFrom('products as p', postgresDialect)
-      .leftJoin('suppliers as s', 's.id', 'p.supplier_id')
-      .innerJoin('categories as c', 'c.id', 'p.category_id')
+    const q = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('products as p'))
+      .leftJoin(trustedTable('suppliers'), 's', [{ leftCol: 's.id', rightCol: 'p.supplier_id' }])
+      .innerJoin(trustedTable('categories'), 'c', [{ leftCol: 'c.id', rightCol: 'p.category_id' }])
       .compile();
     expect(q.text).toBe(
       'SELECT * FROM "products" AS "p"' +
@@ -34,8 +36,9 @@ describe('multi-join (2+ chained joins)', () => {
   });
 
   it('self-join with alias still compiles (regression from #85)', () => {
-    const q = joinableSelectFrom('employees as e', postgresDialect)
-      .leftJoin('employees as r', 'r.id', 'e.recipient_id')
+    const q = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('employees as e'))
+      .leftJoin(trustedTable('employees'), 'r', [{ leftCol: 'r.id', rightCol: 'e.recipient_id' }])
       .where('e.id', '=', 5)
       .compile();
     expect(q.text).toContain('LEFT JOIN "employees" AS "r" ON "r"."id" = "e"."recipient_id"');

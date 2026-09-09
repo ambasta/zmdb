@@ -4,11 +4,11 @@ zmdb is unusually easy to test, for two structural reasons: `compile()` produces
 
 ```ts {"mode":"compile","id":"example-001"}
 import { expect, it } from 'vitest';
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 it('filters by email', () => {
-  const q = createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@b.c').compile();
+  const q = createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('email', '=', 'a@b.c').compile();
   expect(q).toEqual({ text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: ['a@b.c'] });
 });
 ```

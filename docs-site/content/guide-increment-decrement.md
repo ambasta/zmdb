@@ -46,11 +46,11 @@ it is not a general SQL AST.
 The same constructor works directly with the query compiler:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
-import { createQueryCompiler, inc } from '@zmdb/core/sql';
+import { createQueryCompiler, inc, trustedTable } from '@zmdb/core/sql';
 import { postgres } from '@zmdb/core/postgres';
 
 const query = createQueryCompiler(postgres)
-  .updateTable('posts')
+  .updateTable(trustedTable('posts'))
   .set({ views: inc(1) })
   .where('id', '=', id)
   .compile();

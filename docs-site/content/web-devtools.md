@@ -151,7 +151,9 @@ route pattern, token and module would be an application oracle.
 The query compiler still gives the most direct database diagnostic without a connection:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies compiler; this excerpt does not repeat those declarations."}
-const { text, parameters } = compiler.selectFrom('posts').select(['id']).where('id', '=', 1).compile();
+import { trustedTable } from '@zmdb/sql';
+
+const { text, parameters } = compiler.selectFrom(trustedTable('posts')).select(['id']).where('id', '=', 1).compile();
 console.log(text, parameters);
 ```
 

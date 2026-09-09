@@ -1,6 +1,12 @@
 import { isRecord, type DeclaredTable } from '@zmdb/schema';
 import type { WhereDTO, UnknownRow, OrderDir, OrderBySpec, PaginationSpec } from '@zmdb/schema/dto';
-import { createQueryCompiler, type ComparisonPredicate, type SqlDialect } from '@zmdb/sql';
+import {
+  trustedTable,
+  createQueryCompiler,
+  type ComparisonPredicate,
+  type Predicate,
+  type SqlDialect,
+} from '@zmdb/sql';
 import { ValidationError } from '@zmdb/validator';
 
 /**
@@ -14,8 +20,8 @@ import { ValidationError } from '@zmdb/validator';
 export interface WhereTarget {
   where(col: string, op: string, value: unknown): this;
   orWhere(col: string, op: string, value: unknown): this;
-  whereGroup?(predicates: readonly ComparisonPredicate[]): this;
-  orWhereGroup?(predicates: readonly ComparisonPredicate[]): this;
+  whereGroup?(predicates: readonly Predicate[]): this;
+  orWhereGroup?(predicates: readonly Predicate[]): this;
   whereExists?(subquery: unknown): this;
   orWhereExists?(subquery: unknown): this;
   whereNotExists?(subquery: unknown): this;
@@ -86,7 +92,7 @@ function resolveSubqueryTarget(target: unknown, dialect: SqlDialect | undefined)
     }
     // Both clauses, not either: `{ table, select, where }` means a projection *and* a
     // filter, and a subquery that dropped the filter would match every row.
-    let sub = createQueryCompiler(dialect).selectFrom(spec.table);
+    let sub = createQueryCompiler(dialect).selectFrom(trustedTable(spec.table));
     if (spec.select && spec.select.length > 0) {
       sub = sub.select(spec.select);
     }

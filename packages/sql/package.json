@@ -32,9 +32,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./comments": "./src/comments/index.ts",
-    "./fts": "./src/fts/index.ts",
-    "./joins": "./src/joins/index.ts",
-    "./aggregations": "./src/aggregations/index.ts",
     "./set-ops": "./src/set-ops/index.ts",
     "./schema-objects": "./src/schema-objects/index.ts"
   },
@@ -46,10 +43,12 @@
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@zmdb/schema": "workspace:^"
+  },
   "devDependencies": {
     "@zmdb/compiler": "workspace:^",
     "@zmdb/migrations": "workspace:^",
-    "@zmdb/schema": "workspace:^",
     "typescript": "7.0.2"
   },
   "engines": {

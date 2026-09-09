@@ -242,10 +242,10 @@ For a project that only needs the query compiler, there is no build step at all 
 The query compiler is plain runtime code, so it verifies the install without the transformer in the way:
 
 ```ts {"mode":"compile","id":"example-003"}
-import { createQueryCompiler } from '@zmdb/core/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/core/sql';
 import { sqlite } from '@zmdb/core/sqlite';
 
-const q = createQueryCompiler(sqlite).selectFrom('users').select(['id']).compile();
+const q = createQueryCompiler(sqlite).selectFrom(trustedTable('users')).select(['id']).compile();
 console.log(q.text); // SELECT "id" FROM "users"
 ```
 

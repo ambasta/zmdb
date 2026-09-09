@@ -107,12 +107,12 @@ If you need to _read_ it through a typed path, declare a second interface over a
 Generated columns can be selected like regular columns. They're computed automatically, so you don't need to do anything special in your queries.
 
 ```ts {"mode":"compile","id":"example-006"}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
 
-const query = compiler.selectFrom('orders').select(['id', 'unit_price', 'quantity', 'total_price']).compile();
+const query = compiler.selectFrom(trustedTable('orders')).select(['id', 'unit_price', 'quantity', 'total_price']).compile();
 
 console.log(query.text);
 ```

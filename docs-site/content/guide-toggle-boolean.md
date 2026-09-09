@@ -43,10 +43,10 @@ It is also the more common bug in practice: a double-clicked button sends two re
 ## Compiler form
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
-import { createQueryCompiler, not } from '@zmdb/core/sql';
+import { createQueryCompiler, not, trustedTable } from '@zmdb/core/sql';
 import { postgres } from '@zmdb/core/postgres';
 
-const query = createQueryCompiler(postgres).updateTable('users').set({ active: not() }).where('id', '=', id).compile();
+const query = createQueryCompiler(postgres).updateTable(trustedTable('users')).set({ active: not() }).where('id', '=', id).compile();
 
 await driver.execute(query);
 ```

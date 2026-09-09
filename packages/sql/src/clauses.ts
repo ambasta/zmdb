@@ -20,7 +20,14 @@ import {
   type SpatialPredicateNode,
 } from './extensions/index.js';
 import { type CompiledQuery, type QueryTelemetry } from './index.js';
-import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders, unaliasedTable } from './quoting.js';
+import {
+  formatPlaceholder,
+  qualifyRootColumn,
+  quoteColumn,
+  quoteTable,
+  renumberPlaceholders,
+  unaliasedTable,
+} from './quoting.js';
 
 export type JoinKind = 'inner' | 'left' | 'right';
 
@@ -57,7 +64,20 @@ export interface PredicateGroup {
   readonly connector?: 'AND' | 'OR' | undefined;
 }
 
+export interface MatchPredicate {
+  readonly kind: 'match';
+  readonly col: string;
+  readonly value: string;
+  readonly connector?: 'AND' | 'OR' | undefined;
+}
+
 export type Predicate = ComparisonPredicate | SpatialPredicateNode | PredicateGroup;
+export type RenderPredicate = Predicate | MatchPredicate;
+
+/** Quote a literal FTS5 phrase, including embedded quotes. */
+export function escapeFts5Term(term: unknown): string {
+  return `"${String(term).replace(/"/g, '""')}"`;
+}
 
 export interface Tail<C = string> {
   readonly orderBys?: readonly { readonly col: C; readonly dir: 'asc' | 'desc' }[] | undefined;
@@ -155,26 +175,49 @@ export function sqlOperator(op: string, dialect: DialectTarget): string {
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
-export function renderPredicate(dialect: DialectTarget, p: Predicate, params: unknown[]): string {
+export function renderPredicate(
+  dialect: DialectTarget,
+  p: RenderPredicate,
+  params: unknown[],
+  expressions?: ReadonlyMap<string, string>,
+  rootReference?: string,
+): string {
   if (p.kind === 'group') {
     if (p.predicates.length === 0) throw new TypeError('predicate groups must not be empty');
-    return `(${predicateList(dialect, p.predicates, params)})`;
+    return `(${predicateList(dialect, p.predicates, params, expressions, rootReference)})`;
   }
-  if (p.kind === 'spatial') return renderSpatialPredicate(dialect, p, params);
+  if (p.kind === 'spatial')
+    return renderSpatialPredicate(
+      dialect,
+      rootReference === undefined ? p : { ...p, col: qualifyRootColumn(p.col, rootReference) },
+      params,
+    );
+  if (p.kind === 'match') {
+    const fts = dialectTraits(dialect).fts;
+    params.push(fts === 'companionTable' ? escapeFts5Term(p.value) : p.value);
+    const placeholder = formatPlaceholder(dialect, params.length);
+    const column = quoteColumn(dialect, qualifyRootColumn(p.col, rootReference));
+    if (fts === 'companionTable') return `${column} MATCH ${placeholder}`;
+    if (fts === 'tsvector') return `to_tsvector('english', ${column}) @@ to_tsquery('english', ${placeholder})`;
+    if (fts === 'match') return `MATCH(${column}) AGAINST(${placeholder} IN NATURAL LANGUAGE MODE)`;
+    if (fts === 'matchPlain') return `MATCH(${column}) AGAINST(${placeholder})`;
+    throw new UnsupportedFeatureError('full-text search', dialectName(dialect));
+  }
+  const column = expressions?.get(p.col) ?? quoteColumn(dialect, qualifyRootColumn(p.col, rootReference));
   const normalized = p.op.toLowerCase().trim();
   const sqlOp = sqlOperator(p.op, dialect);
 
   if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
-    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
+    return `${column} ${sqlOp}`;
   }
 
   if (isDistanceOp(normalized)) {
     params.push(encodePgVector(p.value));
-    return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
+    return `${column} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
   }
 
   if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
-    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
+    return `${column} ${sqlOp}`;
   }
 
   if (isSubqueryTarget(p.value)) {
@@ -186,7 +229,7 @@ export function renderPredicate(dialect: DialectTarget, p: Predicate, params: un
 
     if (sqlOp === 'EXISTS') return `EXISTS (${text})`;
     if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${text})`;
-    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${text})`;
+    return `${column} ${sqlOp} (${text})`;
   }
 
   if (sqlOp === 'IN' || sqlOp === 'NOT IN') {
@@ -204,47 +247,72 @@ export function renderPredicate(dialect: DialectTarget, p: Predicate, params: un
         return formatPlaceholder(dialect, params.length);
       })
       .join(', ');
-    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${placeholders})`;
+    return `${column} ${sqlOp} (${placeholders})`;
   }
 
   params.push(p.value);
-  return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
+  return `${column} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
 }
 
-function predicateList(dialect: DialectTarget, preds: readonly Predicate[], params: unknown[]): string {
+function predicateList(
+  dialect: DialectTarget,
+  preds: readonly RenderPredicate[],
+  params: unknown[],
+  expressions?: ReadonlyMap<string, string>,
+  rootReference?: string,
+): string {
   return preds
     .map((p, i) => {
-      const cond = renderPredicate(dialect, p, params);
+      const cond = renderPredicate(dialect, p, params, expressions, rootReference);
       return i === 0 ? cond : `${p.connector ?? 'AND'} ${cond}`;
     })
     .join(' ');
 }
 
 /** ` WHERE …`, appending each predicate's parameters to `params` in order. */
-export function whereClause(dialect: DialectTarget, preds: readonly Predicate[], params: unknown[]): string {
+export function whereClause(
+  dialect: DialectTarget,
+  preds: readonly RenderPredicate[],
+  params: unknown[],
+  rootReference?: string,
+): string {
   if (preds.length === 0) return '';
-  return ` WHERE ${predicateList(dialect, preds, params)}`;
+  return ` WHERE ${predicateList(dialect, preds, params, undefined, rootReference)}`;
 }
 
 /** ` HAVING …` — same rendering as WHERE, which is why they share a code path. */
-export function havingClause(dialect: DialectTarget, preds: readonly Predicate[], params: unknown[]): string {
+export function havingClause(
+  dialect: DialectTarget,
+  preds: readonly RenderPredicate[],
+  params: unknown[],
+  expressions?: ReadonlyMap<string, string>,
+  rootReference?: string,
+): string {
   if (preds.length === 0) return '';
-  return ` HAVING ${predicateList(dialect, preds, params)}`;
+  return ` HAVING ${predicateList(dialect, preds, params, expressions, rootReference)}`;
 }
 
 /** ` INNER JOIN … ON … = … [AND … = …] [AND …]` for each join, in order. */
-export function joinClauses(dialect: DialectTarget, joins: readonly JoinSpec[], params: unknown[] = []): string {
+export function joinClauses(
+  dialect: DialectTarget,
+  joins: readonly JoinSpec[],
+  params: unknown[] = [],
+  rootReference?: string,
+): string {
   return joins
     .map(j => {
       const conditions = j.conditions
-        .map(condition => `${quoteColumn(dialect, condition.leftCol)} = ${quoteColumn(dialect, condition.rightCol)}`)
+        .map(
+          condition =>
+            `${quoteColumn(dialect, qualifyRootColumn(condition.leftCol, rootReference))} = ${quoteColumn(dialect, qualifyRootColumn(condition.rightCol, rootReference))}`,
+        )
         .join(' AND ');
       const targetPredicates =
         j.on === undefined || j.on.length === 0
           ? ''
           : j.on
               .map((predicate, index) => {
-                const rendered = renderPredicate(dialect, predicate, params);
+                const rendered = renderPredicate(dialect, predicate, params, undefined, rootReference);
                 return `${index === 0 ? 'AND' : (predicate.connector ?? 'AND')} ${rendered}`;
               })
               .join(' ');
@@ -297,91 +365,4 @@ export function queryTelemetry(
     operation,
     collection: unaliasedTable(collection),
   });
-}
-
-// --- builder wiring --------------------------------------------------------
-//
-// The rendering above is shared, but each builder still wired the same methods
-// onto its own state by hand. The two below are the ones that were identical in
-// three places (`orderBy`/`limit`/`offset`) and two (`innerJoin` and friends),
-// which is one drift away from the bugs the header describes.
-//
-// Both take the current value and the builder's own `next`, and hand back
-// methods returning whatever `next` returns — so each builder keeps its own
-// state type and its own return type, and no cast is needed in either
-// direction. That works because they ask for the *narrowest* patch they could
-// pass: `TailPatch` is assignable to every builder's `Partial<State>`, so
-// contravariance makes each builder's `next` acceptable here.
-//
-// It does require the state's arrays be `readonly`, which they should be
-// anyway: `next` replaces them, nothing appends in place.
-
-/**
- * What {@link tailMethods} passes to a builder's `next`. Deliberately not
- * `Partial<Tail>`: under `exactOptionalPropertyTypes` an optional property that
- * also admits `undefined` is not assignable to one that doesn't, and no
- * builder's state wants an explicit `undefined` written over its array.
- */
-export interface TailPatch<C = string> {
-  readonly orderBys?: readonly { readonly col: C; readonly dir: 'asc' | 'desc' }[];
-  readonly limitN?: number;
-  readonly offsetN?: number;
-}
-
-/** `orderBy` / `limit` / `offset`, for any state carrying a {@link Tail}. */
-export function tailMethods<C, B>(tail: Tail<C>, next: (patch: TailPatch<C>) => B) {
-  return {
-    orderBy: (col: C, dir: 'asc' | 'desc'): B => next({ orderBys: [...(tail.orderBys ?? []), { col, dir }] }),
-    limit: (n: number): B => next({ limitN: n }),
-    offset: (n: number): B => next({ offsetN: n }),
-  };
-}
-
-export interface JoinMethod<B> {
-  (target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): B;
-  (target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): B;
-}
-
-/** `innerJoin` / `leftJoin` / `rightJoin`, for any state carrying a join list. */
-export function joinMethods<B>(joins: readonly JoinSpec[], next: (patch: { joins: readonly JoinSpec[] }) => B) {
-  const add = (kind: JoinKind): JoinMethod<B> => {
-    function join(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): B;
-    function join(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): B;
-    function join(
-      target: string,
-      leftColOrConditions: string | readonly JoinCondition[],
-      rightColOrOn?: string | readonly Predicate[],
-      scalarOn?: readonly Predicate[],
-    ): B {
-      const conditions =
-        typeof leftColOrConditions === 'string'
-          ? typeof rightColOrOn === 'string'
-            ? [{ leftCol: leftColOrConditions, rightCol: rightColOrOn }]
-            : []
-          : leftColOrConditions;
-      if (conditions.length === 0) {
-        throw new RangeError(`join "${target}" needs at least one ON condition`);
-      }
-      const on = typeof leftColOrConditions === 'string' ? scalarOn : rightColOrOn;
-      if (on !== undefined && typeof on === 'string') {
-        throw new TypeError(`join "${target}" received an invalid ON predicate list`);
-      }
-      return next({
-        joins: [
-          ...joins,
-          {
-            kind,
-            target,
-            conditions: conditions.map(condition => ({
-              leftCol: condition.leftCol,
-              rightCol: condition.rightCol,
-            })),
-            ...(on === undefined ? {} : { on }),
-          },
-        ],
-      });
-    }
-    return join;
-  };
-  return { innerJoin: add('inner'), leftJoin: add('left'), rightJoin: add('right') };
 }

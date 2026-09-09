@@ -4,8 +4,7 @@ import { schemasFrom } from '@zmdb/compiler/testing';
 import { diff, emitUp, snapshot } from '@zmdb/migrations';
 import { BaseRepository, createLoaderScope, memoryStore, type Driver, type FilterDef, type QueryMeta } from '@zmdb/orm';
 import { encodeCursor } from '@zmdb/schema/dto';
-import { type ColumnIR, type SchemaIR } from '@zmdb/schema/ir';
-import { jsonSchemaFromIR, schemaFromIR } from '@zmdb/schema/ir';
+import { type ColumnIR, type SchemaIR, jsonSchemaFromIR, schemaFromIR } from '@zmdb/schema/ir';
 import {
   type OneToMany,
   type PrimaryKey,
@@ -15,7 +14,7 @@ import {
   type Sql,
   type Table,
 } from '@zmdb/schema/tags';
-import { type CompiledQuery, type DialectTarget } from '@zmdb/sql';
+import { trustedTable, type CompiledQuery, type DialectTarget } from '@zmdb/sql';
 import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
 
@@ -703,7 +702,9 @@ describe('declared repository filters', () => {
     const repo = new UsersWithTargetFilters(driver);
 
     await repo.aggregate(aggregate =>
-      aggregate.leftJoin('posts as posts', 'users.id', 'posts.userId').count('posts.id', 'n'),
+      aggregate
+        .leftJoin(trustedTable('posts as posts'), 'posts', [{ leftCol: 'users.id', rightCol: 'posts.userId' }])
+        .count('posts.id', 'n'),
     );
 
     expect(statements(driver.calls)).toEqual([

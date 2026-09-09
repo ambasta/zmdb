@@ -63,12 +63,12 @@ To use a sequence in your application, call `nextval()` to retrieve the next val
 
 ```ts {"mode":"compile","id":"example-003"}
 // Generating next sequence value via query compiler
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
 
-const nextValQuery = compiler.selectFrom('order_number_seq').select(['nextval']).compile();
+const nextValQuery = compiler.selectFrom(trustedTable('order_number_seq')).select(['nextval']).compile();
 
 console.log(nextValQuery.text);
 ```

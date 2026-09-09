@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { down, driverMigrationConnection, up } from '@zmdb/migrations';
 import { detectDrift } from '@zmdb/migrations/introspect';
 import { mssql, mssqlDriver, mssqlIntrospector } from '@zmdb/mssql';
-import { createQueryCompiler, quoteTable } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, quoteTable } from '@zmdb/sql';
 
 const connection = process.env.ZMDB_MSSQL_URL;
 if (connection === undefined) {
@@ -109,7 +109,7 @@ try {
   const happenedAt = new Date('2026-09-05T12:34:56.789Z');
   const inserted = await driver.execute(
     compiler
-      .insertInto(users)
+      .insertInto(trustedTable(users))
       .values({
         guid,
         email: '東京@example.com',
@@ -128,7 +128,7 @@ try {
 
   const merged = await driver.execute(
     compiler
-      .insertInto(users)
+      .insertInto(trustedTable(users))
       .values({
         guid,
         email: 'updated@example.com',
@@ -145,7 +145,7 @@ try {
 
   await driver.execute(
     compiler
-      .insertInto(users)
+      .insertInto(trustedTable(users))
       .values({
         guid: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
         email: 'page@example.com',
@@ -155,16 +155,23 @@ try {
       })
       .compile(),
   );
-  const page = await driver.execute(compiler.selectFrom(users).orderBy('id', 'asc').offset(1).limit(1).compile());
+  const page = await driver.execute(
+    compiler.selectFrom(trustedTable(users)).orderBy('id', 'asc').offset(1).limit(1).compile(),
+  );
   assert.equal(page[0]?.email, 'page@example.com');
 
   const updated = await driver.execute(
-    compiler.updateTable(users).set({ visits: 3 }).where('guid', '=', guid).returning(['visits']).compile(),
+    compiler
+      .updateTable(trustedTable(users))
+      .set({ visits: 3 })
+      .where('guid', '=', guid)
+      .returning(['visits'])
+      .compile(),
   );
   assert.deepEqual(updated, [{ visits: 3 }]);
   const deleted = await driver.execute(
     compiler
-      .deleteFrom(users)
+      .deleteFrom(trustedTable(users))
       .where('guid', '=', '3f2504e0-4f89-41d3-9a0c-0305e82c3301')
       .returning(['email'])
       .compile(),
@@ -176,7 +183,7 @@ try {
     driver.transaction(async transaction => {
       await transaction.execute(
         compiler
-          .insertInto(users)
+          .insertInto(trustedTable(users))
           .values({
             guid: rollbackGuid,
             email: 'rollback@example.com',
@@ -190,7 +197,10 @@ try {
     }),
     /force rollback/,
   );
-  assert.deepEqual(await driver.execute(compiler.selectFrom(users).where('guid', '=', rollbackGuid).compile()), []);
+  assert.deepEqual(
+    await driver.execute(compiler.selectFrom(trustedTable(users)).where('guid', '=', rollbackGuid).compile()),
+    [],
+  );
 
   const snapshot = await mssqlIntrospector.snapshot(driver, { schemas: [schema] });
   const usersCatalog = snapshot.tables.find(candidate => candidate.name === usersName);

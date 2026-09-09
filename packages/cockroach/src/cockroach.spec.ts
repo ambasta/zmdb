@@ -2,10 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { type TxConnection } from '@zmdb/orm';
-import { createTransactionalDb } from '@zmdb/orm';
+import { type TxConnection, createTransactionalDb } from '@zmdb/orm';
 import { postgres, type PgQueryable } from '@zmdb/postgres';
-import { createQueryCompiler, UnsupportedFeatureError, type IntrospectionDriver } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, UnsupportedFeatureError, type IntrospectionDriver } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import { cockroach, cockroachDriver, cockroachIntrospector } from './index.js';
@@ -152,11 +151,11 @@ function catalogDriver(): IntrospectionDriver {
 describe('@zmdb/cockroach vertical', () => {
   it('inherits unchanged PostgreSQL compiler behaviour', () => {
     const postgresQuery = createQueryCompiler(postgres)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('email', '=', 'a@example.test')
       .compile();
     const cockroachQuery = createQueryCompiler(cockroach)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('email', '=', 'a@example.test')
       .compile();
 

@@ -6,7 +6,7 @@ import { BaseRepository, ValidationError, type Driver } from '@zmdb/orm';
 import { compilePopulate } from '@zmdb/orm/relations';
 import { jsonSchemaFromIR, objectTypeFromIR, schemaFromIR, type SchemaIR, type TypeIR } from '@zmdb/schema/ir';
 import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
-import { createQueryCompiler, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/sql';
 import { validate } from '@zmdb/validator';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -207,8 +207,8 @@ describe('runtime foundation package cutover (#636)', () => {
     expect(packedLane('schema').installed).toEqual(['@zmdb/schema']);
   });
 
-  it('installs SQL alone and compiles through an injected structural dialect', () => {
-    expect(packedLane('sql').installed).toEqual(['@zmdb/sql']);
+  it('installs SQL with its schema declaration dependency and compiles through an injected structural dialect', () => {
+    expect(packedLane('sql').installed).toEqual(['@zmdb/schema', '@zmdb/sql']);
   });
 
   it('installs validator with only schema and executes validation and serialization helpers', () => {
@@ -270,7 +270,7 @@ describe('runtime foundation package cutover (#636)', () => {
       const target = officialDialects[dialect];
       expect(
         createQueryCompiler(target)
-          .selectFrom('users')
+          .selectFrom(trustedTable('users'))
           .select(['id', 'email'])
           .where('email', '=', 'a@example.test')
           .orderBy('id', 'asc')

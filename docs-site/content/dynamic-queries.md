@@ -47,9 +47,11 @@ const params = assert<{ sort?: Sortable; dir?: 'asc' | 'desc'; limit?: number }>
 The builder is immutable, so each call returns a new one and you can reassign:
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies createQueryCompiler, minAge; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { postgres } from '@zmdb/postgres';
 
-let q = createQueryCompiler(postgres).selectFrom('users');
+let q = createQueryCompiler(postgres).selectFrom(trustedTable('users'));
 if (status !== undefined) q = q.where('status', '=', status);
 if (minAge !== undefined) q = q.andWhere('age', '>=', minAge);
 const { text, parameters } = q.limit(20).compile();
@@ -71,7 +73,9 @@ Allow-list `isRelation` the same way — a caller that can name arbitrary relati
 `WhereDTO` fields are combined with `AND`, so a single search term over three columns needs the builder:
 
 ```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies createQueryCompiler, postgres, term; this excerpt does not repeat those declarations."}
-const q = createQueryCompiler(postgres).selectFrom('users').where('name', 'ilike', `%${term}%`).orWhere('email', 'ilike', `%${term}%`).orWhere('bio', 'ilike', `%${term}%`).compile();
+import { trustedTable } from '@zmdb/sql';
+
+const q = createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('name', 'ilike', `%${term}%`).orWhere('email', 'ilike', `%${term}%`).orWhere('bio', 'ilike', `%${term}%`).compile();
 ```
 
 For anything larger than a few columns, use [full-text search](./full-text-search.html) — three `ILIKE`s with a leading wildcard cannot use an index.

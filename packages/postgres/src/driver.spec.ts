@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 
 import { type Ext, type Table } from '@zmdb/schema/tags';
-import { createQueryCompiler, distance } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, distance } from '@zmdb/sql';
 import { describe, expect, it, vi } from 'vitest';
 
 import { postgres, postgresDriver, type PgQueryable } from './index.js';
@@ -23,7 +23,7 @@ describe('postgresDriver', () => {
   it('serializes a compiler-bound pgvector parameter through the real node-postgres path', () => {
     const vector = [0.1, 0.2, 0.3] as const;
     const query = createQueryCompiler(postgres)
-      .selectFrom('pgvector_items')
+      .selectFrom(trustedTable('pgvector_items'))
       .orderBy(distance<PgVectorItem>('embedding', 'cosine', vector), 'asc')
       .compile();
 

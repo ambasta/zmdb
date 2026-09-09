@@ -1,4 +1,10 @@
-import { UnsupportedFeatureError, createQueryCompiler, extendSqlDialect, type MigrationDriver } from '@zmdb/sql';
+import {
+  trustedTable,
+  UnsupportedFeatureError,
+  createQueryCompiler,
+  extendSqlDialect,
+  type MigrationDriver,
+} from '@zmdb/sql';
 import { describe, expect, it, vi } from 'vitest';
 
 import { mysql } from './dialect.js';
@@ -9,12 +15,19 @@ import { createMysqlMigrations } from './migrations.js';
 describe('MySQL compiler and capabilities', () => {
   it('compiles the measured MySQL SQL spellings through the injected dialect', () => {
     const compiler = createQueryCompiler(mysql);
-    expect(compiler.selectFrom('users').select(['id']).where('email', '=', 'a@b.test').offset(5).compile()).toEqual({
+    expect(
+      compiler.selectFrom(trustedTable('users')).select(['id']).where('email', '=', 'a@b.test').offset(5).compile(),
+    ).toEqual({
       text: 'SELECT `id` FROM `users` WHERE `email` = ? LIMIT 18446744073709551615 OFFSET 5',
       parameters: ['a@b.test'],
     });
     expect(
-      compiler.insertInto('users').values({ id: 1, email: 'a@b.test' }).onConflict('id').doUpdate(['email']).compile(),
+      compiler
+        .insertInto(trustedTable('users'))
+        .values({ id: 1, email: 'a@b.test' })
+        .onConflict('id')
+        .doUpdate(['email'])
+        .compile(),
     ).toEqual({
       text: 'INSERT INTO `users` (`id`, `email`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `email` = VALUES(`email`)',
       parameters: [1, 'a@b.test'],
@@ -27,7 +40,7 @@ describe('MySQL compiler and capabilities', () => {
 
     const dispatch = async (): Promise<readonly Record<string, unknown>[]> => {
       const query = createQueryCompiler(mysql)
-        .insertInto('users')
+        .insertInto(trustedTable('users'))
         .values({ email: 'a@b.test' })
         .returning(['id'])
         .compile();

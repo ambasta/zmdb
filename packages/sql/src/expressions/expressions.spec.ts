@@ -1,4 +1,5 @@
 import {
+  trustedTable,
   EXPR,
   coalesce,
   concat,
@@ -46,7 +47,7 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
     expectAcrossDialects(
       dialect =>
         createQueryCompiler(dialect)
-          .updateTable('posts')
+          .updateTable(trustedTable('posts'))
           .set({ views: inc(1) })
           .where('id', '=', 7)
           .compile(),
@@ -73,7 +74,12 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
 
   it('decrements with a default step of one', () => {
     expectAcrossDialects(
-      dialect => createQueryCompiler(dialect).updateTable('posts').set({ stock: dec() }).where('id', '=', 7).compile(),
+      dialect =>
+        createQueryCompiler(dialect)
+          .updateTable(trustedTable('posts'))
+          .set({ stock: dec() })
+          .where('id', '=', 7)
+          .compile(),
       {
         postgres: {
           text: 'UPDATE "posts" SET "stock" = "stock" - $1 WHERE "id" = $2',
@@ -99,7 +105,7 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
     expectAcrossDialects(
       dialect =>
         createQueryCompiler(dialect)
-          .updateTable('posts')
+          .updateTable(trustedTable('posts'))
           .set({ score: mul(3) })
           .where('id', '=', 7)
           .compile(),
@@ -127,7 +133,11 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
   it('toggles a boolean with the dialect negation operator', () => {
     expectAcrossDialects(
       dialect =>
-        createQueryCompiler(dialect).updateTable('posts').set({ published: not() }).where('id', '=', 7).compile(),
+        createQueryCompiler(dialect)
+          .updateTable(trustedTable('posts'))
+          .set({ published: not() })
+          .where('id', '=', 7)
+          .compile(),
       {
         postgres: {
           text: 'UPDATE "posts" SET "published" = NOT "published" WHERE "id" = $1',
@@ -153,7 +163,7 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
     expectAcrossDialects(
       dialect =>
         createQueryCompiler(dialect)
-          .updateTable('posts')
+          .updateTable(trustedTable('posts'))
           .set({ title: concat(' (draft)') })
           .where('id', '=', 7)
           .compile(),
@@ -182,7 +192,7 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
     expectAcrossDialects(
       dialect =>
         createQueryCompiler(dialect)
-          .updateTable('users')
+          .updateTable(trustedTable('users'))
           .set({ nickname: coalesce('anonymous') })
           .where('id', '=', 7)
           .compile(),
@@ -211,7 +221,7 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
     expectAcrossDialects(
       dialect =>
         createQueryCompiler(dialect)
-          .updateTable('posts')
+          .updateTable(trustedTable('posts'))
           .set({ views: inc(2), title: 'published' })
           .where('id', '=', 7)
           .compile(),
@@ -240,7 +250,7 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
     expectAcrossDialects(
       dialect =>
         createQueryCompiler(dialect)
-          .insertInto('counters')
+          .insertInto(trustedTable('counters'))
           .values({ key: 'k', stock: 5 })
           .onConflict('key')
           .doUpdate({ stock: proposed() })
@@ -282,7 +292,7 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
     expectAcrossDialects(
       dialect =>
         createQueryCompiler(dialect)
-          .insertInto('counters')
+          .insertInto(trustedTable('counters'))
           .values({ key: 'k', hits: 1 })
           .onConflict('key')
           .doUpdate({ hits: inc(1) })
@@ -319,7 +329,7 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
   it('rejects proposed() outside an upsert with a message naming the method', () => {
     for (const dialect of DIALECTS) {
       expect(
-        () => createQueryCompiler(dialect).updateTable('counters').set({ hits: proposed() }).compile(),
+        () => createQueryCompiler(dialect).updateTable(trustedTable('counters')).set({ hits: proposed() }).compile(),
         dialect,
       ).toThrow(
         'proposed() references the row being inserted and is only valid inside onConflict().doUpdate() ' +
@@ -332,7 +342,11 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
     const document = { op: 'add', by: 1 };
     expectAcrossDialects(
       dialect =>
-        createQueryCompiler(dialect).updateTable('documents').set({ payload: document }).where('id', '=', 7).compile(),
+        createQueryCompiler(dialect)
+          .updateTable(trustedTable('documents'))
+          .set({ payload: document })
+          .where('id', '=', 7)
+          .compile(),
       {
         postgres: {
           text: 'UPDATE "documents" SET "payload" = $1 WHERE "id" = $2',

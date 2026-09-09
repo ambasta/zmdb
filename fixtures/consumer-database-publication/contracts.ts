@@ -1,14 +1,21 @@
 import type { TransactionalDriver } from '@zmdb/orm';
-import { createQueryCompiler, type CompiledQuery, type QueryCompiler, type SqlDialect } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, type CompiledQuery, type QueryCompiler, type SqlDialect } from '@zmdb/sql';
 
 declare const dialect: SqlDialect<string>;
 declare const driver: TransactionalDriver<string>;
 
 const compiler: QueryCompiler = createQueryCompiler(dialect);
-const insert: CompiledQuery = compiler.insertInto('publication_rows').values({ id: 7, visits: 1 }).compile();
-const select: CompiledQuery = compiler.selectFrom('publication_rows').where('id', '=', 7).compile();
-const update: CompiledQuery = compiler.updateTable('publication_rows').set({ visits: 2 }).where('id', '=', 7).compile();
-const remove: CompiledQuery = compiler.deleteFrom('publication_rows').where('id', '=', 7).compile();
+const insert: CompiledQuery = compiler
+  .insertInto(trustedTable('publication_rows'))
+  .values({ id: 7, visits: 1 })
+  .compile();
+const select: CompiledQuery = compiler.selectFrom(trustedTable('publication_rows')).where('id', '=', 7).compile();
+const update: CompiledQuery = compiler
+  .updateTable(trustedTable('publication_rows'))
+  .set({ visits: 2 })
+  .where('id', '=', 7)
+  .compile();
+const remove: CompiledQuery = compiler.deleteFrom(trustedTable('publication_rows')).where('id', '=', 7).compile();
 const signal: AbortSignal = new AbortController().signal;
 
 void driver.execute(insert, { signal });

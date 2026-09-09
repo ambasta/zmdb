@@ -13,10 +13,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { snapshot } from '@zmdb/migrations';
 import { type Driver } from '@zmdb/orm';
 import { createOutboxDispatcher, OutboxSchema, outboxWriter, type DeadOutboxRow } from '@zmdb/orm/outbox';
-import { createTransactionalDb } from '@zmdb/orm/transactions';
-import { type TxConnection } from '@zmdb/orm/transactions';
-import { createQueryCompiler } from '@zmdb/sql';
-import { type CompiledQuery } from '@zmdb/sql';
+import { createTransactionalDb, type TxConnection } from '@zmdb/orm/transactions';
+import { trustedTable, createQueryCompiler, type CompiledQuery } from '@zmdb/sql';
 import { sqliteDriver } from '@zmdb/sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -636,7 +634,7 @@ describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', ()
     const driver = sqliteDriver(db);
     await driver.execute(
       qb
-        .insertInto('zmdb_outbox')
+        .insertInto(trustedTable('zmdb_outbox'))
         .values({
           id: 'r1',
           topic: 't',
@@ -650,14 +648,14 @@ describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', ()
 
     const claim = (token: string) =>
       qb
-        .updateTable('zmdb_outbox')
+        .updateTable(trustedTable('zmdb_outbox'))
         .set({ lease_owner: token, lease_until: new Date(NOW.getTime() + 30_000) })
         .where('status', '=', 'pending')
         .where('lease_until', '<', NOW)
         .whereIn('id', ['r1'])
         .compile();
     const readBack = (token: string) =>
-      qb.selectFrom('zmdb_outbox').select(['id']).where('lease_owner', '=', token).compile();
+      qb.selectFrom(trustedTable('zmdb_outbox')).select(['id']).where('lease_owner', '=', token).compile();
 
     await driver.execute(claim('token-A'));
     await driver.execute(claim('token-B'));

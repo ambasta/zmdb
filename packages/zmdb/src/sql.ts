@@ -83,14 +83,8 @@ export {
   type VectorColumnOf,
 } from '@zmdb/sql';
 
-export { escapeFts5Term, ftsSelectFrom } from '@zmdb/sql/fts';
-export { type FtsOptions, type FtsSelect, type FtsTableOptions } from '@zmdb/sql/fts';
-
-export { joinableSelectFrom } from '@zmdb/sql/joins';
-export { type JoinCondition, type JoinKind, type JoinableSelect } from '@zmdb/sql/joins';
-
-export { aggregateSelectFrom } from '@zmdb/sql/aggregations';
-export { type AggregateSelect } from '@zmdb/sql/aggregations';
+export { escapeFts5Term, trustedTable } from '@zmdb/sql';
+export type { JoinCondition, JoinKind, QueryPredicate, TrustedTable } from '@zmdb/sql';
 
 export { SET_KEYWORD, batch, setOperation } from '@zmdb/sql/set-ops';
 export { type BatchHandle, type SetOp } from '@zmdb/sql/set-ops';

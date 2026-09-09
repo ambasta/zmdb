@@ -44,9 +44,11 @@ not remove write serialisation. A write-heavy workload will queue.
 Set a generous busy timeout if the client exposes one, and prefer batched writes over many small ones:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies createQueryCompiler, driver, rows; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { sqlite } from '@zmdb/sqlite';
 
-const q = createQueryCompiler(sqlite).insertInto('events').values(rows).compile();
+const q = createQueryCompiler(sqlite).insertInto(trustedTable('events')).values(rows).compile();
 await driver.execute(q);
 ```
 

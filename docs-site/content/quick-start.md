@@ -105,7 +105,7 @@ const users = new UserRepository(sqliteDriver(db));
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver, since, users; this excerpt does not repeat those declarations."}
 import { applyOrderBy, buildListResult, compileWhere } from '@zmdb/core/schema';
 
-let qb = users.query.selectFrom('users');
+let qb = users.query.selectFrom(userSchema);
 qb = compileWhere(qb, { role: 'admin', createdAt: { gte: since } });
 qb = applyOrderBy(qb, [{ column: 'createdAt', dir: 'desc' }]);
 const rows = await driver.execute(qb.limit(21).compile());

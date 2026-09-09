@@ -95,9 +95,12 @@ interface because `(tenantId, id)` and `(id, tenantId)` are different indexes. R
 ## `UpdateBuilder.set()` expressions reference only their own column
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies updateTable; this excerpt does not repeat those declarations."}
-import { inc } from '@zmdb/sql';
+import { postgres } from '@zmdb/postgres';
+import { inc, createQueryCompiler, trustedTable } from '@zmdb/sql';
 
-updateTable('posts').set({ views: inc(1) });
+createQueryCompiler(postgres)
+  .updateTable(trustedTable('posts'))
+  .set({ views: inc(1) });
 ```
 
 The column is the `set()` key. The vocabulary has no cross-column reference, subquery, or caller-supplied SQL node, so `SET a = b + 1` remains outside this API. `BaseRepository.update()` and

@@ -87,11 +87,11 @@ GeoJSON positions are longitude first. Swapped latitude/longitude remains a vali
 For a declared `geometry` column, `stDWithin<T>(column, point, distance)` supplies the closed predicate and binds both the GeoJSON value and distance:
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Venue, driver, point; this excerpt does not repeat those declarations."}
-import { createQueryCompiler, stDWithin } from '@zmdb/sql';
+import { createQueryCompiler, stDWithin, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const nearby = createQueryCompiler(postgres)
-  .selectFrom('venues')
+  .selectFrom(trustedTable('venues'))
   .where(stDWithin<Venue>('location', point, 0.05))
   .compile();
 
@@ -102,7 +102,7 @@ The distance above is in the geometry's coordinate units. `stContains<T>` is the
 polygon rather than an arbitrary object:
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Ext, PrimaryKey, Serial, Sql, Table, createQueryCompiler, postgres; this excerpt does not repeat those declarations."}
-import { stContains } from '@zmdb/sql';
+import { stContains, trustedTable } from '@zmdb/sql';
 
 interface GeoJsonPolygon {
   readonly type: 'Polygon';
@@ -127,7 +127,7 @@ const candidatePolygon: GeoJsonPolygon = {
   ],
 };
 
-const contained = createQueryCompiler(postgres).selectFrom('regions').where(stContains<Region>('area', candidatePolygon)).compile();
+const contained = createQueryCompiler(postgres).selectFrom(trustedTable('regions')).where(stContains<Region>('area', candidatePolygon)).compile();
 ```
 
 The compiler emits only the closed PostGIS function names and binds the GeoJSON arguments. Every non-PostgreSQL dialect refuses these predicates.

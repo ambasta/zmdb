@@ -1,4 +1,4 @@
-import { createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { describe, it, expect } from 'vitest';
 
 import { mysqlDialect, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
@@ -7,18 +7,24 @@ import { mysqlDialect, postgresDialect, sqliteDialect } from './testing/official
 
 describe('dialect coverage — writes', () => {
   it('postgres INSERT uses $n placeholders and double quotes', () => {
-    const q = createQueryCompiler(postgresDialect).insertInto('users').values({ email: 'a@b.com' }).compile();
+    const q = createQueryCompiler(postgresDialect)
+      .insertInto(trustedTable('users'))
+      .values({ email: 'a@b.com' })
+      .compile();
     expect(q.text).toBe('INSERT INTO "users" ("email") VALUES ($1)');
   });
 
   it('mysql INSERT uses ? placeholders and backticks', () => {
-    const q = createQueryCompiler(mysqlDialect).insertInto('users').values({ email: 'a@b.com' }).compile();
+    const q = createQueryCompiler(mysqlDialect)
+      .insertInto(trustedTable('users'))
+      .values({ email: 'a@b.com' })
+      .compile();
     expect(q.text).toBe('INSERT INTO `users` (`email`) VALUES (?)');
   });
 
   it('sqlite UPDATE uses ? placeholders and double quotes', () => {
     const q = createQueryCompiler(sqliteDialect)
-      .updateTable('users')
+      .updateTable(trustedTable('users'))
       .set({ email: 'a@b.com' })
       .where('id', '=', 1)
       .compile();
@@ -26,7 +32,7 @@ describe('dialect coverage — writes', () => {
   });
 
   it('mysql DELETE uses ? placeholders and backticks', () => {
-    const q = createQueryCompiler(mysqlDialect).deleteFrom('users').where('id', '=', 1).compile();
+    const q = createQueryCompiler(mysqlDialect).deleteFrom(trustedTable('users')).where('id', '=', 1).compile();
     expect(q.text).toBe('DELETE FROM `users` WHERE `id` = ?');
   });
 });

@@ -4,7 +4,9 @@ Update rows with the query builder, or through a repository's `update(id, patch)
 ## Basic update
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile();
+import { trustedTable } from '@zmdb/sql';
+
+qc.updateTable(trustedTable('users')).set({ role: 'admin' }).where('id', '=', 1).compile();
 ```
 
 ```sql
@@ -15,7 +17,9 @@ UPDATE "users" SET "role" = $1 WHERE "id" = $2
 ## Returning the updated row
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).returning(['id', 'role']).compile();
+import { trustedTable } from '@zmdb/sql';
+
+qc.updateTable(trustedTable('users')).set({ role: 'admin' }).where('id', '=', 1).returning(['id', 'role']).compile();
 ```
 
 ```sql

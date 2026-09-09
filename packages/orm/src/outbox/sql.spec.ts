@@ -19,8 +19,7 @@ import {
   outboxTableDdl,
   type OutboxStatus,
 } from '@zmdb/orm/outbox';
-import { createQueryCompiler, quoteIdentifier } from '@zmdb/sql';
-import { type CompiledQuery, type DialectTarget } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, quoteIdentifier, type CompiledQuery, type DialectTarget } from '@zmdb/sql';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 import { describe, expect, it } from 'vitest';
 
@@ -57,7 +56,7 @@ function target(dialect: OfficialDialectName): DialectTarget {
 function candidatesByHand(dialect: OfficialDialectName, now: Date, batch: number): CompiledQuery {
   return (
     createQueryCompiler(target(dialect))
-      .selectFrom(OUTBOX_TABLE)
+      .selectFrom(trustedTable(OUTBOX_TABLE))
       .select(['id'])
       .where('status', '=', PENDING)
       .where('lease_until', '<', now)
@@ -72,7 +71,7 @@ function candidatesByHand(dialect: OfficialDialectName, now: Date, batch: number
 
 function claimByHand(dialect: OfficialDialectName, now: Date, token: string, leaseUntil: Date, ids: readonly string[]) {
   return createQueryCompiler(target(dialect))
-    .updateTable(OUTBOX_TABLE)
+    .updateTable(trustedTable(OUTBOX_TABLE))
     .set({ lease_owner: token, lease_until: leaseUntil })
     .where('status', '=', PENDING)
     .where('lease_until', '<', now)
@@ -82,7 +81,7 @@ function claimByHand(dialect: OfficialDialectName, now: Date, token: string, lea
 
 function readBackByHand(dialect: OfficialDialectName, token: string): CompiledQuery {
   return createQueryCompiler(target(dialect))
-    .selectFrom(OUTBOX_TABLE)
+    .selectFrom(trustedTable(OUTBOX_TABLE))
     .select(['id', 'topic', 'payload', 'attempts'])
     .where('lease_owner', '=', token)
     .compile();
@@ -141,7 +140,7 @@ function seedPending(db: DatabaseSync, ids: readonly string[]): void {
   ids.forEach((id, i) => {
     run(
       createQueryCompiler(sqliteDialect)
-        .insertInto(OUTBOX_TABLE)
+        .insertInto(trustedTable(OUTBOX_TABLE))
         .values({
           id,
           topic: 'post.published',
@@ -404,7 +403,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   it('the explicit `is null` operator emits no bound parameter', () => {
     expect(
       createQueryCompiler(postgresDialect)
-        .selectFrom(OUTBOX_TABLE)
+        .selectFrom(trustedTable(OUTBOX_TABLE))
         .select(['id'])
         .where('deliveredAt', 'is null', null)
         .compile(),
@@ -436,7 +435,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   it('refuses RETURNING on mysql instead of emitting SQL the server rejects', () => {
     expect(() =>
       createQueryCompiler(mysqlDialect)
-        .updateTable(OUTBOX_TABLE)
+        .updateTable(trustedTable(OUTBOX_TABLE))
         .set({ status: 'delivered' })
         .where('id', '=', 'r1')
         .returning(['id'])

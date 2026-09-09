@@ -1,8 +1,7 @@
 import { diff, snapshot, type ChangeOp, type SchemaSnapshot, type SnapshotableSchema } from '@zmdb/migrations';
 import { mysql, type MysqlQueryable } from '@zmdb/mysql';
 import { outboxTableDdl } from '@zmdb/orm/outbox';
-import { createQueryCompiler, UnsupportedFeatureError, type IntrospectionDriver } from '@zmdb/sql';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
+import { trustedTable, createQueryCompiler, UnsupportedFeatureError, type IntrospectionDriver } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import { singlestore, singlestoreDriver, singlestoreIntrospector } from './index.js';
@@ -144,8 +143,14 @@ function catalogDriver(): IntrospectionDriver {
 
 describe('@zmdb/singlestore vertical', () => {
   it('inherits MySQL placeholders and quoting', () => {
-    const parent = createQueryCompiler(mysql).selectFrom('users').where('email', '=', 'a@example.test').compile();
-    const child = createQueryCompiler(singlestore).selectFrom('users').where('email', '=', 'a@example.test').compile();
+    const parent = createQueryCompiler(mysql)
+      .selectFrom(trustedTable('users'))
+      .where('email', '=', 'a@example.test')
+      .compile();
+    const child = createQueryCompiler(singlestore)
+      .selectFrom(trustedTable('users'))
+      .where('email', '=', 'a@example.test')
+      .compile();
 
     expect(child).toEqual(parent);
     expect(singlestore.family).toBe('mysql');
@@ -163,7 +168,9 @@ describe('@zmdb/singlestore vertical', () => {
   });
 
   it('removes the MySQL-only natural-language suffix from full-text queries', () => {
-    expect(ftsSelectFrom('documents', singlestore).whereMatch('body', 'single').compile()).toEqual({
+    expect(
+      createQueryCompiler(singlestore).selectFrom(trustedTable('documents')).whereMatch('body', 'single').compile(),
+    ).toEqual({
       text: 'SELECT * FROM `documents` WHERE MATCH(`body`) AGAINST(?)',
       parameters: ['single'],
     });

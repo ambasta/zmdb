@@ -82,12 +82,12 @@ DROP VIEW IF EXISTS "user_with_post_count"
 Once a view exists in your database, you can query it like a regular table using zmdb's query compiler. The view's columns become available through standard SELECT operations.
 
 ```ts {"mode":"compile","id":"example-004"}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
 
-const query = compiler.selectFrom('user_with_post_count').select(['id', 'email', 'post_count']).where('post_count', '>', 5).orderBy('post_count', 'desc').limit(10).compile();
+const query = compiler.selectFrom(trustedTable('user_with_post_count')).select(['id', 'email', 'post_count']).where('post_count', '>', 5).orderBy('post_count', 'desc').limit(10).compile();
 
 console.log(query.text);
 console.log(query.parameters);

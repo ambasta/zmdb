@@ -857,13 +857,11 @@ SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, f
 - **Release unit:** `core`
 - **Exports:**
   - `.` → `./src/index.ts`
-  - `./aggregations` → `./src/aggregations/index.ts`
   - `./comments` → `./src/comments/index.ts`
-  - `./fts` → `./src/fts/index.ts`
-  - `./joins` → `./src/joins/index.ts`
   - `./schema-objects` → `./src/schema-objects/index.ts`
   - `./set-ops` → `./src/set-ops/index.ts`
-- **Dependencies:** None.
+- **Dependencies:**
+  - `@zmdb/schema` → `workspace:^`
 - **Optional dependencies:** None.
 - **Optional peers:** None.
 - **Required peers:** None.

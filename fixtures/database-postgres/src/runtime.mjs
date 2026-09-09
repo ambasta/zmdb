@@ -12,8 +12,7 @@ import {
   postgresOutboxPendingIndexDdl,
   postgresOutboxTableDdl,
 } from '@zmdb/postgres';
-import { createQueryCompiler } from '@zmdb/sql';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { Pool } from 'pg';
 
 const connectionString = process.env.ZMDB_POSTGRES_URL;
@@ -111,24 +110,26 @@ try {
 
     const compiler = createQueryCompiler(postgres);
     const account = await driver.execute(
-      compiler.insertInto('zmdb_issue_670.accounts').values({ name: 'Acme' }).returning(['id']).compile(),
+      compiler.insertInto(trustedTable('zmdb_issue_670.accounts')).values({ name: 'Acme' }).returning(['id']).compile(),
     );
     const accountId = account[0]?.id;
     assert(typeof accountId === 'number', 'account INSERT did not return id');
     const inserted = await driver.execute(
       compiler
-        .insertInto(usersTable)
+        .insertInto(trustedTable(usersTable))
         .values({ account_id: accountId, email: 'Alice@Example.test' })
         .returning(['id', 'email'])
         .compile(),
     );
     const userId = inserted[0]?.id;
     assert(typeof userId === 'number', 'user INSERT did not return id');
-    const selected = await driver.execute(compiler.selectFrom(usersTable).where('id', '=', userId).compile());
+    const selected = await driver.execute(
+      compiler.selectFrom(trustedTable(usersTable)).where('id', '=', userId).compile(),
+    );
     assert(selected[0]?.email === 'Alice@Example.test', 'SELECT did not round-trip');
     const updated = await driver.execute(
       compiler
-        .updateTable(usersTable)
+        .updateTable(trustedTable(usersTable))
         .set({ email: 'alice@example.test' })
         .where('id', '=', userId)
         .returning(['email'])
@@ -136,7 +137,7 @@ try {
     );
     assert(updated[0]?.email === 'alice@example.test', 'UPDATE RETURNING failed');
     const fts = await driver.execute(
-      ftsSelectFrom(usersTable, postgres).whereMatch('email', 'alice@example.test').compile(),
+      compiler.selectFrom(trustedTable(usersTable)).whereMatch('email', 'alice@example.test').compile(),
     );
     assert(fts.length === 1, 'full-text query failed');
     await driver.transaction(async transaction => {
@@ -148,7 +149,7 @@ try {
       await transaction.execute({ text: 'DROP TABLE "zmdb_outbox"', parameters: [] });
     });
     const deleted = await driver.execute(
-      compiler.deleteFrom(usersTable).where('id', '=', userId).returning(['id']).compile(),
+      compiler.deleteFrom(trustedTable(usersTable)).where('id', '=', userId).returning(['id']).compile(),
     );
     assert(deleted[0]?.id === userId, 'DELETE RETURNING failed');
   });

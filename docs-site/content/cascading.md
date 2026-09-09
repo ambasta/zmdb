@@ -82,10 +82,12 @@ The `node:sqlite` adapter runs `PRAGMA foreign_keys = ON` when it wraps a connec
 When a cascade also archives rows, emits an event or calls a service, make those steps explicit in a transaction:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createQueryCompiler, db, driver, id, postRepo; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { postgres } from '@zmdb/postgres';
 
 await db.transaction(async () => {
-  await driver.execute(createQueryCompiler(postgres).deleteFrom('comments').where('post_id', '=', id).compile());
+  await driver.execute(createQueryCompiler(postgres).deleteFrom(trustedTable('comments')).where('post_id', '=', id).compile());
   await postRepo.delete(id);
 });
 ```

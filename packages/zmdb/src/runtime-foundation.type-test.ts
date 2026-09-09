@@ -58,8 +58,6 @@ import {
   type SqlDialect,
 } from '@zmdb/sql';
 import { type appendComment, type serializeComment, type withComments } from '@zmdb/sql/comments';
-import { type ftsSelectFrom } from '@zmdb/sql/fts';
-import { type joinableSelectFrom } from '@zmdb/sql/joins';
 import {
   type checkConstraintDdl,
   type createIndexDdl,
@@ -102,7 +100,7 @@ type FoundationSubpaths = {
     | './openapi'
     | './relations'
     | './tags';
-  readonly '@zmdb/sql': '.' | './aggregations' | './comments' | './fts' | './joins' | './schema-objects' | './set-ops';
+  readonly '@zmdb/sql': '.' | './comments' | './schema-objects' | './set-ops';
   readonly '@zmdb/validator': '.' | './advanced' | './errors' | './protobuf/wire' | './serialization';
   readonly '@zmdb/orm':
     | '.'
@@ -163,8 +161,6 @@ type SqlCommentValues = {
   readonly withComments: typeof withComments;
 };
 
-type SqlFtsValues = { readonly ftsSelectFrom: typeof ftsSelectFrom };
-type SqlJoinValues = { readonly joinableSelectFrom: typeof joinableSelectFrom };
 type SqlSchemaObjectValues = {
   readonly checkConstraintDdl: typeof checkConstraintDdl;
   readonly createIndexDdl: typeof createIndexDdl;
@@ -242,10 +238,7 @@ export type _SchemaSubpathsAreExact = Expect<
   >
 >;
 export type _SqlSubpathsAreExact = Expect<
-  Equal<
-    FoundationSubpaths['@zmdb/sql'],
-    '.' | './aggregations' | './comments' | './fts' | './joins' | './schema-objects' | './set-ops'
-  >
+  Equal<FoundationSubpaths['@zmdb/sql'], '.' | './comments' | './schema-objects' | './set-ops'>
 >;
 export type _ValidatorSubpathsAreExact = Expect<
   Equal<FoundationSubpaths['@zmdb/validator'], '.' | './advanced' | './errors' | './protobuf/wire' | './serialization'>
@@ -290,8 +283,6 @@ export type _SqlRootValues = Expect<Equal<keyof SqlRootValues, 'createQueryCompi
 export type _SqlCommentValues = Expect<
   Equal<keyof SqlCommentValues, 'appendComment' | 'serializeComment' | 'withComments'>
 >;
-export type _SqlFtsValues = Expect<Equal<keyof SqlFtsValues, 'ftsSelectFrom'>>;
-export type _SqlJoinValues = Expect<Equal<keyof SqlJoinValues, 'joinableSelectFrom'>>;
 export type _SqlSchemaObjectValues = Expect<
   Equal<keyof SqlSchemaObjectValues, 'checkConstraintDdl' | 'createIndexDdl' | 'createViewDdl' | 'dropViewDdl'>
 >;

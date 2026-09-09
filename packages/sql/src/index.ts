@@ -1,4 +1,28 @@
+import type { CoreSchema } from '@zmdb/schema';
+
 import type { CompiledQuery } from './compiled-query.js';
+import {
+  bindTable,
+  mapColumn,
+  mapPredicates,
+  mapProjection,
+  mapRow,
+  type QueryBinding,
+  type TrustedTable,
+} from './query-binding.js';
+import type { QueryCompiler } from './query-types.js';
+import { SelectQuery } from './select-builder.js';
+export { trustedTable } from './query-binding.js';
+export type { TrustedTable } from './query-binding.js';
+export type {
+  QueryCompiler,
+  SelectBuilder,
+  InsertBuilder,
+  UpdateBuilder,
+  DeleteBuilder,
+  OnConflictBuilder,
+  QueryPredicate,
+} from './query-types.js';
 // @zmdb/sql — implementation.
 import {
   dialectName,
@@ -78,31 +102,8 @@ export type {
   CatalogWarning,
 } from './introspect/types.js';
 
-// #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
-// which also satisfies the SELECT-based dialect tests of #19). Write builders
-// (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
-
-import {
-  frozenQuery,
-  queryTelemetry,
-  tailClause,
-  tailMethods,
-  whereClause,
-  type ComparisonPredicate,
-  type Predicate,
-  type PredicateGroup,
-} from './clauses.js';
+import { frozenQuery, queryTelemetry, whereClause, type Predicate } from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
-import {
-  isAliasedDistanceExpression,
-  isDistanceExpression,
-  isSpatialPredicate,
-  renderAliasedDistanceExpression,
-  renderDistanceExpression,
-  type AliasedDistanceExpression,
-  type DistanceExpression,
-  type SpatialPredicate,
-} from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
@@ -140,7 +141,8 @@ export type Operator =
 
 export { OP_MAP } from './clauses.js';
 export { renderPredicate } from './clauses.js';
-export type { ComparisonPredicate, Predicate, PredicateGroup } from './clauses.js';
+export { escapeFts5Term } from './clauses.js';
+export type { ComparisonPredicate, Predicate, PredicateGroup, JoinCondition, JoinKind } from './clauses.js';
 
 export type Direction = 'asc' | 'desc';
 
@@ -150,12 +152,7 @@ export interface AliasedColumn {
   readonly alias: string;
 }
 
-type SelectedColumn = string | AliasedColumn | AliasedDistanceExpression;
 type ReturningColumn = string | AliasedColumn;
-
-function isAliasedColumn(column: SelectedColumn | ReturningColumn): column is AliasedColumn {
-  return typeof column === 'object' && 'column' in column && 'alias' in column;
-}
 
 /**
  * Collection utility that deduplicates keys while preserving insertion order AND
@@ -197,178 +194,35 @@ export interface QueryCompilerOptions {
   readonly telemetry?: true;
 }
 
-interface SelectState {
-  readonly table: string;
-  readonly columns?: readonly SelectedColumn[];
-  readonly wheres: readonly Predicate[];
-  readonly orderBys: readonly { col: string | DistanceExpression; dir: Direction }[];
-  readonly limitN?: number;
-  readonly offsetN?: number;
+interface RuntimeOnConflictBuilder {
+  doUpdate(updateFields?: readonly string[] | Record<string, unknown>): RuntimeInsertBuilder;
+  doNothing(): RuntimeInsertBuilder;
 }
 
-export interface SelectBuilder<T = unknown> {
-  select(columns?: readonly SelectedColumn[]): SelectBuilder<T>;
-  where(predicate: SpatialPredicate): SelectBuilder<T>;
-  where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  whereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
-  orWhereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
-  whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
-  andWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
-  orWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
-  whereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
-  andWhereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
-  orWhereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
-  whereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
-  andWhereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
-  orWhereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
-  whereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
-  andWhereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
-  orWhereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
-  orderBy(col: string | DistanceExpression, dir: Direction): SelectBuilder<T>;
-  limit(n: number): SelectBuilder<T>;
-  offset(n: number): SelectBuilder<T>;
-  compile(): CompiledQuery;
-  readonly dialect: DialectTarget;
-  readonly _type?: T;
-}
-
-function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry: boolean): SelectBuilder<T> {
-  const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
-    next({ wheres: [...state.wheres, { col, op, value, connector }] });
-  const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
-    next({ wheres: [...state.wheres, { ...predicate, connector }] });
-  const addGroup = (connector: 'AND' | 'OR', predicates: readonly ComparisonPredicate[]) =>
-    next({ wheres: [...state.wheres, { kind: 'group', predicates, connector } satisfies PredicateGroup] });
-
-  function where(predicate: SpatialPredicate): SelectBuilder<T>;
-  function where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function where(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
-    if (isSpatialPredicate(first)) return addSpatial('AND', first);
-    if (op === undefined) throw new TypeError('where(column, operator, value) requires an operator');
-    return addWhere('AND', first, op, value);
-  }
-
-  function andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function andWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
-    if (isSpatialPredicate(first)) return addSpatial('AND', first);
-    if (op === undefined) throw new TypeError('andWhere(column, operator, value) requires an operator');
-    return addWhere('AND', first, op, value);
-  }
-
-  function orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function orWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
-    if (isSpatialPredicate(first)) return addSpatial('OR', first);
-    if (op === undefined) throw new TypeError('orWhere(column, operator, value) requires an operator');
-    return addWhere('OR', first, op, value);
-  }
-
-  return {
-    ...tailMethods(state, next),
-    dialect: d,
-    select: columns => (columns === undefined ? next({}) : next({ columns })),
-    where,
-    andWhere,
-    orWhere,
-    whereGroup: predicates => addGroup('AND', predicates),
-    orWhereGroup: predicates => addGroup('OR', predicates),
-    whereIn: (col, values) => addWhere('AND', col, 'in', values),
-    andWhereIn: (col, values) => addWhere('AND', col, 'in', values),
-    orWhereIn: (col, values) => addWhere('OR', col, 'in', values),
-    whereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
-    andWhereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
-    orWhereNotIn: (col, values) => addWhere('OR', col, 'not in', values),
-    whereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
-    andWhereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
-    orWhereExists: subquery => addWhere('OR', '', 'EXISTS', subquery),
-    whereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
-    andWhereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
-    orWhereNotExists: subquery => addWhere('OR', '', 'NOT EXISTS', subquery),
-    compile: () => {
-      const params: unknown[] = [];
-      const cols =
-        state.columns && state.columns.length > 0
-          ? state.columns
-              .map(column =>
-                isAliasedColumn(column)
-                  ? `${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`
-                  : isAliasedDistanceExpression(column)
-                    ? renderAliasedDistanceExpression(d, column, params)
-                    : quoteColumn(d, column),
-              )
-              .join(', ')
-          : '*';
-      const predicates = whereClause(d, state.wheres, params);
-      const orderBy =
-        state.orderBys.length === 0
-          ? ''
-          : ` ORDER BY ${state.orderBys
-              .map(order => {
-                const expression = isDistanceExpression(order.col)
-                  ? renderDistanceExpression(d, order.col, params)
-                  : quoteColumn(d, order.col);
-                return `${expression} ${order.dir.toUpperCase()}`;
-              })
-              .join(', ')}`;
-      const text =
-        `SELECT ${cols} FROM ${quoteTable(d, state.table)}` +
-        predicates +
-        orderBy +
-        tailClause(d, {
-          limitN: state.limitN,
-          offsetN: state.offsetN,
-          ordered: state.orderBys.length > 0,
-        });
-      return frozenQuery(text, params, queryTelemetry(d, 'SELECT', state.table, telemetry));
-    },
-  };
-}
-
-export interface OnConflictBuilder {
-  doUpdate(updateFields?: readonly string[] | Record<string, unknown>): InsertBuilder;
-  doNothing(): InsertBuilder;
-}
-
-export interface InsertBuilder {
-  values(row: Record<string, unknown>): InsertBuilder;
-  onConflict(target?: string | readonly string[]): OnConflictBuilder;
-  returning(cols?: readonly ReturningColumn[]): InsertBuilder;
+interface RuntimeInsertBuilder {
+  values(row: Record<string, unknown>): RuntimeInsertBuilder;
+  onConflict(target?: string | readonly string[]): RuntimeOnConflictBuilder;
+  returning(cols?: readonly ReturningColumn[]): RuntimeInsertBuilder;
   compile(): CompiledQuery;
 }
-export interface UpdateBuilder {
-  set(row: Record<string, unknown>): UpdateBuilder;
-  where(col: string, op: Operator, value: unknown): UpdateBuilder;
-  orWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
-  whereGroup(predicates: readonly ComparisonPredicate[]): UpdateBuilder;
-  whereIn(col: string, values: readonly unknown[]): UpdateBuilder;
-  whereNotIn(col: string, values: readonly unknown[]): UpdateBuilder;
-  returning(cols?: readonly ReturningColumn[]): UpdateBuilder;
+interface RuntimeUpdateBuilder {
+  set(row: Record<string, unknown>): RuntimeUpdateBuilder;
+  where(col: string, op: Operator, value: unknown): RuntimeUpdateBuilder;
+  orWhere(col: string, op: Operator, value: unknown): RuntimeUpdateBuilder;
+  whereGroup(predicates: readonly Predicate[]): RuntimeUpdateBuilder;
+  whereIn(col: string, values: readonly unknown[]): RuntimeUpdateBuilder;
+  whereNotIn(col: string, values: readonly unknown[]): RuntimeUpdateBuilder;
+  returning(cols?: readonly ReturningColumn[]): RuntimeUpdateBuilder;
   compile(): CompiledQuery;
 }
-export interface DeleteBuilder {
-  where(col: string, op: Operator, value: unknown): DeleteBuilder;
-  orWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
-  whereGroup(predicates: readonly ComparisonPredicate[]): DeleteBuilder;
-  whereIn(col: string, values: readonly unknown[]): DeleteBuilder;
-  whereNotIn(col: string, values: readonly unknown[]): DeleteBuilder;
-  returning(cols?: readonly ReturningColumn[]): DeleteBuilder;
+interface RuntimeDeleteBuilder {
+  where(col: string, op: Operator, value: unknown): RuntimeDeleteBuilder;
+  orWhere(col: string, op: Operator, value: unknown): RuntimeDeleteBuilder;
+  whereGroup(predicates: readonly Predicate[]): RuntimeDeleteBuilder;
+  whereIn(col: string, values: readonly unknown[]): RuntimeDeleteBuilder;
+  whereNotIn(col: string, values: readonly unknown[]): RuntimeDeleteBuilder;
+  returning(cols?: readonly ReturningColumn[]): RuntimeDeleteBuilder;
   compile(): CompiledQuery;
-}
-
-export interface QueryCompiler {
-  selectFrom(table: string): SelectBuilder;
-  insertInto(table: string): InsertBuilder;
-  updateTable(table: string): UpdateBuilder;
-  deleteFrom(table: string): DeleteBuilder;
-  callFunction(name: string, args: readonly unknown[]): CompiledQuery;
-  callTableFunction(name: string, args: readonly unknown[]): CompiledQuery;
-  callProcedure(name: string, args: readonly unknown[]): CompiledQuery;
 }
 
 function routineCall(
@@ -394,6 +248,17 @@ function routineCall(
         ? `SELECT * FROM ${routine}(${placeholders})`
         : `SELECT ${routine}(${placeholders}) AS ${quoteIdentifier(dialect, 'result')}`;
   return frozenQuery(text, args);
+}
+
+function returningColumns(
+  binding: QueryBinding,
+  columns: readonly ReturningColumn[] = ['*'],
+): readonly ReturningColumn[] {
+  const names = binding.names;
+  if (names === undefined) return columns;
+  return columns.flatMap<ReturningColumn>(column =>
+    column === '*' ? names.projection : [mapProjection(binding, column)],
+  );
 }
 
 function returningColumn(d: DialectTarget, column: ReturningColumn): string {
@@ -507,18 +372,19 @@ function setValueSql(
 
 function makeInsert(
   d: DialectTarget,
-  table: string,
+  binding: QueryBinding,
   row?: Record<string, unknown>,
   ret?: readonly ReturningColumn[],
   conflict?: ConflictState,
   telemetry = false,
-): InsertBuilder {
-  const setConflict = (c: ConflictState) => makeInsert(d, table, row, ret, c, telemetry);
+): RuntimeInsertBuilder {
+  const table = binding.table;
+  const setConflict = (c: ConflictState) => makeInsert(d, binding, row, ret, c, telemetry);
   return {
-    values: r => makeInsert(d, table, r, ret, conflict, telemetry),
-    returning: cols => makeInsert(d, table, row, cols ?? [], conflict, telemetry),
+    values: r => makeInsert(d, binding, mapRow(binding, r), ret, conflict, telemetry),
+    returning: cols => makeInsert(d, binding, row, returningColumns(binding, cols), conflict, telemetry),
     onConflict: target => {
-      const normTarget = normalizeTarget(target);
+      const normTarget = normalizeTarget(target)?.map(column => mapColumn(binding, column));
       return {
         doUpdate: updateFields => {
           if (Array.isArray(updateFields) && updateFields.length === 0) {
@@ -526,7 +392,15 @@ function makeInsert(
               'Empty updateFields array is not allowed in doUpdate(). Omit updateFields (or pass undefined) to update all non-target columns, or use doNothing().',
             );
           }
-          return setConflict({ action: 'update', target: normTarget, updateFields });
+          return setConflict({
+            action: 'update',
+            target: normTarget,
+            updateFields: Array.isArray(updateFields)
+              ? updateFields.map(column => mapColumn(binding, column))
+              : updateFields === undefined
+                ? undefined
+                : mapRow(binding, updateFields as Record<string, unknown>),
+          });
         },
         doNothing: () => setConflict({ action: 'ignore', target: normTarget }),
       };
@@ -604,25 +478,61 @@ function makeInsert(
 
 function makeUpdate(
   d: DialectTarget,
-  table: string,
+  binding: QueryBinding,
   row?: Record<string, unknown>,
   wheres: readonly Predicate[] = [],
   ret?: readonly ReturningColumn[],
   telemetry = false,
-): UpdateBuilder {
+): RuntimeUpdateBuilder {
+  const table = binding.table;
   return {
-    set: r => makeUpdate(d, table, r, wheres, ret, telemetry),
+    set: r => makeUpdate(d, binding, mapRow(binding, r), wheres, ret, telemetry),
     where: (col, op, value) =>
-      makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry),
+      makeUpdate(
+        d,
+        binding,
+        row,
+        [...wheres, { col: mapColumn(binding, col), op, value, connector: 'AND' }],
+        ret,
+        telemetry,
+      ),
     orWhere: (col, op, value) =>
-      makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry),
+      makeUpdate(
+        d,
+        binding,
+        row,
+        [...wheres, { col: mapColumn(binding, col), op, value, connector: 'OR' }],
+        ret,
+        telemetry,
+      ),
     whereGroup: predicates =>
-      makeUpdate(d, table, row, [...wheres, { kind: 'group', predicates, connector: 'AND' }], ret, telemetry),
+      makeUpdate(
+        d,
+        binding,
+        row,
+        [...wheres, { kind: 'group', predicates: mapPredicates(binding, predicates), connector: 'AND' }],
+        ret,
+        telemetry,
+      ),
     whereIn: (col, values) =>
-      makeUpdate(d, table, row, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret, telemetry),
+      makeUpdate(
+        d,
+        binding,
+        row,
+        [...wheres, { col: mapColumn(binding, col), op: 'in', value: values, connector: 'AND' }],
+        ret,
+        telemetry,
+      ),
     whereNotIn: (col, values) =>
-      makeUpdate(d, table, row, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret, telemetry),
-    returning: cols => makeUpdate(d, table, row, wheres, cols ?? [], telemetry),
+      makeUpdate(
+        d,
+        binding,
+        row,
+        [...wheres, { col: mapColumn(binding, col), op: 'not in', value: values, connector: 'AND' }],
+        ret,
+        telemetry,
+      ),
+    returning: cols => makeUpdate(d, binding, row, wheres, returningColumns(binding, cols), telemetry),
     compile: () => {
       if (!row) throw new Error('updateTable requires set()');
       const params: unknown[] = [];
@@ -642,21 +552,48 @@ function makeUpdate(
 
 function makeDelete(
   d: DialectTarget,
-  table: string,
+  binding: QueryBinding,
   wheres: readonly Predicate[] = [],
   ret?: readonly ReturningColumn[],
   telemetry = false,
-): DeleteBuilder {
+): RuntimeDeleteBuilder {
+  const table = binding.table;
   return {
-    where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry),
-    orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry),
+    where: (col, op, value) =>
+      makeDelete(
+        d,
+        binding,
+        [...wheres, { col: mapColumn(binding, col), op, value, connector: 'AND' }],
+        ret,
+        telemetry,
+      ),
+    orWhere: (col, op, value) =>
+      makeDelete(d, binding, [...wheres, { col: mapColumn(binding, col), op, value, connector: 'OR' }], ret, telemetry),
     whereGroup: predicates =>
-      makeDelete(d, table, [...wheres, { kind: 'group', predicates, connector: 'AND' }], ret, telemetry),
+      makeDelete(
+        d,
+        binding,
+        [...wheres, { kind: 'group', predicates: mapPredicates(binding, predicates), connector: 'AND' }],
+        ret,
+        telemetry,
+      ),
     whereIn: (col, values) =>
-      makeDelete(d, table, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret, telemetry),
+      makeDelete(
+        d,
+        binding,
+        [...wheres, { col: mapColumn(binding, col), op: 'in', value: values, connector: 'AND' }],
+        ret,
+        telemetry,
+      ),
     whereNotIn: (col, values) =>
-      makeDelete(d, table, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret, telemetry),
-    returning: cols => makeDelete(d, table, wheres, cols ?? [], telemetry),
+      makeDelete(
+        d,
+        binding,
+        [...wheres, { col: mapColumn(binding, col), op: 'not in', value: values, connector: 'AND' }],
+        ret,
+        telemetry,
+      ),
+    returning: cols => makeDelete(d, binding, wheres, returningColumns(binding, cols), telemetry),
     compile: () => {
       const params: unknown[] = [];
       const returning = returningSql(d, 'delete', 'old', ret);
@@ -673,13 +610,17 @@ export function createQueryCompiler<Name extends string>(
 ): QueryCompiler;
 export function createQueryCompiler(dialect: DialectTarget, options?: QueryCompilerOptions): QueryCompiler {
   const telemetry = options?.telemetry === true;
+  // The declaration type erases here. All public overloads use this one binding and runtime implementation.
   return {
-    selectFrom: table => makeSelect(dialect, { table, wheres: [], orderBys: [] }, telemetry),
-    insertInto: table => makeInsert(dialect, table, undefined, undefined, undefined, telemetry),
-    updateTable: table => makeUpdate(dialect, table, undefined, [], undefined, telemetry),
-    deleteFrom: table => makeDelete(dialect, table, [], undefined, telemetry),
-    callFunction: (name, args) => routineCall(dialect, name, args, 'function'),
-    callTableFunction: (name, args) => routineCall(dialect, name, args, 'table-function'),
-    callProcedure: (name, args) => routineCall(dialect, name, args, 'procedure'),
-  };
+    selectFrom: (target: CoreSchema | TrustedTable, alias?: string) =>
+      new SelectQuery(dialect, { binding: bindTable(target, alias) }, telemetry),
+    insertInto: (target: CoreSchema | TrustedTable) =>
+      makeInsert(dialect, bindTable(target), undefined, undefined, undefined, telemetry),
+    updateTable: (target: CoreSchema | TrustedTable) =>
+      makeUpdate(dialect, bindTable(target), undefined, [], undefined, telemetry),
+    deleteFrom: (target: CoreSchema | TrustedTable) => makeDelete(dialect, bindTable(target), [], undefined, telemetry),
+    callFunction: (name: string, args: readonly unknown[]) => routineCall(dialect, name, args, 'function'),
+    callTableFunction: (name: string, args: readonly unknown[]) => routineCall(dialect, name, args, 'table-function'),
+    callProcedure: (name: string, args: readonly unknown[]) => routineCall(dialect, name, args, 'procedure'),
+  } as unknown as QueryCompiler;
 }

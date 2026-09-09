@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 
 import { dialect } from './dialect.js';
 
 const query = createQueryCompiler(dialect, { telemetry: true })
-  .selectFrom('users')
+  .selectFrom(trustedTable('users'))
   .select(['id', 'email'])
   .where('id', '=', 7)
   .orderBy('id', 'asc')

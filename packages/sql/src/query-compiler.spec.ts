@@ -1,14 +1,28 @@
-import { OP_MAP, chunkArray, createQueryCompiler, distance, sanitizeKeys, stContains, stDWithin } from '@zmdb/sql';
-import { describe, it, expect } from 'vitest';
+import { type Entity } from '@zmdb/schema';
+import {
+  trustedTable,
+  inc,
+  not,
+  concat,
+  OP_MAP,
+  chunkArray,
+  createQueryCompiler,
+  distance,
+  sanitizeKeys,
+  stContains,
+  stDWithin,
+} from '@zmdb/sql';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 
 import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
+import { QueryPostSchema, QueryUserSchema, type QueryPost, type QueryUser } from './testing/query-schema.fixture.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
 describe('postgres SELECT compilation', () => {
   it('aliases a physical column back to its property name in the select list', () => {
     const query = createQueryCompiler(postgresDialect)
-      .selectFrom('user_accounts')
+      .selectFrom(trustedTable('user_accounts'))
       .select([{ column: 'created_at', alias: 'createdAt' }, 'id'])
       .compile();
 
@@ -20,14 +34,19 @@ describe('postgres SELECT compilation', () => {
 
   it('compiles where + orderBy + limit', () => {
     const qb = createQueryCompiler(postgresDialect);
-    const q = qb.selectFrom('users').where('email', '=', 'a@b.com').orderBy('createdAt', 'desc').limit(10).compile();
+    const q = qb
+      .selectFrom(trustedTable('users'))
+      .where('email', '=', 'a@b.com')
+      .orderBy('createdAt', 'desc')
+      .limit(10)
+      .compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "email" = $1 ORDER BY "createdAt" DESC LIMIT 10');
     expect(q.parameters).toEqual(['a@b.com']);
   });
 
   it('compiles andWhere with sequential placeholders', () => {
     const q = createQueryCompiler(postgresDialect)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('role', '=', 'admin')
       .andWhere('active', '=', true)
       .compile();
@@ -37,7 +56,7 @@ describe('postgres SELECT compilation', () => {
 
   it('compiles whereIn, andWhereIn, and orWhereIn', () => {
     const q = createQueryCompiler(postgresDialect)
-      .selectFrom('orders')
+      .selectFrom(trustedTable('orders'))
       .whereIn('status', ['pending', 'shipped'])
       .orWhereIn('userId', [1, 2])
       .compile();
@@ -47,7 +66,7 @@ describe('postgres SELECT compilation', () => {
 
   it('compiles whereNotIn, andWhereNotIn, and orWhereNotIn', () => {
     const q = createQueryCompiler(postgresDialect)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('active', '=', true)
       .andWhereNotIn('role', ['banned', 'guest'])
       .compile();
@@ -57,29 +76,35 @@ describe('postgres SELECT compilation', () => {
 
   it('compiles whereNotIn filtering null and undefined values to prevent three-valued logic traps', () => {
     const q1 = createQueryCompiler(postgresDialect)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .whereNotIn('role', ['banned', null, undefined, 'guest'])
       .compile();
     expect(q1.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
     expect(q1.parameters).toEqual(['banned', 'guest']);
 
-    const q2 = createQueryCompiler(postgresDialect).selectFrom('users').whereNotIn('role', [null, undefined]).compile();
+    const q2 = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('users'))
+      .whereNotIn('role', [null, undefined])
+      .compile();
     expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
     expect(q2.parameters).toEqual([]);
   });
 
   it('compiles empty whereIn to 1 = 0 and empty whereNotIn to 1 = 1', () => {
-    const qIn = createQueryCompiler(postgresDialect).selectFrom('users').whereIn('id', []).compile();
+    const qIn = createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).whereIn('id', []).compile();
     expect(qIn.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
     expect(qIn.parameters).toEqual([]);
 
-    const qNotIn = createQueryCompiler(postgresDialect).selectFrom('users').whereNotIn('id', []).compile();
+    const qNotIn = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('users'))
+      .whereNotIn('id', [])
+      .compile();
     expect(qNotIn.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
     expect(qNotIn.parameters).toEqual([]);
   });
 
   it('compile() is pure (twice → equal)', () => {
-    const b = createQueryCompiler(postgresDialect).selectFrom('users').where('id', '=', 1);
+    const b = createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('id', '=', 1);
     expect(b.compile()).toEqual(b.compile());
   });
 });
@@ -89,14 +114,18 @@ describe('aliased write results', () => {
 
   it('aliases RETURNING columns for the Postgres family and SQLite', () => {
     expect(
-      createQueryCompiler(postgresDialect).insertInto('users').values({ created_at: 1 }).returning(returned).compile(),
+      createQueryCompiler(postgresDialect)
+        .insertInto(trustedTable('users'))
+        .values({ created_at: 1 })
+        .returning(returned)
+        .compile(),
     ).toEqual({
       text: 'INSERT INTO "users" ("created_at") VALUES ($1) RETURNING "created_at" AS "createdAt"',
       parameters: [1],
     });
     expect(
       createQueryCompiler(sqliteDialect)
-        .updateTable('users')
+        .updateTable(trustedTable('users'))
         .set({ created_at: 2 })
         .where('id', '=', 1)
         .returning(returned)
@@ -116,12 +145,12 @@ describe('zero-operand null predicates', () => {
   // following placeholder.
   it('compiles zero-operand null predicates without shifting later parameters', () => {
     const isNull = createQueryCompiler(postgresDialect)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('deletedAt', 'is null', 'ignored')
       .andWhere('tenantId', '=', 7)
       .compile();
     const isNotNull = createQueryCompiler(postgresDialect)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('deletedAt', 'is not null', 123)
       .andWhere('active', '=', true)
       .compile();
@@ -137,10 +166,10 @@ describe('optional compile-time telemetry', () => {
   it('keeps every default CRUD compiled-query object exactly two-keyed', () => {
     const compiler = createQueryCompiler(postgresDialect);
     const queries = [
-      compiler.selectFrom('users').compile(),
-      compiler.insertInto('users').values({ email: 'a@b.com' }).compile(),
-      compiler.updateTable('users').set({ email: 'b@c.com' }).compile(),
-      compiler.deleteFrom('users').compile(),
+      compiler.selectFrom(trustedTable('users')).compile(),
+      compiler.insertInto(trustedTable('users')).values({ email: 'a@b.com' }).compile(),
+      compiler.updateTable(trustedTable('users')).set({ email: 'b@c.com' }).compile(),
+      compiler.deleteFrom(trustedTable('users')).compile(),
     ];
 
     for (const query of queries) {
@@ -154,27 +183,29 @@ describe('optional compile-time telemetry', () => {
     const mysql = createQueryCompiler(mysqlDialect, { telemetry: true });
     const sqlite = createQueryCompiler(sqliteDialect, { telemetry: true });
 
-    expect(postgres.selectFrom('users').compile().telemetry).toEqual({
+    expect(postgres.selectFrom(trustedTable('users')).compile().telemetry).toEqual({
       system: 'postgresql',
       operation: 'SELECT',
       collection: 'users',
     });
-    expect(postgres.insertInto('orders').values({ sku: 'A' }).compile().telemetry).toEqual({
+    expect(postgres.insertInto(trustedTable('orders')).values({ sku: 'A' }).compile().telemetry).toEqual({
       system: 'postgresql',
       operation: 'INSERT',
       collection: 'orders',
     });
-    expect(mysql.updateTable('accounts').set({ active: true }).compile().telemetry).toEqual({
+    expect(mysql.updateTable(trustedTable('accounts')).set({ active: true }).compile().telemetry).toEqual({
       system: 'mysql',
       operation: 'UPDATE',
       collection: 'accounts',
     });
-    expect(sqlite.deleteFrom('sessions').compile().telemetry).toEqual({
+    expect(sqlite.deleteFrom(trustedTable('sessions')).compile().telemetry).toEqual({
       system: 'sqlite',
       operation: 'DELETE',
       collection: 'sessions',
     });
-    expect(postgres.selectFrom('analytics.users as u').compile().telemetry?.collection).toBe('analytics.users');
+    expect(postgres.selectFrom(trustedTable('analytics.users as u')).compile().telemetry?.collection).toBe(
+      'analytics.users',
+    );
   });
 });
 
@@ -200,7 +231,7 @@ describe('utility functions', () => {
 describe('postgres write compilation', () => {
   it('INSERT ... RETURNING', () => {
     const q = createQueryCompiler(postgresDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ email: 'a@b.com', role: 'user' })
       .returning(['id'])
       .compile();
@@ -210,7 +241,7 @@ describe('postgres write compilation', () => {
 
   it('UPDATE ... SET ... WHERE', () => {
     const q = createQueryCompiler(postgresDialect)
-      .updateTable('users')
+      .updateTable(trustedTable('users'))
       .set({ role: 'admin' })
       .where('id', '=', 1)
       .compile();
@@ -219,7 +250,7 @@ describe('postgres write compilation', () => {
   });
 
   it('DELETE ... WHERE', () => {
-    const q = createQueryCompiler(postgresDialect).deleteFrom('users').where('id', '=', 1).compile();
+    const q = createQueryCompiler(postgresDialect).deleteFrom(trustedTable('users')).where('id', '=', 1).compile();
     expect(q.text).toBe('DELETE FROM "users" WHERE "id" = $1');
     expect(q.parameters).toEqual([1]);
   });
@@ -228,7 +259,7 @@ describe('postgres write compilation', () => {
 describe('dialect placeholder + quoting', () => {
   it('mysql uses ? and backticks', () => {
     const q = createQueryCompiler(mysqlDialect)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('email', '=', 'a@b.com')
       .orderBy('createdAt', 'desc')
       .limit(10)
@@ -238,7 +269,7 @@ describe('dialect placeholder + quoting', () => {
   });
 
   it('sqlite uses ? and double quotes', () => {
-    const q = createQueryCompiler(sqliteDialect).selectFrom('users').where('id', '=', 1).compile();
+    const q = createQueryCompiler(sqliteDialect).selectFrom(trustedTable('users')).where('id', '=', 1).compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "id" = ?');
     expect(q.parameters).toEqual([1]);
   });
@@ -247,8 +278,8 @@ describe('dialect placeholder + quoting', () => {
 describe('subquery & EXISTS compilation', () => {
   it('compiles scalar comparison and IN subqueries with sequential parameter offsets', () => {
     const qb = createQueryCompiler(postgresDialect);
-    const sub = qb.selectFrom('orders').select(['user_id']).where('amount', '>', 100);
-    const q = qb.selectFrom('users').where('status', '=', 'active').andWhere('id', 'in', sub).compile();
+    const sub = qb.selectFrom(trustedTable('orders')).select(['user_id']).where('amount', '>', 100);
+    const q = qb.selectFrom(trustedTable('users')).where('status', '=', 'active').andWhere('id', 'in', sub).compile();
 
     expect(q.text).toBe(
       'SELECT * FROM "users" WHERE "status" = $1 AND "id" IN (SELECT "user_id" FROM "orders" WHERE "amount" > $2)',
@@ -258,9 +289,14 @@ describe('subquery & EXISTS compilation', () => {
 
   it('compiles whereExists and orWhereExists clauses', () => {
     const qb = createQueryCompiler(postgresDialect);
-    const sub1 = qb.selectFrom('orders').where('status', '=', 'shipped');
-    const sub2 = qb.selectFrom('logs').where('level', '=', 'error');
-    const q = qb.selectFrom('users').where('role', '=', 'admin').whereExists(sub1).orWhereExists(sub2).compile();
+    const sub1 = qb.selectFrom(trustedTable('orders')).where('status', '=', 'shipped');
+    const sub2 = qb.selectFrom(trustedTable('logs')).where('level', '=', 'error');
+    const q = qb
+      .selectFrom(trustedTable('users'))
+      .where('role', '=', 'admin')
+      .whereExists(sub1)
+      .orWhereExists(sub2)
+      .compile();
 
     expect(q.text).toBe(
       'SELECT * FROM "users" WHERE "role" = $1 AND EXISTS (SELECT * FROM "orders" WHERE "status" = $2) OR EXISTS (SELECT * FROM "logs" WHERE "level" = $3)',
@@ -270,9 +306,17 @@ describe('subquery & EXISTS compilation', () => {
 
   it('compiles multi-level nested subqueries with continuous parameter renumbering', () => {
     const qb = createQueryCompiler(postgresDialect);
-    const inner = qb.selectFrom('payments').select(['order_id']).where('status', '=', 'failed');
-    const middle = qb.selectFrom('orders').select(['user_id']).where('total', '>', 50).andWhere('id', 'in', inner);
-    const outer = qb.selectFrom('users').where('tenant_id', '=', 10).andWhere('id', 'in', middle).compile();
+    const inner = qb.selectFrom(trustedTable('payments')).select(['order_id']).where('status', '=', 'failed');
+    const middle = qb
+      .selectFrom(trustedTable('orders'))
+      .select(['user_id'])
+      .where('total', '>', 50)
+      .andWhere('id', 'in', inner);
+    const outer = qb
+      .selectFrom(trustedTable('users'))
+      .where('tenant_id', '=', 10)
+      .andWhere('id', 'in', middle)
+      .compile();
 
     expect(outer.text).toBe(
       'SELECT * FROM "users" WHERE "tenant_id" = $1 AND "id" IN (SELECT "user_id" FROM "orders" WHERE "total" > $2 AND "id" IN (SELECT "order_id" FROM "payments" WHERE "status" = $3))',
@@ -284,7 +328,7 @@ describe('subquery & EXISTS compilation', () => {
 describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
   it('compiles PostgreSQL ON CONFLICT DO UPDATE (default non-target columns)', () => {
     const q = createQueryCompiler(postgresDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com', role: 'user' })
       .onConflict('id')
       .doUpdate()
@@ -298,7 +342,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
 
   it('compiles PostgreSQL ON CONFLICT DO UPDATE with specific update columns', () => {
     const q = createQueryCompiler(postgresDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com', role: 'user' })
       .onConflict('id')
       .doUpdate(['role'])
@@ -311,7 +355,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
 
   it('compiles PostgreSQL ON CONFLICT DO UPDATE with custom field values', () => {
     const q = createQueryCompiler(postgresDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com' })
       .onConflict('id')
       .doUpdate({ role: 'admin' })
@@ -324,7 +368,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
 
   it('compiles PostgreSQL ON CONFLICT DO NOTHING with and without target', () => {
     const q1 = createQueryCompiler(postgresDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com' })
       .onConflict('id')
       .doNothing()
@@ -332,7 +376,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
     expect(q1.text).toBe('INSERT INTO "users" ("id", "email") VALUES ($1, $2) ON CONFLICT ("id") DO NOTHING');
 
     const q2 = createQueryCompiler(postgresDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com' })
       .onConflict()
       .doNothing()
@@ -342,7 +386,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
 
   it('compiles MySQL ON DUPLICATE KEY UPDATE and INSERT IGNORE', () => {
     const qUpdate = createQueryCompiler(mysqlDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com', role: 'user' })
       .onConflict('id')
       .doUpdate()
@@ -353,7 +397,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
     expect(qUpdate.parameters).toEqual([1, 'a@b.com', 'user']);
 
     const qIgnore = createQueryCompiler(mysqlDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com' })
       .onConflict()
       .doNothing()
@@ -364,7 +408,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
 
   it('compiles SQLite ON CONFLICT DO UPDATE and DO NOTHING', () => {
     const qUpdate = createQueryCompiler(sqliteDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com', role: 'user' })
       .onConflict('id')
       .doUpdate()
@@ -376,7 +420,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
     expect(qUpdate.parameters).toEqual([1, 'a@b.com', 'user']);
 
     const qIgnore = createQueryCompiler(sqliteDialect)
-      .insertInto('users')
+      .insertInto(trustedTable('users'))
       .values({ id: 1, email: 'a@b.com' })
       .onConflict('id')
       .doNothing()
@@ -388,7 +432,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
   it('throws an error when doUpdate is called with an empty updateFields array', () => {
     expect(() => {
       createQueryCompiler(postgresDialect)
-        .insertInto('users')
+        .insertInto(trustedTable('users'))
         .values({ id: 1, email: 'a@b.com' })
         .onConflict('id')
         .doUpdate([]);
@@ -399,7 +443,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
 describe('array parameter IN expansion', () => {
   it('expands array parameters into parameterized IN clauses for postgres with sequential placeholders', () => {
     const q = createQueryCompiler(postgresDialect)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('id', 'in', [10, 20, 30])
       .andWhere('status', '=', 'active')
       .compile();
@@ -409,7 +453,7 @@ describe('array parameter IN expansion', () => {
 
   it('correctly renumbers placeholders when an IN list sits between other predicates in postgres', () => {
     const q = createQueryCompiler(postgresDialect)
-      .selectFrom('orders')
+      .selectFrom(trustedTable('orders'))
       .where('tenantId', '=', 100)
       .whereIn('status', ['pending', 'shipped'])
       .andWhere('total', '>', 500)
@@ -420,7 +464,7 @@ describe('array parameter IN expansion', () => {
 
   it('correctly renumbers placeholders when multiple IN lists sit between standard predicates', () => {
     const q = createQueryCompiler(postgresDialect)
-      .selectFrom('orders')
+      .selectFrom(trustedTable('orders'))
       .where('orgId', '=', 1)
       .whereIn('status', ['a', 'b'])
       .where('category', '=', 'elec')
@@ -434,30 +478,39 @@ describe('array parameter IN expansion', () => {
   });
 
   it('expands array parameters into parameterized IN clauses for mysql', () => {
-    const q = createQueryCompiler(mysqlDialect).selectFrom('users').whereIn('id', [10, 20]).compile();
+    const q = createQueryCompiler(mysqlDialect).selectFrom(trustedTable('users')).whereIn('id', [10, 20]).compile();
     expect(q.text).toBe('SELECT * FROM `users` WHERE `id` IN (?, ?)');
     expect(q.parameters).toEqual([10, 20]);
   });
 
   it('does not silently reinterpret = or != with array parameters as IN or NOT IN', () => {
-    const q1 = createQueryCompiler(postgresDialect).selectFrom('users').where('id', '=', [10, 20]).compile();
+    const q1 = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('users'))
+      .where('id', '=', [10, 20])
+      .compile();
     expect(q1.text).toBe('SELECT * FROM "users" WHERE "id" = $1');
     expect(q1.parameters).toEqual([[10, 20]]);
 
-    const q2 = createQueryCompiler(postgresDialect).selectFrom('users').where('id', '!=', [10, 20]).compile();
+    const q2 = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('users'))
+      .where('id', '!=', [10, 20])
+      .compile();
     expect(q2.text).toBe('SELECT * FROM "users" WHERE "id" != $1');
     expect(q2.parameters).toEqual([[10, 20]]);
   });
 
   it('expands array parameters into parameterized IN clauses for sqlite', () => {
-    const q = createQueryCompiler(sqliteDialect).selectFrom('users').where('id', 'in', [1, 2, 3]).compile();
+    const q = createQueryCompiler(sqliteDialect)
+      .selectFrom(trustedTable('users'))
+      .where('id', 'in', [1, 2, 3])
+      .compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "id" IN (?, ?, ?)');
     expect(q.parameters).toEqual([1, 2, 3]);
   });
 
   it('handles NOT IN / nin array expansion', () => {
     const q = createQueryCompiler(postgresDialect)
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .where('role', 'nin', ['admin', 'super'])
       .compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
@@ -465,11 +518,11 @@ describe('array parameter IN expansion', () => {
   });
 
   it('handles empty array parameters cleanly (false / true)', () => {
-    const q1 = createQueryCompiler(postgresDialect).selectFrom('users').where('id', 'in', []).compile();
+    const q1 = createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('id', 'in', []).compile();
     expect(q1.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
     expect(q1.parameters).toEqual([]);
 
-    const q2 = createQueryCompiler(postgresDialect).selectFrom('users').where('id', 'nin', []).compile();
+    const q2 = createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('id', 'nin', []).compile();
     expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
     expect(q2.parameters).toEqual([]);
   });
@@ -499,10 +552,10 @@ describe('Operator normalization & bounded dialect operators', () => {
 
     for (const [op, expectedSqlOp] of ops) {
       if (expectedSqlOp === 'IN' || expectedSqlOp === 'NOT IN') {
-        const q = qb.selectFrom('users').where('col', op, [1, 2]).compile();
+        const q = qb.selectFrom(trustedTable('users')).where('col', op, [1, 2]).compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} ($1, $2)`);
       } else {
-        const q = qb.selectFrom('users').where('col', op, 'val').compile();
+        const q = qb.selectFrom(trustedTable('users')).where('col', op, 'val').compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} $1`);
       }
     }
@@ -610,7 +663,7 @@ describe('Operator normalization & bounded dialect operators', () => {
 
     for (const testCase of cases) {
       const query = createQueryCompiler(officialDialects[testCase.dialect])
-        .selectFrom(testCase.table)
+        .selectFrom(trustedTable(testCase.table))
         .where(testCase.column, testCase.operator, testCase.value)
         .compile();
       expect(query.text, `${testCase.dialect} ${testCase.operator}`).toBe(testCase.text);
@@ -620,7 +673,10 @@ describe('Operator normalization & bounded dialect operators', () => {
 
   it('refuses the measured request-derived operator injection before returning SQL', () => {
     const compile = () =>
-      createQueryCompiler(postgresDialect).selectFrom('users').where('role', "= 'x' OR 1=1 --", 1).compile();
+      createQueryCompiler(postgresDialect)
+        .selectFrom(trustedTable('users'))
+        .where('role', "= 'x' OR 1=1 --", 1)
+        .compile();
 
     expect(compile).toThrow(
       'invalid unmapped SQL operator "= \'x\' OR 1=1 --" for dialect "postgres"; expected one non-comment ' +
@@ -633,7 +689,7 @@ describe('Operator normalization & bounded dialect operators', () => {
 
     for (const operator of invalid) {
       const compile = () =>
-        createQueryCompiler(postgresDialect).selectFrom('users').where('role', operator, 1).compile();
+        createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('role', operator, 1).compile();
       expect(compile, JSON.stringify(operator)).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -649,7 +705,10 @@ describe('Operator normalization & bounded dialect operators', () => {
 
     for (const { dialect, operator } of collisions) {
       const compile = () =>
-        createQueryCompiler(officialDialects[dialect]).selectFrom('users').where('payload', operator, 1).compile();
+        createQueryCompiler(officialDialects[dialect])
+          .selectFrom(trustedTable('users'))
+          .where('payload', operator, 1)
+          .compile();
       expect(compile, `${dialect} ${operator}`).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -663,7 +722,7 @@ describe('Operator normalization & bounded dialect operators', () => {
       const inherited: unknown = Reflect.get(input, 'operator');
       if (typeof inherited !== 'string') throw new TypeError('test input carried no inherited operator string');
       const compile = () =>
-        createQueryCompiler(postgresDialect).selectFrom('users').where('col', inherited, 'val').compile();
+        createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('col', inherited, 'val').compile();
       expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -699,7 +758,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
   it('orders by a cosine distance with the query vector parameterised', () => {
     expect(
       createQueryCompiler(postgresDialect)
-        .selectFrom('items')
+        .selectFrom(trustedTable('items'))
         .orderBy(distance<Item>('embedding', 'cosine', queryVector), 'asc')
         .limit(10)
         .compile(),
@@ -712,7 +771,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
   it('projects a distance as a selected column with an alias', () => {
     expect(
       createQueryCompiler(postgresDialect)
-        .selectFrom('items')
+        .selectFrom(trustedTable('items'))
         .select(['id', distance<Item>('embedding', 'cosine', queryVector).as('distance')])
         .compile(),
     ).toEqual({
@@ -725,7 +784,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
     const point = { type: 'Point', coordinates: [77.5946, 12.9716] } as const;
     expect(
       createQueryCompiler(postgresDialect)
-        .selectFrom('venues')
+        .selectFrom(trustedTable('venues'))
         .where(stDWithin<Venue>('location', point, 500))
         .compile(),
     ).toEqual({
@@ -737,7 +796,10 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
   it('emits ST_Contains as the second closed spatial predicate', () => {
     const point = { type: 'Point', coordinates: [77.5946, 12.9716] } as const;
     expect(
-      createQueryCompiler(postgresDialect).selectFrom('venues').where(stContains<Venue>('location', point)).compile(),
+      createQueryCompiler(postgresDialect)
+        .selectFrom(trustedTable('venues'))
+        .where(stContains<Venue>('location', point))
+        .compile(),
     ).toEqual({
       text: 'SELECT * FROM "venues" WHERE ST_Contains("location", ST_GeomFromGeoJSON($1))',
       parameters: [point],
@@ -760,9 +822,157 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
 
     expect(() =>
       createQueryCompiler(postgresDialect)
-        .selectFrom('items')
+        .selectFrom(trustedTable('items'))
         .where('embedding', 'cosine', [0.1, Number.NaN, 0.3])
         .compile(),
     ).toThrow(/pgvector query may contain only finite numbers/);
   });
 });
+
+describe('schema-bound canonical queries (#774)', () => {
+  it('maps property names and keeps branch parameters immutable', () => {
+    const base = createQueryCompiler(postgresDialect)
+      .selectFrom(QueryUserSchema)
+      .select(['id', { column: 'displayName', alias: 'label' }])
+      .where('age', '>', 18);
+    const branch = base
+      .whereGroup([{ col: 'active', op: '=', value: true }])
+      .orderBy('displayName', 'asc')
+      .limit(2);
+    expect(branch.compile()).toEqual({
+      text: 'SELECT "user_id" AS "id", "display_name" AS "label" FROM "user_accounts" WHERE "age_years" > $1 AND ("active_flag" = $2) ORDER BY "display_name" ASC LIMIT 2',
+      parameters: [18, true],
+    });
+    expect(base.compile()).toEqual({
+      text: 'SELECT "user_id" AS "id", "display_name" AS "label" FROM "user_accounts" WHERE "age_years" > $1',
+      parameters: [18],
+    });
+    expect(Object.isFrozen(branch.compile().parameters)).toBe(true);
+    expect(branch.compile()).toEqual(branch.compile());
+  });
+
+  it('binds write payloads, conflicts, expressions and returning to application properties', () => {
+    const query = createQueryCompiler(postgresDialect)
+      .insertInto(QueryUserSchema)
+      .values({ displayName: 'Ada', age: 30, active: true })
+      .onConflict('displayName')
+      .doUpdate({ age: inc(1) })
+      .returning(['id', { column: 'displayName', alias: 'name' }]);
+    expect(query.compile()).toEqual({
+      text: 'INSERT INTO "user_accounts" ("display_name", "age_years", "active_flag") VALUES ($1, $2, $3) ON CONFLICT ("display_name") DO UPDATE SET "age_years" = "age_years" + $4 RETURNING "user_id" AS "id", "display_name" AS "name"',
+      parameters: ['Ada', 30, true, 1],
+    });
+    expect(
+      createQueryCompiler(postgresDialect)
+        .updateTable(QueryUserSchema)
+        .set({ age: inc(2) })
+        .where('id', '=', 7)
+        .returning(['id'])
+        .compile(),
+    ).toEqual({
+      text: 'UPDATE "user_accounts" SET "age_years" = "age_years" + $1 WHERE "user_id" = $2 RETURNING "user_id" AS "id"',
+      parameters: [2, 7],
+    });
+    expect(
+      createQueryCompiler(postgresDialect).deleteFrom(QueryUserSchema).where('id', '=', 7).returning(['id']).compile(),
+    ).toEqual({
+      text: 'DELETE FROM "user_accounts" WHERE "user_id" = $1 RETURNING "user_id" AS "id"',
+      parameters: [7],
+    });
+  });
+
+  it('requires an explicit trusted boundary for a physical table string', () => {
+    const compiler = createQueryCompiler(postgresDialect);
+    expect(() => Reflect.apply(compiler.selectFrom, compiler, ['user_accounts'])).toThrow(/schema|trusted/i);
+  });
+});
+
+// This exported function is compiled but never invoked: invalid calls exercise the type boundary.
+export function canonicalQueryTypes(): void {
+  const compiler = createQueryCompiler(postgresDialect);
+  const users = compiler.selectFrom(QueryUserSchema, 'u');
+  const selected = users.select(['u.id', { column: 'u.displayName', alias: 'name' }]);
+  expectTypeOf(selected._type).toEqualTypeOf<
+    { 'u.id': Entity<QueryUser>['id']; name: Entity<QueryUser>['displayName'] } | undefined
+  >();
+  const joined = users
+    .leftJoin(QueryPostSchema, 'p', [{ leftCol: 'u.id', rightCol: 'p.userId' }])
+    .select(['u.id', { column: 'p.title', alias: 'title' }]);
+  expectTypeOf(joined._type).toEqualTypeOf<
+    { 'u.id': Entity<QueryUser>['id']; title: Entity<QueryPost>['title'] | null } | undefined
+  >();
+  const aggregate = users.select(['u.id']).count('*', 'count').sum('u.age', 'ageSum').min('u.displayName', 'firstName');
+  expectTypeOf(aggregate._type).toEqualTypeOf<
+    | {
+        'u.id': Entity<QueryUser>['id'];
+        count: number;
+        ageSum: number | null;
+        firstName: Entity<QueryUser>['displayName'] | null;
+      }
+    | undefined
+  >();
+  const returned = compiler.insertInto(QueryUserSchema).values({ displayName: 'Ada' }).returning(['id']);
+  expectTypeOf(returned._type).toEqualTypeOf<{ id: Entity<QueryUser>['id'] } | undefined>();
+  const ids = compiler.selectFrom(QueryPostSchema).select(['userId']);
+  users.where('u.id', 'in', ids);
+  users.whereMatch('u.displayName', 'Ada');
+  aggregate.having('count', '>', 1).orderBy('ageSum', 'desc');
+  compiler.updateTable(QueryUserSchema).set({ age: inc(1), active: not(), displayName: concat('!') });
+  // @ts-expect-error a bare string does not prove a table declaration
+  compiler.selectFrom('users');
+  // @ts-expect-error a caller cannot assign an unrelated table's declaration
+  compiler.selectFrom<QueryPost>(QueryUserSchema);
+  // @ts-expect-error the trusted boundary cannot acquire a caller-selected declaration
+  compiler.selectFrom<QueryUser>(trustedTable('user_accounts'));
+  // @ts-expect-error unknown property
+  users.where('u.missing', '=', 1);
+  // @ts-expect-error physical names do not bypass the property boundary
+  users.where('age_years', '=', 1);
+  // @ts-expect-error wrong operand type
+  users.where('u.age', '=', 'old');
+  // @ts-expect-error wrong IN element type
+  users.whereIn('u.id', ['wrong']);
+  // @ts-expect-error grouped predicates retain operand bounds
+  users.whereGroup([{ col: 'u.age', op: '=', value: 'wrong' }]);
+  // @ts-expect-error subquery projected values must match the compared column
+  users.where('u.id', 'in', compiler.selectFrom(QueryPostSchema).select(['title']));
+  // @ts-expect-error FTS columns must carry string values
+  users.whereMatch('u.age', 'old');
+  // @ts-expect-error selected columns must exist in scope
+  users.select(['u.missing']);
+  const duplicateColumns = [
+    { column: 'u.id', alias: 'id' },
+    { column: 'u.displayName', alias: 'id' },
+  ] as const;
+  // @ts-expect-error result aliases must be unique
+  users.select(duplicateColumns);
+  // @ts-expect-error joined table aliases cannot collide
+  users.leftJoin(QueryPostSchema, 'u', [{ leftCol: 'u.id', rightCol: 'u.userId' }]);
+  // @ts-expect-error a join cannot name an unselected table
+  users.leftJoin(QueryPostSchema, 'p', [{ leftCol: 'other.id', rightCol: 'p.userId' }]);
+  // @ts-expect-error join equality requires compatible column values
+  users.leftJoin(QueryPostSchema, 'p', [{ leftCol: 'u.id', rightCol: 'p.title' }]);
+  // @ts-expect-error aggregate aliases cannot overwrite selected properties
+  aggregate.count('*', 'count');
+  // @ts-expect-error HAVING preserves aggregate operand types
+  aggregate.having('count', '>', 'many');
+  // @ts-expect-error numeric aggregates reject text columns
+  users.sum('u.displayName', 'sum');
+  // @ts-expect-error serial properties are omitted from CreateDTO
+  compiler.insertInto(QueryUserSchema).values({ id: 1, displayName: 'Ada' });
+  // @ts-expect-error required CreateDTO properties remain required
+  compiler.insertInto(QueryUserSchema).values({ age: 1 });
+  // @ts-expect-error update values retain their declared type
+  compiler.updateTable(QueryUserSchema).set({ age: 'wrong' });
+  // @ts-expect-error compiler expressions must match their SET property type
+  compiler.updateTable(QueryUserSchema).set({ age: concat('wrong') });
+  // @ts-expect-error generated identities are not updateable
+  compiler.updateTable(QueryUserSchema).set({ id: 2 });
+  // @ts-expect-error conflict targets use application properties
+  compiler.insertInto(QueryUserSchema).values({ displayName: 'Ada' }).onConflict('missing');
+  const conflict = compiler.insertInto(QueryUserSchema).values({ displayName: 'Ada' }).onConflict('displayName');
+  // @ts-expect-error upsert updates retain the same expression/value bounds
+  conflict.doUpdate({ age: 'wrong' });
+  // @ts-expect-error returning projections retain column bounds
+  compiler.deleteFrom(QueryUserSchema).returning(['missing']);
+}

@@ -6,15 +6,15 @@ operations that benefit from a single network call.
 Create a batch handle from compiled statements:
 
 ```ts {"mode":"compile","id":"example-001"}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { batch } from '@zmdb/sql/set-ops';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
 
-const stmt1 = compiler.insertInto('users').values({ name: 'Alice', email: 'alice@example.com' }).compile();
+const stmt1 = compiler.insertInto(trustedTable('users')).values({ name: 'Alice', email: 'alice@example.com' }).compile();
 
-const stmt2 = compiler.insertInto('users').values({ name: 'Bob', email: 'bob@example.com' }).compile();
+const stmt2 = compiler.insertInto(trustedTable('users')).values({ name: 'Bob', email: 'bob@example.com' }).compile();
 
 const batchHandle = batch([stmt1, stmt2]);
 // batchHandle.statements => [stmt1, stmt2]
@@ -42,13 +42,15 @@ The callback receives all compiled statements and returns an array of results in
 Combine multiple inserts into one batch:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies batch, compiler, driver; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 const users = [
   { name: 'Alice', email: 'alice@example.com' },
   { name: 'Bob', email: 'bob@example.com' },
   { name: 'Charlie', email: 'charlie@example.com' },
 ];
 
-const statements = users.map(u => compiler.insertInto('users').values(u).compile());
+const statements = users.map(u => compiler.insertInto(trustedTable('users')).values(u).compile());
 
 const result = await batch(statements).execute(driver.executeMulti.bind(driver));
 ```

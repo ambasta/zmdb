@@ -1,5 +1,4 @@
 import { QueryCompilerError, UnsupportedFeatureError } from '@zmdb/sql';
-import { UnsupportedFeatureError as FtsUnsupportedFeatureError } from '@zmdb/sql/fts';
 import { UnsupportedFeatureError as SchemaObjectsUnsupportedFeatureError } from '@zmdb/sql/schema-objects';
 import { describe, it, expect } from 'vitest';
 
@@ -15,7 +14,6 @@ describe('UnsupportedFeatureError', () => {
   });
 
   it('submodule error classes are identical to the root error class', () => {
-    expect(FtsUnsupportedFeatureError).toBe(UnsupportedFeatureError);
     expect(SchemaObjectsUnsupportedFeatureError).toBe(UnsupportedFeatureError);
   });
 });

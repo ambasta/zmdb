@@ -60,9 +60,11 @@ const where: WhereDTO<User> = { ...(q.minAge === undefined ? {} : { age: { gte: 
 Reassign — the builder is immutable, so a bare call is discarded:
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies createQueryCompiler, q; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { postgres } from '@zmdb/postgres';
 
-let b = createQueryCompiler(postgres).selectFrom('users');
+let b = createQueryCompiler(postgres).selectFrom(trustedTable('users'));
 
 if (q.minAge !== undefined) b = b.where('age', '>=', q.minAge);
 if (q.name !== undefined) b = b.andWhere('name', 'ilike', `%${q.name}%`);
@@ -74,7 +76,9 @@ const { text, parameters } = b.orderBy('id', 'asc').limit(20).compile();
 Note `where` for the first predicate and `andWhere` after. If the first filter is conditional, you cannot know which is which — so start from a predicate that is always true:
 
 ```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies createQueryCompiler, postgres; this excerpt does not repeat those declarations."}
-let b = createQueryCompiler(postgres).selectFrom('users').where('deleted_at', 'is null', null);
+import { trustedTable } from '@zmdb/sql';
+
+let b = createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('deleted_at', 'is null', null);
 // every subsequent filter is andWhere
 ```
 

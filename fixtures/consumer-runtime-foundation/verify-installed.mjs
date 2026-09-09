@@ -12,7 +12,7 @@ const LANES = ['schema', 'sql', 'validator', 'orm', 'application', 'generated'];
 const FOUNDATION = new Set(['@zmdb/schema', '@zmdb/sql', '@zmdb/validator', '@zmdb/orm']);
 const DEPENDENCIES = {
   '@zmdb/schema': [],
-  '@zmdb/sql': [],
+  '@zmdb/sql': ['@zmdb/schema'],
   '@zmdb/validator': ['@zmdb/schema'],
   '@zmdb/orm': ['@zmdb/schema', '@zmdb/sql', '@zmdb/validator'],
 };

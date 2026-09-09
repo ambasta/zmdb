@@ -35,9 +35,11 @@ than it looks.
 **`doUpdate()` — every non-target column takes the value this INSERT tried to write.** This is what `repo.upsert` calls.
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createQueryCompiler, row; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { postgres } from '@zmdb/postgres';
 
-createQueryCompiler(postgres).insertInto('users').values(row).onConflict('id').doUpdate().compile();
+createQueryCompiler(postgres).insertInto(trustedTable('users')).values(row).onConflict('id').doUpdate().compile();
 // INSERT INTO "users" ("id", "email", "name", "hits") VALUES ($1, $2, $3, $4)
 //   ON CONFLICT ("id") DO UPDATE SET "email" = EXCLUDED."email", "name" = EXCLUDED."name", "hits" = EXCLUDED."hits"
 ```
@@ -134,7 +136,9 @@ MySQL also has no `RETURNING`. An ordinary repository upsert refuses before driv
 `BaseRepository.upsert` always calls `doUpdate`. There is no `repo.upsertOrIgnore`, so `DO NOTHING` is only reachable through the compiler:
 
 ```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies clean, createQueryCompiler, driver, postgres; this excerpt does not repeat those declarations."}
-const q = createQueryCompiler(postgres).insertInto('users').values(clean).onConflict('email').doNothing().returning(['*']).compile();
+import { trustedTable } from '@zmdb/sql';
+
+const q = createQueryCompiler(postgres).insertInto(trustedTable('users')).values(clean).onConflict('email').doNothing().returning(['*']).compile();
 
 await driver.execute(q);
 ```

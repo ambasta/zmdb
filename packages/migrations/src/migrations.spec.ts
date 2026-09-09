@@ -1,7 +1,7 @@
 import { schemasFrom, type SchemasFromOptions } from '@zmdb/compiler/testing';
 import { type Entity } from '@zmdb/schema';
 import { type PrimaryKey, type References, type Sql, type Table } from '@zmdb/schema/tags';
-import { UnsupportedFeatureError, createQueryCompiler, type SqlDialect } from '@zmdb/sql';
+import { UnsupportedFeatureError, createQueryCompiler, trustedTable, type SqlDialect } from '@zmdb/sql';
 import {
   createIndexDdl,
   replaceRoutineStatements,
@@ -273,7 +273,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
 
   it('resolves naming before query compilation without runtime strategy calls', () => {
     const baseline = createQueryCompiler(postgresDialect)
-      .selectFrom('userAccount')
+      .selectFrom(trustedTable('userAccount'))
       .select(['createdAt'])
       .compile().text;
     const resolvedCalls = compileNamingCalls.length;
@@ -281,7 +281,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     expect(physicalColumn).toBeDefined();
 
     const named = createQueryCompiler(postgresDialect)
-      .selectFrom(compileNamingUserSchema.table)
+      .selectFrom(trustedTable(compileNamingUserSchema.table))
       .select([physicalColumn ?? ''])
       .compile().text;
 

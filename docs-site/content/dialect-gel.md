@@ -7,13 +7,13 @@ Gel exposes a PostgreSQL-wire SQL endpoint. It supports queries and standard DML
 reporting, analytics and SQL operations the endpoint supports:
 
 ```ts {"mode":"compile","id":"example-001"}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 
 const pool = new Pool({ connectionString: process.env.GEL_DSN });
 const compiler = createQueryCompiler(postgres);
-const query = compiler.selectFrom('users').select(['id', 'name']).compile();
+const query = compiler.selectFrom(trustedTable('users')).select(['id', 'name']).compile();
 
 const result = await pool.query({
   text: query.text,

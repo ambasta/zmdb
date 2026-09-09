@@ -36,6 +36,7 @@ import {
 } from '@zmdb/schema/ir';
 import { type Sql } from '@zmdb/schema/tags';
 import {
+  trustedTable,
   type AliasedColumn,
   type ColumnExpr,
   type ComparisonPredicate,
@@ -45,8 +46,6 @@ import {
   type SelectBuilder,
   type SetValue,
   type SqlDialect,
-} from '@zmdb/sql';
-import {
   chunkArray,
   createQueryCompiler,
   dialectCapabilities,
@@ -55,10 +54,9 @@ import {
   inc,
   proposed,
   sanitizeKeys,
+  type JoinCondition,
+  type TrustedTable,
 } from '@zmdb/sql';
-import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/sql/aggregations';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
-import { joinableSelectFrom, type JoinCondition } from '@zmdb/sql/joins';
 import { type RoutineDef } from '@zmdb/sql/schema-objects';
 // @zmdb/orm — the repository layer: reads (#26), writes (#27), delete +
 // lifecycle hooks (#28), transactions (#37), typed populate (#217) and the
@@ -272,7 +270,7 @@ type RelationLoaderMap<T extends DeclaredTable> = {
   [K in RelationKeys<T> & string]?: RelationLoader<T, K>;
 };
 
-export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateSelectFrom> {
+export interface RepositoryAggregateBuilder extends SelectBuilder {
   joinRelation(relationName: string, kind?: 'inner' | 'left' | 'right'): RepositoryAggregateBuilder;
 }
 
@@ -901,13 +899,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return target === undefined ? column : this.physicalColumn(column, target);
   }
 
-  private aggregateSelection(column: string): string {
+  private aggregateSelection(column: string): string | AliasedColumn {
     const physical = this.aggregateColumn(column);
-    return physical === column ? column : `${physical} as ${column}`;
+    return physical === column ? column : { column: physical, alias: column };
   }
 
   private selectEntity(names: SchemaSqlNames = this.#rootSqlNames): SelectBuilder {
-    const builder = this.qb.selectFrom(names.schema.table);
+    const builder = this.qb.selectFrom(trustedTable(names.schema.table));
     return names.entityProjection === undefined ? builder : builder.select(names.entityProjection);
   }
 
@@ -920,7 +918,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const physical = this.physicalColumn(property, names);
       selected.push(physical === property ? physical : { column: physical, alias: property });
     }
-    return selected.length === 0 ? this.selectEntity(names) : this.qb.selectFrom(names.schema.table).select(selected);
+    return selected.length === 0
+      ? this.selectEntity(names)
+      : this.qb.selectFrom(trustedTable(names.schema.table)).select(selected);
   }
 
   private entityReturning(names: SchemaSqlNames = this.#rootSqlNames): readonly (string | AliasedColumn)[] {
@@ -1456,7 +1456,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const physicalKeys =
       names === undefined ? childKeys : childKeys.map(childKey => this.physicalColumn(childKey, names));
     for (const chunk of chunks) {
-      let builder = names === undefined ? this.qb.selectFrom(physicalTable) : this.selectEntity(names);
+      let builder = names === undefined ? this.qb.selectFrom(trustedTable(physicalTable)) : this.selectEntity(names);
       if (physicalKeys.length === 1) {
         const [physicalKey] = physicalKeys;
         if (physicalKey === undefined) throw new Error(`relation to ${childTable} resolved an empty target key`);
@@ -1656,11 +1656,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   async count(where?: WhereDTO<T>, options?: ReadOptions): Promise<number> {
     const query = this.compileRead('count', options, () => {
-      let builder = aggregateSelectFrom(
-        this.tableName,
-        this.dialect,
-        this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
-      ).count('*', 'count');
+      let builder = this.qb.selectFrom(trustedTable(this.tableName)).count('*', 'count');
       if (where !== undefined) builder = compileWhere(builder, where, column => this.physicalColumn(column));
       return builder;
     });
@@ -1679,7 +1675,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const firstColumn = this.physicalKeyColumns[0] ?? this.schema.ir.columns[0]?.physicalName;
     if (firstColumn === undefined) throw new Error(`schema ${this.tableName} has no column to test for existence`);
     const query = this.compileRead('exists', options, () => {
-      let builder = this.qb.selectFrom(this.tableName).select([firstColumn]);
+      let builder = this.qb.selectFrom(trustedTable(this.tableName)).select([firstColumn]);
       if (where !== undefined) builder = compileWhere(builder, where, column => this.physicalColumn(column));
       return this.limitOne(builder);
     });
@@ -1856,11 +1852,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   ): Promise<readonly Record<string, unknown>[]> {
     const ftsTable = this.schema.ftsTable;
     const query = this.compileRead('findByFullText', options, () =>
-      ftsSelectFrom(
-        this.tableName,
-        this.dialect,
-        this.driver.queryTelemetry === true ? { ftsTable, telemetry: true } : { ftsTable },
-      ).whereMatch(this.physicalColumn(column), term),
+      this.qb.selectFrom(trustedTable(this.tableName, { ftsTable })).whereMatch(this.physicalColumn(column), term),
     );
     return this.executeRead(query, options?.signal);
   }
@@ -1900,19 +1892,25 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       'findJoined',
       options,
       () => {
-        let builder = joinableSelectFrom(
-          this.tableName,
-          this.dialect,
-          this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
-        );
+        let builder = this.qb.selectFrom(trustedTable(this.tableName));
         const predicates = filtersAsPredicates(targetFilters);
         const leftCol = this.physicalColumn(join.leftCol);
         const rightCol =
           targetSchema === undefined ? join.rightCol : this.physicalColumn(join.rightCol, schemaSqlNames(targetSchema));
         builder =
           join.kind === 'inner'
-            ? builder.innerJoin(targetTable, leftCol, rightCol, predicates)
-            : builder.leftJoin(targetTable, leftCol, rightCol, predicates);
+            ? builder.innerJoin(
+                trustedTable(targetSpec.table),
+                targetSpec.reference,
+                [{ leftCol, rightCol }],
+                predicates,
+              )
+            : builder.leftJoin(
+                trustedTable(targetSpec.table),
+                targetSpec.reference,
+                [{ leftCol, rightCol }],
+                predicates,
+              );
         if (where) builder = builder.where(this.aggregateColumn(where.col), where.op, where.value);
         return builder;
       },
@@ -1986,11 +1984,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     targetFilterNames: Set<string>,
     targetKnownNames: Set<string>,
   ): RepositoryAggregateBuilder {
-    let builder = aggregateSelectFrom(
-      this.tableName,
-      this.dialect,
-      this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
-    );
+    let builder = this.qb.selectFrom(trustedTable(this.tableName));
     const resolveRelationJoin = (relationName: string) => this.filteredRelationJoin(relationName, options);
     const resolveTableJoin = (targetTable: string) => {
       const target = parseTableSpec(targetTable);
@@ -2007,7 +2001,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       return { filters, knownNames: definitions.map(filter => filter.name) };
     };
 
-    const wrap = (b: AggregateSelect): RepositoryAggregateBuilder => {
+    const wrap = (b: SelectBuilder): RepositoryAggregateBuilder => {
       builder = b;
       const target: RepositoryAggregateBuilder = Object.assign(builder, {
         joinRelation(relationName: string, kind: 'inner' | 'left' | 'right' = 'inner'): RepositoryAggregateBuilder {
@@ -2016,9 +2010,27 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           for (const name of knownNames) targetKnownNames.add(name);
           let nextB = builder;
           const predicates = filtersAsPredicates(filters);
-          if (kind === 'left') nextB = builder.leftJoin(targetTable, conditions, predicates);
-          else if (kind === 'right') nextB = builder.rightJoin(targetTable, conditions, predicates);
-          else nextB = builder.innerJoin(targetTable, conditions, predicates);
+          if (kind === 'left')
+            nextB = builder.leftJoin(
+              trustedTable(targetTable),
+              parseTableSpec(targetTable).reference,
+              conditions,
+              predicates,
+            );
+          else if (kind === 'right')
+            nextB = builder.rightJoin(
+              trustedTable(targetTable),
+              parseTableSpec(targetTable).reference,
+              conditions,
+              predicates,
+            );
+          else
+            nextB = builder.innerJoin(
+              trustedTable(targetTable),
+              parseTableSpec(targetTable).reference,
+              conditions,
+              predicates,
+            );
           return wrap(nextB);
         },
       });
@@ -2030,41 +2042,21 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           }
           if (prop === 'innerJoin' || prop === 'leftJoin' || prop === 'rightJoin') {
             return (
-              targetTable: string,
-              leftColOrConditions: string | readonly JoinCondition[],
-              rightColOrOn?: string | readonly Predicate[],
-              scalarOn?: readonly Predicate[],
+              joinedTarget: TrustedTable,
+              alias: string,
+              conditions: readonly JoinCondition[],
+              on?: readonly Predicate[],
             ): RepositoryAggregateBuilder => {
-              const { filters, knownNames } = resolveTableJoin(targetTable);
+              const { filters, knownNames } = resolveTableJoin(
+                `${parseTableSpec(joinedTarget.table).table} AS ${alias}`,
+              );
               for (const name of filters.names) targetFilterNames.add(name);
               for (const name of knownNames) targetKnownNames.add(name);
-              const on = typeof leftColOrConditions === 'string' ? scalarOn : rightColOrOn;
-              if (on !== undefined && typeof on === 'string') {
-                throw new TypeError(`join "${targetTable}" received an invalid ON predicate list`);
-              }
               const predicates = [...(on ?? []), ...filtersAsPredicates(filters)];
-              let joined: AggregateSelect;
-              if (typeof leftColOrConditions === 'string') {
-                if (typeof rightColOrOn !== 'string') {
-                  throw new TypeError(`join "${targetTable}" needs a right-hand column`);
-                }
-                if (prop === 'leftJoin') {
-                  joined = builder.leftJoin(targetTable, leftColOrConditions, rightColOrOn, predicates);
-                } else if (prop === 'rightJoin') {
-                  joined = builder.rightJoin(targetTable, leftColOrConditions, rightColOrOn, predicates);
-                } else {
-                  joined = builder.innerJoin(targetTable, leftColOrConditions, rightColOrOn, predicates);
-                }
-              } else if (prop === 'leftJoin') {
-                joined = builder.leftJoin(targetTable, leftColOrConditions, predicates);
-              } else if (prop === 'rightJoin') {
-                joined = builder.rightJoin(targetTable, leftColOrConditions, predicates);
-              } else {
-                joined = builder.innerJoin(targetTable, leftColOrConditions, predicates);
-              }
-              return wrap(joined);
+              return wrap(builder[prop](joinedTarget, alias, conditions, predicates));
             };
           }
+
           const val = Reflect.get(t, prop, receiver);
           if (typeof val === 'function') {
             return (...args: unknown[]) => {
@@ -2109,7 +2101,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // #92 & relation-aware aggregations. Runs a grouped aggregate (count/sum/…)
   // returning typed computed columns or relation-aware flat output fields.
   async aggregate<Out extends Record<string, unknown> = Record<string, unknown>>(
-    specOrBuild: AggregateSpec<T> | ((agg: RepositoryAggregateBuilder) => AggregateSelect | void),
+    specOrBuild: AggregateSpec<T> | ((agg: RepositoryAggregateBuilder) => SelectBuilder | void),
     options?: ReadOptions,
   ): Promise<readonly Out[]> {
     let q: CompiledQuery;
@@ -2125,11 +2117,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       });
     } else if (typeof specOrBuild === 'object' && specOrBuild !== null) {
       const spec = specOrBuild;
-      let builder = aggregateSelectFrom(
-        this.tableName,
-        this.dialect,
-        this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
-      );
+      let builder = this.qb.selectFrom(trustedTable(this.tableName));
       const joinedRelations = new Set<string>();
 
       const applyJoin = (relName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
@@ -2139,9 +2127,27 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         for (const name of filters.names) targetFilterNames.add(name);
         for (const name of knownNames) targetKnownNames.add(name);
         const predicates = filtersAsPredicates(filters);
-        if (kind === 'left') builder = builder.leftJoin(targetTable, conditions, predicates);
-        else if (kind === 'right') builder = builder.rightJoin(targetTable, conditions, predicates);
-        else builder = builder.innerJoin(targetTable, conditions, predicates);
+        if (kind === 'left')
+          builder = builder.leftJoin(
+            trustedTable(targetTable),
+            parseTableSpec(targetTable).reference,
+            conditions,
+            predicates,
+          );
+        else if (kind === 'right')
+          builder = builder.rightJoin(
+            trustedTable(targetTable),
+            parseTableSpec(targetTable).reference,
+            conditions,
+            predicates,
+          );
+        else
+          builder = builder.innerJoin(
+            trustedTable(targetTable),
+            parseTableSpec(targetTable).reference,
+            conditions,
+            predicates,
+          );
       };
 
       if (spec.joins) {
@@ -2329,7 +2335,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     this.preInsert(clean);
     const physical = this.physicalRecord(clean);
     const rows = await this.rows<EntityRow<T>>(
-      this.qb.insertInto(this.tableName).values(physical).returning(this.entityReturning()).compile(),
+      this.qb.insertInto(trustedTable(this.tableName)).values(physical).returning(this.entityReturning()).compile(),
     );
     await this.invalidateCache(options);
     const row = rows[0];
@@ -2352,7 +2358,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       typeof target === 'string' ? this.physicalColumn(target) : target.map(column => this.physicalColumn(column));
     const physicalUpdateFields = this.physicalFields(resolvedUpdateFields);
     const ib = this.qb
-      .insertInto(this.tableName)
+      .insertInto(trustedTable(this.tableName))
       .values(this.physicalRecord(clean))
       .onConflict(physicalTarget)
       .doUpdate(physicalUpdateFields);
@@ -2389,7 +2395,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
     const physical = this.physicalRecord(clean);
     const build = () =>
-      compileWhere(this.qb.updateTable(this.tableName).set(physical), where, column => this.physicalColumn(column));
+      compileWhere(this.qb.updateTable(trustedTable(this.tableName)).set(physical), where, column =>
+        this.physicalColumn(column),
+      );
     if (!this.dialectCapabilities.returning.update) {
       await this.driver.execute(this.compileWrite('updateMany', options, build));
       await this.invalidateCache(options);
@@ -2447,7 +2455,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       return this.firstResult(query);
     }
     const physical = this.physicalRecord(clean);
-    const build = () => this.keyWhere(this.qb.updateTable(this.tableName).set(physical), id, 'update');
+    const build = () => this.keyWhere(this.qb.updateTable(trustedTable(this.tableName)).set(physical), id, 'update');
     if (!this.dialectCapabilities.returning.update && this.hasColumnExpression(physical)) {
       await this.driver.execute(this.assertKeyed(this.compileWrite('update', options, build), 'update'));
       await this.invalidateCache(options);
@@ -2487,10 +2495,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const softDelete = this.schema.ir.softDelete;
     const build =
       softDelete === undefined
-        ? () => this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete')
+        ? () => this.keyWhere(this.qb.deleteFrom(trustedTable(this.tableName)), id, 'delete')
         : () =>
             this.keyWhere(
-              this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: new Date() }),
+              this.qb
+                .updateTable(trustedTable(this.tableName))
+                .set({ [this.physicalColumn(softDelete.column)]: new Date() }),
               id,
               'delete',
             );
@@ -2507,10 +2517,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const softDelete = this.schema.ir.softDelete;
     const build =
       softDelete === undefined
-        ? () => compileWhere(this.qb.deleteFrom(this.tableName), where, column => this.physicalColumn(column))
+        ? () =>
+            compileWhere(this.qb.deleteFrom(trustedTable(this.tableName)), where, column => this.physicalColumn(column))
         : () =>
             compileWhere(
-              this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: new Date() }),
+              this.qb
+                .updateTable(trustedTable(this.tableName))
+                .set({ [this.physicalColumn(softDelete.column)]: new Date() }),
               where,
               column => this.physicalColumn(column),
             );
@@ -2530,7 +2543,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   async hardDelete(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean> {
     this.preDelete(id);
-    const build = () => this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'hardDelete');
+    const build = () => this.keyWhere(this.qb.deleteFrom(trustedTable(this.tableName)), id, 'hardDelete');
     const query = !this.dialectCapabilities.returning.delete
       ? this.compileWrite('hardDelete', options, build)
       : this.compileWrite('hardDelete', options, () => build().returning(this.physicalKeyColumns));
@@ -2546,7 +2559,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
     const build = () =>
       this.keyWhere(
-        this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: null }),
+        this.qb.updateTable(trustedTable(this.tableName)).set({ [this.physicalColumn(softDelete.column)]: null }),
         id,
         'restore',
       );

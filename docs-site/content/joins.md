@@ -1,14 +1,18 @@
 Real SQL joins across tables, compiled to parameterized, dialect-correct SQL and typed against the participating schemas. Joins also power the to-one relation [populate](./relations.html) strategy.
 
-The examples use `orders(id, userId, status)` joined to `users(id, email)`.
+The examples use `orders(id, userId, status)` joined to `users(id, email)` through the explicit `trustedTable` boundary. Pass declared schema values to the same methods for typed columns and results.
 
 ## Inner join
 
 ```ts {"mode":"compile","id":"example-001"}
 import { postgres } from '@zmdb/postgres';
-import { joinableSelectFrom } from '@zmdb/sql/joins';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 
-joinableSelectFrom('orders', postgres).innerJoin('users', 'orders.userId', 'users.id').where('orders.status', '=', 'shipped').compile();
+createQueryCompiler(postgres)
+  .selectFrom(trustedTable('orders'))
+  .innerJoin(trustedTable('users'), 'users', [{ leftCol: 'orders.userId', rightCol: 'users.id' }])
+  .where('orders.status', '=', 'shipped')
+  .compile();
 ```
 
 ```sql
@@ -19,10 +23,17 @@ WHERE "orders"."status" = $1
 
 ## Left join
 
-A left join keeps base rows even when there is no match — the joined columns may be null (reflected by `JoinRow<Base, Joined, 'left'>`).
+A left join keeps base rows even when there is no match. With declared schemas, the inferred types of joined columns include `null`.
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies joinableSelectFrom; this excerpt does not repeat those declarations."}
-joinableSelectFrom('employees as e', 'postgres').leftJoin('employees as r', 'r.id', 'e.recipient_id').where('e.id', '=', 1).compile();
+import { postgres } from '@zmdb/postgres';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
+
+createQueryCompiler(postgres)
+  .selectFrom(trustedTable('employees'), 'e')
+  .leftJoin(trustedTable('employees'), 'r', [{ leftCol: 'r.id', rightCol: 'e.recipient_id' }])
+  .where('e.id', '=', 1)
+  .compile();
 ```
 
 ```sql
@@ -33,7 +44,7 @@ WHERE "e"."id" = $1
 
 ## Self-join & aliases
 
-As above, table aliases (`table as alias`) let a table join itself. Use [`aliasRow`](./populate-results.html) to rename the aliased columns into a clean typed shape.
+As above, the separate alias arguments let a table join itself. Use explicit selection aliases or [`aliasRow`](./populate-results.html) to rename the aliased columns into a clean typed shape.
 
 ## Through the repository
 

@@ -4,7 +4,7 @@
 // live-PostgreSQL + Drizzle/Prisma/Kysely + k6 comparison is reported as
 // DNF(not implemented) rather than faked. Anti-pattern cases are
 // DNF(anti-pattern).
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { sqlite } from '@zmdb/sqlite';
 
 import type { BenchResult } from '../results.js';
@@ -66,15 +66,15 @@ const qc = createQueryCompiler(sqlite);
 // The supported query set (mirrors drizzle-benchmarks classes).
 export const zmdbQueries = {
   customerById(engine: OrmEngine, id: number) {
-    const q = qc.selectFrom('customers').where('id', '=', id).compile();
+    const q = qc.selectFrom(trustedTable('customers')).where('id', '=', id).compile();
     return engine.all(q.text, q.parameters)[0];
   },
   productsSearch(engine: OrmEngine, limit: number, offset: number) {
-    const q = qc.selectFrom('products').orderBy('id', 'asc').limit(limit).offset(offset).compile();
+    const q = qc.selectFrom(trustedTable('products')).orderBy('id', 'asc').limit(limit).offset(offset).compile();
     return engine.all(q.text, q.parameters);
   },
   ordersForCustomer(engine: OrmEngine, customerId: number) {
-    const q = qc.selectFrom('orders').where('customerId', '=', customerId).compile();
+    const q = qc.selectFrom(trustedTable('orders')).where('customerId', '=', customerId).compile();
     return engine.all(q.text, q.parameters);
   },
   topProducts(engine: OrmEngine) {

@@ -90,7 +90,7 @@ async function main(): Promise<void> {
 
     const nearest = distance<Embedding>('embedding', 'cosine', vector);
     const query = createQueryCompiler(postgres)
-      .selectFrom('embeddings')
+      .selectFrom(schemaOf<Embedding>())
       .select(['id', 'documentId', 'chunk', nearest.as('distance')])
       .orderBy(nearest, 'asc')
       .limit(10)

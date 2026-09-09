@@ -49,7 +49,9 @@ const userRepo = defineRepository(users, postgresDriver(pool));
 | `RETURNING`             | supported                              |
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies compiler; this excerpt does not repeat those declarations."}
-compiler.selectFrom('users').where('email', '=', 'a@b.c').compile();
+import { trustedTable } from '@zmdb/sql';
+
+compiler.selectFrom(trustedTable('users')).where('email', '=', 'a@b.c').compile();
 // { text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: ['a@b.c'] }
 ```
 

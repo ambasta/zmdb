@@ -23,12 +23,12 @@ the recorded server qualification to that service.
 
 ```ts {"mode":"compile","id":"example-001"}
 import sql from 'mssql';
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { mssql, mssqlDriver } from '@zmdb/mssql';
 
 const pool = await sql.connect(process.env.DATABASE_URL!);
 const driver = mssqlDriver(pool);
-const query = createQueryCompiler(mssql).selectFrom('users').where('email', '=', 'a@b.com').compile();
+const query = createQueryCompiler(mssql).selectFrom(trustedTable('users')).where('email', '=', 'a@b.com').compile();
 
 const rows = await driver.execute(query);
 ```
