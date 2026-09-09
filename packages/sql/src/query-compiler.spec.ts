@@ -333,19 +333,19 @@ describe('subquery & EXISTS compilation', () => {
   it('throws QueryCompilerError when merging a subquery created for a different dialect', () => {
     const qbPg = createQueryCompiler(postgresDialect);
     const qbSqlite = createQueryCompiler(sqliteDialect);
-    const subSqlite = qbSqlite.selectFrom('orders').select(['user_id']).where('amount', '>', 100);
+    const subSqlite = qbSqlite.selectFrom(trustedTable('orders')).select(['user_id']).where('amount', '>', 100);
 
     expect(() => {
-      qbPg.selectFrom('users').where('id', 'in', subSqlite).compile();
+      qbPg.selectFrom(trustedTable('users')).where('id', 'in', subSqlite).compile();
     }).toThrow(QueryCompilerError);
 
     expect(() => {
-      qbPg.selectFrom('users').where('id', 'in', subSqlite).compile();
+      qbPg.selectFrom(trustedTable('users')).where('id', 'in', subSqlite).compile();
     }).toThrow('Subquery dialect "sqlite" does not match parent query dialect "postgres"');
   });
 
   it('renumbers positional parameter placeholders consistently across join and aggregation clauses', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const sub1 = qb.selectFrom(trustedTable('audit_logs')).select(['user_id']).where('action', '=', 'login');
 
     const joinSub = qb

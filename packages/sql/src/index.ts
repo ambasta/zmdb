@@ -231,8 +231,6 @@ interface RuntimeInsertBuilder {
   returning(cols?: readonly ReturningColumn[]): RuntimeInsertBuilder;
   compile(): CompiledQuery;
 }
-  compile(): CompiledQuery;
-}
 interface RuntimeUpdateBuilder {
   set(row: Record<string, unknown>): RuntimeUpdateBuilder;
   where(col: string, op: Operator | UnsafeOperator, value: unknown): RuntimeUpdateBuilder;
@@ -250,8 +248,6 @@ interface RuntimeDeleteBuilder {
   whereIn(col: string, values: readonly unknown[]): RuntimeDeleteBuilder;
   whereNotIn(col: string, values: readonly unknown[]): RuntimeDeleteBuilder;
   returning(cols?: readonly ReturningColumn[]): RuntimeDeleteBuilder;
-  compile(): CompiledQuery;
-}
   compile(): CompiledQuery;
 }
 
