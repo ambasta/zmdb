@@ -18,7 +18,14 @@ import type {
   SpatialPredicate,
   VectorColumnOf,
 } from './extensions/index.js';
-import type { Direction, Operator, SubqueryInput, TrustedTable, WindowFunctionBuilder, WindowProjectionNode } from './index.js';
+import type {
+  Direction,
+  Operator,
+  SubqueryInput,
+  TrustedTable,
+  WindowFunctionBuilder,
+  WindowProjectionNode,
+} from './index.js';
 
 export type TableName<T extends DeclaredTable> = T extends Table<infer Name> ? Name : never;
 type Key<Row> = Extract<keyof Row, string>;
@@ -76,7 +83,9 @@ export type QueryPredicate<Row> =
 type Selection<Row> =
   | Key<Row>
   | { readonly column: Key<Row>; readonly alias: string }
-  | AliasedDistanceExpression<Wide<Row> extends true ? string : VectorColumnOf<Row>>;
+  | AliasedDistanceExpression<Wide<Row> extends true ? string : VectorColumnOf<Row>>
+  | WindowProjectionNode
+  | WindowFunctionBuilder;
 type SelectionKey<Item> = Item extends string
   ? Item
   : Item extends { readonly alias: infer Alias extends string }
@@ -88,7 +97,9 @@ type SelectionValue<Row, Item> = Item extends keyof Row
     ? Row[K]
     : Item extends AliasedDistanceExpression
       ? number
-      : never;
+      : Item extends WindowProjectionNode | WindowFunctionBuilder
+        ? unknown
+        : never;
 type Projection<Row, Items extends readonly unknown[]> = {
   [Item in Items[number] as SelectionKey<Item>]: SelectionValue<Row, Item>;
 };

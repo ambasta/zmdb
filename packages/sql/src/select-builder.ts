@@ -28,7 +28,6 @@ import {
   isSpatialPredicate,
   renderAliasedDistanceExpression,
   renderDistanceExpression,
-  type AliasedDistanceExpression,
   type DistanceExpression,
   type SpatialPredicate,
 } from './extensions/index.js';
@@ -197,8 +196,10 @@ export class SelectQuery {
   private outputAlias(column: string): boolean {
     return (
       this.state.computed?.some(item => item.alias === column) === true ||
-      this.state.columns?.some(item => typeof item === 'object' && item.alias === column && !('source' in item)) ===
-        true
+      this.state.columns?.some(
+        item =>
+          typeof item === 'object' && item !== null && 'alias' in item && item.alias === column && !('source' in item),
+      ) === true
     );
   }
   orderBy(column: string | DistanceExpression, dir: Direction): SelectQuery {
@@ -381,7 +382,7 @@ export class SelectQuery {
           throw new QueryCompilerError(`Invalid subquery provided for CTE "${cte.name}"`);
         }
 
-        const renumberedText = renumberPlaceholders(sub.text, params.length);
+        const renumberedText = renumberPlaceholders(sub.text, params.length, dialect);
         params.push(...sub.parameters);
         cteParts.push(`${quoteIdentifier(dialect, cte.name)} AS (${renumberedText})`);
       }
@@ -468,7 +469,15 @@ export class SelectQuery {
         for (const item of state.computed) expressions.set(item.alias, this.computedSql(item, rootReference));
       if (state.columns !== undefined)
         for (const item of state.columns)
-          if (typeof item === 'object' && !isAliasedDistanceExpression(item))
+          if (
+            typeof item === 'object' &&
+            item !== null &&
+            !isAliasedDistanceExpression(item) &&
+            'alias' in item &&
+            'column' in item &&
+            typeof item.column === 'string' &&
+            typeof item.alias === 'string'
+          )
             expressions.set(item.alias, quoteColumn(dialect, qualifyRootColumn(item.column, rootReference)));
       having = havingClause(
         dialect,

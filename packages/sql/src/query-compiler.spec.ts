@@ -2,14 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import { type Entity } from '@zmdb/schema';
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import {
   trustedTable,
   inc,
-  not,
-  concat,
   OP_MAP,
   QueryCompilerError,
   UnsupportedFeatureError,
@@ -21,17 +18,10 @@ import {
   stContains,
   stDWithin,
   windowFunction,
-  type Dialect,
   type DialectTarget,
 } from './index.js';
-import {
-  mssqlDialect,
-  mysqlDialect,
-  officialDialects,
-  postgresDialect,
-  sqliteDialect,
-} from './testing/official-dialects.fixture.js';
-import { QueryPostSchema, QueryUserSchema, type QueryPost, type QueryUser } from './testing/query-schema.fixture.js';
+import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
+import { QueryUserSchema } from './testing/query-schema.fixture.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -844,7 +834,6 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
   });
 });
 
-<<<<<<< HEAD
 describe('schema-bound canonical queries (#774)', () => {
   it('maps property names and keeps branch parameters immutable', () => {
     const base = createQueryCompiler(postgresDialect)
@@ -895,12 +884,18 @@ describe('schema-bound canonical queries (#774)', () => {
       text: 'DELETE FROM "user_accounts" WHERE "user_id" = $1 RETURNING "user_id" AS "id"',
       parameters: [7],
     });
-=======
+  });
+});
+
 describe('Common Table Expressions (CTEs)', () => {
   it('compiles non-recursive CTE with sequential parameter offsets on postgres', () => {
     const qb = createQueryCompiler(postgresDialect);
     const deptCte = qb.selectFrom(trustedTable('departments')).where('active', '=', true);
-    const q = qb.selectFrom(trustedTable('dept_summary')).with('dept_summary', deptCte).where('min_salary', '>', 50000).compile();
+    const q = qb
+      .selectFrom(trustedTable('dept_summary'))
+      .with('dept_summary', deptCte)
+      .where('min_salary', '>', 50000)
+      .compile();
 
     expect(q.text).toBe(
       'WITH "dept_summary" AS (SELECT * FROM "departments" WHERE "active" = $1) SELECT * FROM "dept_summary" WHERE "min_salary" > $2',
@@ -921,13 +916,16 @@ describe('Common Table Expressions (CTEs)', () => {
       'WITH "active_users" AS (SELECT * FROM "users" WHERE "status" = $1), "top_orders" AS (SELECT * FROM "orders" WHERE "total" > $2) SELECT * FROM "final_view" WHERE "id" = $3',
     );
     expect(q.parameters).toEqual(['active', 100, 42]);
->>>>>>> 150b05b7 (feat(query-compiler): add CTEs, window functions, parameter renumbering, and capability checks)
   });
 
   it('compiles recursive CTEs using WITH RECURSIVE for hierarchical queries', () => {
     const qb = createQueryCompiler(postgresDialect);
     const baseNav = qb.selectFrom(trustedTable('org')).where('manager_id', '=', null);
-    const q = qb.selectFrom(trustedTable('hierarchy')).withRecursive('hierarchy', baseNav).where('depth', '<', 5).compile();
+    const q = qb
+      .selectFrom(trustedTable('hierarchy'))
+      .withRecursive('hierarchy', baseNav)
+      .where('depth', '<', 5)
+      .compile();
 
     expect(q.text).toBe(
       'WITH RECURSIVE "hierarchy" AS (SELECT * FROM "org" WHERE "manager_id" = $1) SELECT * FROM "hierarchy" WHERE "depth" < $2',
@@ -938,7 +936,11 @@ describe('Common Table Expressions (CTEs)', () => {
   it('compiles CTEs correctly on MySQL and SQLite dialects with ? placeholders', () => {
     const mysqlCompiler = createQueryCompiler(mysqlDialect);
     const subMysql = mysqlCompiler.selectFrom(trustedTable('users')).where('age', '>=', 21);
-    const qMysql = mysqlCompiler.selectFrom(trustedTable('adults')).with('adults', subMysql).where('city', '=', 'NYC').compile();
+    const qMysql = mysqlCompiler
+      .selectFrom(trustedTable('adults'))
+      .with('adults', subMysql)
+      .where('city', '=', 'NYC')
+      .compile();
 
     expect(qMysql.text).toBe(
       'WITH `adults` AS (SELECT * FROM `users` WHERE `age` >= ?) SELECT * FROM `adults` WHERE `city` = ?',
@@ -970,7 +972,11 @@ describe('Window Functions & Projection AST extension', () => {
       .orderBy('created_at', 'asc')
       .as('running_total');
 
-    const q = qb.selectFrom(trustedTable('employees')).select([rowNum, runningTotal]).where('active', '=', true).compile();
+    const q = qb
+      .selectFrom(trustedTable('employees'))
+      .select([rowNum, runningTotal])
+      .where('active', '=', true)
+      .compile();
 
     expect(q.text).toBe(
       'SELECT ROW_NUMBER() OVER (PARTITION BY "department_id" ORDER BY "salary" DESC) AS "rank", SUM("amount") OVER (PARTITION BY "user_id" ORDER BY "created_at" ASC) AS "running_total" FROM "employees" WHERE "active" = $1',
