@@ -12,7 +12,9 @@ export interface ParseResult<T> {
   errors?: readonly string[];
 }
 
-export function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): ParseResult<T> {
+export function lenientParse(text: string): ParseResult<unknown>;
+export function lenientParse<T>(text: string, coerce: (v: unknown) => T): ParseResult<T>;
+export function lenientParse(text: string, coerce?: (v: unknown) => unknown): ParseResult<unknown> {
   // strip a leading/trailing markdown code fence (```json … ```)
   const stripped = text
     .trim()
@@ -25,10 +27,8 @@ export function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) =>
   } catch (err) {
     return { success: false, errors: [err instanceof Error ? err.message : 'invalid JSON'] };
   }
-  // boundary: with no `coerce` there is nothing to check the payload against —
-  // `T` is the caller's claim about the model's output, exactly as with
-  // `JSON.parse`. Pass a `coerce` (or run the AOT validator) to make it proven.
-  if (!coerce) return { success: true, data: parsed as T };
+  // Without a callback, the parsed payload remains unknown.
+  if (!coerce) return { success: true, data: parsed };
   try {
     return { success: true, data: coerce(parsed) };
   } catch (err) {

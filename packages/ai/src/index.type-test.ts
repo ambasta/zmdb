@@ -2,8 +2,16 @@
 
 import { type CoreSchema, type Equal, type Expect } from '@zmdb/schema';
 import { type JsonSchemaObject } from '@zmdb/schema/openapi';
+import { assert } from '@zmdb/validator';
 
-import { toolFor, type ToolProvider, type ToolSpec, type ToolSpecFor } from './index.js';
+import {
+  lenientParse,
+  type ParseResult,
+  toolFor,
+  type ToolProvider,
+  type ToolSpec,
+  type ToolSpecFor,
+} from './index.js';
 
 type FrozenToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
 
@@ -45,3 +53,32 @@ export type _aot_provider_preserves_anthropic_return = Expect<
 export type _aot_strict_document_is_specific = Expect<
   Equal<typeof aotStrict.function.parameters, StrictJsonSchemaObject>
 >;
+
+interface ParsedRecord {
+  name: string;
+}
+
+const unvalidated = lenientParse('{"name":"record"}');
+const parseThroughHelper = (text: string) => lenientParse(text);
+export type _unvalidated_data_is_unknown = Expect<Equal<typeof unvalidated.data, unknown>>;
+export type _helper_data_is_unknown = Expect<Equal<ReturnType<typeof parseThroughHelper>['data'], unknown>>;
+
+// @ts-expect-error A type argument cannot establish the parsed output without a callback.
+lenientParse<ParsedRecord>('{}');
+// @ts-expect-error An absent callback cannot establish the parsed output.
+lenientParse<ParsedRecord>('{}', undefined);
+// @ts-expect-error Contextual assignment cannot establish the parsed output without a callback.
+const claimed: ParseResult<ParsedRecord> = lenientParse('{}');
+void claimed;
+
+const validated = lenientParse<ParsedRecord>('{}', assert<ParsedRecord>);
+const inferred = lenientParse('{}', assert<ParsedRecord>);
+const decoded = lenientParse('"record"', value => {
+  const input: Expect<Equal<typeof value, unknown>> = true;
+  void input;
+  if (typeof value !== 'string') throw new Error('Expected a string');
+  return { name: value };
+});
+export type _explicit_callback_establishes_data = Expect<Equal<typeof validated.data, ParsedRecord | undefined>>;
+export type _inferred_callback_establishes_data = Expect<Equal<typeof inferred.data, ParsedRecord | undefined>>;
+export type _decoder_establishes_data = Expect<Equal<typeof decoded.data, ParsedRecord | undefined>>;

@@ -47,15 +47,19 @@ describe('LLM tool calls validate against the schema they were generated from', 
     expect(tool.parameters.required).toEqual(['at', 'guest', 'nights']);
 
     const call = '```json\n{"guest":"Ada","nights":2,"at":"2026-01-01T12:30:00.000Z"}\n```';
-    const parsed = lenientParse<Record<string, unknown>>(call);
+    const parsed = lenientParse(call);
     expect(parsed.success).toBe(true);
+    if (typeof parsed.data !== 'object' || parsed.data === null || Array.isArray(parsed.data)) {
+      throw new Error('Expected object arguments');
+    }
     expect(issuesFor({ ...parsed.data, ...SERVER_SIDE }, wire)).toEqual([]);
   });
 
   it('rejects a hallucinated argument with the path the model got wrong', () => {
-    const parsed = lenientParse<Record<string, unknown>>(
-      '{"guest":"Ada","nights":"two","at":"2026-01-01T12:30:00.000Z"}',
-    );
+    const parsed = lenientParse('{"guest":"Ada","nights":"two","at":"2026-01-01T12:30:00.000Z"}');
+    if (typeof parsed.data !== 'object' || parsed.data === null || Array.isArray(parsed.data)) {
+      throw new Error('Expected object arguments');
+    }
     const issues = issuesFor({ ...parsed.data, ...SERVER_SIDE }, wire);
     expect(issues).toHaveLength(1);
     expect(issues[0]?.path).toBe('input.nights');
@@ -63,7 +67,10 @@ describe('LLM tool calls validate against the schema they were generated from', 
   });
 
   it('reports a required argument the model left out', () => {
-    const parsed = lenientParse<Record<string, unknown>>('{"guest":"Ada","at":"2026-01-01T12:30:00.000Z"}');
+    const parsed = lenientParse('{"guest":"Ada","at":"2026-01-01T12:30:00.000Z"}');
+    if (typeof parsed.data !== 'object' || parsed.data === null || Array.isArray(parsed.data)) {
+      throw new Error('Expected object arguments');
+    }
     const paths = issuesFor({ ...parsed.data, ...SERVER_SIDE }, wire).map(i => i.path);
     expect(paths).toEqual(['input.nights']);
   });

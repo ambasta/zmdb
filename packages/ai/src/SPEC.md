@@ -26,7 +26,8 @@ interface ParseResult<T> {
   data?: T;
   errors?: readonly string[];
 }
-function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): ParseResult<T>;
+function lenientParse(text: string): ParseResult<unknown>;
+function lenientParse<T>(text: string, coerce: (v: unknown) => T): ParseResult<T>;
 ```
 
 ## Frozen behavior
@@ -34,6 +35,7 @@ function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): Pa
 - `toolFromSchema(name, schema)` returns `{ name, description?, parameters }` where `parameters` is the schema's `create`-variant JSON Schema (input shape).
 - `toolFor<T>(provider, name)` is compiled to the provider-framed tool and its frozen create document. The schema-value overload is the source-mode/runtime equivalent.
 - `lenientParse(text)`:
+  - returns unknown data without a callback; typed output requires an `unknown => T` assertion or decoder callback, with callback return-type inference supported,
   - strips Markdown code fences (`json … `) before parsing,
   - tolerates trailing commas is **not** attempted; only fence-stripping + a plain `JSON.parse`,
   - on parse failure returns `{ success:false, errors:[msg] }`,
