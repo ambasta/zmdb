@@ -301,6 +301,7 @@ export const PRODUCT_JOURNEY = [
       'perf-queries',
       'perf-serverless',
       'deployment',
+      'connections-and-shutdown',
       'tutorials',
       'deploy-vercel',
       'deploy-netlify',

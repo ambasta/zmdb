@@ -39,14 +39,15 @@ every row at once. Three things had to be repaired before the suites would run a
 
 - **The validation patch was regenerated against `2681b59a`.** Upstream added cases and rewrote the `test`/`test:build` script chains, so
   [the patch](./patches/typescript-runtime-type-benchmarks.patch) no longer applied. It now registers `zmdb`/`zmdb-aot` in `cases/index.ts` and `index.ts` against the new surroundings. It also adds
-  `--skipLibCheck` to upstream's own `compile:ts-runtypes` declaration emit — the repo's root `tsconfig.json` already sets that flag, and without it a competitor's build step fails and takes the whole run with it.
-- **drizzle 1.0 takes its client through the config object.** The 0.4x form `drizzle(pool, { schema })` is read as a *config* in 1.0, so it silently constructs a second pool against the default
-  `localhost:5432` instead of using the one it was handed. Here that surfaced as HTTP 500 with `ECONNREFUSED` because the benchmark database listens on 55432; on a machine with a stray local
-  Postgres it would instead have surfaced as a benchmark quietly measuring the wrong database. Both ORM entry points now pass `{ client: pool }`.
+  `--skipLibCheck` to upstream's own `compile:ts-runtypes` declaration emit — the repo's root `tsconfig.json` already sets that flag, and without it a competitor's build step fails and takes the whole
+  run with it.
+- **drizzle 1.0 takes its client through the config object.** The 0.4x form `drizzle(pool, { schema })` is read as a _config_ in 1.0, so it silently constructs a second pool against the default
+  `localhost:5432` instead of using the one it was handed. Here that surfaced as HTTP 500 with `ECONNREFUSED` because the benchmark database listens on 55432; on a machine with a stray local Postgres
+  it would instead have surfaced as a benchmark quietly measuring the wrong database. Both ORM entry points now pass `{ client: pool }`.
 - **The zmdb ORM routes moved to the consolidated query builder.** `aggregateSelectFrom`, `ftsSelectFrom` and `joinableSelectFrom` were removed in `1fd3379d`; every route now goes through
   `createQueryCompiler(postgres).selectFrom(trustedTable(…))` with `.expr` / `.count` / `.sum` / `.leftJoin` / `.whereMatch`. Qualified root columns are passed as explicit `{ column, alias }` pairs so
-  the emitted SQL keeps bare JSON keys (`"employees"."id" AS "id"`, not `AS "employees.id"`) — otherwise the port would have changed the response shape it is supposed to hold fixed. All 13 routes
-  were re-checked against the seeded Northwind database and return byte-identical JSON across the drizzle, kysely and zmdb servers.
+  the emitted SQL keeps bare JSON keys (`"employees"."id" AS "id"`, not `AS "employees.id"`) — otherwise the port would have changed the response shape it is supposed to hold fixed. All 13 routes were
+  re-checked against the seeded Northwind database and return byte-identical JSON across the drizzle, kysely and zmdb servers.
 
 ## Engineering costs — captured product revision
 

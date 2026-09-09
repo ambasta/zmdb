@@ -107,6 +107,9 @@ constructs. Disposal runs `onShutdown` in **reverse construction order**, so a d
 > [!NOTE] Value providers enter lifecycle immediately. Factory providers enter only when resolved: one resolved after `init()` is still shut down, but does not receive retroactive init hooks, and an
 > unresolved factory is never built merely to stop it.
 
+`pool.end()` belongs in the `onShutdown` of whatever **created** the pool, which in a script is this one class. In an application with more than one component on the pool, give it a dedicated owner —
+see [Connections and Shutdown](./connections-and-shutdown.html).
+
 ## Graceful shutdown
 
 `WebApplication` is `AsyncDisposable`, so `await using` handles it:

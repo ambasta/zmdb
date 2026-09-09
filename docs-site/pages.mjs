@@ -685,6 +685,10 @@ export const PAGE_META = {
     title: 'Deployment',
     status: 'supported',
   },
+  'connections-and-shutdown': {
+    title: 'Connections and Shutdown',
+    status: 'supported',
+  },
   'lint-rules': {
     title: 'Lint Rules',
     status: 'supported',

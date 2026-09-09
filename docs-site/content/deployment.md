@@ -71,8 +71,9 @@ A correct migration deployed in the wrong order is the most common way to break 
 
 ## Connections
 
-`max × instances ≤ max_connections − headroom`. Keep `max` small — Postgres connections are processes, and a pool of 10 that queues usually beats a pool of 50 that thrashes. For serverless, see
-[Serverless Performance](./perf-serverless.html).
+`max × instances ≤ max_connections − headroom`. Keep `max` small — Postgres connections are processes, and a pool of 10 that queues usually beats a pool of 50 that thrashes. The floor comes from what
+holds a connection: a transaction and a stream each pin one for their whole duration. See [Connections and Shutdown](./connections-and-shutdown.html) for that arithmetic and for who closes the pool.
+For serverless, see [Serverless Performance](./perf-serverless.html).
 
 ## Configuration
 
@@ -124,6 +125,9 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   });
 }
 ```
+
+`server.close()` comes before `pool.end()` on purpose: a query still waiting for a free client when the pool ends never settles. [Connections and Shutdown](./connections-and-shutdown.html) has the
+full order, including jobs and a hard-exit timer.
 
 ## A container
 

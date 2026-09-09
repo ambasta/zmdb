@@ -153,7 +153,8 @@ await using app = createApp(AppModule);
 await app.init();
 ```
 
-Or dispose explicitly and call `pool.end()`. See [Standalone Applications](./web-standalone.html).
+Or dispose explicitly, and call `pool.end()` from whatever created the pool — see [Connections and Shutdown](./connections-and-shutdown.html), which also covers why a query still queued when the pool
+ends never settles. For the script shape, see [Standalone Applications](./web-standalone.html).
 
 ## A migration applied twice, or deadlocked
 

@@ -235,6 +235,45 @@ try {
     assert(typeof firstPid === 'number', 'transaction exposed no backend pid');
   });
 
+  await step('closes an owned pool around in-flight work', async () => {
+    // The shutdown contract published on docs-site/content/connections-and-shutdown.md, on a pool
+    // this step owns so ending it cannot disturb the steps around it: a dispatched statement
+    // survives `end()`, and one still queued for a client is discarded without ever settling.
+    const owned = new Pool({ connectionString, max: 1 });
+    const driver = postgresDriver(owned);
+    const settled = [];
+    await owned.query('SELECT 1');
+
+    const inFlight = driver.execute({ text: 'SELECT pg_sleep(0.3) IS NULL AS slept', parameters: [] }).then(rows => {
+      settled.push('query');
+      return rows;
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    assert(owned.waitingCount === 0, 'in-flight statement never checked out a client');
+
+    let queuedSettled = false;
+    const mark = () => {
+      queuedSettled = true;
+    };
+    driver.execute({ text: 'SELECT 1 AS never', parameters: [] }).then(mark, mark);
+    assert(owned.waitingCount === 1, 'second statement did not queue behind the only client');
+
+    const ended = owned.end().then(() => settled.push('end'));
+    const rows = await inFlight;
+    await ended;
+    assert(rows[0]?.slept === false, 'in-flight statement did not complete across shutdown');
+    assert(settled.join(',') === 'query,end', 'pool.end() did not wait for the checked-out client');
+
+    await new Promise(resolve => setTimeout(resolve, 250));
+    assert(!queuedSettled, 'a statement discarded by pool.end() unexpectedly settled');
+    await driver.execute({ text: 'SELECT 1', parameters: [] }).then(
+      () => {
+        throw new Error('an ended pool still served a statement');
+      },
+      error => assert(/after calling end/i.test(String(error)), `unexpected post-shutdown error: ${error}`),
+    );
+  });
+
   await step('deallocates an evicted prepared statement', async () => {
     const client = await pool.connect();
     try {
