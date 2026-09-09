@@ -32,8 +32,25 @@ export const _resolvedClock: Clock = c.resolve(ClockToken);
 export const _crossToken: Clock = c.resolve(LoggerToken);
 
 // --- register is checked against the token ---------------------------------
-export const _registered: void = c.register(LoggerToken, new Logger());
+export const _registered: Container = c.register(LoggerToken, new Logger());
 // @ts-expect-error — a number is not a Logger.
 export const _badRegister = c.register(LoggerToken, 42);
 // @ts-expect-error — a Clock is not a Logger either (nominal by token, not shape).
 export const _wrongInstance = c.register(LoggerToken, new Clock());
+
+// --- fluent calls retain the subtype and provider value types --------------
+interface AppContainer extends Container {
+  appName(): string;
+}
+declare const app: AppContainer;
+export const _fluent = app.register(LoggerToken, new Logger()).registerFactory(ClockToken, () => new Clock());
+export type _FluentSubtype = Expect<Equal<typeof _fluent, AppContainer>>;
+export const _appName: string = _fluent.appName();
+export const _fluentLogger: Logger = _fluent.resolve(LoggerToken);
+export const _fluentClock: Clock = _fluent.resolve(ClockToken);
+// @ts-expect-error — a fluent factory must still return the token's value type.
+export const _badFactory = _fluent.registerFactory(LoggerToken, () => 42);
+// @ts-expect-error — a fluent value must still match the token's value type.
+export const _badFluentRegister = _fluent.register(LoggerToken, 42);
+// @ts-expect-error — a fluent Logger resolution does not return a Clock.
+export const _badFluentResolve: Clock = _fluent.resolve(LoggerToken);

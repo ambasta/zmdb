@@ -17,9 +17,20 @@ describe('@zmdb/app DI: Container', () => {
   it('registers and resolves an instance', () => {
     const c = new Container();
     const logger = new Logger();
-    c.register(LoggerToken, logger);
+    expect(c.register(LoggerToken, logger)).toBe(c);
     expect(c.resolve(LoggerToken)).toBe(logger);
     expect(c.has(LoggerToken)).toBe(true);
+  });
+
+  it('chains value and factory registrations on the same container', () => {
+    const c = new Container();
+    const logger = new Logger();
+    const messageToken = createToken<string>('message');
+    expect(c.registerFactory(messageToken, container => container.resolve(LoggerToken).log('hi'))).toBe(c);
+    const chained = c.register(LoggerToken, logger).registerFactory(messageToken, () => 'hello');
+    expect(chained).toBe(c);
+    expect(chained.resolve(LoggerToken)).toBe(logger);
+    expect(chained.resolve(messageToken)).toBe('hello');
   });
 
   it('throws UnresolvedTokenError for an unregistered token', () => {
