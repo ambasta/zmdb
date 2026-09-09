@@ -3,7 +3,7 @@
 These four projects are the external-install contract for issue #636. Each manifest names released package versions, never `workspace:`, `file:`, a root `paths` alias, or a private source path:
 
 - `schema` installs only `@zmdb/schema`;
-- `sql` installs only `@zmdb/sql`;
+- `sql` installs `@zmdb/sql` and its `@zmdb/schema` declaration dependency;
 - `validator` installs `@zmdb/schema` and `@zmdb/validator`;
 - `orm` installs the four foundation packages and supplies its own structural driver.
 

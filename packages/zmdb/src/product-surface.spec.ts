@@ -135,15 +135,7 @@ describe('product facade runtime identities', () => {
       },
       {
         facade: '@zmdb/core/sql',
-        owners: [
-          '@zmdb/sql',
-          '@zmdb/sql/fts',
-          '@zmdb/sql/joins',
-          '@zmdb/sql/aggregations',
-          '@zmdb/sql/set-ops',
-          '@zmdb/sql/schema-objects',
-          '@zmdb/schema/naming',
-        ],
+        owners: ['@zmdb/sql', '@zmdb/sql/set-ops', '@zmdb/sql/schema-objects', '@zmdb/schema/naming'],
         excluded: new Set([
           'DIALECT_PARAM_LIMITS',
           'chunkArray',

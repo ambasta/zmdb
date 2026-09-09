@@ -162,7 +162,7 @@ import { postgres } from '@zmdb/core/postgres';
 
 const schema = schemaOf<User>();
 const compiler = createQueryCompiler(postgres);
-const query = compiler.selectFrom(schema.table).select(['id', 'email']).where('role', '=', 'admin').compile();
+const query = compiler.selectFrom(schema).select(['id', 'email']).where('role', '=', 'admin').compile();
 ```
 
 ```sql

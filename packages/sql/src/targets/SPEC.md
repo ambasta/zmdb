@@ -28,22 +28,22 @@ the seam the wrong thing to have been worried about. §2.1 is what should have b
 `BaseRepository<T>` has fourteen public methods. None of them hands the compiler a plan object; each one calls builder methods and compiles. The column that matters is the last one — whether the calls
 it makes are expressible without SQL vocabulary.
 
-| Method            | What it drives                                                         | SQL in the calls?           |
-| ----------------- | ---------------------------------------------------------------------- | --------------------------- |
-| `findById`        | `buildKeyWhere` → `compileWhere` → `.limit(1)`                         | no                          |
-| `findOne`         | same, via `firstMatching`                                              | no                          |
-| `find`            | `compileWhere(selectFrom(table), where)`                               | no                          |
-| `findAll`         | `selectFrom(table)`                                                    | no                          |
-| `list`            | `applyOrderBy`, `applyKeysetFilter`, `applyPagination`, `compileWhere` | precedence only (§2.1a)     |
-| `findByFullText`  | `ftsSelectFrom(table, dialect, { ftsTable }).whereMatch(col, term)`    | yes — dialect and FTS table |
-| `findJoined`      | `joinableSelectFrom(...).leftJoin(t, l, r).where(col, op, value)`      | yes — `op` is a free string |
-| `aggregate`       | `aggregateSelectFrom`, or a caller callback over the builder           | yes — caller-supplied       |
-| `findAllWithMany` | `selectFrom(child).whereIn(fk, chunk)`                                 | no                          |
-| `create`          | `insertInto(t).values(row).returning(['*'])`                           | no                          |
-| `upsert`          | `.onConflict(target).doUpdate(fields).returning(['*'])`                | no                          |
-| `update`          | `updateTable(t).set(row)` + `compileWhere` + `returning(['*'])`        | no                          |
-| `delete`          | `deleteFrom(t)` + `compileWhere` + `returning(pk)`                     | no                          |
-| `withTransaction` | wraps a `TxConnection`; issues no query itself                         | no                          |
+| Method            | What it drives                                                                  | SQL in the calls?           |
+| ----------------- | ------------------------------------------------------------------------------- | --------------------------- |
+| `findById`        | `buildKeyWhere` → `compileWhere` → `.limit(1)`                                  | no                          |
+| `findOne`         | same, via `firstMatching`                                                       | no                          |
+| `find`            | `compileWhere(selectFrom(table), where)`                                        | no                          |
+| `findAll`         | `selectFrom(table)`                                                             | no                          |
+| `list`            | `applyOrderBy`, `applyKeysetFilter`, `applyPagination`, `compileWhere`          | precedence only (§2.1a)     |
+| `findByFullText`  | `compiler.selectFrom(trustedTable(table, { ftsTable })).whereMatch(col, term)`  | yes — dialect and FTS table |
+| `findJoined`      | `compiler.selectFrom(...).leftJoin(target, alias, pairs).where(col, op, value)` | yes — `op` is a free string |
+| `aggregate`       | the canonical SELECT builder, or a caller callback over it                      | yes — caller-supplied       |
+| `findAllWithMany` | `selectFrom(child).whereIn(fk, chunk)`                                          | no                          |
+| `create`          | `insertInto(t).values(row).returning(['*'])`                                    | no                          |
+| `upsert`          | `.onConflict(target).doUpdate(fields).returning(['*'])`                         | no                          |
+| `update`          | `updateTable(t).set(row)` + `compileWhere` + `returning(['*'])`                 | no                          |
+| `delete`          | `deleteFrom(t)` + `compileWhere` + `returning(pk)`                              | no                          |
+| `withTransaction` | wraps a `TxConnection`; issues no query itself                                  | no                          |
 
 Nine of fourteen are SQL-free at the call site, and the builder state they accumulate — `SelectState` is `{ table, columns?, wheres[], orderBys[], limitN?, offsetN? }` — is a plan already. The issue's
 step 1 asks for that plan to be extracted and named `SelectPlan`; it exists, it is internal, and naming it would be the smallest part of the work.

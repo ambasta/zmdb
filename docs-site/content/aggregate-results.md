@@ -6,7 +6,6 @@ aggregation specification.
 Use `AggregateSpec<S>` to declare what you want to compute:
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Order; this excerpt does not repeat those declarations."}
-import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
 import { type AggregateResult, type AggregateSpec } from '@zmdb/schema/dto';
 
 const spec: AggregateSpec<Order> = {
@@ -91,13 +90,15 @@ SELECT COUNT(*) AS "totalOrders", SUM("totalPrice") AS "revenue" FROM "orders"
 Filter rows before aggregating by passing a pre-filtered query builder:
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ordersRepo, qb; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 const recentStats = await ordersRepo.aggregate(
   {
     computed: { count: { fn: 'count' } },
   },
   agg => {
     // Filter first
-    const q = qb.selectFrom('orders').where('createdAt', '>', '2024-01-01');
+    const q = qb.selectFrom(trustedTable('orders')).where('createdAt', '>', '2024-01-01');
     // Then aggregate
     return agg.count('count').compile();
   },

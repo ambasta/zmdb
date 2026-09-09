@@ -21,7 +21,7 @@ type Row = Entity<Post>; // the row
 type NewPost = CreateDTO<Post>; // the insert shape
 const schema = toJsonSchema(schemaOf<Post>(), 'create'); // JSON Schema / OpenAPI
 const validate = assert<NewPost>; // AOT-compiled validator
-const sql = compiler.selectFrom('posts'); // typed queries
+const sql = compiler.selectFrom(schemaOf<Post>()); // typed queries
 const migration = diff(previous, snapshot([schemaOf<Post>()]));
 ```
 

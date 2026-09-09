@@ -1,4 +1,5 @@
 import {
+  trustedTable,
   createQueryCompiler,
   dialectTraits,
   quoteIdentifier,
@@ -91,7 +92,7 @@ export function outboxCandidatesQuery(
   args: { readonly now: Date; readonly batch: number },
 ): CompiledQuery {
   return createQueryCompiler(dialect)
-    .selectFrom(OUTBOX_TABLE)
+    .selectFrom(trustedTable(OUTBOX_TABLE))
     .select(['id'])
     .where('status', '=', PENDING)
     .where('lease_until', '<', args.now)
@@ -110,7 +111,7 @@ export function outboxClaimQuery(
   },
 ): CompiledQuery {
   return createQueryCompiler(dialect)
-    .updateTable(OUTBOX_TABLE)
+    .updateTable(trustedTable(OUTBOX_TABLE))
     .set({ lease_owner: args.token, lease_until: args.leaseUntil })
     .where('status', '=', PENDING)
     .where('lease_until', '<', args.now)
@@ -120,7 +121,7 @@ export function outboxClaimQuery(
 
 export function outboxReadBackQuery(dialect: DialectTarget, args: { readonly token: string }): CompiledQuery {
   return createQueryCompiler(dialect)
-    .selectFrom(OUTBOX_TABLE)
+    .selectFrom(trustedTable(OUTBOX_TABLE))
     .select(['id', 'topic', 'payload', 'attempts'])
     .where('lease_owner', '=', args.token)
     .compile();
@@ -136,7 +137,7 @@ export function outboxMarkDeliveredQuery(
   },
 ): CompiledQuery {
   return createQueryCompiler(dialect)
-    .updateTable(OUTBOX_TABLE)
+    .updateTable(trustedTable(OUTBOX_TABLE))
     .set({ status: 'delivered', delivered_at: args.deliveredAt, attempts: args.attempts })
     .where('id', '=', args.id)
     .where('lease_owner', '=', args.token)
@@ -154,7 +155,7 @@ export function outboxMarkRetryQuery(
   },
 ): CompiledQuery {
   return createQueryCompiler(dialect)
-    .updateTable(OUTBOX_TABLE)
+    .updateTable(trustedTable(OUTBOX_TABLE))
     .set({ attempts: args.attempts, last_error: args.lastError, lease_until: args.leaseUntil })
     .where('id', '=', args.id)
     .where('lease_owner', '=', args.token)
@@ -171,7 +172,7 @@ export function outboxMarkDeadQuery(
   },
 ): CompiledQuery {
   return createQueryCompiler(dialect)
-    .updateTable(OUTBOX_TABLE)
+    .updateTable(trustedTable(OUTBOX_TABLE))
     .set({ status: 'dead', attempts: args.attempts, last_error: args.lastError })
     .where('id', '=', args.id)
     .where('lease_owner', '=', args.token)

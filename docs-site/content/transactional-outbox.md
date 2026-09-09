@@ -161,10 +161,10 @@ There is deliberately no automatic replay helper: retrying a poison message befo
 claim path can see it:
 
 ```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies deadRowId, driver; this excerpt does not repeat those declarations."}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 
 const replay = createQueryCompiler(driver.dialect)
-  .updateTable('zmdb_outbox')
+  .updateTable(trustedTable('zmdb_outbox'))
   .set({
     status: 'pending',
     attempts: 0,

@@ -1,5 +1,5 @@
 import { type ChangeOp } from '@zmdb/migrations';
-import { createQueryCompiler, extendSqlDialect, type IntrospectionDriver } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, extendSqlDialect, type IntrospectionDriver } from '@zmdb/sql';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -146,7 +146,9 @@ describe('@zmdb/postgres vertical', () => {
     expect(postgres.migrations.emitUp(operation)).toBe(
       'CREATE TABLE "users" ("id" SERIAL PRIMARY KEY, "email" TEXT NOT NULL)',
     );
-    expect(createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@example.test').compile()).toEqual({
+    expect(
+      createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('email', '=', 'a@example.test').compile(),
+    ).toEqual({
       text: 'SELECT * FROM "users" WHERE "email" = $1',
       parameters: ['a@example.test'],
     });

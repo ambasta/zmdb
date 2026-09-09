@@ -2949,71 +2949,23 @@
     {
       "from": "@zmdb/query-compiler/fts",
       "name": "escapeFts5Term",
-      "to": "@zmdb/sql/fts",
+      "to": "@zmdb/sql",
       "export": "escapeFts5Term",
       "value": true,
       "declarationSource": "packages/query-compiler/src/fts/index.ts"
     },
     {
       "from": "@zmdb/query-compiler/fts",
-      "name": "FtsOptions",
-      "to": "@zmdb/sql/fts",
-      "export": "FtsOptions",
-      "value": false,
-      "declarationSource": "packages/query-compiler/src/fts/index.ts"
-    },
-    {
-      "from": "@zmdb/query-compiler/fts",
-      "name": "FtsSelect",
-      "to": "@zmdb/sql/fts",
-      "export": "FtsSelect",
-      "value": false,
-      "declarationSource": "packages/query-compiler/src/fts/index.ts"
-    },
-    {
-      "from": "@zmdb/query-compiler/fts",
-      "name": "ftsSelectFrom",
-      "to": "@zmdb/sql/fts",
-      "export": "ftsSelectFrom",
-      "value": true,
-      "declarationSource": "packages/query-compiler/src/fts/index.ts"
-    },
-    {
-      "from": "@zmdb/query-compiler/fts",
-      "name": "FtsTableOptions",
-      "to": "@zmdb/sql/fts",
-      "export": "FtsTableOptions",
-      "value": false,
-      "declarationSource": "packages/query-compiler/src/fts/index.ts"
-    },
-    {
-      "from": "@zmdb/query-compiler/fts",
       "name": "UnsupportedFeatureError",
-      "to": "@zmdb/sql/fts",
+      "to": "@zmdb/sql",
       "export": "UnsupportedFeatureError",
       "value": true,
       "declarationSource": "packages/query-compiler/src/errors.ts"
     },
     {
       "from": "@zmdb/query-compiler/joins",
-      "name": "JoinableSelect",
-      "to": "@zmdb/sql/joins",
-      "export": "JoinableSelect",
-      "value": false,
-      "declarationSource": "packages/query-compiler/src/joins/index.ts"
-    },
-    {
-      "from": "@zmdb/query-compiler/joins",
-      "name": "joinableSelectFrom",
-      "to": "@zmdb/sql/joins",
-      "export": "joinableSelectFrom",
-      "value": true,
-      "declarationSource": "packages/query-compiler/src/joins/index.ts"
-    },
-    {
-      "from": "@zmdb/query-compiler/joins",
       "name": "JoinCondition",
-      "to": "@zmdb/sql/joins",
+      "to": "@zmdb/sql",
       "export": "JoinCondition",
       "value": false,
       "declarationSource": "packages/query-compiler/src/clauses.ts"
@@ -3021,31 +2973,15 @@
     {
       "from": "@zmdb/query-compiler/joins",
       "name": "JoinKind",
-      "to": "@zmdb/sql/joins",
+      "to": "@zmdb/sql",
       "export": "JoinKind",
       "value": false,
       "declarationSource": "packages/query-compiler/src/clauses.ts"
     },
     {
       "from": "@zmdb/query-compiler/aggregations",
-      "name": "AggregateSelect",
-      "to": "@zmdb/sql/aggregations",
-      "export": "AggregateSelect",
-      "value": false,
-      "declarationSource": "packages/query-compiler/src/aggregations/index.ts"
-    },
-    {
-      "from": "@zmdb/query-compiler/aggregations",
-      "name": "aggregateSelectFrom",
-      "to": "@zmdb/sql/aggregations",
-      "export": "aggregateSelectFrom",
-      "value": true,
-      "declarationSource": "packages/query-compiler/src/aggregations/index.ts"
-    },
-    {
-      "from": "@zmdb/query-compiler/aggregations",
       "name": "JoinCondition",
-      "to": "@zmdb/sql/aggregations",
+      "to": "@zmdb/sql",
       "export": "JoinCondition",
       "value": false,
       "declarationSource": "packages/query-compiler/src/clauses.ts"
@@ -3053,7 +2989,7 @@
     {
       "from": "@zmdb/query-compiler/aggregations",
       "name": "JoinKind",
-      "to": "@zmdb/sql/aggregations",
+      "to": "@zmdb/sql",
       "export": "JoinKind",
       "value": false,
       "declarationSource": "packages/query-compiler/src/clauses.ts"

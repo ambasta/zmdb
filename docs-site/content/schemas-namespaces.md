@@ -42,13 +42,13 @@ console.log(tableRef);
 Use the qualified table name when compiling queries that span schemas.
 
 ```ts {"mode":"compile","id":"example-003"}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
 
 // Query a table in a specific schema
-const query = compiler.selectFrom('analytics.events').select(['event_id', 'event_type', 'occurred_at']).where('event_type', '=', 'page_view').limit(100).compile();
+const query = compiler.selectFrom(trustedTable('analytics.events')).select(['event_id', 'event_type', 'occurred_at']).where('event_type', '=', 'page_view').limit(100).compile();
 
 console.log(query.text);
 console.log(query.parameters);

@@ -42,3 +42,19 @@ A `Chain` composes them around a handler in this deterministic order:
 ## Out of scope
 
 Auto-wiring zmdb DTO validation as a pipe (epic #297), decorators to attach these per-method (kept minimal here: chains are composed explicitly; method-decorator sugar can follow).
+
+### Registered declarations (#789)
+
+`UseGuards`, `UsePipes`, `UseInterceptors` and `UseFilters` are class/method routing decorators accepting canonical middleware instances or typed app tokens. Declarations retain source order within a
+layer. Guards, pipes and interceptors compose class-before-method; filters use method-before-class precedence. Own metadata records keep subclass changes isolated from bases and siblings. Standalone
+routers accept instances and reject unresolved token declarations; they do not construct middleware. `RouteOptions` also accepts instance arrays for pipes, interceptors and filters. Route options
+follow declared guards, pipes and interceptors; explicit route filters precede declared filters.
+
+Application registration resolves token declarations once. Deferred controller preparation resolves them during subtree construction, before the existing app lifecycle ledger is sliced for
+initialization. Resolved and literal middleware instances enter the existing deduplicating app lifecycle ledger. Provider identity, initialization and shutdown remain app-owned; declarations never
+activate a deferred subtree at router registration. Test applications use the same preparation path.
+
+Execution order is guards, exactly one configured body validation, pipes, then interceptors surrounding the handler. Filters handle interceptor/handler errors, as in `runChain`; they do not catch
+guard, validation or pipe failures. Ordinary pipe failures produce 400, denied guards produce 403. Composition happens during registration (activation for deferred controllers), with request context
+passed to the prebuilt executor. Routes without middleware retain their direct handler. Compiled and ordinary routes use the same composition and existing observed validation stage. Returned ordinary
+values retain JSON normalization; explicit response factories retain their tagged body kinds.

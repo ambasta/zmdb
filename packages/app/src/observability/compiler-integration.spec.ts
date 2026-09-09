@@ -1,6 +1,6 @@
 import { tracedDriver, type Span, type SpanContext, type Tracer } from '@zmdb/app/observability';
 import { postgres } from '@zmdb/postgres';
-import { createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 const context: SpanContext = {
@@ -39,7 +39,7 @@ describe('app observability compiler integration', () => {
 
     expect(driver.queryTelemetry).toBe(true);
     const compiler = createQueryCompiler(postgres, driver.queryTelemetry === true ? { telemetry: true } : {});
-    await driver.execute(compiler.selectFrom('users').compile());
+    await driver.execute(compiler.selectFrom(trustedTable('users')).compile());
     expect(queries[0]?.telemetry).toEqual({
       system: 'postgresql',
       operation: 'SELECT',

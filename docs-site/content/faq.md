@@ -34,10 +34,10 @@ site where you know whether absence is an error.
 Yes, and without a database:
 
 ```ts {"mode":"compile","id":"example-001"}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
-const q = createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@example.com').compile();
+const q = createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('email', '=', 'a@example.com').compile();
 
 q.text; // 'SELECT * FROM "users" WHERE "email" = $1'
 q.parameters; // ['a@example.com']

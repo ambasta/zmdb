@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 
 import { down, driverMigrationConnection, up, type Migration, type SchemaSnapshot } from '@zmdb/migrations';
 import { detectDrift } from '@zmdb/migrations/introspect';
-import { createQueryCompiler, quoteTable } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, quoteTable } from '@zmdb/sql';
 import { type ConnectionPool } from 'mssql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -230,7 +230,7 @@ describe.skipIf(probe.kind === 'unreachable')('@zmdb/mssql against real SQL Serv
 
     const inserted = await driver.execute(
       compiler
-        .insertInto(roundTrip)
+        .insertInto(trustedTable(roundTrip))
         .values({
           guid,
           label: '東京 Δ',
@@ -253,7 +253,7 @@ describe.skipIf(probe.kind === 'unreachable')('@zmdb/mssql against real SQL Serv
 
     const merged = await driver.execute(
       compiler
-        .insertInto(roundTrip)
+        .insertInto(trustedTable(roundTrip))
         .values({
           guid,
           label: '更新済み',
@@ -270,7 +270,7 @@ describe.skipIf(probe.kind === 'unreachable')('@zmdb/mssql against real SQL Serv
 
     await driver.execute(
       compiler
-        .insertInto(roundTrip)
+        .insertInto(trustedTable(roundTrip))
         .values({
           guid: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
           label: 'second',
@@ -280,17 +280,24 @@ describe.skipIf(probe.kind === 'unreachable')('@zmdb/mssql against real SQL Serv
         })
         .compile(),
     );
-    const page = await driver.execute(compiler.selectFrom(roundTrip).orderBy('id', 'asc').offset(1).limit(1).compile());
+    const page = await driver.execute(
+      compiler.selectFrom(trustedTable(roundTrip)).orderBy('id', 'asc').offset(1).limit(1).compile(),
+    );
     expect(page).toHaveLength(1);
     expect(page[0]?.['label']).toBe('second');
 
     const updated = await driver.execute(
-      compiler.updateTable(roundTrip).set({ visits: 3 }).where('guid', '=', guid).returning(['visits']).compile(),
+      compiler
+        .updateTable(trustedTable(roundTrip))
+        .set({ visits: 3 })
+        .where('guid', '=', guid)
+        .returning(['visits'])
+        .compile(),
     );
     expect(updated).toEqual([{ visits: 3 }]);
     const deleted = await driver.execute(
       compiler
-        .deleteFrom(roundTrip)
+        .deleteFrom(trustedTable(roundTrip))
         .where('guid', '=', '3f2504e0-4f89-41d3-9a0c-0305e82c3301')
         .returning(['label'])
         .compile(),
@@ -307,7 +314,7 @@ describe.skipIf(probe.kind === 'unreachable')('@zmdb/mssql against real SQL Serv
       driver.transaction(async transaction => {
         await transaction.execute(
           compiler
-            .insertInto(roundTrip)
+            .insertInto(trustedTable(roundTrip))
             .values({
               guid,
               label: 'rollback',
@@ -320,9 +327,9 @@ describe.skipIf(probe.kind === 'unreachable')('@zmdb/mssql against real SQL Serv
         throw new Error('force rollback');
       }),
     ).rejects.toThrow('force rollback');
-    await expect(driver.execute(compiler.selectFrom(roundTrip).where('guid', '=', guid).compile())).resolves.toEqual(
-      [],
-    );
+    await expect(
+      driver.execute(compiler.selectFrom(trustedTable(roundTrip)).where('guid', '=', guid).compile()),
+    ).resolves.toEqual([]);
   });
 
   it('applies and rolls back schema-qualified migrations through the package connection', async () => {

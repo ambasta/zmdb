@@ -1,4 +1,4 @@
-import { escapeFts5Term, ftsSelectFrom, UnsupportedFeatureError } from '@zmdb/sql/fts';
+import { trustedTable, createQueryCompiler, escapeFts5Term, UnsupportedFeatureError } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -7,10 +7,14 @@ import {
   singlestoreDialect,
   sqliteDialect,
 } from '../testing/official-dialects.fixture.js';
+import { QueryPostSchema } from '../testing/query-schema.fixture.js';
 
 describe('full-text search compilation', () => {
   it('postgres to_tsvector/@@/to_tsquery (parameterized)', () => {
-    const q = ftsSelectFrom('customers', postgresDialect).whereMatch('company_name', 'ltd').compile();
+    const q = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('customers'))
+      .whereMatch('company_name', 'ltd')
+      .compile();
     expect(q.text).toBe(
       `SELECT * FROM "customers" WHERE to_tsvector('english', "company_name") @@ to_tsquery('english', $1)`,
     );
@@ -18,24 +22,34 @@ describe('full-text search compilation', () => {
   });
 
   it('mysql MATCH ... AGAINST', () => {
-    const q = ftsSelectFrom('customers', mysqlDialect).whereMatch('company_name', 'ltd').compile();
+    const q = createQueryCompiler(mysqlDialect)
+      .selectFrom(trustedTable('customers'))
+      .whereMatch('company_name', 'ltd')
+      .compile();
     expect(q.text).toBe('SELECT * FROM `customers` WHERE MATCH(`company_name`) AGAINST(? IN NATURAL LANGUAGE MODE)');
   });
 
   it('singlestore MATCH ... AGAINST omits MySQL natural-language mode', () => {
-    const q = ftsSelectFrom('customers', singlestoreDialect).whereMatch('company_name', 'ltd').compile();
+    const q = createQueryCompiler(singlestoreDialect)
+      .selectFrom(trustedTable('customers'))
+      .whereMatch('company_name', 'ltd')
+      .compile();
     expect(q.text).toBe('SELECT * FROM `customers` WHERE MATCH(`company_name`) AGAINST(?)');
     expect(q.parameters).toEqual(['ltd']);
   });
 
   it('sqlite whereMatch on plain column throws UnsupportedFeatureError', () => {
-    expect(() => ftsSelectFrom('customers', sqliteDialect).whereMatch('company_name', 'ltd').compile()).toThrow(
-      UnsupportedFeatureError,
-    );
+    expect(() =>
+      createQueryCompiler(sqliteDialect)
+        .selectFrom(trustedTable('customers'))
+        .whereMatch('company_name', 'ltd')
+        .compile(),
+    ).toThrow(UnsupportedFeatureError);
   });
 
   it('sqlite FTS5 virtual table join compilation with explicit ftsTable option (golden SQL)', () => {
-    const q = ftsSelectFrom('customers', sqliteDialect, { ftsTable: 'customers_fts' })
+    const q = createQueryCompiler(sqliteDialect)
+      .selectFrom(trustedTable('customers', { ftsTable: 'customers_fts' }))
       .whereMatch('company_name', 'ltd')
       .compile();
     expect(q.text).toBe(
@@ -46,7 +60,8 @@ describe('full-text search compilation', () => {
 
   it('sqlite FTS5 escapes special characters and punctuation when ftsTable enabled', () => {
     const rawTerm = 'foo-bar (baz) : 100% "quoted" AND or NOT + * ~ ^';
-    const q = ftsSelectFrom('customers', sqliteDialect, { ftsTable: true })
+    const q = createQueryCompiler(sqliteDialect)
+      .selectFrom(trustedTable('customers', { ftsTable: true }))
       .whereMatch('company_name', rawTerm)
       .compile();
     expect(q.parameters).toEqual(['"foo-bar (baz) : 100% ""quoted"" AND or NOT + * ~ ^"']);
@@ -54,7 +69,8 @@ describe('full-text search compilation', () => {
   });
 
   it('sqlite FTS5 supports dot-qualified column identifiers with ftsTable option', () => {
-    const q = ftsSelectFrom('customers', sqliteDialect, { ftsTable: 'customers_fts' })
+    const q = createQueryCompiler(sqliteDialect)
+      .selectFrom(trustedTable('customers', { ftsTable: 'customers_fts' }))
       .whereMatch('customers.company_name', 'ltd')
       .compile();
     expect(q.text).toBe(
@@ -64,7 +80,8 @@ describe('full-text search compilation', () => {
   });
 
   it('sqlite FTS5 supports table aliasing with ftsTable option', () => {
-    const q = ftsSelectFrom('customers AS c', sqliteDialect, { ftsTable: 'customers_fts' })
+    const q = createQueryCompiler(sqliteDialect)
+      .selectFrom(trustedTable('customers AS c', { ftsTable: 'customers_fts' }))
       .whereMatch('c.company_name', 'ltd')
       .compile();
     expect(q.text).toBe(
@@ -74,13 +91,17 @@ describe('full-text search compilation', () => {
   });
 
   it('keeps telemetry absent from the default compiled query', () => {
-    const q = ftsSelectFrom('customers', postgresDialect).whereMatch('company_name', 'ltd').compile();
+    const q = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('customers'))
+      .whereMatch('company_name', 'ltd')
+      .compile();
     expect(Object.keys(q)).toEqual(['text', 'parameters']);
     expect(q.telemetry).toBeUndefined();
   });
 
   it('attaches the compile-known SELECT and primary table when opted in', () => {
-    const q = ftsSelectFrom('customers', postgresDialect, { telemetry: true })
+    const q = createQueryCompiler(postgresDialect, { telemetry: true })
+      .selectFrom(trustedTable('customers'))
       .whereMatch('company_name', 'ltd')
       .compile();
     expect(q.telemetry).toEqual({
@@ -88,5 +109,41 @@ describe('full-text search compilation', () => {
       operation: 'SELECT',
       collection: 'customers',
     });
+  });
+});
+
+it('composes FTS, projection, predicates and ordering on the canonical schema builder', () => {
+  const query = createQueryCompiler(postgresDialect)
+    .selectFrom(QueryPostSchema)
+    .select(['id'])
+    .whereMatch('title', 'orm')
+    .where('views', '>', 10)
+    .orderBy('id', 'asc');
+  expect(query.compile()).toEqual({
+    text: `SELECT "post_id" AS "id" FROM "blog_posts" WHERE to_tsvector('english', "post_title") @@ to_tsquery('english', $1) AND "view_count" > $2 ORDER BY "post_id" ASC`,
+    parameters: ['orm', 10],
+  });
+  expect(
+    createQueryCompiler(sqliteDialect)
+      .selectFrom(QueryPostSchema)
+      .select(['id'])
+      .whereMatch('title', 'orm')
+      .where('views', '>', 10)
+      .orderBy('id', 'asc')
+      .compile(),
+  ).toEqual({
+    text: 'SELECT "blog_posts"."post_id" AS "id" FROM "blog_posts" INNER JOIN "blog_search" ON "blog_posts"."rowid" = "blog_search"."rowid" WHERE "blog_search"."post_title" MATCH ? AND "blog_posts"."view_count" > ? ORDER BY "blog_posts"."post_id" ASC',
+    parameters: ['"orm"', 10],
+  });
+});
+
+it('qualifies the default root projection and earlier predicates for a generated FTS join', () => {
+  const query = createQueryCompiler(sqliteDialect)
+    .selectFrom(QueryPostSchema)
+    .where('views', '>', 0)
+    .whereMatch('title', 'orm');
+  expect(query.compile()).toEqual({
+    text: 'SELECT "blog_posts"."post_id" AS "id", "blog_posts"."author_id" AS "userId", "blog_posts"."post_title" AS "title", "blog_posts"."view_count" AS "views" FROM "blog_posts" INNER JOIN "blog_search" ON "blog_posts"."rowid" = "blog_search"."rowid" WHERE "blog_posts"."view_count" > ? AND "blog_search"."post_title" MATCH ?',
+    parameters: [0, '"orm"'],
   });
 });

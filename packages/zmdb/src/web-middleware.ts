@@ -1,5 +1,5 @@
 // zmdb/web/middleware — curated HTTP middleware-chain facade.
-export { ChainError, runChain } from '@zmdb/web/middleware';
+export { ChainError, composeChain, runChain } from '@zmdb/web/middleware';
 export type {
   AnyCtx,
   Chain,

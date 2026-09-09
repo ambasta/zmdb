@@ -1,4 +1,5 @@
 import {
+  trustedTable,
   createQueryCompiler,
   defineSqlDialect,
   type Introspector,
@@ -56,4 +57,4 @@ export type _ProductionMigrationDriverCarriesDialect = Expect<
 
 const externalDialect = defineSqlDialect(makeSyntheticDialect());
 const externalCompiler = createQueryCompiler(externalDialect);
-externalCompiler.selectFrom('widgets').where('id', '=', 7).compile();
+externalCompiler.selectFrom(trustedTable('widgets')).where('id', '=', 7).compile();

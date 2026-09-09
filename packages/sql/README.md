@@ -7,8 +7,8 @@ Each database package owns a complete `SqlDialect` object with compiler traits, 
 string dialect selection is removed. A third-party database can provide the same contract without editing this package. Schema snapshots, migration execution, catalog introspection and declaration
 emission are independently installable from `@zmdb/migrations`.
 
-`@zmdb/sql` has no runtime dependencies or peers. Its [foundation guide](https://github.com/ambasta/zmdb/blob/main/docs-site/content/runtime-foundation.md) explains the inward package graph and the
-separate database and tooling boundaries.
+`@zmdb/sql` depends on `@zmdb/schema` for its public declaration types and has no runtime schema imports or peers. Its
+[foundation guide](https://github.com/ambasta/zmdb/blob/main/docs-site/content/runtime-foundation.md) explains the inward package graph and the separate database and tooling boundaries.
 
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
@@ -22,7 +22,7 @@ yarn add @zmdb/sql@1.0.0-beta.2
 
 ## Entry points
 
-- Query compilation: `@zmdb/sql`, `/joins`, `/aggregations`, `/fts`, `/set-ops`
+- Query compilation: `@zmdb/sql` (schema-bound reads, joins, aggregates, full-text search and writes), `/set-ops`
 - SQL metadata and DDL: `/schema-objects`, `/comments`
 - Naming and outbox composition are owned by `@zmdb/schema/naming` and `@zmdb/orm/outbox`.
 

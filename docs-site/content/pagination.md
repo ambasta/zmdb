@@ -18,10 +18,12 @@ those values to `applyKeysetFilter` to construct the boundary predicate.
 ## Offset pagination
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies compiler, driver; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { applyOrderBy, applyPagination } from '@zmdb/orm/dto';
 import { buildListResult } from '@zmdb/schema/dto';
 
-let qb = compiler.selectFrom('users');
+let qb = compiler.selectFrom(trustedTable('users'));
 qb = applyOrderBy(qb, [{ column: 'createdAt', dir: 'desc' }], 'id');
 qb = applyPagination(qb, { mode: 'offset', limit: 21, offset: 40 }); // limit + 1
 
@@ -48,6 +50,8 @@ Fetch `limit + 1` and pass the real `limit` to `buildListResult`, which is how `
 ## Keyset pagination
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies applyOrderBy, applyPagination, compiler, cursor; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { applyKeysetFilter } from '@zmdb/orm/dto';
 import { decodeCursor } from '@zmdb/schema/dto';
 
@@ -56,7 +60,7 @@ const order = [
   { column: 'id', dir: 'asc' as const },
 ];
 
-let qb = compiler.selectFrom('users');
+let qb = compiler.selectFrom(trustedTable('users'));
 qb = applyOrderBy(qb, order);
 qb = applyKeysetFilter(qb, decodeCursor(cursor, order), order, { active: { eq: true } });
 qb = applyPagination(qb, { mode: 'cursor', limit: 21 });

@@ -12,18 +12,14 @@ const LANES = ['schema', 'sql', 'validator', 'orm', 'application', 'generated'];
 const FOUNDATION = new Set(['@zmdb/schema', '@zmdb/sql', '@zmdb/validator', '@zmdb/orm']);
 const DEPENDENCIES = {
   '@zmdb/schema': [],
-  '@zmdb/sql': [],
+  '@zmdb/sql': ['@zmdb/schema'],
   '@zmdb/validator': ['@zmdb/schema'],
   '@zmdb/orm': ['@zmdb/schema', '@zmdb/sql', '@zmdb/validator'],
 };
 const TYPES = { typescript: '7.0.2', '@types/node': '26.4.1' };
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  if (encoding === 'hex') {
-    return Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
-  }
-  const btoa = Reflect.get(globalThis, 'btoa');
-  return btoa(Array.from(digest, b => String.fromCharCode(b)).join(''));
+  return encoding === 'hex' ? digest.toHex() : digest.toBase64();
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

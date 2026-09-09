@@ -1,7 +1,7 @@
 import { type CoreSchema } from '@zmdb/schema';
 import { schemaFromIR } from '@zmdb/schema/ir';
 import { type HasDefault, type PrimaryKey, type Sql, type Table } from '@zmdb/schema/tags';
-import { createQueryCompiler, type DialectTarget } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, type DialectTarget } from '@zmdb/sql';
 
 import { type Driver } from '../index.js';
 import { type TransactionContext } from '../transactions/index.js';
@@ -12,6 +12,7 @@ import {
   outboxMarkDeliveredQuery,
   outboxMarkRetryQuery,
   outboxReadBackQuery,
+  type OutboxStatus,
 } from './sql.js';
 
 function requiredDialect(dialect: DialectTarget | undefined, owner: string) {
@@ -19,7 +20,6 @@ function requiredDialect(dialect: DialectTarget | undefined, owner: string) {
   return dialect;
 }
 
-import type { OutboxStatus } from './sql.js';
 export * from './sql.js';
 
 export interface OutboxRow extends Table<'zmdb_outbox'> {
@@ -153,7 +153,7 @@ export function outboxWriter(tx: TransactionContext): OutboxWriter {
       const id = globalThis.crypto.randomUUID();
       await tx.execute(
         createQueryCompiler(dialect)
-          .insertInto('zmdb_outbox')
+          .insertInto(trustedTable('zmdb_outbox'))
           .values({
             id,
             topic,

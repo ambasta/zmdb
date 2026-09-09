@@ -35,7 +35,7 @@ Fifty round trips. For a large seed, batch through the compiler instead:
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createQueryCompiler, driver, rows; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
-const q = createQueryCompiler(postgres).insertInto('users').values(rows).compile();
+const q = createQueryCompiler(postgres).insertInto(userSchema).values(rows).compile();
 await driver.execute(q);
 ```
 

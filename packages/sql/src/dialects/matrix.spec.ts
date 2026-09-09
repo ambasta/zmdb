@@ -1,4 +1,10 @@
-import { UnsupportedFeatureError, type CompiledQuery } from '@zmdb/sql';
+import {
+  trustedTable,
+  createQueryCompiler,
+  UnsupportedFeatureError,
+  type CompiledQuery,
+  type TrustedTable,
+} from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import { officialDialects } from '../testing/official-dialects.fixture.js';
@@ -14,7 +20,6 @@ import { officialDialects } from '../testing/official-dialects.fixture.js';
 const queryApi: object = await import('../index.js');
 const migrationApi: object = await import('@zmdb/migrations');
 const setOperationApi: object = await import('../set-ops/index.js');
-const ftsApi: object = await import('../fts/index.js');
 const clausesApi: object = await import('../clauses.js');
 
 const DIALECTS: readonly ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] = [
@@ -80,15 +85,10 @@ interface FrozenDeleteBuilder {
 }
 
 interface FrozenQueryCompiler {
-  selectFrom(table: string): FrozenSelectBuilder;
-  insertInto(table: string): FrozenInsertBuilder;
-  updateTable(table: string): FrozenUpdateBuilder;
-  deleteFrom(table: string): FrozenDeleteBuilder;
-}
-
-interface FrozenFtsBuilder {
-  whereMatch(column: string, term: string): FrozenFtsBuilder;
-  compile(): CompiledQuery;
+  selectFrom(table: TrustedTable): FrozenSelectBuilder;
+  insertInto(table: TrustedTable): FrozenInsertBuilder;
+  updateTable(table: TrustedTable): FrozenUpdateBuilder;
+  deleteFrom(table: TrustedTable): FrozenDeleteBuilder;
 }
 
 interface FrozenTableOptions {
@@ -155,10 +155,6 @@ function hasMethod(candidate: unknown, name: string): boolean {
   return candidate !== null && typeof candidate === 'object' && typeof Reflect.get(candidate, name) === 'function';
 }
 
-function isFtsBuilder(candidate: unknown): candidate is FrozenFtsBuilder {
-  return hasMethod(candidate, 'whereMatch') && hasMethod(candidate, 'compile');
-}
-
 function isCompiler(candidate: unknown): candidate is FrozenQueryCompiler {
   return (
     hasMethod(candidate, 'selectFrom') &&
@@ -198,14 +194,6 @@ function compiled(candidate: unknown, source: string): CompiledQuery {
 
 function stringResult(candidate: unknown, source: string): string {
   if (typeof candidate !== 'string') throw new TypeError(`${source} did not return a string`);
-  return candidate;
-}
-
-function ftsSelectFrom(table: string, dialect: FrozenDialect): FrozenFtsBuilder {
-  const candidate: unknown = invoke(ftsApi, 'ftsSelectFrom', [table, target(dialect)]);
-  if (!isFtsBuilder(candidate)) {
-    throw new TypeError('ftsSelectFrom did not return the frozen FTS builder surface');
-  }
   return candidate;
 }
 
@@ -333,7 +321,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'select: where + order + limit',
     build: dialect =>
       compiler(dialect)
-        .selectFrom('users')
+        .selectFrom(trustedTable('users'))
         .where('email', '=', 'a@b.com')
         .orderBy('createdAt', 'desc')
         .limit(10)
@@ -353,7 +341,11 @@ const MATRIX: readonly MatrixCase[] = [
   {
     name: 'select: chained predicates',
     build: dialect =>
-      compiler(dialect).selectFrom('users').where('role', '=', 'admin').andWhere('active', '=', true).compile(),
+      compiler(dialect)
+        .selectFrom(trustedTable('users'))
+        .where('role', '=', 'admin')
+        .andWhere('active', '=', true)
+        .compile(),
     expected: {
       postgres: query('SELECT * FROM "users" WHERE "role" = $1 AND "active" = $2', ['admin', true]),
       mysql: query('SELECT * FROM `users` WHERE `role` = ? AND `active` = ?', ['admin', true]),
@@ -366,7 +358,11 @@ const MATRIX: readonly MatrixCase[] = [
   {
     name: 'insert: returning',
     build: dialect =>
-      compiler(dialect).insertInto('users').values({ email: 'a@b.com', role: 'user' }).returning(['id']).compile(),
+      compiler(dialect)
+        .insertInto(trustedTable('users'))
+        .values({ email: 'a@b.com', role: 'user' })
+        .returning(['id'])
+        .compile(),
     expected: {
       postgres: query('INSERT INTO "users" ("email", "role") VALUES ($1, $2) RETURNING "id"', ['a@b.com', 'user']),
       mysql: refused('returning', 'mysql'),
@@ -379,7 +375,12 @@ const MATRIX: readonly MatrixCase[] = [
   {
     name: 'update: returning',
     build: dialect =>
-      compiler(dialect).updateTable('users').set({ role: 'admin' }).where('id', '=', 1).returning(['id']).compile(),
+      compiler(dialect)
+        .updateTable(trustedTable('users'))
+        .set({ role: 'admin' })
+        .where('id', '=', 1)
+        .returning(['id'])
+        .compile(),
     expected: {
       postgres: query('UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING "id"', ['admin', 1]),
       mysql: refused('returning', 'mysql'),
@@ -391,7 +392,8 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'delete: returning',
-    build: dialect => compiler(dialect).deleteFrom('users').where('id', '=', 1).returning(['id']).compile(),
+    build: dialect =>
+      compiler(dialect).deleteFrom(trustedTable('users')).where('id', '=', 1).returning(['id']).compile(),
     expected: {
       postgres: query('DELETE FROM "users" WHERE "id" = $1 RETURNING "id"', [1]),
       mysql: refused('returning', 'mysql'),
@@ -403,7 +405,8 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'update: set + where',
-    build: dialect => compiler(dialect).updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile(),
+    build: dialect =>
+      compiler(dialect).updateTable(trustedTable('users')).set({ role: 'admin' }).where('id', '=', 1).compile(),
     expected: {
       postgres: query('UPDATE "users" SET "role" = $1 WHERE "id" = $2', ['admin', 1]),
       mysql: query('UPDATE `users` SET `role` = ? WHERE `id` = ?', ['admin', 1]),
@@ -415,7 +418,7 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'delete: where',
-    build: dialect => compiler(dialect).deleteFrom('users').where('id', '=', 1).compile(),
+    build: dialect => compiler(dialect).deleteFrom(trustedTable('users')).where('id', '=', 1).compile(),
     expected: {
       postgres: query('DELETE FROM "users" WHERE "id" = $1', [1]),
       mysql: query('DELETE FROM `users` WHERE `id` = ?', [1]),
@@ -427,7 +430,7 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'pagination: offset only',
-    build: dialect => compiler(dialect).selectFrom('users').orderBy('id', 'asc').offset(20).compile(),
+    build: dialect => compiler(dialect).selectFrom(trustedTable('users')).orderBy('id', 'asc').offset(20).compile(),
     expected: {
       postgres: query('SELECT * FROM "users" ORDER BY "id" ASC OFFSET 20', []),
       mysql: query('SELECT * FROM `users` ORDER BY `id` ASC LIMIT 18446744073709551615 OFFSET 20', []),
@@ -439,7 +442,7 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'pagination: unordered limit',
-    build: dialect => compiler(dialect).selectFrom('users').limit(10).compile(),
+    build: dialect => compiler(dialect).selectFrom(trustedTable('users')).limit(10).compile(),
     expected: {
       postgres: query('SELECT * FROM "users" LIMIT 10', []),
       mysql: query('SELECT * FROM `users` LIMIT 10', []),
@@ -453,7 +456,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'upsert: update',
     build: dialect =>
       compiler(dialect)
-        .insertInto('users')
+        .insertInto(trustedTable('users'))
         .values({ email: 'a@b.com', role: 'user' })
         .onConflict('email')
         .doUpdate(['role'])
@@ -489,7 +492,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'upsert: returning',
     build: dialect =>
       compiler(dialect)
-        .insertInto('users')
+        .insertInto(trustedTable('users'))
         .values({ email: 'a@b.com', role: 'user' })
         .onConflict('email')
         .doUpdate(['role'])
@@ -520,8 +523,8 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'set operation: placeholder continuation',
     build: dialect => {
       const qb = compiler(dialect);
-      const first = qb.selectFrom('a').where('x', '=', 1).compile();
-      const second = qb.selectFrom('b').where('y', '=', 2).compile();
+      const first = qb.selectFrom(trustedTable('a')).where('x', '=', 1).compile();
+      const second = qb.selectFrom(trustedTable('b')).where('y', '=', 2).compile();
       return setUnion([first, second], dialect);
     },
     expected: {
@@ -535,7 +538,8 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'vector operator: l2',
-    build: dialect => compiler(dialect).selectFrom('items').where('embedding', 'l2', [0.1, 0.2]).compile(),
+    build: dialect =>
+      compiler(dialect).selectFrom(trustedTable('items')).where('embedding', 'l2', [0.1, 0.2]).compile(),
     expected: {
       postgres: query('SELECT * FROM "items" WHERE "embedding" <-> $1', ['[0.1,0.2]']),
       mysql: refused('l2', 'mysql'),
@@ -547,7 +551,8 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'vector operator: cosine',
-    build: dialect => compiler(dialect).selectFrom('items').where('embedding', 'cosine', [0.1, 0.2]).compile(),
+    build: dialect =>
+      compiler(dialect).selectFrom(trustedTable('items')).where('embedding', 'cosine', [0.1, 0.2]).compile(),
     expected: {
       postgres: query('SELECT * FROM "items" WHERE "embedding" <=> $1', ['[0.1,0.2]']),
       mysql: refused('cosine', 'mysql'),
@@ -559,7 +564,8 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'vector operator: inner product',
-    build: dialect => compiler(dialect).selectFrom('items').where('embedding', 'ip', [0.1, 0.2]).compile(),
+    build: dialect =>
+      compiler(dialect).selectFrom(trustedTable('items')).where('embedding', 'ip', [0.1, 0.2]).compile(),
     expected: {
       postgres: query('SELECT * FROM "items" WHERE "embedding" <#> $1', ['[0.1,0.2]']),
       mysql: refused('ip', 'mysql'),
@@ -621,7 +627,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'write expression: increment',
     build: dialect =>
       compiler(dialect)
-        .updateTable('posts')
+        .updateTable(trustedTable('posts'))
         .set({ views: inc(1) })
         .where('id', '=', 7)
         .compile(),
@@ -638,7 +644,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'write expression: decrement',
     build: dialect =>
       compiler(dialect)
-        .updateTable('posts')
+        .updateTable(trustedTable('posts'))
         .set({ stock: dec(2) })
         .where('id', '=', 7)
         .compile(),
@@ -655,7 +661,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'write expression: multiply',
     build: dialect =>
       compiler(dialect)
-        .updateTable('posts')
+        .updateTable(trustedTable('posts'))
         .set({ score: mul(3) })
         .where('id', '=', 7)
         .compile(),
@@ -670,7 +676,8 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'write expression: boolean not',
-    build: dialect => compiler(dialect).updateTable('posts').set({ published: not() }).where('id', '=', 7).compile(),
+    build: dialect =>
+      compiler(dialect).updateTable(trustedTable('posts')).set({ published: not() }).where('id', '=', 7).compile(),
     expected: {
       postgres: query('UPDATE "posts" SET "published" = NOT "published" WHERE "id" = $1', [7]),
       mysql: query('UPDATE `posts` SET `published` = NOT `published` WHERE `id` = ?', [7]),
@@ -684,7 +691,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'write expression: concatenate',
     build: dialect =>
       compiler(dialect)
-        .updateTable('posts')
+        .updateTable(trustedTable('posts'))
         .set({ title: concat(' (draft)') })
         .where('id', '=', 7)
         .compile(),
@@ -701,7 +708,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'write expression: coalesce',
     build: dialect =>
       compiler(dialect)
-        .updateTable('users')
+        .updateTable(trustedTable('users'))
         .set({ nickname: coalesce('anonymous') })
         .where('id', '=', 7)
         .compile(),
@@ -718,7 +725,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'null predicate: is null',
     build: dialect =>
       compiler(dialect)
-        .selectFrom('users')
+        .selectFrom(trustedTable('users'))
         .where('deletedAt', 'is null', 'ignored')
         .andWhere('tenantId', '=', 7)
         .compile(),
@@ -735,7 +742,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'null predicate: is not null',
     build: dialect =>
       compiler(dialect)
-        .selectFrom('users')
+        .selectFrom(trustedTable('users'))
         .where('deletedAt', 'is not null', 'ignored')
         .andWhere('active', '=', true)
         .compile(),
@@ -750,7 +757,7 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'cursor-safe select text',
-    build: dialect => compiler(dialect).selectFrom('users').where('id', '=', 1).compile(),
+    build: dialect => compiler(dialect).selectFrom(trustedTable('users')).where('id', '=', 1).compile(),
     expected: {
       postgres: query('SELECT * FROM "users" WHERE "id" = $1', [1]),
       mysql: query('SELECT * FROM `users` WHERE `id` = ?', [1]),
@@ -762,7 +769,11 @@ const MATRIX: readonly MatrixCase[] = [
   },
   {
     name: 'full-text search',
-    build: dialect => ftsSelectFrom('customers', dialect).whereMatch('company_name', 'ltd').compile(),
+    build: dialect =>
+      createQueryCompiler(officialDialects[dialect])
+        .selectFrom(trustedTable('customers'))
+        .whereMatch('company_name', 'ltd')
+        .compile(),
     expected: {
       postgres: query(
         `SELECT * FROM "customers" WHERE to_tsvector('english', "company_name") @@ to_tsquery('english', $1)`,

@@ -3,7 +3,9 @@ Delete rows with the query builder, or through a repository's `delete(id)` (whic
 ## Basic delete
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.deleteFrom('users').where('id', '=', 1).compile();
+import { trustedTable } from '@zmdb/sql';
+
+qc.deleteFrom(trustedTable('users')).where('id', '=', 1).compile();
 ```
 
 ```sql
@@ -14,7 +16,9 @@ DELETE FROM "users" WHERE "id" = $1
 ## Returning deleted rows
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.deleteFrom('users').where('role', '=', 'guest').returning(['id']).compile();
+import { trustedTable } from '@zmdb/sql';
+
+qc.deleteFrom(trustedTable('users')).where('role', '=', 'guest').returning(['id']).compile();
 ```
 
 ```sql

@@ -6,47 +6,20 @@
 ## 1. Grammar
 
 ```ts
-qb.selectFrom(table)
-  .innerJoin(target, leftCol, rightCol, onPredicates?)
-  .innerJoin(target, [
-    { leftCol: 'memberships.tenant_id', rightCol: 'users.tenant_id' },
-    { leftCol: 'memberships.user_id', rightCol: 'users.id' },
-  ], onPredicates?)
-  .leftJoin(target, leftCol, rightCol, onPredicates?)
-  .rightJoin(target, leftCol, rightCol, onPredicates?)
-  .where(...) .orderBy(...) .limit(...) .offset(...)
-  .compile()
+qb.selectFrom(UserSchema, 'u')
+  .leftJoin(PostSchema, 'p', [{ leftCol: 'u.id', rightCol: 'p.userId' }], onPredicates)
+  .select(['u.id', { column: 'p.title', alias: 'title' }])
+  .where('u.active', '=', true)
+  .compile();
 ```
 
-- `leftCol`/`rightCol` are qualified `table.column` or `alias.column` strings.
-- A join over a composite key passes an ordered, non-empty list of those pairs. Compilation conjoins them in one `ON` clause with `AND`.
-- `onPredicates`, when present, are structured predicates appended inside that join's `ON`; their parameters share the statement's placeholder sequence.
-- Joins compose with existing where/order/limit/offset.
-- Aliasing: `selectFrom('employees as e')` and `innerJoin('employees as r', ...)`.
-- Builders remain immutable; compilation is pure string building (no runtime type resolution), parameterized, dialect-aware.
+The canonical SELECT builder owns `innerJoin`, `leftJoin` and `rightJoin`. All use one signature: declared target schema, unique alias, ordered non-empty column pairs, and optional target predicates.
+Composite pairs are conjoined in the ON clause. ON parameters precede WHERE parameters. Column pairs use declared properties and must have compatible values.
 
-## 2. Golden SQL (postgres)
+Physical schema names determine rendering. A qualified selected property is aliased back to its complete qualified result key. Explicit projection aliases must be unique. A left join makes target
+values nullable; a right join makes the preceding scope nullable. Builders remain immutable and compilation performs no I/O.
 
-```
-selectFrom('products')
-  .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
-  .where('products.id','=',7)
-=> SELECT * FROM "products"
-   LEFT JOIN "suppliers" ON "suppliers"."id" = "products"."supplier_id"
-   WHERE "products"."id" = $1
-   params: [7]
-
-selectFrom('employees as e')
-  .leftJoin('employees as r', 'r.id', 'e.recipient_id')
-  .where('e.id','=',5)
-=> SELECT * FROM "employees" AS "e"
-   LEFT JOIN "employees" AS "r" ON "r"."id" = "e"."recipient_id"
-   WHERE "e"."id" = $1
-   params: [5]
-
-selectFrom('a').innerJoin('b','b.a_id','a.id')
-=> SELECT * FROM "a" INNER JOIN "b" ON "b"."a_id" = "a"."id"
-```
+Dynamic physical targets use `trustedTable(name)` with the same builder and return `UnknownRow`. Bare table strings and the specialized join factory are removed by #774.
 
 ## 3. Identifier quoting rule
 

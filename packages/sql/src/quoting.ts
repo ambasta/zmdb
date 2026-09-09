@@ -24,6 +24,13 @@ export function quoteColumn(dialect: DialectTarget, col: string): string {
     .join('.');
 }
 
+/** A mapped, unqualified SELECT column belongs to the canonical root table. */
+export function qualifyRootColumn(column: string, rootReference?: string): string {
+  return rootReference !== undefined && column !== '' && column !== '*' && !column.includes('.')
+    ? `${rootReference}.${column}`
+    : column;
+}
+
 function isWhitespace(ch: string | undefined): boolean {
   return ch !== undefined && /\s/.test(ch);
 }

@@ -54,53 +54,43 @@ export type ChainHandler = (ctx: AnyCtx) => unknown;
  * handler is offered to the exception filters — a matching filter's response is
  * returned, otherwise the error rethrows for the pipeline to serialize.
  */
-export async function runChain(chain: Chain, ctx: AnyCtx, handler: ChainHandler): Promise<unknown> {
-  // 1) guards
-  for (const guard of chain.guards) {
-    const allowed = await guard.canActivate(ctx);
-    if (!allowed) {
-      throw new ChainError(403, 'forbidden');
-    }
+export function composeChain(chain: Chain, handler: ChainHandler): ChainHandler {
+  if (chain.guards.length + chain.pipes.length + chain.interceptors.length + chain.filters.length === 0) return handler;
+  let invoke: (ctx: AnyCtx) => Promise<unknown> = async ctx => handler(ctx);
+  for (let index = chain.interceptors.length - 1; index >= 0; index -= 1) {
+    const interceptor = chain.interceptors[index];
+    if (interceptor === undefined) continue;
+    const downstream = invoke;
+    invoke = ctx => interceptor.intercept(ctx, () => downstream(ctx));
   }
-
-  // 2) pipes — fold over the body, producing a new ctx the handler sees.
-  let body = ctx.body;
-  for (const pipe of chain.pipes) {
+  return async ctx => {
+    for (const guard of chain.guards) {
+      if (!(await guard.canActivate(ctx))) throw new ChainError(403, 'forbidden');
+    }
+    let body = ctx.body;
+    for (const pipe of chain.pipes) {
+      try {
+        body = await pipe.transform(body, ctx);
+      } catch (error) {
+        if (error instanceof BoundaryStatusError) throw error;
+        throw new ChainError(400, messageOf(error));
+      }
+    }
+    const pipedCtx = chain.pipes.length === 0 ? ctx : { ...ctx, body };
     try {
-      body = await pipe.transform(body, ctx);
+      return await invoke(pipedCtx);
     } catch (error) {
-      if (error instanceof BoundaryStatusError) {
-        throw error;
+      for (const filter of chain.filters) {
+        const response = filter.catch(error, pipedCtx);
+        if (response !== undefined) return response;
       }
-      throw new ChainError(400, messageOf(error));
+      throw error;
     }
-  }
-  const pipedCtx: AnyCtx = { ...ctx, body };
+  };
+}
 
-  // 3) interceptors — nest right-to-left so the first listed runs outermost.
-  const invokeHandler = (): Promise<unknown> => Promise.resolve(handler(pipedCtx));
-  let next = invokeHandler;
-  for (let i = chain.interceptors.length - 1; i >= 0; i -= 1) {
-    const interceptor = chain.interceptors[i];
-    if (interceptor === undefined) {
-      continue;
-    }
-    const downstream = next;
-    next = (): Promise<unknown> => interceptor.intercept(pipedCtx, downstream);
-  }
-
-  // 4) handler (via the interceptor chain); 5) exception filters on throw.
-  try {
-    return await next();
-  } catch (error) {
-    for (const filter of chain.filters) {
-      const response = filter.catch(error, pipedCtx);
-      if (response !== undefined) {
-        return response;
-      }
-    }
-    throw error;
-  }
+export async function runChain(chain: Chain, ctx: AnyCtx, handler: ChainHandler): Promise<unknown> {
+  return composeChain(chain, handler)(ctx);
 }
 
 function messageOf(error: unknown): string {

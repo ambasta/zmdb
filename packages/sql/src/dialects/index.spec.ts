@@ -1,4 +1,4 @@
-import { createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import { UnsupportedFeatureError } from '../errors.js';
@@ -29,10 +29,10 @@ describe('explicit dialect objects', () => {
   });
 
   it('uses the selected object directly without resolving a generic registry', () => {
-    expect(createQueryCompiler(postgresDialect).selectFrom('users').where('id', '=', 1).compile().text).toBe(
-      'SELECT * FROM "users" WHERE "id" = $1',
-    );
-    expect(createQueryCompiler(mysqlDialect).insertInto('users').values({ id: 1 }).compile().text).toBe(
+    expect(
+      createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('id', '=', 1).compile().text,
+    ).toBe('SELECT * FROM "users" WHERE "id" = $1');
+    expect(createQueryCompiler(mysqlDialect).insertInto(trustedTable('users')).values({ id: 1 }).compile().text).toBe(
       'INSERT INTO `users` (`id`) VALUES (?)',
     );
     expect(quoteIdentifier(sqliteDialect, 'users')).toBe('"users"');

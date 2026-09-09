@@ -51,7 +51,9 @@ Install `mysql2` in the application and pass an existing pool or connection. It 
 | `RETURNING`        | **not supported** (MariaDB has it; MySQL does not)   |
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies compiler; this excerpt does not repeat those declarations."}
-compiler.selectFrom('users').where('email', '=', 'a@b.c').compile();
+import { trustedTable } from '@zmdb/sql';
+
+compiler.selectFrom(trustedTable('users')).where('email', '=', 'a@b.c').compile();
 // { text: 'SELECT * FROM `users` WHERE `email` = ?', parameters: ['a@b.c'] }
 ```
 
@@ -69,7 +71,9 @@ The capability is declared separately for INSERT, upsert, UPDATE, and DELETE. Th
 invalid SQL nor silently resolve to `undefined`. Use a lower-level statement without `returning()` and then read by a known primary or unique key:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies compiler, driver, dto, userRepo; this excerpt does not repeat those declarations."}
-const result = await driver.executeResult(compiler.insertInto('users').values(dto).compile());
+import { trustedTable } from '@zmdb/sql';
+
+const result = await driver.executeResult(compiler.insertInto(trustedTable('users')).values(dto).compile());
 if (result.kind !== 'command') throw new Error('expected command metadata');
 console.log(result.insertId, result.affectedRows);
 const row = await userRepo.findOne({ email: { eq: dto.email } });

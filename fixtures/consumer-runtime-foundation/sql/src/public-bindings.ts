@@ -114,14 +114,16 @@ export type {
   stContains as Binding110,
   stDWithin as Binding111,
   withComments as Binding112,
-} from '@zmdb/sql';
-
-export type {
-  AggregateSelect as Binding113,
   JoinCondition as Binding114,
   JoinKind as Binding115,
-  aggregateSelectFrom as Binding116,
-} from '@zmdb/sql/aggregations';
+  UnsupportedFeatureError as Binding126,
+  escapeFts5Term as Binding127,
+  JoinCondition as Binding129,
+  JoinKind as Binding130,
+  QueryPredicate as Binding167,
+  TrustedTable as Binding168,
+  trustedTable as Binding169,
+} from '@zmdb/sql';
 
 export type {
   CommentKey as Binding117,
@@ -131,22 +133,6 @@ export type {
   serializeComment as Binding121,
   withComments as Binding122,
 } from '@zmdb/sql/comments';
-
-export type {
-  FtsOptions as Binding123,
-  FtsSelect as Binding124,
-  FtsTableOptions as Binding125,
-  UnsupportedFeatureError as Binding126,
-  escapeFts5Term as Binding127,
-  ftsSelectFrom as Binding128,
-} from '@zmdb/sql/fts';
-
-export type {
-  JoinCondition as Binding129,
-  JoinKind as Binding130,
-  JoinableSelect as Binding131,
-  joinableSelectFrom as Binding132,
-} from '@zmdb/sql/joins';
 
 export type {
   DdlSqlType as Binding133,

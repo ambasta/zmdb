@@ -1,12 +1,12 @@
-import { createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { setOperation, SET_KEYWORD } from '@zmdb/sql/set-ops';
 import { describe, it, expect } from 'vitest';
 
 import { postgresDialect } from '../testing/official-dialects.fixture.js';
 
 const qc = createQueryCompiler(postgresDialect);
-const q1 = qc.selectFrom('users').where('role', '=', 'admin').compile();
-const q2 = qc.selectFrom('users').where('role', '=', 'guest').compile();
+const q1 = qc.selectFrom(trustedTable('users')).where('role', '=', 'admin').compile();
+const q2 = qc.selectFrom(trustedTable('users')).where('role', '=', 'guest').compile();
 
 describe('set operations (#120)', () => {
   it('UNION joins two selects with renumbered placeholders (pg)', () => {

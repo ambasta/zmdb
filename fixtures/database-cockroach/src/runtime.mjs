@@ -6,7 +6,7 @@ import { cockroach, cockroachDriver, cockroachIntrospector, cockroachMigrations 
 import { up } from '@zmdb/migrations';
 import { detectDrift } from '@zmdb/migrations/introspect';
 import { createTransactionalDb } from '@zmdb/orm';
-import { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, UnsupportedFeatureError } from '@zmdb/sql';
 import { Pool } from 'pg';
 
 const connectionString = process.env.ZMDB_COCKROACH_URL;
@@ -208,7 +208,7 @@ try {
     const driver = cockroachDriver(pool);
     const compiler = createQueryCompiler(cockroach);
     const account = await driver.execute(
-      compiler.insertInto(accountsTable).values({ name: 'Acme' }).returning(['id']).compile(),
+      compiler.insertInto(trustedTable(accountsTable)).values({ name: 'Acme' }).returning(['id']).compile(),
     );
     const accountId = account[0]?.id;
     assert(
@@ -217,18 +217,20 @@ try {
     );
     const inserted = await driver.execute(
       compiler
-        .insertInto(usersTable)
+        .insertInto(trustedTable(usersTable))
         .values({ account_id: accountId, email: 'Alice@Example.test', active: true })
         .returning(['id', 'email'])
         .compile(),
     );
     const userId = inserted[0]?.id;
     assert(userId !== undefined, 'user INSERT did not return id');
-    const selected = await driver.execute(compiler.selectFrom(usersTable).where('id', '=', userId).compile());
+    const selected = await driver.execute(
+      compiler.selectFrom(trustedTable(usersTable)).where('id', '=', userId).compile(),
+    );
     assert(selected[0]?.email === 'Alice@Example.test', 'SELECT did not round-trip');
     const upserted = await driver.execute(
       compiler
-        .insertInto(usersTable)
+        .insertInto(trustedTable(usersTable))
         .values({ id: userId, account_id: accountId, email: 'upsert@example.test', active: true })
         .onConflict('id')
         .doUpdate(['email'])
@@ -238,7 +240,7 @@ try {
     assert(upserted[0]?.email === 'upsert@example.test', 'UPSERT RETURNING failed');
     const updated = await driver.execute(
       compiler
-        .updateTable(usersTable)
+        .updateTable(trustedTable(usersTable))
         .set({ email: 'alice@example.test' })
         .where('id', '=', userId)
         .returning(['email'])
@@ -253,7 +255,7 @@ try {
       assert(rows[0]?.email === 'alice@example.test', 'transaction did not stay on Cockroach');
     });
     const deleted = await driver.execute(
-      compiler.deleteFrom(usersTable).where('id', '=', userId).returning(['id']).compile(),
+      compiler.deleteFrom(trustedTable(usersTable)).where('id', '=', userId).returning(['id']).compile(),
     );
     assert(deleted[0]?.id === userId, 'DELETE RETURNING failed');
   });

@@ -6,10 +6,11 @@
 ## 1. Grammar
 
 ```ts
-qb.selectFrom(table).whereMatch(column, term).compile();
+qb.selectFrom(CustomerSchema).whereMatch(column, term).compile();
 ```
 
-`whereMatch` adds a full-text-search predicate. Composes with existing where/ limit/offset. Immutable, parameterized.
+`whereMatch` adds a full-text-search predicate. Composes with projection, joins, grouped predicates, aggregates, ordering and pagination on the canonical SELECT builder (#774). Only declared
+string-valued properties are admitted. Immutable, parameterized.
 
 ## 2. Per-dialect compilation (frozen)
 
@@ -24,12 +25,12 @@ The term is always a bound parameter (`$n` / `?`).
 ## 3. Golden SQL (postgres & sqlite FTS5)
 
 ```
-selectFrom('customers').whereMatch('company_name','ltd')
+selectFrom(trustedTable('customers')).whereMatch('company_name','ltd')
 => SELECT * FROM "customers"
    WHERE to_tsvector('english', "company_name") @@ to_tsquery('english', $1)
    params: ['ltd']
 
-ftsSelectFrom('customers', 'sqlite', { ftsTable: 'customers_fts' }).whereMatch('company_name','ltd')
+createQueryCompiler(sqliteDialect).selectFrom(trustedTable('customers', { ftsTable: 'customers_fts' })).whereMatch('company_name','ltd')
 => SELECT * FROM "customers"
    INNER JOIN "customers_fts" ON "customers"."rowid" = "customers_fts"."rowid"
    WHERE "customers_fts"."company_name" MATCH ?
@@ -38,10 +39,12 @@ ftsSelectFrom('customers', 'sqlite', { ftsTable: 'customers_fts' }).whereMatch('
 
 ## 4. Explicit DNF behavior and the SQLite contract
 
-`whereMatch` on the `sqlite` dialect on a plain column (without an explicitly declared `ftsTable` in schema or query options) throws a documented
+`whereMatch` on the `sqlite` dialect on a plain column (without an explicitly declared `ftsTable` on the canonical schema or explicit trusted table target) throws a documented
 `UnsupportedFeatureError('full-text search', 'sqlite')` — surfaced as an explicit DNF, never a silently-wrong query. When an FTS5 virtual table is declared (`ftsTable`), `whereMatch` compiles an FTS5
 virtual table JOIN with term escaping.
 
 ## 5. Non-goals (rejected)
 
 - No ranking/highlighting in this epic. No implicit FTS index management.
+
+The specialized FTS factory, per-predicate option overloads and public subpath are removed by #774. Schema declarations carry their FTS table setting into the shared compiler.

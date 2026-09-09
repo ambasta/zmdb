@@ -3,7 +3,9 @@ Insert rows with the query builder, or (preferably) through a repository's `crea
 ## Basic insert
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.insertInto('users').values({ email: 'a@b.com', role: 'user' }).compile();
+import { trustedTable } from '@zmdb/sql';
+
+qc.insertInto(trustedTable('users')).values({ email: 'a@b.com', role: 'user' }).compile();
 ```
 
 ```sql
@@ -14,7 +16,9 @@ INSERT INTO "users" ("email", "role") VALUES ($1, $2)
 ## Returning the inserted row
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.insertInto('users').values({ email: 'a@b.com' }).returning(['id', 'createdAt']).compile();
+import { trustedTable } from '@zmdb/sql';
+
+qc.insertInto(trustedTable('users')).values({ email: 'a@b.com' }).returning(['id', 'createdAt']).compile();
 ```
 
 ```sql

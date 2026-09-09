@@ -1,7 +1,7 @@
 import type { Container } from './di/index.js';
 import { runInit, runShutdown } from './lifecycle.js';
 import { compileModule, type CompiledModule, type LazyModuleHandle, type ModuleClass } from './modules/index.js';
-import { lifecycleInstances } from './modules/lifecycle-instances.js';
+import { createLifecycleRecorder, lifecycleInstances } from './modules/lifecycle-instances.js';
 import { runtimeOf, type CompiledController } from './modules/runtime.js';
 import type { Observability } from './observability/types.js';
 
@@ -70,10 +70,18 @@ export function createApplication(rootModule: ModuleClass, options: ApplicationO
   const extensions = validatedExtensions(options.extensions ?? []);
   const compiled = compiledApplication(options) ?? compileModule(rootModule);
   const runtime = runtimeOf(compiled);
+  const recordInstance = createLifecycleRecorder(compiled.container);
   const instances = lifecycleInstances(compiled.container);
   const observability = options.observability ?? EMPTY_OBSERVABILITY;
   const controllerBindings = Object.freeze([
-    ...(runtime?.controllers ?? compiled.controllers.map(controller => ({ kind: 'eager' as const, controller }))),
+    ...(runtime?.controllers ??
+      compiled.controllers.map(controller => ({
+        kind: 'eager' as const,
+        controller,
+        prepare(callback: (controller: object) => readonly object[]) {
+          for (const value of callback(controller)) recordInstance(value);
+        },
+      }))),
   ]);
   let context: ApplicationExtensionContext | undefined;
   if (extensions.length > 0) {
@@ -190,7 +198,16 @@ export function applicationExtensionControllersOf(context: ApplicationExtensionC
   const carrier: BridgedApplicationExtensionContext = context;
   return (
     carrier[APPLICATION_EXTENSION_BRIDGE]?.controllers ??
-    Object.freeze(context.controllers.map(controller => ({ kind: 'eager' as const, controller })))
+    Object.freeze(
+      context.controllers.map(controller => ({
+        kind: 'eager' as const,
+        controller,
+        prepare(callback: (controller: object) => readonly object[]) {
+          const record = createLifecycleRecorder(context.container);
+          for (const value of callback(controller)) record(value);
+        },
+      })),
+    )
   );
 }
 

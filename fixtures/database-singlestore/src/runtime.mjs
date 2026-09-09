@@ -6,8 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { diff, up } from '@zmdb/migrations';
 import { outboxPendingIndexDdl, outboxTableDdl } from '@zmdb/orm/outbox';
 import { singlestore, singlestoreDriver, singlestoreIntrospector, singlestoreMigrations } from '@zmdb/singlestore';
-import { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/sql';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
+import { trustedTable, createQueryCompiler, UnsupportedFeatureError } from '@zmdb/sql';
 import mysql2 from 'mysql2/promise';
 
 const fixtureRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -340,13 +339,15 @@ try {
   await step('runs CRUD and pinned rollback transactions through mysql2', async () => {
     const insertedAccount = await driver.executeResult(
       compiler
-        .insertInto(accounts)
+        .insertInto(trustedTable(accounts))
         .values({ external_id: '9007199254740993', email: 'snowman-☃@example.test' })
         .compile(),
     );
     assert(insertedAccount.kind === 'command', 'account INSERT did not return command metadata');
     const accountId = insertedAccount.insertId;
-    const selectedAccount = await driver.execute(compiler.selectFrom(accounts).where('id', '=', accountId).compile());
+    const selectedAccount = await driver.execute(
+      compiler.selectFrom(trustedTable(accounts)).where('id', '=', accountId).compile(),
+    );
     assert(selectedAccount[0]?.external_id === '9007199254740993', 'BIGINT lost precision');
     assert(selectedAccount[0]?.email === 'snowman-☃@example.test', 'utf8mb4 text did not round-trip');
 
@@ -354,7 +355,7 @@ try {
       .transaction(async transaction => {
         await transaction.execute(
           compiler
-            .insertInto(events)
+            .insertInto(trustedTable(events))
             .values({
               tenant_id: 7,
               id: 1,
@@ -368,12 +369,14 @@ try {
       .catch(error => {
         if (!(error instanceof Error) || error.message !== 'expected rollback') throw error;
       });
-    const afterRollback = await driver.execute(compiler.selectFrom(events).where('tenant_id', '=', 7).compile());
+    const afterRollback = await driver.execute(
+      compiler.selectFrom(trustedTable(events)).where('tenant_id', '=', 7).compile(),
+    );
     assert(afterRollback.length === 0, 'transaction rollback did not remove the event');
 
     await driver.execute(
       compiler
-        .insertInto(events)
+        .insertInto(trustedTable(events))
         .values({
           tenant_id: 7,
           id: 2,
@@ -389,18 +392,25 @@ try {
     assert(generated[0]?.message_key === 'mixed-case', 'persisted computed column did not round-trip');
     assert(generated[0]?.occurred_at === '2026-09-06 12:34:56.123456', 'DATETIME(6) lost fractional precision');
     await execute(`INSERT INTO \`${searchDocs}\` (\`id\`, \`body\`) VALUES (?, ?)`, [1, 'single store search']);
-    const fullText = ftsSelectFrom(searchDocs, singlestore).whereMatch('body', 'single').compile();
+    const fullText = compiler.selectFrom(trustedTable(searchDocs)).whereMatch('body', 'single').compile();
     assert(
       fullText.text === `SELECT * FROM \`${searchDocs}\` WHERE MATCH(\`body\`) AGAINST(?)`,
       `SingleStore full-text SQL changed: ${fullText.text}`,
     );
     await driver.execute(fullText);
     await driver.execute(
-      compiler.updateTable(events).set({ message: 'updated' }).where('tenant_id', '=', 7).where('id', '=', 2).compile(),
+      compiler
+        .updateTable(trustedTable(events))
+        .set({ message: 'updated' })
+        .where('tenant_id', '=', 7)
+        .where('id', '=', 2)
+        .compile(),
     );
     const updated = await execute(`SELECT message FROM \`${events}\` WHERE tenant_id = ? AND id = ?`, [7, 2]);
     assert(updated[0]?.message === 'updated', 'UPDATE did not round-trip');
-    await driver.execute(compiler.deleteFrom(events).where('tenant_id', '=', 7).where('id', '=', 2).compile());
+    await driver.execute(
+      compiler.deleteFrom(trustedTable(events)).where('tenant_id', '=', 7).where('id', '=', 2).compile(),
+    );
   });
 
   await step('round-trips SingleStore storage and distribution catalog metadata', async () => {

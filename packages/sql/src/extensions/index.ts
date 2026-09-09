@@ -57,14 +57,14 @@ export interface DistanceExpression<C extends string = string> {
   readonly column: C;
   readonly operator: DistanceOp;
   readonly query: readonly number[];
-  as(alias: string): AliasedDistanceExpression<C>;
+  as<const Alias extends string>(alias: Alias): AliasedDistanceExpression<C, Alias>;
 }
 
-export interface AliasedDistanceExpression<C extends string = string> {
+export interface AliasedDistanceExpression<C extends string = string, Alias extends string = string> {
   readonly [EXTENSION_EXPRESSION]: 'aliased-distance';
   readonly kind: 'aliased';
   readonly expression: DistanceExpression<C>;
-  readonly alias: string;
+  readonly alias: Alias;
 }
 
 export interface SpatialPredicate<C extends string = string> {
@@ -86,11 +86,11 @@ export interface SpatialPredicateNode {
   readonly connector?: 'AND' | 'OR';
 }
 
-function aliasedDistance<C extends string>(
+function aliasedDistance<C extends string, Alias extends string>(
   expression: DistanceExpression<C>,
-  alias: string,
-): AliasedDistanceExpression<C> {
-  const aliased: AliasedDistanceExpression<C> = {
+  alias: Alias,
+): AliasedDistanceExpression<C, Alias> {
+  const aliased: AliasedDistanceExpression<C, Alias> = {
     [EXTENSION_EXPRESSION]: 'aliased-distance',
     kind: 'aliased',
     expression,

@@ -96,9 +96,11 @@ anything statement-per-row.
 ## Bulk _delete_ has the same shape
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies createQueryCompiler, driver, id; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { postgres } from '@zmdb/postgres';
 
-const q = createQueryCompiler(postgres).deleteFrom('posts').where('author_id', '=', id).compile();
+const q = createQueryCompiler(postgres).deleteFrom(trustedTable('posts')).where('author_id', '=', id).compile();
 await driver.execute(q);
 ```
 

@@ -81,9 +81,11 @@ await pg.exec('CREATE EXTENSION IF NOT EXISTS vector');
 The whole read path works client-side, because the compiler is pure string manipulation:
 
 ```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies createQueryCompiler, pg; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 import { postgres } from '@zmdb/postgres';
 
-const q = createQueryCompiler(postgres).selectFrom('users').where('active', '=', true).compile();
+const q = createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('active', '=', true).compile();
 const rows = await pg.query(q.text, [...q.parameters]);
 ```
 

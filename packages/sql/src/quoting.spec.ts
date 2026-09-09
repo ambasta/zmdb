@@ -1,8 +1,5 @@
 import { emitUp } from '@zmdb/migrations';
-import { createQueryCompiler } from '@zmdb/sql';
-import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
-import { joinableSelectFrom } from '@zmdb/sql/joins';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import {
   createIndexDdl,
   createPolicyDdl,
@@ -137,21 +134,21 @@ describe('Centralized Identifier Quoting Engine', () => {
       const colPayloadPg = 'col"; DROP TABLE users; --';
 
       const q = createQueryCompiler(postgresDialect)
-        .selectFrom(payloadPg)
+        .selectFrom(trustedTable(payloadPg))
         .select([colPayloadPg, 'public.user"s.email'])
         .where(colPayloadPg, '=', 'val')
         .orderBy(colPayloadPg, 'asc')
         .compile();
 
       expect(q.text).toBe(
-        'SELECT "col""; DROP TABLE users; --", "public"."user""s"."email" FROM "users""; DROP TABLE users; --" WHERE "col""; DROP TABLE users; --" = $1 ORDER BY "col""; DROP TABLE users; --" ASC',
+        'SELECT "col""; DROP TABLE users; --", "public"."user""s"."email" AS "public.user""s.email" FROM "users""; DROP TABLE users; --" WHERE "col""; DROP TABLE users; --" = $1 ORDER BY "col""; DROP TABLE users; --" ASC',
       );
 
       const payloadMySql = 'users`; DROP TABLE users; --';
       const colPayloadMySql = 'col`; DROP TABLE users; --';
 
       const qMySql = createQueryCompiler(mysqlDialect)
-        .selectFrom(payloadMySql)
+        .selectFrom(trustedTable(payloadMySql))
         .select([colPayloadMySql])
         .where(colPayloadMySql, '=', 'val')
         .compile();
@@ -162,8 +159,9 @@ describe('Centralized Identifier Quoting Engine', () => {
     });
 
     it('joins module escapes malicious inputs in tables, aliases, and qualified columns', () => {
-      const q = joinableSelectFrom('orders"tbl as o"alias', postgresDialect)
-        .leftJoin('items"tbl as i"alias', 'o"alias.item"id', 'i"alias.id')
+      const q = createQueryCompiler(postgresDialect)
+        .selectFrom(trustedTable('orders"tbl as o"alias'))
+        .leftJoin(trustedTable('items"tbl'), 'i"alias', [{ leftCol: 'o"alias.item"id', rightCol: 'i"alias.id' }])
         .where('o"alias.status', '=', 'active')
         .compile();
 
@@ -173,7 +171,8 @@ describe('Centralized Identifier Quoting Engine', () => {
     });
 
     it('aggregations module escapes malicious inputs in projection items and aliases', () => {
-      const q = aggregateSelectFrom('sales"tbl', postgresDialect)
+      const q = createQueryCompiler(postgresDialect)
+        .selectFrom(trustedTable('sales"tbl'))
         .count('item"id', 'count"alias')
         .groupBy('region"col')
         .having('amount"col', '>', 100)
@@ -185,13 +184,19 @@ describe('Centralized Identifier Quoting Engine', () => {
     });
 
     it('full-text search module escapes malicious inputs in search target columns', () => {
-      const qPg = ftsSelectFrom('docs"tbl', postgresDialect).whereMatch('title"col', 'search_term').compile();
+      const qPg = createQueryCompiler(postgresDialect)
+        .selectFrom(trustedTable('docs"tbl'))
+        .whereMatch('title"col', 'search_term')
+        .compile();
 
       expect(qPg.text).toBe(
         `SELECT * FROM "docs""tbl" WHERE to_tsvector('english', "title""col") @@ to_tsquery('english', $1)`,
       );
 
-      const qMySql = ftsSelectFrom('docs`tbl', mysqlDialect).whereMatch('title`col', 'search_term').compile();
+      const qMySql = createQueryCompiler(mysqlDialect)
+        .selectFrom(trustedTable('docs`tbl'))
+        .whereMatch('title`col', 'search_term')
+        .compile();
 
       expect(qMySql.text).toBe(
         'SELECT * FROM `docs``tbl` WHERE MATCH(`title``col`) AGAINST(? IN NATURAL LANGUAGE MODE)',

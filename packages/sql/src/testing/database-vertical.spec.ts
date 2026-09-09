@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { ddlType, emitUp } from '@zmdb/migrations';
 import { detectDrift } from '@zmdb/migrations/introspect';
 import { driverMigrationConnection } from '@zmdb/migrations/runner';
-import { type ColumnSnapshot } from '@zmdb/sql';
+import { type ColumnSnapshot, trustedTable } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -82,7 +82,7 @@ describe('database vertical conformance (#668)', () => {
     const compiler = externalCompiler(dialect);
     const selectFrom: unknown = Reflect.get(compiler, 'selectFrom');
     if (typeof selectFrom !== 'function') throw new TypeError('compiler has no selectFrom');
-    const select = objectValue(Reflect.apply(selectFrom, compiler, ['widgets']), 'select builder');
+    const select = objectValue(Reflect.apply(selectFrom, compiler, [trustedTable('widgets')]), 'select builder');
     const where: unknown = Reflect.get(select, 'where');
     if (typeof where !== 'function') throw new TypeError('select builder has no where');
     const filtered = objectValue(Reflect.apply(where, select, ['id', '=', 7]), 'filtered select builder');
@@ -230,7 +230,7 @@ describe('database vertical conformance (#668)', () => {
     for (const id of [1, 2, 3]) {
       const selectFrom = Reflect.get(compiler, 'selectFrom');
       if (typeof selectFrom !== 'function') throw new TypeError('compiler has no selectFrom');
-      const select = objectValue(Reflect.apply(selectFrom, compiler, ['widgets']), 'select builder');
+      const select = objectValue(Reflect.apply(selectFrom, compiler, [trustedTable('widgets')]), 'select builder');
       const where = Reflect.get(select, 'where');
       if (typeof where !== 'function') throw new TypeError('select builder has no where');
       const filtered = objectValue(Reflect.apply(where, select, ['id', '=', id]), 'filtered select builder');

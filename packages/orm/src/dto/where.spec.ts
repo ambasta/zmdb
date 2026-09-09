@@ -2,7 +2,7 @@ import { compileWhere, type WhereTarget } from '@zmdb/orm/dto';
 import { postgres } from '@zmdb/postgres';
 import { type WhereDTO } from '@zmdb/schema/dto';
 import { type Ext, type Sql, type Table } from '@zmdb/schema/tags';
-import { createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { ValidationError } from '@zmdb/validator';
 import { describe, it, expect } from 'vitest';
 
@@ -87,7 +87,7 @@ describe('WhereDTO + operator set (#179)', () => {
       ['and', 'embedding', 'ip', queryVector],
     ]);
 
-    const vectorBuilder = createQueryCompiler(postgres).selectFrom('vector_items');
+    const vectorBuilder = createQueryCompiler(postgres).selectFrom(trustedTable('vector_items'));
     const cosineWhere: WhereDTO<VectorItem> = { embedding: { cosine: queryVector } };
     expect(compileWhere<VectorItem, typeof vectorBuilder>(vectorBuilder, cosineWhere).compile()).toEqual({
       text: 'SELECT * FROM "vector_items" WHERE "embedding" <=> $1',
@@ -127,9 +127,9 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('subquery comparison operators in FieldOps', () => {
     const qb = createQueryCompiler(postgres);
-    const sub = qb.selectFrom('orders').select(['user_id']).where('total', '>', 100);
-    const builder = compileWhere(qb.selectFrom('users'), {
-      id: { in: sub },
+    const sub = qb.selectFrom(trustedTable('orders')).select(['user_id']).where('total', '>', 100);
+    const builder = compileWhere(qb.selectFrom(trustedTable('users')), {
+      id: { in: { compile: () => sub.compile() } },
       age: { gt: { table: 'users_stats', select: ['avg_age'] } },
     } as WhereDTO<User>);
 
@@ -142,7 +142,7 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('EXISTS operator containing nested filter definitions and subqueries', () => {
     const qb = createQueryCompiler(postgres);
-    const builder = compileWhere(qb.selectFrom('users'), {
+    const builder = compileWhere(qb.selectFrom(trustedTable('users')), {
       role: 'admin',
       exists: {
         table: 'orders',

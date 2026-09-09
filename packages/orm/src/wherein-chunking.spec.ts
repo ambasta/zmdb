@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { schemasFrom } from '@zmdb/compiler/testing';
 import { defineRepository, type Driver } from '@zmdb/orm';
 import { type OneToMany, type PrimaryKey, type References, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
-import { createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
@@ -28,7 +28,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     const qb = createQueryCompiler(postgresDialect);
 
     const selectQuery = qb
-      .selectFrom('users')
+      .selectFrom(trustedTable('users'))
       .whereIn('id', [10, 20, 30])
       .andWhereNotIn('status', ['archived'])
       .compile();
@@ -36,12 +36,12 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     expect(selectQuery.text).toBe('SELECT * FROM "users" WHERE "id" IN ($1, $2, $3) AND "status" NOT IN ($4)');
     expect(selectQuery.parameters).toEqual([10, 20, 30, 'archived']);
 
-    const updateQuery = qb.updateTable('users').set({ status: 'active' }).whereIn('id', [1, 2]).compile();
+    const updateQuery = qb.updateTable(trustedTable('users')).set({ status: 'active' }).whereIn('id', [1, 2]).compile();
 
     expect(updateQuery.text).toBe('UPDATE "users" SET "status" = $1 WHERE "id" IN ($2, $3)');
     expect(updateQuery.parameters).toEqual(['active', 1, 2]);
 
-    const deleteQuery = qb.deleteFrom('users').whereNotIn('id', [100]).compile();
+    const deleteQuery = qb.deleteFrom(trustedTable('users')).whereNotIn('id', [100]).compile();
 
     expect(deleteQuery.text).toBe('DELETE FROM "users" WHERE "id" NOT IN ($1)');
     expect(deleteQuery.parameters).toEqual([100]);

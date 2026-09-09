@@ -133,6 +133,7 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
   }
 
   const controllerInstances = new Map<ModuleClass, Map<Constructor<object>, object>>();
+  const prepareControllers = new Map<Constructor<object>, ((controller: object) => readonly object[])[]>();
   const instantiated = new Set<ModuleClass>();
   const pendingLoads = new Set<Promise<void>>();
   let shuttingDown = false;
@@ -157,6 +158,9 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
         recordInstance(instance);
         instances.set(Controller, instance);
         controllers.push(instance);
+        for (const prepare of prepareControllers.get(Controller) ?? []) {
+          for (const value of prepare(instance)) recordInstance(value);
+        }
       }
       for (const Command of def?.commands ?? []) {
         const instance = container.build(Command);
@@ -256,7 +260,13 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
       for (const Controller of def.controllers ?? []) {
         const instance = instances?.get(Controller);
         if (instance !== undefined) {
-          controllerBindings.push({ kind: 'eager', controller: instance });
+          controllerBindings.push({
+            kind: 'eager',
+            controller: instance,
+            prepare(callback) {
+              for (const value of callback(instance)) recordInstance(value);
+            },
+          });
         }
       }
       continue;
@@ -269,6 +279,11 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
       controllerBindings.push({
         kind: 'deferred',
         controller: Controller,
+        prepare(callback) {
+          const callbacks = prepareControllers.get(Controller) ?? [];
+          callbacks.push(callback);
+          prepareControllers.set(Controller, callbacks);
+        },
         instance: async (): Promise<object> => {
           await handle.load();
           const instance = controllerInstances.get(moduleClass)?.get(Controller);

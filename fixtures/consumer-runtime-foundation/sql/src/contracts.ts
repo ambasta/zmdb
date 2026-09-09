@@ -1,4 +1,5 @@
 import {
+  trustedTable,
   createQueryCompiler,
   type CompiledQuery,
   type SqlDialect,
@@ -12,7 +13,7 @@ import { dialect } from './dialect.js';
 
 const injected: SqlDialect<'acme'> = dialect;
 const compiler: QueryCompiler = createQueryCompiler(dialect);
-const select: SelectBuilder = compiler.selectFrom('users').select(['id']);
+const select: SelectBuilder = compiler.selectFrom(trustedTable('users')).select(['id']);
 const query: CompiledQuery = select.where('id', '=', 1).compile();
 
 void [query, injected];

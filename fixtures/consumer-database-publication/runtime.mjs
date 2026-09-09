@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { down, up } from '@zmdb/migrations';
-import { createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler } from '@zmdb/sql';
 
 const database = process.argv[2];
 const required = {
@@ -79,31 +79,31 @@ try {
   assert.deepEqual(await up(connection, [migration]), [676]);
   applied = true;
   assert.deepEqual(await up(connection, [migration]), []);
-  await execute(compiler.insertInto(table).values({ id: 7, label, visits: 1 }).compile());
-  assert.deepEqual(await execute(compiler.selectFrom(table).where('id', '=', 7).compile()), [
+  await execute(compiler.insertInto(trustedTable(table)).values({ id: 7, label, visits: 1 }).compile());
+  assert.deepEqual(await execute(compiler.selectFrom(trustedTable(table)).where('id', '=', 7).compile()), [
     { id: 7, label, visits: 1 },
   ]);
-  await execute(compiler.updateTable(table).set({ visits: 2 }).where('id', '=', 7).compile());
-  assert.deepEqual(await execute(compiler.selectFrom(table).where('id', '=', 7).compile()), [
+  await execute(compiler.updateTable(trustedTable(table)).set({ visits: 2 }).where('id', '=', 7).compile());
+  assert.deepEqual(await execute(compiler.selectFrom(trustedTable(table)).where('id', '=', 7).compile()), [
     { id: 7, label, visits: 2 },
   ]);
   await assert.rejects(
     driver.transaction(async transaction => {
       await transaction.execute(
-        compiler.insertInto(table).values({ id: 8, label: 'rolled back', visits: 9 }).compile(),
+        compiler.insertInto(trustedTable(table)).values({ id: 8, label: 'rolled back', visits: 9 }).compile(),
       );
       throw new Error('publication rollback');
     }),
     /publication rollback/,
   );
-  assert.deepEqual(await execute(compiler.selectFrom(table).where('id', '=', 8).compile()), []);
+  assert.deepEqual(await execute(compiler.selectFrom(trustedTable(table)).where('id', '=', 8).compile()), []);
   const catalog = await dialect.introspector.snapshot(driver);
   const actual = catalog.tables.find(entry => entry.name === table);
   assert(actual, 'the actual server catalog must contain the migrated table');
   assert.deepEqual(actual.primaryKey, ['id']);
   assert.deepEqual(actual.columns.map(column => column.name).toSorted(), ['id', 'label', 'visits']);
-  await execute(compiler.deleteFrom(table).where('id', '=', 7).compile());
-  assert.deepEqual(await execute(compiler.selectFrom(table).compile()), []);
+  await execute(compiler.deleteFrom(trustedTable(table)).where('id', '=', 7).compile());
+  assert.deepEqual(await execute(compiler.selectFrom(trustedTable(table)).compile()), []);
   assert.equal(await down(connection, [migration]), 676);
   applied = false;
   assert.equal(

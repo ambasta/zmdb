@@ -96,13 +96,13 @@ async function createConcert(data: Omit<Concert, 'type'>) {
 Query the base table and filter by discriminator to get specific subtypes.
 
 ```ts {"mode":"compile","id":"example-003"}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
 
 // Get all concerts
-const concerts = compiler.selectFrom('events').select(['id', 'title', 'venue', 'artist']).where('type', '=', 'concert').compile();
+const concerts = compiler.selectFrom(trustedTable('events')).select(['id', 'title', 'venue', 'artist']).where('type', '=', 'concert').compile();
 
 // concerts.text => SELECT ... WHERE "type" = $1
 // concerts.parameters => ['concert']

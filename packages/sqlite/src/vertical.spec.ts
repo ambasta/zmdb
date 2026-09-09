@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { driverMigrationConnection, up, type ChangeOp, type SchemaSnapshot } from '@zmdb/migrations';
 import { detectDrift } from '@zmdb/migrations/introspect';
 import {
+  trustedTable,
   createQueryCompiler,
   UnsupportedFeatureError,
   type MigrationPlan,
@@ -123,7 +124,7 @@ describe('@zmdb/sqlite vertical', () => {
     const compiler = createQueryCompiler(sqlite);
     expect(
       compiler
-        .selectFrom('users')
+        .selectFrom(trustedTable('users'))
         .select(['id', 'email'])
         .where('visits', '>=', 1)
         .orderBy('id', 'asc')
@@ -136,7 +137,7 @@ describe('@zmdb/sqlite vertical', () => {
     });
     expect(
       compiler
-        .insertInto('users')
+        .insertInto(trustedTable('users'))
         .values({ id: 1, email: 'a@example.test', visits: 1 })
         .onConflict('id')
         .doUpdate(['email', 'visits'])
@@ -378,14 +379,14 @@ describe('@zmdb/sqlite vertical', () => {
       const compiler = createQueryCompiler(sqlite);
       await driver.execute(
         compiler
-          .insertInto('users')
+          .insertInto(trustedTable('users'))
           .values({ id: 1, email: 'first@example.test', visits: 1 })
           .returning(['id'])
           .compile(),
       );
       await driver.execute(
         compiler
-          .insertInto('users')
+          .insertInto(trustedTable('users'))
           .values({ id: 1, email: 'updated@example.test', visits: 2 })
           .onConflict('id')
           .doUpdate(['email', 'visits'])
@@ -393,29 +394,36 @@ describe('@zmdb/sqlite vertical', () => {
       );
       expect(
         await driver.execute(
-          compiler.selectFrom('users').select(['id', 'email', 'visits']).where('id', '=', 1).compile(),
+          compiler.selectFrom(trustedTable('users')).select(['id', 'email', 'visits']).where('id', '=', 1).compile(),
         ),
       ).toEqual([{ id: 1, email: 'updated@example.test', visits: 2 }]);
 
-      await driver.execute(compiler.updateTable('users').set({ visits: 3 }).where('id', '=', 1).compile());
+      await driver.execute(
+        compiler.updateTable(trustedTable('users')).set({ visits: 3 }).where('id', '=', 1).compile(),
+      );
       expect(
-        await driver.execute(compiler.selectFrom('users').select(['visits']).where('id', '=', 1).compile()),
+        await driver.execute(
+          compiler.selectFrom(trustedTable('users')).select(['visits']).where('id', '=', 1).compile(),
+        ),
       ).toEqual([{ visits: 3 }]);
 
       await expect(
         driver.transaction(async transaction => {
           await transaction.execute(
-            compiler.insertInto('users').values({ id: 2, email: 'rollback@example.test', visits: 1 }).compile(),
+            compiler
+              .insertInto(trustedTable('users'))
+              .values({ id: 2, email: 'rollback@example.test', visits: 1 })
+              .compile(),
           );
           throw new Error('rollback');
         }),
       ).rejects.toThrow('rollback');
-      expect(await driver.execute(compiler.selectFrom('users').select(['id']).where('id', '=', 2).compile())).toEqual(
-        [],
-      );
+      expect(
+        await driver.execute(compiler.selectFrom(trustedTable('users')).select(['id']).where('id', '=', 2).compile()),
+      ).toEqual([]);
 
-      await driver.execute(compiler.deleteFrom('users').where('id', '=', 1).compile());
-      expect(await driver.execute(compiler.selectFrom('users').select(['id']).compile())).toEqual([]);
+      await driver.execute(compiler.deleteFrom(trustedTable('users')).where('id', '=', 1).compile());
+      expect(await driver.execute(compiler.selectFrom(trustedTable('users')).select(['id']).compile())).toEqual([]);
     } finally {
       database.close();
     }

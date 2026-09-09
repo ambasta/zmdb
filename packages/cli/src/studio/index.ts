@@ -3,8 +3,7 @@ import { isRecord, type CoreSchema } from '@zmdb/schema';
 import { type ColumnIR } from '@zmdb/schema/ir';
 import { toJsonSchema } from '@zmdb/schema/openapi';
 import { resolveRelation, type ResolvedRelation } from '@zmdb/schema/relations';
-import { createQueryCompiler, type DialectTarget, type SelectBuilder } from '@zmdb/sql';
-import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/sql/aggregations';
+import { trustedTable, createQueryCompiler, type DialectTarget, type SelectBuilder } from '@zmdb/sql';
 import { Controller, createRouter, Get, respond, type Ctx, type QueryValues, type WebResponse } from '@zmdb/web';
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -226,7 +225,7 @@ class Studio {
 
   private async oneRow(table: StudioTable, key: readonly Predicate[]): Promise<Record<string, unknown> | undefined> {
     let query = createQueryCompiler(this.#dialect)
-      .selectFrom(table.schema.ir.physicalTable)
+      .selectFrom(trustedTable(table.schema.ir.physicalTable))
       .select(table.schema.ir.columns.map(column => column.physicalName));
     query = applyPredicates(query, key);
     return (await this.#driver.execute(query.limit(1).compile()))[0];
@@ -236,15 +235,17 @@ class Studio {
     const visible = unique(table.visibleColumns.map(column => column.physicalName));
     const selected = visible.length === 0 ? [options.orderBy.physicalName] : visible;
     let query = createQueryCompiler(this.#dialect)
-      .selectFrom(table.schema.ir.physicalTable)
+      .selectFrom(trustedTable(table.schema.ir.physicalTable))
       .select(selected)
       .orderBy(options.orderBy.physicalName, options.direction)
       .limit(options.pageSize)
       .offset(options.offset);
     query = applyPredicates(query, predicates);
 
-    let count = aggregateSelectFrom(table.schema.ir.physicalTable, this.#dialect).count('*', 'count');
-    count = applyAggregatePredicates(count, predicates);
+    let count = createQueryCompiler(this.#dialect)
+      .selectFrom(trustedTable(table.schema.ir.physicalTable))
+      .count('*', 'count');
+    count = applyPredicates(count, predicates);
     const [rows, countRows] = await Promise.all([
       this.#driver.execute(query.compile()),
       this.#driver.execute(count.compile()),
@@ -349,14 +350,6 @@ export function createStudioApp(input: StudioInput): StudioApp {
 }
 
 function applyPredicates(builder: SelectBuilder, predicates: readonly Predicate[]): SelectBuilder {
-  let query = builder;
-  for (const predicate of predicates) {
-    query = query.where(predicate.column.physicalName, '=', predicate.value);
-  }
-  return query;
-}
-
-function applyAggregatePredicates(builder: AggregateSelect, predicates: readonly Predicate[]): AggregateSelect {
   let query = builder;
   for (const predicate of predicates) {
     query = query.where(predicate.column.physicalName, '=', predicate.value);

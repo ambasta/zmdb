@@ -5,10 +5,10 @@ Small things that are easy to miss.
 Every builder ends in `.compile()`, which returns `{ text, parameters }`. No connection, no mocking:
 
 ```ts {"mode":"compile","id":"example-001"}
-import { createQueryCompiler } from '@zmdb/sql';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
-const { text, parameters } = createQueryCompiler(postgres).selectFrom('users').where('age', '>=', 18).orderBy('email', 'asc').limit(10).compile();
+const { text, parameters } = createQueryCompiler(postgres).selectFrom(trustedTable('users')).where('age', '>=', 18).orderBy('email', 'asc').limit(10).compile();
 ```
 
 Assert on `text` in a unit test. This is the same value the driver gets.
@@ -16,8 +16,10 @@ Assert on `text` in a unit test. This is the same value the driver gets.
 ## Compile the same query for six dialects
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies createQueryCompiler; this excerpt does not repeat those declarations."}
+import { trustedTable } from '@zmdb/sql';
+
 for (const dialect of ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const) {
-  console.log(createQueryCompiler(dialect).selectFrom('users').where('id', '=', 1).compile().text);
+  console.log(createQueryCompiler(dialect).selectFrom(trustedTable('users')).where('id', '=', 1).compile().text);
 }
 // SELECT * FROM "users" WHERE "id" = $1
 // SELECT * FROM `users` WHERE `id` = ?
@@ -127,7 +129,9 @@ reflection" claim is tested rather than asserted; it is test support, not a publ
 ## `whereExists` takes any compilable
 
 ```ts {"mode":"illustrative","id":"example-011","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
-qc.selectFrom('authors').whereExists(qc.selectFrom('posts').where('author_id', '=', 1));
+import { trustedTable } from '@zmdb/sql';
+
+qc.selectFrom(trustedTable('authors')).whereExists(qc.selectFrom(trustedTable('posts')).where('author_id', '=', 1));
 ```
 
 Anything with a `compile()` works, including a hand-built `CompiledQuery`. See [Parents with at least one child](./guide-exists-subquery.html).

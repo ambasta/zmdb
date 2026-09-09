@@ -4,9 +4,9 @@ PostgreSQL full-text search is expressible directly in the query builder, and a 
 
 ```ts {"mode":"compile","id":"example-001"}
 import { postgres } from '@zmdb/postgres';
-import { ftsSelectFrom } from '@zmdb/sql/fts';
+import { createQueryCompiler, trustedTable } from '@zmdb/sql';
 
-ftsSelectFrom('products', postgres).whereMatch('description', 'wireless headphones').compile();
+createQueryCompiler(postgres).selectFrom(trustedTable('products')).whereMatch('description', 'wireless headphones').compile();
 ```
 
 ```sql

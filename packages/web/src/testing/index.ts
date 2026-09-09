@@ -13,6 +13,7 @@ import type { Observability } from '@zmdb/app/observability';
 
 import { applicationControllersOf, withCompiledApplication } from '../app/bridge.js';
 import { createRouter, type Router, type WebRequest, type WebResponse } from '../pipeline/index.js';
+import { prepareMiddleware } from '../routing/index.js';
 
 /** Options for `createTestApp`. */
 export interface TestAppOptions {
@@ -38,6 +39,7 @@ export function createTestApp(rootModule: ModuleClass, options: TestAppOptions =
   const application = createApplication(rootModule, withCompiledApplication(applicationOptions, compiled));
   const router: Router = createRouter(options.observability);
   for (const binding of applicationControllersOf(application)) {
+    binding.prepare(controller => prepareMiddleware(controller, token => application.container.resolve(token)));
     if (binding.kind === 'eager') {
       router.register(binding.controller);
     } else {
