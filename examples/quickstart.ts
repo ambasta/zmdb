@@ -49,7 +49,7 @@ const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: sqlite }
 const u = await users.create({ email: 'ada@zmdb.dev', age: 36 }); // validated first
 db.exec(`INSERT INTO orders (userId,total) VALUES (${u.id},5),(${u.id},7)`);
 
-const page = await users.list({ where: { age: { gte: 18 } }, page: { limit: 10 } });
+const page = await users.list({ where: { age: { gte: 18 } }, page: { mode: 'offset', limit: 10 } });
 const withOrders = await users.findById(u.id, { populate: ['orders'] });
 
 console.log('created:', u);

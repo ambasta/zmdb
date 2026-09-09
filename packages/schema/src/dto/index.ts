@@ -76,79 +76,181 @@ export type OrderByDTO<T extends DeclaredTable> = ReadonlyArray<{
   dir?: OrderDir;
 }>;
 
-export type OffsetPage = { limit: number; offset?: number | undefined };
+/** Values supported by SQL cursor comparisons and their lossless token encoding. */
+export type CursorValue = string | number | boolean | bigint | Date;
 
-export type PaginationDTO<T extends DeclaredTable> =
-  | OffsetPage
-  | {
-      limit: number;
-      after?: Partial<Entity<T>> | string | undefined;
-      before?: Partial<Entity<T>> | string | undefined;
-    };
+export type CursorOrderByDTO<T extends DeclaredTable> = ReadonlyArray<{
+  column: {
+    [K in keyof Entity<T>]-?: null extends Entity<T>[K]
+      ? never
+      : undefined extends Entity<T>[K]
+        ? never
+        : Entity<T>[K] extends CursorValue
+          ? K
+          : never;
+  }[keyof Entity<T>];
+  dir?: OrderDir;
+}>;
 
-/**
- * Schema-agnostic views of the order/page DTOs — exactly the fields the folders
- * read. `OrderByDTO<T>`/`PaginationDTO<T>` are structurally assignable to these
- * for *any* `T`, so callers pass their own typed DTO with no
- * `as OrderByDTO<CoreSchema<string>>` widening cast (which is what leaked into
- * consumer code, cf. COOKBOOK "sorting" example).
- */
+export type OffsetPage = {
+  mode: 'offset';
+  limit: number;
+  offset?: number | undefined;
+  after?: never;
+  before?: never;
+};
+
+export type CursorPage = {
+  mode: 'cursor';
+  limit: number;
+  offset?: never;
+} & ({ after?: string | undefined; before?: never } | { before?: string | undefined; after?: never });
+
+export type PaginationDTO<_T extends DeclaredTable> = OffsetPage | CursorPage;
+
+/** Schema-agnostic inputs to the SQL-facing DTO folders. */
 export type OrderBySpec = ReadonlyArray<{
   column: PropertyKey;
   dir?: OrderDir;
 }>;
 
-// `offset?: number | undefined` (not `offset?: number`) so callers under
-// `exactOptionalPropertyTypes` can forward a possibly-absent offset positionally.
-export type PaginationSpec = {
-  limit: number;
-  offset?: number | undefined;
-  after?: Record<string, unknown> | string | undefined;
-  before?: Record<string, unknown> | string | undefined;
-};
+/** Effective cursor ordering, with defaults and every primary-key tie-breaker resolved. */
+export type CursorOrderSpec = ReadonlyArray<{ column: string; dir: OrderDir }>;
+
+export type PaginationSpec = OffsetPage | CursorPage;
 
 function base64Encode(str: string): string {
-  if (globalThis.Buffer) {
-    return globalThis.Buffer.from(str, 'utf-8').toString('base64url');
-  }
+  if (globalThis.Buffer) return globalThis.Buffer.from(str, 'utf8').toString('base64url');
   if (globalThis.btoa) {
-    return globalThis.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const bytes = new TextEncoder().encode(str);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return globalThis.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
   throw new Error('No base64 encoder available');
 }
 
 function base64Decode(str: string): string {
+  const remainder = str.length % 4;
+  const last = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'.indexOf(str.at(-1) ?? '');
+  if (
+    !/^[A-Za-z0-9_-]+$/.test(str) ||
+    remainder === 1 ||
+    (remainder === 2 && (last & 15) !== 0) ||
+    (remainder === 3 && (last & 3) !== 0)
+  ) {
+    throw new Error('Invalid cursor: expected canonical base64url');
+  }
+  let bytes: Uint8Array;
   if (globalThis.Buffer) {
-    return globalThis.Buffer.from(str, 'base64url').toString('utf-8');
+    bytes = globalThis.Buffer.from(str, 'base64url');
+  } else if (globalThis.atob) {
+    const base64 = str
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(str.length + ((4 - remainder) % 4), '=');
+    bytes = Uint8Array.from(globalThis.atob(base64), char => char.charCodeAt(0));
+  } else {
+    throw new Error('No base64 decoder available');
   }
-  if (globalThis.atob) {
-    let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) base64 += '=';
-    return globalThis.atob(base64);
-  }
-  throw new Error('No base64 decoder available');
+  return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
 }
 
-export function encodeCursor(payload: Record<string, unknown>): string {
-  return base64Encode(JSON.stringify(payload));
+function cursorRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export function decodeCursor(cursor: string): Record<string, unknown> {
-  if (typeof cursor !== 'string' || !cursor.trim()) {
-    throw new Error('Invalid cursor: must be a non-empty string');
+function assertCursorKeys(values: Record<string, unknown>, order: CursorOrderSpec): void {
+  if (order.length === 0 || Object.keys(values).length !== order.length) {
+    throw new Error('Invalid cursor: values must match every ordered column exactly');
   }
+  const seen = new Set<string>();
+  for (const { column, dir } of order) {
+    if (typeof column !== 'string' || column.length === 0 || (dir !== 'asc' && dir !== 'desc') || seen.has(column)) {
+      throw new Error('Invalid cursor: invalid ordering');
+    }
+    seen.add(column);
+    if (!Object.hasOwn(values, column)) throw new Error(`Invalid cursor: missing value for column "${column}"`);
+  }
+}
+
+type EncodedCursorValue = readonly [
+  type: 'string' | 'number' | 'boolean' | 'bigint' | 'date',
+  value: string | number | boolean,
+];
+
+function encodeCursorValue(value: unknown): EncodedCursorValue {
+  if (typeof value === 'string') return ['string', value];
+  if (typeof value === 'boolean') return ['boolean', value];
+  if (typeof value === 'number' && Number.isFinite(value)) return ['number', Object.is(value, -0) ? '-0' : value];
+  if (typeof value === 'bigint') return ['bigint', value.toString()];
+  if (value instanceof Date && Number.isFinite(value.getTime())) return ['date', value.toISOString()];
+  throw new Error('Invalid cursor: ordered values must be defined, non-null scalar values');
+}
+
+function decodeCursorValue(encoded: unknown): CursorValue {
+  if (!Array.isArray(encoded) || encoded.length !== 2) throw new Error('Invalid cursor: malformed scalar');
+  const [type, value] = encoded;
+  if (type === 'string' && typeof value === 'string') return value;
+  if (type === 'boolean' && typeof value === 'boolean') return value;
+  if (type === 'number') {
+    if (value === '-0') return -0;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  if (type === 'bigint' && typeof value === 'string' && /^-?(0|[1-9]\d*)$/.test(value)) {
+    const integer = BigInt(value);
+    if (integer.toString() === value) return integer;
+  }
+  if (type === 'date' && typeof value === 'string') {
+    const date = new Date(value);
+    if (Number.isFinite(date.getTime()) && date.toISOString() === value) return date;
+  }
+  throw new Error('Invalid cursor: malformed scalar');
+}
+
+/** Encode exactly the effective ordering and its scalar values; no legacy payload format. */
+export function encodeCursor(values: Record<string, unknown>, order: CursorOrderSpec): string {
+  if (!cursorRecord(values)) throw new Error('Invalid cursor: expected values object');
+  assertCursorKeys(values, order);
+  return base64Encode(
+    JSON.stringify({
+      order: order.map(({ column, dir }) => [column, dir]),
+      values: Object.fromEntries(order.map(({ column }) => [column, encodeCursorValue(values[column])])),
+    }),
+  );
+}
+
+/** Decode and validate once against the caller's complete effective ordering, before SQL. */
+export function decodeCursor(cursor: string, order: CursorOrderSpec): Record<string, CursorValue> {
+  if (typeof cursor !== 'string' || cursor.length === 0) throw new Error('Invalid cursor: must be a non-empty string');
   try {
-    const json = base64Decode(cursor);
-    const parsed = JSON.parse(json);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      throw new Error('Invalid cursor payload');
+    const parsed: unknown = JSON.parse(base64Decode(cursor));
+    if (
+      !cursorRecord(parsed) ||
+      Object.keys(parsed).length !== 2 ||
+      !Array.isArray(parsed.order) ||
+      !cursorRecord(parsed.values)
+    ) {
+      throw new Error('Invalid cursor: malformed payload');
     }
-    // boundary: JSON.parse returns unknown (untrusted client payload); runtime check above proves parsed is a non-null, non-array object.
-    return parsed as Record<string, unknown>;
+    if (parsed.order.length !== order.length) throw new Error('Invalid cursor: ordering mismatch');
+    for (let i = 0; i < order.length; i++) {
+      const expected = order[i];
+      const received: unknown = parsed.order[i];
+      if (
+        !Array.isArray(received) ||
+        received.length !== 2 ||
+        received[0] !== expected?.column ||
+        received[1] !== expected?.dir
+      ) {
+        throw new Error('Invalid cursor: ordering mismatch');
+      }
+    }
+    const values = parsed.values;
+    assertCursorKeys(values, order);
+    return Object.fromEntries(order.map(({ column }) => [column, decodeCursorValue(values[column])]));
   } catch (err) {
-    if (err instanceof Error && err.message.startsWith('Invalid cursor')) {
-      throw err;
-    }
+    if (err instanceof Error && err.message.startsWith('Invalid cursor')) throw err;
     throw new Error(`Invalid cursor format: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
   }
 }
@@ -217,12 +319,10 @@ export function getResult<Row extends Record<string, unknown>>(
 // ---------------------------------------------------------------------------
 // §4–6 Get/List/Search DTOs (types; result assembly in #166/#169/#172)
 // ---------------------------------------------------------------------------
-export interface ListDTO<T extends DeclaredTable> {
+export type ListDTO<T extends DeclaredTable> = {
   where?: WhereDTO<T>;
-  orderBy?: OrderByDTO<T>;
-  page?: PaginationDTO<T>;
   select?: readonly (keyof Entity<T>)[];
-}
+} & ({ page?: OffsetPage; orderBy?: OrderByDTO<T> } | { page: CursorPage; orderBy?: CursorOrderByDTO<T> });
 
 export interface ListResult<Row> {
   readonly items: readonly Row[];
@@ -236,8 +336,9 @@ interface ListOptions {
   limit?: number;
   total?: number;
   cursor?: string;
-  orderBy?: OrderBySpec;
-  pkColumn?: string;
+  orderBy?: CursorOrderSpec;
+  /** Rows arrived in reverse query order for a before page. Trim before reversing. */
+  reverse?: boolean;
 }
 
 /**
@@ -268,29 +369,19 @@ export function buildListResult<Row extends Record<string, unknown>>(
 ): ListResult<Row | Partial<Row>> {
   const limit = opts?.limit;
   const hasMore = typeof limit === 'number' && rows.length > limit;
-  const kept = hasMore ? rows.slice(0, limit) : rows;
+  const queryRows = hasMore ? rows.slice(0, limit) : rows;
+  const kept = opts?.reverse ? queryRows.toReversed() : queryRows;
   const select = opts?.select;
   const items = select ? kept.map(r => project(r, select)) : kept;
 
   let computedCursor: string | undefined = opts?.cursor;
-  if (!computedCursor && hasMore && kept.length > 0) {
-    const lastRow = kept[kept.length - 1];
-    if (lastRow) {
-      const cursorObj: Record<string, unknown> = {};
-      const cols: { column: PropertyKey; dir?: OrderDir }[] = opts?.orderBy ? [...opts.orderBy] : [];
-      if (opts?.pkColumn && !cols.some(c => String(c.column) === opts.pkColumn)) {
-        cols.push({ column: opts.pkColumn, dir: 'asc' });
-      }
-      for (const item of cols) {
-        if (!item) continue;
-        const colStr = String(item.column);
-        if (colStr in lastRow) {
-          cursorObj[colStr] = lastRow[colStr];
-        }
-      }
-      if (Object.keys(cursorObj).length > 0) {
-        computedCursor = encodeCursor(cursorObj);
-      }
+  if (!computedCursor && hasMore && opts?.orderBy) {
+    const boundary = queryRows.at(-1);
+    if (boundary) {
+      computedCursor = encodeCursor(
+        Object.fromEntries(opts.orderBy.map(({ column }) => [column, boundary[column]])),
+        opts.orderBy,
+      );
     }
   }
   const result: ListResult<Row | Partial<Row>> = {

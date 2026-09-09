@@ -1,4 +1,4 @@
-Pagination controls how many rows come back and in what order. zmdb supports offset and keyset (cursor) pagination through three composable helpers in `@zmdb/schema/dto`, and `BaseRepository.list()`
+Pagination controls how many rows come back and in what order. zmdb supports offset and keyset (cursor) pagination through three composable helpers in `@zmdb/orm/dto`, and `BaseRepository.list()`
 wires all three together for you.
 
 Most application code should call [`list()`](./repository.html) and read `page.items` / `page.cursor` / `page.hasMore` — see [Cursor Pagination](./guide-cursor-pagination.html). This page is the layer
@@ -12,8 +12,8 @@ underneath, for when you are paginating a hand-built query.
 | `applyPagination(qb, page)`                          | emits the dialect's limit/offset tail                        | read `after` / `before`    |
 | `applyKeysetFilter(qb, cursorValues, order, where?)` | emits the keyset `WHERE` predicate                           | emit `LIMIT` or `ORDER BY` |
 
-The split matters: `applyPagination` takes a `PaginationSpec` whose type _includes_ `after` and `before`, and **silently ignores both**. Offset pagination is `applyPagination` alone; keyset pagination
-is `applyKeysetFilter` **plus** `applyPagination`.
+For `mode: 'offset'`, `applyPagination` applies the limit and optional offset. For `mode: 'cursor'`, it applies the limit; decode and validate the token with `decodeCursor(token, order)`, then pass
+those values to `applyKeysetFilter` to construct the boundary predicate.
 
 ## Offset pagination
 
@@ -23,14 +23,10 @@ import { buildListResult } from '@zmdb/schema/dto';
 
 let qb = compiler.selectFrom('users');
 qb = applyOrderBy(qb, [{ column: 'createdAt', dir: 'desc' }], 'id');
-qb = applyPagination(qb, { limit: 21, offset: 40 }); // limit + 1
+qb = applyPagination(qb, { mode: 'offset', limit: 21, offset: 40 }); // limit + 1
 
 const rows = await driver.execute(qb.compile());
-const result = buildListResult(rows, {
-  limit: 20,
-  orderBy: [{ column: 'createdAt', dir: 'desc' }, { column: 'id' }],
-  pkColumn: 'id',
-});
+const result = buildListResult(rows, { limit: 20 });
 ```
 
 **SQL emitted:**
@@ -62,8 +58,8 @@ const order = [
 
 let qb = compiler.selectFrom('users');
 qb = applyOrderBy(qb, order);
-qb = applyKeysetFilter(qb, decodeCursor(cursor), order, { active: { eq: true } });
-qb = applyPagination(qb, { limit: 21 });
+qb = applyKeysetFilter(qb, decodeCursor(cursor, order), order, { active: { eq: true } });
+qb = applyPagination(qb, { mode: 'cursor', limit: 21 });
 ```
 
 **SQL emitted** — one `OR` branch per sort column, each pinning the preceding columns with `=`:
@@ -82,22 +78,27 @@ Two things to read off that SQL:
 - **Your `where` is replicated into every branch.** That is why `applyKeysetFilter` takes it as its fourth argument rather than leaving you to call `compileWhere` separately — a filter applied only
   once would be dropped from the second branch, which is the classic way a keyset query leaks rows past a tenant filter.
 
-The cursor must contain a value for **every** column in `order`; a missing one throws `Invalid cursor: missing value for column "x"`. So changing a query's `orderBy` invalidates cursors already in the
-wild.
+The token must describe the **exact** column sequence and directions in `order`, with one defined, non-null scalar value per column and no extra keys. `decodeCursor` validates this before SQL;
+changing the effective `orderBy` invalidates existing tokens.
 
-> [!NOTE] Keyset pagination needs a total order, which means the last sort column must be unique. Pass `pkColumn` to `applyOrderBy` and include the primary key in `order` — or use `list()`, which
-> appends it for you.
+> [!NOTE] Keyset pagination needs a total order. Include every component of the primary key in the effective `order`, or use `list()`, which appends every missing primary-key component with ascending
+> direction.
 
 ## Cursor encoding
 
 ```ts {"mode":"compile","id":"example-003"}
 import { encodeCursor, decodeCursor } from '@zmdb/schema/dto';
 
-const cursor = encodeCursor({ createdAt: '2024-01-15T10:00:00Z', id: 123 });
-const values = decodeCursor(cursor); // throws on malformed input
+const order = [
+  { column: 'createdAt', dir: 'desc' },
+  { column: 'id', dir: 'asc' },
+] as const;
+const cursor = encodeCursor({ createdAt: new Date('2024-01-15T10:00:00Z'), id: 123 }, order);
+const values = decodeCursor(cursor, order); // validates shape, values and exact ordering
 ```
 
-`base64url` of the JSON payload, using `Buffer` where available and `btoa`/`atob` otherwise, so it works on Workers and in the browser.
+The single token format is UTF-8/base64url JSON containing the effective order and tagged scalar values. Node and browser branches produce the same bytes. Strings, finite numbers, booleans, bigint and
+valid Date values round-trip without losing their types. Nullish values, malformed data and old value-only tokens are rejected.
 
 > [!WARNING] A cursor is encoding, not authentication — anyone can decode, edit and replay one. Never let a cursor carry authorisation; keep the tenant and owner predicates in the `where` on every
 > page. See [Authorization](./web-authorization.html).
@@ -109,17 +110,19 @@ interface ListResult<Row> {
   readonly items: readonly Row[];
   readonly total?: number; // only if you pass it in
   readonly hasMore: boolean; // from the limit + 1 fetch
-  readonly cursor?: string; // encoded from the last kept row
+  readonly cursor?: string; // boundary row for the requested direction
 }
 ```
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies buildListResult, orderBy, rows; this excerpt does not repeat those declarations."}
-const result = buildListResult(rows, { limit: 20, orderBy, pkColumn: 'id' });
+const result = buildListResult(rows, { limit: 20, orderBy });
 // rows.length === 21 → hasMore = true, items = rows[0..19], cursor = encodeCursor(last kept row's sort keys)
 // rows.length <= 20  → hasMore = false, items = rows, cursor = undefined
 ```
 
-`buildListResult` also applies `select` projection per item, so `items` matches the columns you asked for.
+`orderBy` must already contain explicit directions and every primary-key tie-breaker. `buildListResult` also applies `select` projection per item. For a `before` page, query with each direction
+reversed and pass `reverse: true`: the helper trims before restoring caller-visible order and encodes its first visible row for the next backward page. Offset results omit `orderBy` and return no
+cursor. Results are inert values.
 
 ## Total count
 
@@ -135,13 +138,14 @@ const result = buildListResult(rows, { limit: 20, total: await countUsers(where)
 ## Typed DTOs
 
 ```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Entity; this excerpt does not repeat those declarations."}
-type OffsetPage = { limit: number; offset?: number | undefined };
-
-type PaginationDTO<S> = OffsetPage | { limit: number; after?: Partial<Entity<S>> | string; before?: Partial<Entity<S>> | string };
+type OffsetPage = { mode: 'offset'; limit: number; offset?: number | undefined; after?: never; before?: never };
+type CursorPage = { mode: 'cursor'; limit: number; offset?: never } & ({ after?: string | undefined; before?: never } | { before?: string | undefined; after?: never });
+type PaginationDTO<T> = OffsetPage | CursorPage;
 ```
 
-A cursor is either the opaque string from a previous page or a partial entity, so column names in the object form are checked against the schema. `before` is accepted by the type and is **not
-implemented** by `list()` — see the ToDo on [Cursor Pagination](./guide-cursor-pagination.html).
+Use `page: { mode: 'cursor', limit: 20 }` for the first page. Pass `after` to fetch following rows or `before` to fetch the preceding adjacent page, in the caller's order; the two directions are
+mutually exclusive. A cursor is an opaque string, with no raw-object alternative. `ListDTO<T>` checks cursor ordering through `CursorOrderByDTO<T>`, which excludes nullable, undefined, optional and
+non-scalar columns. Offset sorting remains independent.
 
 ## Cross-links
 

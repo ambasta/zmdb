@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { schemasFrom } from '@zmdb/compiler/testing';
 import { diff, emitUp, snapshot } from '@zmdb/migrations';
 import { BaseRepository, createLoaderScope, memoryStore, type Driver, type FilterDef, type QueryMeta } from '@zmdb/orm';
+import { encodeCursor } from '@zmdb/schema/dto';
 import { type ColumnIR, type SchemaIR } from '@zmdb/schema/ir';
 import { jsonSchemaFromIR, schemaFromIR } from '@zmdb/schema/ir';
 import {
@@ -250,7 +251,7 @@ describe('declared repository filters', () => {
     await repo.findOne({ role: 'admin' });
     await repo.find({ role: 'admin' });
     await repo.findAll();
-    await repo.list({ page: { limit: 2, offset: 0 } });
+    await repo.list({ page: { mode: 'offset', limit: 2, offset: 0 } });
     await repo.count();
     await repo.exists();
     for await (const _row of repo.stream()) {
@@ -429,7 +430,7 @@ describe('declared repository filters', () => {
     const repo = new PlainUsers(driver);
 
     await repo.find({ role: 'admin' });
-    await repo.list({ page: { limit: 2, offset: 0 } });
+    await repo.list({ page: { mode: 'offset', limit: 2, offset: 0 } });
 
     expect(statements(driver.calls)).toEqual([
       {
@@ -585,7 +586,7 @@ describe('declared repository filters', () => {
     await repo.findOne({});
     await repo.find({ role: 'admin' });
     await repo.findAll();
-    await repo.list({ page: { limit: 1, offset: 0 } });
+    await repo.list({ page: { mode: 'offset', limit: 1, offset: 0 } });
     await repo.count();
     await repo.exists();
     await repo.aggregate(aggregate => aggregate.count('id', 'count'));
@@ -617,7 +618,14 @@ describe('declared repository filters', () => {
     await repo.list({
       where: { tenantId: 42 },
       orderBy: [{ column: 'role', dir: 'asc' }],
-      page: { limit: 2, after: { role: 'admin', id: 7 } },
+      page: {
+        mode: 'cursor',
+        limit: 2,
+        after: encodeCursor({ role: 'admin', id: 7 }, [
+          { column: 'role', dir: 'asc' },
+          { column: 'id', dir: 'asc' },
+        ]),
+      },
     });
 
     expect(statements(driver.calls)).toEqual([
@@ -990,7 +998,7 @@ describe('soft delete against real SQLite', () => {
       const { driver, calls } = recordedSqlite(db);
       const repo = new SoftDeleteUsers(driver, sqliteDialect);
 
-      const result = await repo.list({ page: { limit: 10, offset: 0 } });
+      const result = await repo.list({ page: { mode: 'offset', limit: 10, offset: 0 } });
 
       expect(statements(calls)).toEqual([
         {

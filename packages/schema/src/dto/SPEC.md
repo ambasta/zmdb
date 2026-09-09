@@ -85,31 +85,37 @@ from SQL binding `AND` tighter than `OR`, which is what makes `[{a, AND}, {b, OR
   inside a keyset branch flattens into that branch's `AND`. The comment on `BranchTarget.orWhere` is the record of it; this is the same fact stated where a reader looks for the operator semantics.
 - The list is therefore only meaningful to a target that has SQL's precedence. Any future non-SQL target has to nest the predicate tree first, which would also fix the bullet above.
 
-## 2. OrderByDTO + PaginationDTO (#181/#182/#183)
+## 2. OrderByDTO + PaginationDTO (#181/#182/#183/#776)
 
 ```ts
 type OrderDir = 'asc' | 'desc';
 type OrderByDTO<T> = ReadonlyArray<{ column: keyof Entity<T>; dir?: OrderDir }>;
-// dir defaults to 'asc'.
-
-type OffsetPage = { limit: number; offset?: number };
-type CursorPage<T> = { limit: number; after?: CursorOf<T>; before?: CursorOf<T> };
-type PaginationDTO<T> = OffsetPage | CursorPage<T>;
-// CursorOf<T> is an opaque encoding of the last row's order-key values.
+type CursorOrderByDTO<T> = ReadonlyArray<{ column: DefinedNonNullScalarKey<T>; dir?: OrderDir }>;
+type OffsetPage = { mode: 'offset'; limit: number; offset?: number; after?: never; before?: never };
+type CursorPage = { mode: 'cursor'; limit: number; offset?: never } & ({ after?: string; before?: never } | { before?: string; after?: never });
+type PaginationDTO<T> = OffsetPage | CursorPage;
 ```
 
-- `applyOrderBy(builder, order)` emits `ORDER BY col dir, …` in array order.
-- Offset pagination emits `LIMIT n OFFSET m`. Cursor (keyset) pagination emits a `WHERE (orderKey) > (cursor)` predicate + `LIMIT n` (frozen: requires a stable OrderBy; documented that cursor needs a
-  total order — typically the PK).
-- The row-value spelling above is the semantics, not the emitted text. `applyKeysetFilter` emits one branch per order key — the keys before it compared with `=`, the key itself with `>` or `<` — OR'd
-  together, because `WhereTarget` has no way to say a row-value comparison and not every dialect has one. See §1's note on the flat predicate list for what that costs.
-
-### Golden (postgres)
-
-- `applyOrderBy(b, [{column:'age',dir:'desc'},{column:'id'}])` ⇒ `ORDER BY "age" DESC, "id" ASC`.
-- `applyPagination(b, {limit:20,offset:40})` ⇒ `LIMIT 20 OFFSET 40`.
-- `applyPagination(b, {limit:20})` ⇒ `LIMIT 20` (no OFFSET clause).
-- Frozen: `applyOrderBy`/`applyPagination` return the builder unchanged when the arg is `undefined`; `dir` defaults to `'asc'`.
+- `ListDTO<T>` couples a cursor page to `CursorOrderByDTO<T>`. Nullable, undefined, optional and non-scalar entity properties cannot order a cursor page. Offset and unpaginated sorting retain
+  `OrderByDTO<T>` independently.
+- `mode` is required for any page. Cursor mode accepts at most one of `after` or `before`; neither is the first page. Tokens are opaque strings. Runtime requests with mixed modes, both directions, raw
+  objects or null cursors fail before database access.
+- Normalize the effective order once: default directions to `asc`, then append every missing primary-key component in primary-key order with direction `asc`. Use that same order for SQL comparisons
+  and cursor encoding. Duplicate or nullable cursor order columns are invalid.
+- `after` selects rows strictly following the boundary. `before` reverses each query direction and comparison, fetches the adjacent `limit + 1` rows, trims the extra row, then reverses the retained
+  rows back to caller order.
+- The returned `cursor`, when `hasMore`, resumes in the requested direction. It describes the last visible row for `after`/first pages and the first visible row for `before` pages. Offset pages do not
+  return a cursor.
+- Cursor values support strings, finite numbers, booleans, bigint and valid Date values. Encoding is canonical UTF-8/base64url, with no padding and one payload:
+  `{ order: [[column, direction], ...], values: { column: [scalarTag, value], ... } }`. Scalar tags are `string`, `number`, `boolean`, `bigint`, `date`; bigint uses canonical decimal text and Date
+  uses ISO text. Negative zero uses `['number', '-0']`.
+- `encodeCursor(values, effectiveOrder)` requires exactly the ordered keys. `decodeCursor(token, effectiveOrder)` decodes and validates the opaque input once before SQL: exact column sequence and
+  directions, exact value keys, scalar tags and values, and valid UTF-8/base64url. Missing/extra/nullish values, malformed tokens, or order mismatches are errors. There is no old-token reader or
+  raw-object cursor path.
+- `applyKeysetFilter` is a lower-level fold over values already decoded and validated against its ordering. It emits one branch per key: prior keys compared with `=`, the current key with `>` for
+  ascending or `<` for descending, and branches OR'd together. See §1 for the existing flat user-predicate limitation.
+- `applyOrderBy(builder, order)` emits `ORDER BY` in array order; `dir` defaults to `asc`. `applyPagination(builder, {mode:'offset',limit:20,offset:40})` emits `LIMIT 20 OFFSET 40`; cursor mode only
+  sets the limit. Undefined arguments leave the builder unchanged.
 
 ## 3. Typed select()/projection narrowing (#184/#185/#186)
 
@@ -142,12 +148,10 @@ type GetDTO<T, O extends GetOptions<T> = {}> = O['select'] extends readonly (inf
 ## 5. ListDTO + ListResult (#167/#168/#169)
 
 ```ts
-interface ListDTO<T> {
+type ListDTO<T> = {
   where?: WhereDTO<T>;
-  orderBy?: OrderByDTO<T>;
-  page?: PaginationDTO<T>;
   select?: readonly (keyof Entity<T>)[];
-}
+} & ({ page?: OffsetPage; orderBy?: OrderByDTO<T> } | { page: CursorPage; orderBy?: CursorOrderByDTO<T> });
 interface ListResult<Row> {
   readonly items: readonly Row[];
   readonly total?: number;
@@ -157,7 +161,7 @@ interface ListResult<Row> {
 ```
 
 - `total` present only when an offset page requests it (extra COUNT query) — opt-in.
-- `hasMore` computed by fetching `limit+1` and trimming (no COUNT needed).
+- `hasMore` computed by fetching `limit+1` and trimming (no COUNT needed). Results and cursors are inert values; reading them triggers no hidden query or request-global batching.
 - Runtime `buildListResult(rows, { limit, select, total? })`: if `rows.length > limit`, set `hasMore=true` and drop the extra row; project each item by `select`; attach `total` when provided. Frozen:
   with no `limit`, `hasMore=false` and all rows are returned.
 

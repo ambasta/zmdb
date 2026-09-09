@@ -286,15 +286,15 @@ export type _Q1 = Expect<Equal<OrderByDTO<Post>[number]['column'], 'id' | 'autho
 export const _Q2: OrderByDTO<Post> = [{ column: 'title', dir: 'desc' }];
 // @ts-expect-error a relation is not orderable
 export const _Q3: OrderByDTO<Post> = [{ column: 'comments' }];
-export const _Q4: PaginationDTO<Post> = { limit: 10, offset: 20 };
-export const _Q5: PaginationDTO<Post> = { limit: 10, after: { id: 7 } };
+export const _Q4: PaginationDTO<Post> = { mode: 'offset', limit: 10, offset: 20 };
+export const _Q5: PaginationDTO<Post> = { mode: 'cursor', limit: 10, after: 'opaque' };
 export type _Q6 = Expect<Equal<keyof Projection<Post, 'id' | 'title'>, 'id' | 'title'>>;
 export type _Q7 = Expect<Equal<GetDTO<Post>, Entity<Post>>>;
 export type _Q8 = Expect<Equal<keyof GetDTO<Post, { select: readonly ['title'] }>, 'title'>>;
 export const _Q9: ListDTO<Post> = {
   where: { title: { like: '%ts%' } },
   orderBy: [{ column: 'id' }],
-  page: { limit: 5 },
+  page: { mode: 'offset', limit: 5 },
 };
 // `populate` names relations, which is the one thing a schema *value* cannot type: it is
 // `readonly string[]` in `../dto/index.ts` because a `CoreSchema` carries no relations.

@@ -49,17 +49,25 @@ Both offset and cursor-based pagination are supported.
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { applyPagination } from '@zmdb/orm/dto';
-import { type PaginationDTO } from '@zmdb/schema/dto';
+import { encodeCursor, type PaginationDTO } from '@zmdb/schema/dto';
 
 // Offset pagination
-const offsetPage = { limit: 20, offset: 40 };
+const offsetPage: PaginationDTO<User> = { mode: 'offset', limit: 20, offset: 40 };
 
 // Cursor pagination (efficient for deep pages)
+const order = [
+  { column: 'createdAt', dir: 'desc' },
+  { column: 'id', dir: 'asc' },
+] as const;
 const cursorPage: PaginationDTO<User> = {
+  mode: 'cursor',
   limit: 20,
-  after: { createdAt: '2024-01-15T10:00:00Z', id: 123 },
+  after: encodeCursor({ createdAt: new Date('2024-01-15T10:00:00Z'), id: 123 }, order),
 };
 ```
+
+Omit both `after` and `before` for the first cursor page. Use `before` for the preceding adjacent page, returned in the caller's order. The two directions are mutually exclusive; tokens must match the
+complete effective ordering, including every primary-key tie-breaker. `ListDTO<T>` restricts cursor sorting to defined, non-null scalar columns. Offset sorting keeps the wider `OrderByDTO<T>` surface.
 
 ## GetDTO — Single Row Fetch
 
@@ -83,7 +91,7 @@ import { buildListResult, type ListResult } from '@zmdb/schema/dto';
 const listDto: ListDTO<User> = {
   where: { role: 'admin' },
   orderBy: [{ column: 'createdAt', dir: 'desc' }],
-  page: { limit: 20, offset: 0 },
+  page: { mode: 'offset', limit: 20, offset: 0 },
   select: ['id', 'email', 'createdAt'] as const,
 };
 
@@ -103,7 +111,7 @@ import { buildSearchResult, type SearchResult } from '@zmdb/schema/dto';
 const searchDto: SearchDTO<User> = {
   query: 'john smith',
   columns: ['email', 'name'],
-  page: { limit: 10 },
+  page: { mode: 'offset', limit: 10 },
   rank: true, // adds _score
 };
 

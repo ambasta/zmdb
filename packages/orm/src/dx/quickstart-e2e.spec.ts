@@ -27,7 +27,7 @@ describe('DX quickstart via defineRepository (#222)', () => {
     const found = await users.findById(u.id);
     expect(found?.email).toBe('a@b.com');
 
-    const page = await users.list({ page: { limit: 10 } });
+    const page = await users.list({ page: { mode: 'offset', limit: 10 } });
     expect(page.items).toHaveLength(1);
     expect(page.hasMore).toBe(false);
 

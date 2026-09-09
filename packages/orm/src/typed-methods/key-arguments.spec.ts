@@ -267,13 +267,13 @@ describe('all key columns are pagination tie-breakers (frozen: repository/SPEC.m
     const { driver, calls } = recorder(rows);
     const repo = new TenantUsersRepo(driver);
 
-    const page1 = await repo.list({ page: { limit: 2 } });
+    const page1 = await repo.list({ page: { mode: 'cursor', limit: 2 } });
     expect(calls[0]?.text).toBe('SELECT * FROM "tenant_users" ORDER BY "tenantId" ASC, "userId" ASC LIMIT 3');
     expect(page1.hasMore).toBe(true);
 
     // boundary: `cursor` is opaque to the caller by design, so the assertion is on what the next
     // page *asks for* rather than on the cursor's bytes.
-    await repo.list({ page: { limit: 2, after: page1.cursor } });
+    await repo.list({ page: { mode: 'cursor', limit: 2, after: page1.cursor } });
     expect(calls[1]?.text).toBe(
       'SELECT * FROM "tenant_users" WHERE "tenantId" > $1 OR "tenantId" = $2 AND "userId" > $3 ORDER BY "tenantId" ASC, "userId" ASC LIMIT 3',
     );

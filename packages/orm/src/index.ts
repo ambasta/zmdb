@@ -17,7 +17,8 @@ import {
   type WhereDTO,
   type ListDTO,
   type ListResult,
-  type OrderBySpec,
+  type CursorOrderSpec,
+  type CursorValue,
   type AggregateSpec,
 } from '@zmdb/schema/dto';
 import {
@@ -607,6 +608,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   readonly #shapes = new Map<'create' | 'update', PayloadShape>();
   /** The columns a driver may hand back in their storage form. See `decodeRows`. */
   #decoded: readonly ColumnIR[] | undefined;
+  /** Immutable schema lookup, initialized only when cursor pagination is used. */
+  #cursorColumns: ReadonlyMap<string, ColumnIR> | undefined;
   /** Undefined until a custom store is supplied or an opted-in read needs the bounded default. */
   #cacheStore: CacheStore | undefined;
   #cacheFailureReported = false;
@@ -1690,31 +1693,54 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async list(query?: ListDTO<T>): Promise<ListResult<Entity<T>>>;
   async list(query: ListDTO<T> | undefined, opts: ReadOptions): Promise<ListResult<Entity<T>>>;
   async list(query?: ListDTO<T>, opts?: InternalReadOptions): Promise<ListResult<Entity<T>>> {
-    const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
-    const keyColumns = this.requiredKeyColumns();
-
-    const userOrderBy = query?.orderBy;
-    const effectiveOrderBy: Array<OrderBySpec[number]> = userOrderBy ? [...userOrderBy] : [];
-    for (const column of keyColumns) {
-      if (!effectiveOrderBy.some(item => String(item.column) === column)) {
-        effectiveOrderBy.push({ column, dir: 'asc' });
-      }
-    }
-
     const page = query?.page;
-    const limit = page && 'limit' in page ? page.limit : undefined;
-    const keyset = page && 'after' in page && page.after !== undefined && page.after !== null;
-    let cursorValues: Record<string, unknown> | undefined;
-    if (keyset) {
-      if (typeof page.after === 'string') {
-        cursorValues = decodeCursor(page.after);
-      } else if (typeof page.after === 'object' && !Array.isArray(page.after)) {
-        // boundary: page.after is an untrusted client DTO parameter; runtime check above proves it is a non-null, non-array object.
-        cursorValues = page.after as Record<string, unknown>;
-      } else {
-        throw new Error('Invalid cursor parameter: expected string or object');
+    if (page !== undefined) {
+      if (!isRecord(page) || (page.mode !== 'offset' && page.mode !== 'cursor')) {
+        throw new Error('Invalid pagination: mode must be offset or cursor');
+      }
+      const after = Object.hasOwn(page, 'after');
+      const before = Object.hasOwn(page, 'before');
+      if (
+        (page.mode === 'offset' && (after || before)) ||
+        (page.mode === 'cursor' && (Object.hasOwn(page, 'offset') || (after && before)))
+      ) {
+        throw new Error('Invalid pagination: offset and cursor directions are mutually exclusive');
       }
     }
+    const cursorMode = page?.mode === 'cursor';
+    const reverse = cursorMode && page.before !== undefined;
+    const limit = page?.limit;
+    const effectiveOrderBy: Array<CursorOrderSpec[number]> = (query?.orderBy ?? []).map(({ column, dir }) => ({
+      column: String(column),
+      dir: dir ?? 'asc',
+    }));
+    const orderedColumns = new Set(effectiveOrderBy.map(({ column }) => column));
+    for (const column of this.requiredKeyColumns()) {
+      if (!orderedColumns.has(column)) {
+        effectiveOrderBy.push({ column, dir: 'asc' });
+        orderedColumns.add(column);
+      }
+    }
+    if (cursorMode) {
+      const columns = (this.#cursorColumns ??= new Map(this.schema.ir.columns.map(column => [column.name, column])));
+      if (orderedColumns.size !== effectiveOrderBy.length) throw new Error('Invalid cursor: duplicate ordering column');
+      for (const { column, dir } of effectiveOrderBy) {
+        const definition = columns.get(column);
+        if (!definition || definition.nullable || (dir !== 'asc' && dir !== 'desc')) {
+          throw new Error(`Invalid cursor: ordering requires a defined non-null column "${column}"`);
+        }
+      }
+    }
+    let cursorValues: Record<string, CursorValue> | undefined;
+    const token = cursorMode ? (page.after !== undefined ? page.after : page.before) : undefined;
+    if (token !== undefined) cursorValues = decodeCursor(token, effectiveOrderBy);
+    const queryOrderBy = reverse
+      ? effectiveOrderBy.map(({ column, dir }) => ({
+          column,
+          dir: dir === 'asc' ? ('desc' as const) : ('asc' as const),
+        }))
+      : effectiveOrderBy;
+    const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
 
     const compiled = this.compileRead(
       'list',
@@ -1726,15 +1752,15 @@ export abstract class BaseRepository<T extends DeclaredTable> {
             : [...query.select.map(String), ...effectiveOrderBy.map(item => String(item.column))];
         let builder = applyOrderBy(
           selectedProperties === undefined ? this.selectEntity() : this.selectProperties(selectedProperties),
-          effectiveOrderBy,
+          queryOrderBy,
           undefined,
           column => this.physicalColumn(column),
         );
-        if (keyset && cursorValues !== undefined) {
+        if (cursorValues !== undefined) {
           builder = applyKeysetFilter(
             builder,
             cursorValues,
-            effectiveOrderBy,
+            queryOrderBy,
             query?.where,
             branch => {
               applyResolvedFilters(branch, filters);
@@ -1746,15 +1772,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         }
         if (query?.where) builder = compileWhere(builder, query.where, column => this.physicalColumn(column));
         if (page) {
-          builder = applyPagination(builder, {
-            limit: limit !== undefined ? limit + 1 : page.limit,
-            offset: 'offset' in page ? page.offset : undefined,
-          });
+          builder = applyPagination(builder, { ...page, limit: page.limit + 1 });
         }
         return builder;
       },
       {
-        filtersApplied: keyset === true,
+        filtersApplied: cursorValues !== undefined,
         additionalKnownNames: this.populateFilterNames(opts?.populate),
       },
     );
@@ -1763,7 +1786,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const listOpts = {
       ...(limit !== undefined ? { limit } : {}),
       ...(query?.select ? { select: query.select } : {}),
-      orderBy: effectiveOrderBy,
+      ...(cursorMode ? { orderBy: effectiveOrderBy, reverse } : {}),
     };
     const res = buildListResult(rows, listOpts);
     if (opts?.populate?.length) {

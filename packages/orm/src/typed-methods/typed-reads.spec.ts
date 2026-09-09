@@ -32,7 +32,7 @@ describe('typed read methods (#203)', () => {
       { id: 3, email: 'c', age: 3, role: 'user' },
     ]);
     const repo = new Users(driver);
-    const res = await repo.list({ page: { limit: 2 } });
+    const res = await repo.list({ page: { mode: 'offset', limit: 2 } });
     expect(res.items).toHaveLength(2);
     expect(res.hasMore).toBe(true);
   });

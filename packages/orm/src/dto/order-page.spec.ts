@@ -39,7 +39,7 @@ describe('OrderByDTO + PaginationDTO (#182)', () => {
 
   it('applyPagination offset ⇒ limit + offset', () => {
     const { b, calls } = recorder();
-    const page: PaginationDTO<User> = { limit: 20, offset: 40 };
+    const page: PaginationDTO<User> = { mode: 'offset', limit: 20, offset: 40 };
     applyPagination(b, page);
     expect(calls).toEqual([
       ['limit', 20],
@@ -49,7 +49,7 @@ describe('OrderByDTO + PaginationDTO (#182)', () => {
 
   it('applyPagination limit-only ⇒ only limit (no offset)', () => {
     const { b, calls } = recorder();
-    const page: PaginationDTO<User> = { limit: 20 };
+    const page: PaginationDTO<User> = { mode: 'offset', limit: 20 };
     applyPagination(b, page);
     expect(calls).toEqual([['limit', 20]]);
   });

@@ -148,7 +148,7 @@ async function everySql<T extends DeclaredTable>(
   await repo.list({
     where,
     orderBy: [{ column, dir: 'desc' }],
-    page: { limit: 10, offset: 5 },
+    page: { mode: 'offset', limit: 10, offset: 5 },
   });
   await repo.aggregate({ computed: { total: { fn: 'count' } } });
   return compiled;

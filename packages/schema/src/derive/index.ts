@@ -209,6 +209,10 @@ export type WireCreateDTO<T extends DeclaredTable> = { [K in keyof CreateDTO<T>]
 // `GetDTO`, `ListDTO`, `Populated`, `JoinRow` — is in `./query.ts`, re-exported here
 // so `@zmdb/schema/derive` is one import.
 export type {
+  CursorOrderByDTO,
+  CursorOrderSpec,
+  CursorPage,
+  CursorValue,
   GetDTO,
   GetOptions,
   JoinRow,

@@ -5,6 +5,9 @@ import {
   type FieldOps,
   type GetDTO,
   type ListResult,
+  type ListDTO,
+  type PaginationDTO,
+  type CursorOrderByDTO,
   type OrderByDTO,
   type PaginationSpec,
   type Projection,
@@ -90,6 +93,42 @@ export const _withinPredicate = stDWithin<ExtensionFilterRow>('location', extens
 
 // --- OrderByDTO (#182) -----------------------------------------------------
 export type _Order1 = Expect<Equal<OrderByDTO<User>[number]['column'], 'id' | 'email' | 'age' | 'role'>>;
+
+// --- Explicit pagination modes and defined cursor keys (#776) ------------
+interface CursorRow extends Table<'cursor_rows'> {
+  id: number & Sql<'integer'>;
+  label: string & Sql<'text'>;
+  nullable: (string & Sql<'text'>) | null;
+  undefinedValue: (string & Sql<'text'>) | undefined;
+  optional?: string & Sql<'text'>;
+}
+export type _CursorKeys = Expect<Equal<CursorOrderByDTO<CursorRow>[number]['column'], 'id' | 'label'>>;
+export const _OffsetSort: ListDTO<CursorRow> = {
+  orderBy: [{ column: 'nullable' }, { column: 'optional' }],
+  page: { mode: 'offset', limit: 2, offset: 0 },
+};
+export const _CursorFirst: ListDTO<CursorRow> = {
+  orderBy: [{ column: 'label', dir: 'desc' }],
+  page: { mode: 'cursor', limit: 2 },
+};
+export const _CursorAfter: PaginationDTO<User> = { mode: 'cursor', limit: 2, after: 'opaque' };
+export const _CursorBefore: PaginationDTO<User> = { mode: 'cursor', limit: 2, before: 'opaque' };
+export type _MissingMode = ExpectNot<Extends<{ limit: 2 }, PaginationDTO<User>>>;
+export type _NullableCursor = ExpectNot<
+  Extends<{ orderBy: [{ column: 'nullable' }]; page: { mode: 'cursor'; limit: 2 } }, ListDTO<CursorRow>>
+>;
+export type _UndefinedCursor = ExpectNot<
+  Extends<{ orderBy: [{ column: 'undefinedValue' }]; page: { mode: 'cursor'; limit: 2 } }, ListDTO<CursorRow>>
+>;
+export type _OptionalCursor = ExpectNot<
+  Extends<{ orderBy: [{ column: 'optional' }]; page: { mode: 'cursor'; limit: 2 } }, ListDTO<CursorRow>>
+>;
+export type _TwoCursors = ExpectNot<
+  Extends<{ mode: 'cursor'; limit: 2; after: 'a'; before: 'b' }, PaginationDTO<User>>
+>;
+export type _OffsetCursor = ExpectNot<Extends<{ mode: 'offset'; limit: 2; after: 'a' }, PaginationDTO<User>>>;
+export type _CursorOffset = ExpectNot<Extends<{ mode: 'cursor'; limit: 2; offset: 1 }, PaginationDTO<User>>>;
+export type _ObjectCursor = ExpectNot<Extends<{ mode: 'cursor'; limit: 2; after: { id: 1 } }, PaginationDTO<User>>>;
 
 // --- Projection (#185) -----------------------------------------------------
 export type _Proj1 = Expect<Mutual<Projection<User, 'id' | 'email'>, { id: number; email: string }>>;

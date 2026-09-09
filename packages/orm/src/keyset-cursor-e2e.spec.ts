@@ -1,12 +1,11 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { schemasFrom } from '@zmdb/compiler/testing';
 import { BaseRepository, type Driver } from '@zmdb/orm';
 import { type Entity } from '@zmdb/schema';
-import { type ListResult } from '@zmdb/schema/dto';
-import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { encodeCursor, type ListResult } from '@zmdb/schema/dto';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+import { ProductSchema, TenantProductSchema, type Product, type TenantProduct } from './keyset-cursor.fixture.js';
 import { sqliteDialect } from './testing/official-dialects.fixture.js';
 
 function sqliteDriver(db: DatabaseSync): Driver {
@@ -24,14 +23,9 @@ function sqliteDriver(db: DatabaseSync): Driver {
   };
 }
 
-export interface Product extends Table<'products'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  name: string & Sql<'text'>;
-  age: number & Sql<'integer'>;
-  category: string & Sql<'text'>;
+class TenantProductRepository extends BaseRepository<TenantProduct> {
+  static override readonly schema = TenantProductSchema;
 }
-
-const { Product: ProductSchema } = schemasFrom<{ Product: Product }>(import.meta.url, ['Product']);
 
 class ProductRepository extends BaseRepository<Product> {
   static override readonly schema = ProductSchema;
@@ -65,7 +59,7 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
       pageCount++;
       const res: ListResult<Entity<Product>> = await products.list({
         orderBy: [{ column: 'age', dir: 'desc' }],
-        page: { limit: 6, after: currentCursor },
+        page: { mode: 'cursor', limit: 6, after: currentCursor },
       });
 
       expect(res.items.length).toBeGreaterThan(0);
@@ -107,7 +101,7 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
       const res: ListResult<Entity<Product>> = await products.list({
         where: { category: 'electronics' },
         orderBy: [{ column: 'age', dir: 'asc' }],
-        page: { limit: 4, after: currentCursor },
+        page: { mode: 'cursor', limit: 4, after: currentCursor },
       });
 
       for (const item of res.items) {
@@ -124,9 +118,119 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
   it('handles malformed cursor parameter gracefully by throwing a clear validation error', async () => {
     await expect(
       products.list({
-        page: { limit: 10, after: 'invalid-base64-token!!!' },
+        page: { mode: 'cursor', limit: 10, after: 'invalid-base64-token!!!' },
       }),
     ).rejects.toThrow(/Invalid cursor/);
+  });
+
+  it('selects adjacent before pages and restores caller order through every boundary', async () => {
+    const orderBy = [{ column: 'age', dir: 'desc' }] as const;
+    const effectiveOrder = [...orderBy, { column: 'id', dir: 'asc' }] as const;
+    const expected = (await products.findAll()).toSorted((a, b) => b.age - a.age || a.id - b.id);
+    const last = expected.at(-1)!;
+    const fetched = [last.id];
+    let cursor: string | undefined = encodeCursor({ age: last.age, id: last.id }, effectiveOrder);
+    let pages = 0;
+    do {
+      expect(++pages).toBeLessThanOrEqual(5);
+      const result: ListResult<Entity<Product>> = await products.list({
+        orderBy,
+        page: { mode: 'cursor', limit: 6, before: cursor },
+      });
+      fetched.unshift(...result.items.map(item => item.id));
+      cursor = result.cursor;
+    } while (cursor);
+    expect(fetched).toEqual(expected.map(item => item.id));
+    expect(new Set(fetched).size).toBe(25);
+  });
+
+  it('keeps every composite primary-key component through forward and reverse pages', async () => {
+    db.exec(
+      'CREATE TABLE tenant_products (tenantId TEXT NOT NULL, productId INTEGER NOT NULL, rank INTEGER NOT NULL, PRIMARY KEY (tenantId, productId))',
+    );
+    const repository = new TenantProductRepository(sqliteDriver(db));
+    for (const tenantId of ['東京', 'café']) {
+      for (let productId = 1; productId <= 4; productId++)
+        await repository.create({ tenantId, productId, rank: productId % 2 });
+    }
+    const orderBy = [
+      { column: 'rank', dir: 'desc' },
+      { column: 'tenantId', dir: 'desc' },
+    ] as const;
+    const effectiveOrder = [...orderBy, { column: 'productId', dir: 'asc' }] as const;
+    const expected = await repository.list({ orderBy });
+    const forward: Entity<TenantProduct>[] = [];
+    let after: string | undefined;
+    do {
+      const page: ListResult<Entity<TenantProduct>> = await repository.list({
+        orderBy,
+        page: { mode: 'cursor', limit: 3, after },
+      });
+      forward.push(...page.items);
+      after = page.cursor;
+    } while (after);
+    expect(forward).toEqual(expected.items);
+    const last = expected.items.at(-1)!;
+    const backward = [last];
+    let before: string | undefined = encodeCursor(last, effectiveOrder);
+    let pages = 0;
+    do {
+      expect(++pages).toBeLessThanOrEqual(3);
+      const page: ListResult<Entity<TenantProduct>> = await repository.list({
+        orderBy,
+        page: { mode: 'cursor', limit: 3, before },
+      });
+      backward.unshift(...page.items);
+      before = page.cursor;
+    } while (before);
+    expect(backward).toEqual(expected.items);
+  });
+
+  it('rejects invalid modes and unbound cursor input before database access', async () => {
+    const execute = vi.fn(sqliteDriver(db).execute);
+    const repository = new ProductRepository({ dialect: sqliteDialect, execute });
+    const orderBy = [{ column: 'age', dir: 'desc' }] as const;
+    const effectiveOrder = [...orderBy, { column: 'id', dir: 'asc' }] as const;
+    const valid = encodeCursor({ age: 30, id: 7 }, effectiveOrder);
+    const wire = (values: unknown) =>
+      globalThis.Buffer.from(
+        JSON.stringify({
+          order: [
+            ['age', 'desc'],
+            ['id', 'asc'],
+          ],
+          values,
+        }),
+      ).toString('base64url');
+    const invalidPages = [
+      { limit: 2 },
+      { mode: 'cursor', limit: 2, after: valid, before: valid },
+      { mode: 'cursor', limit: 2, offset: 1 },
+      { mode: 'offset', limit: 2, after: valid },
+      ...[
+        'bad!!!',
+        { age: 30, id: 7 },
+        null,
+        wire({ age: ['number', 30] }),
+        wire({ age: ['number', 30], id: null }),
+        wire({ age: ['number', 30], id: ['number', 7], extra: ['number', 1] }),
+      ].map(after => ({ mode: 'cursor', limit: 2, after })),
+    ];
+    for (const page of invalidPages) {
+      await expect(Reflect.apply(repository.list, repository, [{ orderBy, page }])).rejects.toThrow(
+        /Invalid (cursor|pagination)/,
+      );
+    }
+    await expect(
+      repository.list({ orderBy: [{ column: 'age', dir: 'asc' }], page: { mode: 'cursor', limit: 2, after: valid } }),
+    ).rejects.toThrow(/Invalid cursor/);
+    await expect(
+      repository.list({
+        orderBy: [{ column: 'id' }, { column: 'age', dir: 'desc' }],
+        page: { mode: 'cursor', limit: 2, after: valid },
+      }),
+    ).rejects.toThrow(/Invalid cursor/);
+    expect(execute).not.toHaveBeenCalled();
   });
 
   it('serves unpaginated or offset-based requests normally without regressions', async () => {
@@ -136,9 +240,10 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
     expect(unpaginated.cursor).toBeUndefined();
 
     const offsetPage = await products.list({
-      page: { limit: 5, offset: 10 },
+      page: { mode: 'offset', limit: 5, offset: 10 },
     });
     expect(offsetPage.items).toHaveLength(5);
     expect(offsetPage.hasMore).toBe(true);
+    expect(offsetPage.cursor).toBeUndefined();
   });
 });

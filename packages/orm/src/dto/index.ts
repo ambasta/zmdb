@@ -320,6 +320,7 @@ class BranchTarget implements WhereTarget {
   }
 }
 
+/** Fold scalar values already decoded and validated against this effective ordering. */
 export function applyKeysetFilter<B extends WhereTarget>(
   builder: B,
   cursorValues: Record<string, unknown>,
@@ -329,14 +330,6 @@ export function applyKeysetFilter<B extends WhereTarget>(
   resolveColumn: (column: string) => string = column => column,
 ): B {
   if (orderBy.length === 0) return builder;
-
-  for (const item of orderBy) {
-    if (!item) continue;
-    const colStr = String(item.column);
-    if (cursorValues[colStr] === undefined) {
-      throw new Error(`Invalid cursor: missing value for column "${colStr}"`);
-    }
-  }
 
   let currentBuilder: WhereTarget = builder;
   const k = orderBy.length;
@@ -374,6 +367,6 @@ export function applyKeysetFilter<B extends WhereTarget>(
 export function applyPagination<B extends OrderTarget>(builder: B, page: PaginationSpec | undefined): B {
   if (!page) return builder;
   let b = builder.limit(page.limit);
-  if (typeof page.offset === 'number') b = b.offset(page.offset);
+  if (page.mode === 'offset' && typeof page.offset === 'number') b = b.offset(page.offset);
   return b;
 }

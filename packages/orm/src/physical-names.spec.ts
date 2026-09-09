@@ -173,7 +173,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
     const driver = recordingDriver();
     await new NamedUsers(driver).list({
       orderBy: [{ column: 'createdAt', dir: 'desc' }],
-      page: { limit: 2, offset: 0 },
+      page: { mode: 'offset', limit: 2, offset: 0 },
     });
 
     expect(driver.calls[0]).toEqual({
@@ -189,7 +189,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
     const driver = recordingDriver();
     await new NamedUsers(driver).list({
       select: ['displayName'],
-      page: { limit: 1 },
+      page: { mode: 'cursor', limit: 1 },
     });
 
     expect(driver.calls[0]).toEqual({

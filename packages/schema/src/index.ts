@@ -259,5 +259,15 @@ export { type Populated, type PopulatedEntity } from './derive/index.js';
 // Entity State Machine & State Transition Helpers
 // ---------------------------------------------------------------------------
 
-export { type WhereDTO, type ListDTO, type ListResult, type OrderByDTO, type PaginationDTO } from './dto/index.js';
+export {
+  type WhereDTO,
+  type ListDTO,
+  type ListResult,
+  type OrderByDTO,
+  type PaginationDTO,
+  type CursorOrderByDTO,
+  type CursorOrderSpec,
+  type CursorPage,
+  type CursorValue,
+} from './dto/index.js';
 export { buildListResult } from './dto/index.js';

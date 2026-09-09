@@ -19,6 +19,10 @@ import { type DeclaredTable, type Entity, type RelationKeys } from './index.js';
 export {
   type GetDTO,
   type GetOptions,
+  type CursorOrderByDTO,
+  type CursorOrderSpec,
+  type CursorPage,
+  type CursorValue,
   type ListDTO,
   type ListResult,
   type OrderByDTO,
