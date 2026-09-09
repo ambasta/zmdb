@@ -40,6 +40,7 @@ const integrationTests = [
 export default defineConfig({
   plugins: [stage3Decorators()],
   test: {
+    setupFiles: ['./scripts/ts-specifier-hook.mjs'],
     projects: [
       {
         extends: true,
