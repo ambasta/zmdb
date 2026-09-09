@@ -71,6 +71,9 @@ import {
   type assert,
   type assertEquals,
   type assertShallow,
+  type getCachedRegExp as ownerGetCachedRegExp,
+  // @ts-expect-error -- getCachedRegExp is the sole public regex cache entry.
+  type getRegExp as legacyOwnerGetRegExp,
   type equals,
   type is,
   type isShallow,
@@ -80,6 +83,12 @@ import {
   type ValidateResult,
 } from '@zmdb/validator';
 import { type decode, type parse, type stringify } from '@zmdb/validator/serialization';
+
+import {
+  type getCachedRegExp as facadeGetCachedRegExp,
+  // @ts-expect-error -- the facade must not retain the removed cache spelling.
+  type getRegExp as legacyFacadeGetRegExp,
+} from './validator.js';
 
 type FoundationSubpaths = {
   readonly '@zmdb/schema':
@@ -347,3 +356,8 @@ export type _OrmTypeSignatures<T extends DeclaredTable> = [
   StreamOptions,
   UpdatePatch<T>,
 ];
+
+export type _CanonicalRegexCache = Expect<Equal<typeof ownerGetCachedRegExp, (pattern: string) => RegExp>>;
+export type _CanonicalRegexCacheFacade = Expect<Equal<typeof facadeGetCachedRegExp, typeof ownerGetCachedRegExp>>;
+export type _NoLegacyRegexCache = typeof legacyOwnerGetRegExp;
+export type _NoLegacyRegexCacheFacade = typeof legacyFacadeGetRegExp;

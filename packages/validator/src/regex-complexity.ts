@@ -13,13 +13,17 @@ import { ValidationError } from './index.js';
 
 export { ValidationError };
 
-export function validatePatternComplexity(pattern: string): void {
+function compilePattern(pattern: string): RegExp {
   try {
-    RegExp(pattern);
+    return new RegExp(pattern);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new ValidationError(`Invalid regular expression pattern: ${msg}`);
   }
+}
+
+export function validatePatternComplexity(pattern: string): void {
+  compilePattern(pattern);
 }
 
 export const MAX_REGEX_CACHE_SIZE = 1000;
@@ -32,14 +36,13 @@ export function getCachedRegExp(pattern: string): RegExp {
     patternCache.set(pattern, re);
     return re;
   }
-  validatePatternComplexity(pattern);
+  re = compilePattern(pattern);
   if (patternCache.size >= MAX_REGEX_CACHE_SIZE) {
     const oldestKey = patternCache.keys().next().value;
     if (oldestKey !== undefined) {
       patternCache.delete(oldestKey);
     }
   }
-  re = new RegExp(pattern);
   patternCache.set(pattern, re);
   return re;
 }

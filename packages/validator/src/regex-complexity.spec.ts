@@ -1,7 +1,7 @@
 import { tags, validateRule as validate, ValidationError, is, validate as utilityValidate } from '@zmdb/validator';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
+import { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
 
 describe('Static Regular Expression Complexity Validation & Caching', () => {
   describe('validatePatternComplexity', () => {
@@ -26,6 +26,32 @@ describe('Static Regular Expression Complexity Validation & Caching', () => {
       const re1 = getCachedRegExp('^[a-z]+$');
       const re2 = getCachedRegExp('^[a-z]+$');
       expect(re1).toBe(re2);
+    });
+
+    it('constructs one instance on a miss and reuses it on a hit', () => {
+      const constructor = vi.spyOn(globalThis, 'RegExp');
+      try {
+        const first = getCachedRegExp('single_construction_771');
+        expect(constructor).toHaveBeenCalledTimes(1);
+        expect(getCachedRegExp('single_construction_771')).toBe(first);
+        expect(constructor).toHaveBeenCalledTimes(1);
+      } finally {
+        constructor.mockRestore();
+      }
+    });
+
+    it('refreshes hits and preserves cached entries after invalid syntax', () => {
+      const first = getCachedRegExp('recency_771_0');
+      const second = getCachedRegExp('recency_771_1');
+      for (let i = 2; i < MAX_REGEX_CACHE_SIZE; i++) {
+        getCachedRegExp(`recency_771_${i}`);
+      }
+      expect(() => getCachedRegExp('[invalid_771')).toThrow(ValidationError);
+      expect(() => getCachedRegExp('[invalid_771')).toThrow(/Invalid regular expression pattern:/);
+      expect(getCachedRegExp('recency_771_0')).toBe(first);
+      getCachedRegExp('recency_771_new');
+      expect(getCachedRegExp('recency_771_0')).toBe(first);
+      expect(getCachedRegExp('recency_771_1')).not.toBe(second);
     });
 
     it('bounds pattern cache size and evicts oldest entries using LRU', () => {

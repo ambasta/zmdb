@@ -16,7 +16,6 @@ export type {
   failWith as Binding12,
   getCachedRegExp as Binding13,
   getEnumSet as Binding14,
-  getRegExp as Binding15,
   is as Binding16,
   isShallow as Binding17,
   issuesFor as Binding18,

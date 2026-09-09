@@ -1,4 +1,4 @@
-import { getEnumSet, getRegExp, tags, validateRule as validate } from '@zmdb/validator';
+import { getEnumSet, getCachedRegExp, tags, validateRule as validate } from '@zmdb/validator';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { evaluate, FixtureProject } from './emit/__testing__/project.js';
@@ -181,11 +181,11 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
   });
 
   it('bounds RegExp cache with LRU eviction', () => {
-    const firstRegexp = getRegExp('pattern_0');
+    const firstRegexp = getCachedRegExp('pattern_0');
     for (let i = 1; i <= 1005; i++) {
-      getRegExp(`pattern_${i}`);
+      getCachedRegExp(`pattern_${i}`);
     }
-    const newFirstRegexp = getRegExp('pattern_0');
+    const newFirstRegexp = getCachedRegExp('pattern_0');
     expect(newFirstRegexp).not.toBe(firstRegexp);
   });
 
