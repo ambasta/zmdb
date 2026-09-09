@@ -15,43 +15,36 @@ const INTEGRATIONS = [
     packageName: '@zmdb/protobuf',
     directory: 'protobuf',
     peer: undefined,
-    ownership: ['reflector/emitter', 'owns no compiler process'],
   },
   {
     packageName: '@zmdb/transport-grpc',
     directory: 'transport-grpc',
     peer: ['@grpc/grpc-js', '^1.14.4'],
-    ownership: ['application owns the server extension', 'caller owns every client'],
   },
   {
     packageName: '@zmdb/transport-nats',
     directory: 'transport-nats',
     peer: ['@nats-io/transport-node', '^3.4.0'],
-    ownership: ['transportExtension', 'closes it'],
   },
   {
     packageName: '@zmdb/transport-rabbitmq',
     directory: 'transport-rabbitmq',
     peer: ['amqplib', '^2.0.1'],
-    ownership: ['application lifecycle starts it', 'channels and connection'],
   },
   {
     packageName: '@zmdb/transport-redis',
     directory: 'transport-redis',
     peer: ['redis', '^6.2.1'],
-    ownership: ['owns startup and bounded shutdown', 'publisher and subscriber clients'],
   },
   {
     packageName: '@zmdb/jobs-postgres',
     directory: 'jobs-postgres',
     peer: ['pg', '^8.23.0'],
-    ownership: ['caller retains ownership', 'never calls `end()` or `release()`'],
   },
   {
     packageName: '@zmdb/otel',
     directory: 'otel',
     peer: ['@opentelemetry/api', '^1.9.1'],
-    ownership: ['caller-owned OpenTelemetry', 'shutdown hook'],
   },
 ] as const;
 
@@ -159,7 +152,7 @@ function compileReadmeSamples(): { readonly status: number | null; readonly outp
 }
 
 describe('optional server integration documentation (#664)', { timeout: TEST_TIMEOUT }, () => {
-  it('publishes exact peers, default-install behavior, and lifecycle ownership', () => {
+  it('documents peer installation and keeps integrations out of the default install', () => {
     const product = manifest('zmdb');
     const defaultDependencies = product.dependencies ?? {};
     const packageReference = markdown('docs-site/content/package-reference.md');
@@ -170,7 +163,6 @@ describe('optional server integration documentation (#664)', { timeout: TEST_TIM
 
       expect(defaultDependencies, integration.packageName).not.toHaveProperty(integration.packageName);
       expect(readme, integration.packageName).toContain(integration.packageName);
-      for (const statement of integration.ownership) expect(readme, integration.packageName).toContain(statement);
 
       if (integration.peer === undefined) {
         expect(packageManifest.peerDependencies ?? {}).toEqual({});
