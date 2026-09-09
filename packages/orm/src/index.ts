@@ -2784,12 +2784,20 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     let savepointName: string | null = null;
 
     try {
-      await this.driver.execute({ text: 'BEGIN', parameters: [] });
+      await this.driver.execute({
+        text: 'BEGIN',
+        parameters: [],
+        effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+      });
       isTopLevelTx = true;
     } catch {
       savepointName = `sp_graph_${Math.random().toString(36).substring(2, 9)}`;
       try {
-        await this.driver.execute({ text: 'SAVEPOINT ' + savepointName, parameters: [] });
+        await this.driver.execute({
+          text: 'SAVEPOINT ' + savepointName,
+          parameters: [],
+          effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+        });
       } catch {
         savepointName = null;
       }
@@ -2798,21 +2806,37 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     try {
       const result = await fn(this);
       if (isTopLevelTx) {
-        await this.driver.execute({ text: 'COMMIT', parameters: [] });
+        await this.driver.execute({
+          text: 'COMMIT',
+          parameters: [],
+          effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+        });
       } else if (savepointName) {
-        await this.driver.execute({ text: 'RELEASE SAVEPOINT ' + savepointName, parameters: [] });
+        await this.driver.execute({
+          text: 'RELEASE SAVEPOINT ' + savepointName,
+          parameters: [],
+          effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+        });
       }
       return result;
     } catch (err) {
       if (isTopLevelTx) {
         try {
-          await this.driver.execute({ text: 'ROLLBACK', parameters: [] });
+          await this.driver.execute({
+            text: 'ROLLBACK',
+            parameters: [],
+            effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+          });
         } catch {
           /* ignore */
         }
       } else if (savepointName) {
         try {
-          await this.driver.execute({ text: 'ROLLBACK TO SAVEPOINT ' + savepointName, parameters: [] });
+          await this.driver.execute({
+            text: 'ROLLBACK TO SAVEPOINT ' + savepointName,
+            parameters: [],
+            effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+          });
         } catch {
           /* ignore */
         }
