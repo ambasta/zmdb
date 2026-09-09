@@ -111,6 +111,7 @@ function handWrittenOutbox(tx: TransactionContext): OutboxWriterLike {
       await tx.execute({
         text: 'INSERT INTO zmdb_outbox(id, topic, payload, status, created_at) VALUES (?, ?, ?, ?, ?)',
         parameters: [id, topic, payload, 'pending', new Date().toISOString()],
+        effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
       });
       return id;
     },

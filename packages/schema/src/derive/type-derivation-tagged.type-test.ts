@@ -55,6 +55,12 @@ interface Composite extends Table<'org_members'> {
   role: string & Sql<'text'>;
 }
 
+interface Keyless extends Table<'audit_log'> {
+  what: string & Sql<'text'>;
+}
+
+export type _Keyless = Expect<Equal<PrimaryKeyOf<Keyless>, never>>;
+
 // --- Entity ----------------------------------------------------------------
 export type _Ent1 = Expect<Equal<Entity<User>['id'], number & Sql<'integer'> & Serial & PrimaryKey>>;
 export type _Ent2 = Expect<Equal<Entity<User>['email'], string & Sql<'text'>>>;

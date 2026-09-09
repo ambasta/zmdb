@@ -66,6 +66,7 @@ The closed `set()` expression vocabulary has no JSON or array-append variant, so
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver, id, tag; this excerpt does not repeat those declarations."}
 await driver.execute({
+  effects: { operation: 'UPDATE', requiresPrimary: true, returnsRows: false },
   text: `UPDATE "users" SET "tags" = "tags" || $1::jsonb WHERE "id" = $2`,
   parameters: [JSON.stringify([tag]), id],
 });

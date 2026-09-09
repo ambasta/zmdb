@@ -53,7 +53,11 @@ describe('Opt-In Phantom Transaction Contexts', () => {
 
     await db.transaction(async tx => {
       await tx.savepoint(async spTx => {
-        await spTx.execute({ text: 'SELECT 1', parameters: [] });
+        await spTx.execute({
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+          text: 'SELECT 1',
+          parameters: [],
+        });
       });
     });
 

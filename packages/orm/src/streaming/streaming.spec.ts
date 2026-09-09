@@ -263,7 +263,11 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
         ),
       );
 
-      expect(observedQuery).toEqual({ text: expected[dialect], parameters: [7] });
+      expect(observedQuery).toEqual({
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: expected[dialect],
+        parameters: [7],
+      });
       expect(observedOptions).toEqual({ batchSize: 17 });
     }
   });
@@ -537,6 +541,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     expect(observations).toEqual([
       {
         query: {
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
           text: 'SELECT * FROM "stream_records"',
           parameters: [],
         },
@@ -547,6 +552,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
       },
       {
         query: {
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
           text: 'SELECT * FROM "stream_records"',
           parameters: [],
         },
@@ -759,8 +765,16 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
       db.transaction(async transaction => {
         const stream = transaction.stream;
         if (stream === undefined) throw new Error('connection should expose stream');
-        const first = stream({ text: 'SELECT 1', parameters: [] })[Symbol.asyncIterator]();
-        const second = stream({ text: 'SELECT 2', parameters: [] })[Symbol.asyncIterator]();
+        const first = stream({
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+          text: 'SELECT 1',
+          parameters: [],
+        })[Symbol.asyncIterator]();
+        const second = stream({
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+          text: 'SELECT 2',
+          parameters: [],
+        })[Symbol.asyncIterator]();
         await first.next();
         await second.next();
       }),

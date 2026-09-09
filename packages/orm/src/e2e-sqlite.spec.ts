@@ -295,7 +295,11 @@ describe('repository E2E (real SQLite)', () => {
           'INSERT INTO children VALUES (10, 1), (20, 1);',
       );
 
-      await driver.execute({ text: 'DELETE FROM parents WHERE id = ?', parameters: [1] });
+      await driver.execute({
+        effects: { operation: 'DELETE', requiresPrimary: true, returnsRows: false },
+        text: 'DELETE FROM parents WHERE id = ?',
+        parameters: [1],
+      });
       const count = cascadeDb.prepare('SELECT COUNT(*) AS count FROM children').get() as {
         readonly count: number;
       };

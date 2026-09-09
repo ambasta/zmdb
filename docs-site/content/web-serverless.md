@@ -77,7 +77,7 @@ const driver: Driver = {
     const response = await fetch(env.SQL_ENDPOINT, {
       method: 'POST',
       headers: { authorization: `Bearer ${env.SQL_TOKEN}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ text: query.text, parameters: query.parameters }),
+      body: JSON.stringify({ effects: query.effects, text: query.text, parameters: query.parameters }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new Error(`sql endpoint ${response.status}`);

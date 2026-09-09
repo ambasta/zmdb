@@ -225,3 +225,8 @@ type AggregateResult<T, Spec extends AggregateSpec<T>> =
 - The result row is the group-key columns plus one field per computed aggregate.
 - Compile-time only; the query-compiler `aggregateSelectFrom` produces the SQL.
 - Runtime `describeAggregate(spec)` returns the ordered field list (for callers that assemble typed rows); frozen: group-key fields first (spec order), then computed fields (spec key order).
+
+## Compiled subquery effects
+
+A structural subquery target must return text, ordered parameters and required `QueryEffects`. The pure effect type is declared beside `SubqueryTarget` in [index.ts](./index.ts) and reexported by
+`@zmdb/sql` for `CompiledQuery`. Unknown operations require primary execution; SQL composition preserves the primary requirement of its children.

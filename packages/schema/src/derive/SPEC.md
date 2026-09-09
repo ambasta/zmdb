@@ -58,7 +58,7 @@ side by definition, rather than proved. Nothing changes for a concrete type.
 | `CreateDTO<T>`    | `Serial` and soft-delete columns absent; defaults and nullable columns optional.   |
 | `UpdateDTO<T>`    | `Serial`, `PrimaryKey`, and soft-delete columns dropped; everything else optional. |
 | `ReadDTO<T>`      | `Sensitive` columns removed.                                                       |
-| `PrimaryKeyOf<T>` | Scalar for one key, object map for a composite, `unknown` for none.                |
+| `PrimaryKeyOf<T>` | Scalar for one key, object map for a composite, `never` for none.                  |
 
 `CreateDTO` omits a generated column rather than making it optional. Supplying a defaulted column is legitimate; supplying a generated one is a mistake, so the two tags produce different shapes — that
 is the whole reason they are separate tags.

@@ -4308,14 +4308,6 @@
     },
     {
       "from": "@zmdb/repository/replicas",
-      "name": "isWrite",
-      "to": "@zmdb/orm/replicas",
-      "export": "isWrite",
-      "value": true,
-      "declarationSource": "packages/repository/src/replicas/index.ts"
-    },
-    {
-      "from": "@zmdb/repository/replicas",
       "name": "ReplicaOptions",
       "to": "@zmdb/orm/replicas",
       "export": "ReplicaOptions",

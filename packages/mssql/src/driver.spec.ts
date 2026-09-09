@@ -96,7 +96,13 @@ describe('mssqlDriver (#672)', () => {
     const transaction = new RecordingTransaction();
     const driver = mssqlDriver({ request: () => request, transaction: () => transaction });
 
-    await expect(driver.execute({ text: 'UPDATE [users] SET [active] = 1', parameters: [] })).resolves.toEqual([]);
+    await expect(
+      driver.execute({
+        effects: { operation: 'UPDATE', requiresPrimary: true, returnsRows: false },
+        text: 'UPDATE [users] SET [active] = 1',
+        parameters: [],
+      }),
+    ).resolves.toEqual([]);
   });
 
   it('binds Dates as ISO instants so DATETIMEOFFSET keeps millisecond precision', async () => {
@@ -104,6 +110,7 @@ describe('mssqlDriver (#672)', () => {
     const instant = new Date('2026-09-05T12:34:56.789Z');
 
     await mssqlDriver(pool).execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
       text: 'SELECT CAST(@p1 AS DATETIMEOFFSET(3)) AS [value]',
       parameters: [instant],
     });
@@ -122,8 +129,16 @@ describe('mssqlDriver (#672)', () => {
 
     await expect(
       driver.transaction(async transaction => {
-        await transaction.execute({ text: 'CREATE TABLE [probe] ([id] INT)', parameters: [] });
-        await transaction.execute({ text: 'INSERT INTO [probe] ([id]) VALUES (@p1)', parameters: [1] });
+        await transaction.execute({
+          effects: { operation: 'DDL', requiresPrimary: true, returnsRows: false },
+          text: 'CREATE TABLE [probe] ([id] INT)',
+          parameters: [],
+        });
+        await transaction.execute({
+          effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+          text: 'INSERT INTO [probe] ([id]) VALUES (@p1)',
+          parameters: [1],
+        });
         throw new Error('stop');
       }),
     ).rejects.toThrow('stop');
@@ -143,7 +158,11 @@ describe('mssqlDriver (#672)', () => {
     const driver = mssqlDriver(pool);
 
     await driver.transaction(async transaction => {
-      await transaction.execute({ text: 'SELECT @p1 AS [value]', parameters: [7] });
+      await transaction.execute({
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: 'SELECT @p1 AS [value]',
+        parameters: [7],
+      });
     });
 
     expect(pool.transactions[0]?.events).toEqual(['begin', 'request', 'commit']);
@@ -177,7 +196,11 @@ describe('mssqlDriver (#672)', () => {
 
     await expect(
       mssqlDriver(pool).execute(
-        { text: 'SELECT 1', parameters: [] },
+        {
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+          text: 'SELECT 1',
+          parameters: [],
+        },
         {
           signal: controller.signal,
         },

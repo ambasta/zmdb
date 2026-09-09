@@ -68,6 +68,7 @@ export {
   type PredicateGroup,
   type QueryCompiler,
   type QueryCompilerOptions,
+  type QueryEffects,
   type QueryTelemetry,
   type ResolvedDialectTraits,
   type ReturningCapability,

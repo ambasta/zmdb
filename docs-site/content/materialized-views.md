@@ -18,7 +18,7 @@ const ddl = createViewDdl(
   'postgres',
 );
 
-await driver.execute({ text: ddl, parameters: [] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: ddl, parameters: [] });
 ```
 
 ```sql
@@ -65,10 +65,10 @@ keyset pagination. See [Virtual Entities](./virtual-entities.html).
 Refresh is not modelled — it is a statement you run:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
-await driver.execute({ text: 'REFRESH MATERIALIZED VIEW "author_stats"', parameters: [] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: 'REFRESH MATERIALIZED VIEW "author_stats"', parameters: [] });
 
 // non-blocking, needs a unique index on the view
-await driver.execute({ text: 'REFRESH MATERIALIZED VIEW CONCURRENTLY "author_stats"', parameters: [] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: 'REFRESH MATERIALIZED VIEW CONCURRENTLY "author_stats"', parameters: [] });
 ```
 
 `CONCURRENTLY` requires a unique index:

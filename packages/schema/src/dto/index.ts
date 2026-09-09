@@ -17,11 +17,22 @@ import { type Entity } from '../index.js';
 export interface UnknownRow {
   readonly [column: string]: string | number | boolean | bigint | Date | null;
 }
+
+/** Execution facts shared by compiled statements and structural subquery targets. */
+export type QueryEffects =
+  | { readonly operation: 'SELECT'; readonly requiresPrimary: boolean; readonly returnsRows: true }
+  | {
+      readonly operation: 'INSERT' | 'UPDATE' | 'DELETE' | 'DDL' | 'UNKNOWN';
+      readonly requiresPrimary: true;
+      readonly returnsRows: boolean;
+    };
+
 export type SubqueryTarget<V = unknown> =
   | {
       compile(): {
         readonly text: string;
         readonly parameters: readonly unknown[];
+        readonly effects: QueryEffects;
         readonly telemetry?: {
           readonly system: string;
           readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';

@@ -85,6 +85,7 @@ live('CockroachDB live acceptance', () => {
 
     const driver = cockroachDriver(pool);
     const insertedAccount = await driver.execute({
+      effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: true },
       text: 'INSERT INTO ' + accountsTable + ' ("name") VALUES ($1) RETURNING "id"',
       parameters: ['Acme'],
     });
@@ -92,6 +93,7 @@ live('CockroachDB live acceptance', () => {
     expect(typeof accountId).toBe('string');
     expect(Number.isSafeInteger(Number(accountId))).toBe(false);
     const insertedUser = await driver.execute({
+      effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: true },
       text:
         'INSERT INTO ' +
         usersTable +
@@ -122,7 +124,11 @@ live('CockroachDB live acceptance', () => {
     if (stream === undefined) throw new Error('Cockroach driver did not inherit cursor streaming');
     const values: unknown[] = [];
     for await (const row of stream(
-      { text: 'SELECT i::INT4 AS i FROM generate_series($1::int, $2::int) AS i ORDER BY i', parameters: [1, 5] },
+      {
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: 'SELECT i::INT4 AS i FROM generate_series($1::int, $2::int) AS i ORDER BY i',
+        parameters: [1, 5],
+      },
       { batchSize: 2 },
     )) {
       values.push(row['i']);

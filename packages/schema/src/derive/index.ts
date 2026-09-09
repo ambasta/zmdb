@@ -160,13 +160,13 @@ type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : 
 
 /**
  * The key value: a scalar for a single-column key, an object map for a composite
- * one, `unknown` when the type declares no primary key.
+ * one, `never` when the type declares no primary key.
  *
  * Named `PrimaryKeyOf` so the tag can be `PrimaryKey`, which is the name typed at
  * every declaration site (plan D1).
  */
 export type PrimaryKeyOf<T extends DeclaredTable> = [PrimaryKeyKeys<T>] extends [never]
-  ? unknown
+  ? never
   : IsUnion<PrimaryKeyKeys<T>> extends true
     ? { [K in PrimaryKeyKeys<T>]: Entity<T>[AsColumns<T, K>] }
     : Entity<T>[AsColumns<T, PrimaryKeyKeys<T>>];

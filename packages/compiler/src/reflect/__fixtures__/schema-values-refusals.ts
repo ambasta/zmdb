@@ -4,16 +4,9 @@
 // and one expected refusal in it would turn the whole spec's "no diagnostics" check into
 // a list of exceptions.
 //
-// Two types, each column-for-column a table minus one thing a table cannot be without.
-//
-// `Untagged` has no name to put after `CREATE TABLE`. Guessing `Untagged` from the type name
-// is exactly the class of guess `f70186c6` deleted, so the transform leaves the call alone and
-// names what it could not read.
-//
-// `Ledger` has no primary key. `defineSchema` threw a `SchemaError` on that and the reason
-// survives the function: `findById`, `update` and `delete` compile their `WHERE` out of the
-// primary key, so an empty one is a `DELETE FROM ledger` for a call that asked to remove one
-// row. It is a build error now rather than a constructor throw, which is strictly earlier.
+// An untagged type must be refused because its table name cannot be guessed. A tagged
+// keyless table beside it must still emit normally; keyed-operation refusal belongs to
+// the repository boundary.
 
 import { schemaOf } from '@zmdb/schema';
 import { type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';

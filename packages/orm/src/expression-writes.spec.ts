@@ -56,7 +56,7 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       views: inc(2),
       email: 'ok@example.com',
     });
-    expect(driver.calls).toEqual([
+    expect(driver.calls).toMatchObject([
       {
         text: 'UPDATE "expression_posts" SET "views" = "views" + $1, "email" = $2 WHERE "id" = $3 RETURNING *',
         parameters: [2, 'ok@example.com', 1],
@@ -125,7 +125,7 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       await posts.update(1, { views: inc() });
       await posts.update(1, { views: inc() });
 
-      expect(calls).toEqual([
+      expect(calls).toMatchObject([
         {
           text: 'UPDATE "expression_posts" SET "views" = "views" + ? WHERE "id" = ? RETURNING *',
           parameters: [1, 1],
@@ -197,7 +197,7 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       email: 'ok@example.com',
       published: false,
     });
-    expect(driver.calls).toEqual([
+    expect(driver.calls).toMatchObject([
       {
         text: 'UPDATE "expression_posts" SET "views" = "views" + $1 WHERE "id" = $2 RETURNING *',
         parameters: [2, 1],
@@ -218,7 +218,7 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       ),
     ).resolves.toBeUndefined();
 
-    expect(driver.calls).toEqual([
+    expect(driver.calls).toMatchObject([
       {
         text: 'UPDATE `expression_posts` SET `views` = `views` + ? WHERE `id` = ?',
         parameters: [1, 1],
@@ -245,7 +245,7 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
     const posts = new ExpressionPosts(driver);
 
     await expect(posts.updateMany({ published: false }, { views: inc(1) })).resolves.toBe(2);
-    expect(driver.calls).toEqual([
+    expect(driver.calls).toMatchObject([
       {
         text: 'UPDATE "expression_posts" SET "views" = "views" + $1 WHERE "published" = $2 RETURNING "id"',
         parameters: [1, false],
@@ -257,7 +257,7 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       { views: 1, email: 'counter@example.com', published: false },
       { target: 'id', updateFields: { views: inc(1) } },
     );
-    expect(driver.calls).toEqual([
+    expect(driver.calls).toMatchObject([
       {
         text:
           'INSERT INTO "expression_posts" ("views", "email", "published") VALUES ($1, $2, $3) ' +

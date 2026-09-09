@@ -282,7 +282,7 @@ describe('MySQL-family row-returning repository writes (#606)', () => {
         ),
       ).resolves.toBeUndefined();
 
-      expect(calls).toEqual([
+      expect(calls).toMatchObject([
         {
           text: 'UPDATE `users` SET `age` = `age` + ? WHERE `id` = ?',
           parameters: [1, 1],

@@ -75,6 +75,7 @@ const name = 'Bengaluru';
 const point: GeoJsonPoint = { type: 'Point', coordinates: [77.5946, 12.9716] };
 
 await driver.execute({
+  effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
   text: 'INSERT INTO venues (name, location) VALUES ($1, ST_GeomFromGeoJSON($2))',
   parameters: [name, point],
 });
@@ -150,6 +151,7 @@ The typed spatial helpers currently target `geometry`. A geography query that al
 const [longitude, latitude] = point.coordinates;
 const radiusMetres = 5_000;
 const radiusRows = await driver.execute({
+  effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
   text: `SELECT id, name,
                 ST_Distance(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS metres
          FROM venue_geographies

@@ -165,7 +165,16 @@ const recordingMeter = (): RecordingMeter => {
 
 /** A query carrying the compile-time telemetry frozen in §5. */
 const telemetryQuery = (text: string, parameters: readonly unknown[], telemetry: QueryTelemetry): TelemetryQuery =>
-  Object.freeze({ text, parameters, telemetry });
+  Object.freeze({
+    text,
+    parameters,
+    telemetry,
+    effects: Object.freeze(
+      telemetry.operation === 'SELECT'
+        ? ({ operation: 'SELECT', requiresPrimary: false, returnsRows: true } as const)
+        : ({ operation: telemetry.operation, requiresPrimary: true, returnsRows: false } as const),
+    ),
+  });
 
 const noRows = (): ExecutingDriver => ({
   dialect: postgres,
@@ -430,7 +439,10 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
       () => ({ route: '/users' }),
     );
 
-    await driver.execute({ text: 'SELECT 1', parameters: [] }, options);
+    await driver.execute(
+      { text: 'SELECT 1', parameters: [], effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true } },
+      options,
+    );
 
     expect(observed).toBe(options);
     expect(driver.stream).toBe(stream);

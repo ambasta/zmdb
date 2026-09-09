@@ -125,7 +125,7 @@ Pure query compilation remains useful in the shell:
 ```text
 zmdb> const { trustedTable } = await import('@zmdb/sql')
 zmdb> compiler.selectFrom(trustedTable('posts')).select(['id']).where('published', '=', true).compile()
-{ text: 'SELECT "id" FROM "posts" WHERE "published" = $1', parameters: [ true ] }
+{ text: 'SELECT "id" FROM "posts" WHERE "published" = $1', parameters: [ true ], effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true } }
 ```
 
 ---

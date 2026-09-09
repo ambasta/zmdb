@@ -17,7 +17,7 @@ describe('MySQL compiler and capabilities', () => {
     const compiler = createQueryCompiler(mysql);
     expect(
       compiler.selectFrom(trustedTable('users')).select(['id']).where('email', '=', 'a@b.test').offset(5).compile(),
-    ).toEqual({
+    ).toMatchObject({
       text: 'SELECT `id` FROM `users` WHERE `email` = ? LIMIT 18446744073709551615 OFFSET 5',
       parameters: ['a@b.test'],
     });
@@ -28,7 +28,7 @@ describe('MySQL compiler and capabilities', () => {
         .onConflict('id')
         .doUpdate(['email'])
         .compile(),
-    ).toEqual({
+    ).toMatchObject({
       text: 'INSERT INTO `users` (`id`, `email`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `email` = VALUES(`email`)',
       parameters: [1, 'a@b.test'],
     });

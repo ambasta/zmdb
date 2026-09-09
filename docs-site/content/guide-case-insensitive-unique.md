@@ -24,7 +24,7 @@ const ddl = createIndexDdl(
   'postgres',
 );
 
-await driver.execute({ text: ddl, parameters: [] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: ddl, parameters: [] });
 ```
 
 ```sql
@@ -34,10 +34,7 @@ CREATE UNIQUE INDEX "users_email_lower" ON "users" (lower("email"))
 Query through the same expression:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies driver, input; this excerpt does not repeat those declarations."}
-await driver.execute({
-  text: 'SELECT * FROM "users" WHERE lower("email") = lower($1)',
-  parameters: [input],
-});
+await driver.execute({ effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true }, text: 'SELECT * FROM "users" WHERE lower("email") = lower($1)', parameters: [input] });
 ```
 
 Both sides matter. `WHERE email = $1` does not match the indexed expression, and `WHERE lower(email) = $1` with an unnormalised parameter misses rows. Repository filters take column names, so this
@@ -74,11 +71,8 @@ const index = createIndexDdl(
   'mysql',
 );
 
-await driver.execute({
-  text: `ALTER TABLE \`users\` ADD COLUMN ${column}`,
-  parameters: [],
-});
-await driver.execute({ text: index, parameters: [] });
+await driver.execute({ effects: { operation: 'DDL', requiresPrimary: true, returnsRows: false }, text: `ALTER TABLE \`users\` ADD COLUMN ${column}`, parameters: [] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: index, parameters: [] });
 ```
 
 The measured MySQL output is:

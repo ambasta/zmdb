@@ -12,7 +12,7 @@ A statement timeout is not cancellation, but it bounds the damage and it is enfo
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Pool, cfg, driver; this excerpt does not repeat those declarations."}
 // postgres, per transaction
-await driver.execute({ text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
 
 // postgres, per connection, in the pool config
 new Pool({ ...cfg, statement_timeout: 5_000 });

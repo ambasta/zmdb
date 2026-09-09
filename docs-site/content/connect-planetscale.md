@@ -47,6 +47,7 @@ If FKs are unavailable, do writes through repositories and add integrity checks 
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 const orphans = await driver.execute({
+  effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
   text: 'SELECT p.id FROM posts p LEFT JOIN authors a ON a.id = p.author_id WHERE a.id IS NULL',
   parameters: [],
 });

@@ -59,10 +59,7 @@ import { assert } from '@zmdb/validator';
 import type { Entity } from '@zmdb/core/derive';
 
 async function orderSummaries(minTotal: number) {
-  const rows = await driver.execute({
-    text: `SELECT o.id, ... HAVING SUM(i.price) >= $1`,
-    parameters: [minTotal],
-  });
+  const rows = await driver.execute({ effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true }, text: `SELECT o.id, ... HAVING SUM(i.price) >= $1`, parameters: [minTotal] });
   return rows.map(r => assert<Entity<OrderSummary>>(r));
 }
 ```

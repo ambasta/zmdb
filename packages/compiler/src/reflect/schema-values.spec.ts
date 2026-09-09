@@ -177,20 +177,22 @@ describe('what the emitted module contains', () => {
 });
 
 describe('a declaration a table cannot be made of (REQ-TF-8)', () => {
-  it('refuses a missing table name, and a missing primary key, and leaves both calls alone', () => {
+  it('refuses a missing table name while emitting a tagged keyless table', () => {
     const source = readFileSync(REFUSALS, 'utf8');
     const result = transformFile(REFUSALS, source, { session });
 
-    const reasons = result.diagnostics.map(d => d.reason);
-    expect(reasons).toContain("no Table<'name'> tag; the table name cannot be guessed from the type name");
-    // The rule `defineSchema` used to enforce with a synchronous `SchemaError`, moved to the
-    // one place that reads a table declaration. Earlier than the constructor was, and it names
-    // the table rather than the call.
-    expect(reasons.find(reason => reason.includes('PrimaryKey'))).toContain('WHERE clause');
+    expect(result.diagnostics.map(d => d.reason)).toEqual([
+      "no Table<'name'> tag; the table name cannot be guessed from the type name",
+    ]);
     expect(result.diagnostics.every(one => one.callee === 'schemaOf')).toBe(true);
-    // Neither is rewritten, so the build fails loudly at the diagnostic rather than quietly
-    // shipping a schema for a table called `Untagged` or one nothing can address a row in.
     expect(result.code).toContain('schemaOf<Untagged>()');
-    expect(result.code).toContain('schemaOf<Ledger>()');
+    expect(result.code).not.toContain('schemaOf<Ledger>()');
+    expect(result.changed).toBe(true);
+    const values = new Map<string, CoreSchema<string>>();
+    evaluate(result.code.replace("schema('untagged', schemaOf<Untagged>());", ''), (label, value) =>
+      values.set(label, value),
+    );
+    expect(values.get('ledger')?.primaryKey).toEqual([]);
+    expect(values.get('ledger')?.ir.columns.map(column => column.primaryKey)).toEqual([false, false]);
   });
 });

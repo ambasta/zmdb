@@ -89,7 +89,7 @@ describe('WhereDTO + operator set (#179)', () => {
 
     const vectorBuilder = createQueryCompiler(postgres).selectFrom(trustedTable('vector_items'));
     const cosineWhere: WhereDTO<VectorItem> = { embedding: { cosine: queryVector } };
-    expect(compileWhere<VectorItem, typeof vectorBuilder>(vectorBuilder, cosineWhere).compile()).toEqual({
+    expect(compileWhere<VectorItem, typeof vectorBuilder>(vectorBuilder, cosineWhere).compile()).toMatchObject({
       text: 'SELECT * FROM "vector_items" WHERE "embedding" <=> $1',
       parameters: ['[0.1,0.2,0.3]'],
     });

@@ -54,7 +54,7 @@ Install `mysql2` in the application and pass an existing pool or connection. It 
 import { trustedTable } from '@zmdb/sql';
 
 compiler.selectFrom(trustedTable('users')).where('email', '=', 'a@b.c').compile();
-// { text: 'SELECT * FROM `users` WHERE `email` = ?', parameters: ['a@b.c'] }
+// { text: 'SELECT * FROM `users` WHERE `email` = ?', parameters: ['a@b.c'], effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true } }
 ```
 
 ## No `RETURNING`

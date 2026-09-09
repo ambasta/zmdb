@@ -56,7 +56,7 @@ TiDB's column-store replicas (TiFlash) make analytical queries fast without a se
 [raw SQL](./raw-sql.html):
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
-await driver.execute({ text: `SET SESSION tidb_isolation_read_engines = 'tiflash'`, parameters: [] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: `SET SESSION tidb_isolation_read_engines = 'tiflash'`, parameters: [] });
 ```
 
 Do this on a dedicated read driver rather than your main one — see [Read Replicas](./read-replicas.html) for the wrapper pattern, which composes here.

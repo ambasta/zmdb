@@ -30,6 +30,7 @@ void [schema, document, row];
 
 const structural: SubqueryTarget<number> = {
   compile: () => ({
+    effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
     text: 'SELECT 1',
     parameters: [1] as const,
     telemetry: { system: 'acme', operation: 'SELECT' as const, collection: 'users' },

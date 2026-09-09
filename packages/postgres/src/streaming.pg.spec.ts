@@ -17,6 +17,7 @@ describe('postgresDriver streaming and cancellation (#462)', () => {
     const rows: Record<string, unknown>[] = [];
     for await (const row of stream(
       {
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
         text: 'SELECT i FROM generate_series($1::int, $2::int) AS i ORDER BY i',
         parameters: [3, 8],
       },
@@ -38,6 +39,7 @@ describe('postgresDriver streaming and cancellation (#462)', () => {
     for (let index = 0; index < 20; index++) {
       for await (const _row of stream(
         {
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
           text: 'SELECT i FROM generate_series(1, 10) AS i',
           parameters: [],
         },
@@ -59,7 +61,14 @@ describe('postgresDriver streaming and cancellation (#462)', () => {
     const controller = new AbortController();
     const reason = new Error('request deadline reached');
     const startedAt = performance.now();
-    const pending = driver.execute({ text: 'SELECT pg_sleep(10)', parameters: [] }, { signal: controller.signal });
+    const pending = driver.execute(
+      {
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: 'SELECT pg_sleep(10)',
+        parameters: [],
+      },
+      { signal: controller.signal },
+    );
     const timer = setTimeout(() => controller.abort(reason), 100);
 
     try {

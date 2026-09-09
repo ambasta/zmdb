@@ -1,6 +1,7 @@
 import type { CoreSchema } from '@zmdb/schema';
 
 import type { CompiledQuery } from './compiled-query.js';
+import { UNKNOWN_ROW_EFFECTS, UNKNOWN_WRITE_EFFECTS, writeEffects } from './compiled-query.js';
 import {
   bindTable,
   mapColumn,
@@ -35,7 +36,7 @@ import {
 import { UnsupportedFeatureError } from './errors.js';
 
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
-export type { CompiledQuery, QueryTelemetry } from './compiled-query.js';
+export type { CompiledQuery, QueryEffects, QueryTelemetry } from './compiled-query.js';
 export {
   defineSqlDialect,
   dialectCapabilities,
@@ -256,7 +257,7 @@ function routineCall(
       : kind === 'table-function'
         ? `SELECT * FROM ${routine}(${placeholders})`
         : `SELECT ${routine}(${placeholders}) AS ${quoteIdentifier(dialect, 'result')}`;
-  return frozenQuery(text, args);
+  return frozenQuery(text, args, kind === 'procedure' ? UNKNOWN_WRITE_EFFECTS : UNKNOWN_ROW_EFFECTS);
 }
 
 function returningColumns(
@@ -480,7 +481,12 @@ function makeInsert(
       }
 
       text += returning.suffix;
-      return frozenQuery(text, params, queryTelemetry(d, 'INSERT', table, telemetry));
+      return frozenQuery(
+        text,
+        params,
+        writeEffects('INSERT', ret !== undefined && ret.length > 0),
+        queryTelemetry(d, 'INSERT', table, telemetry),
+      );
     },
   };
 }
@@ -554,7 +560,12 @@ function makeUpdate(
         returning.inline +
         whereClause(d, wheres, params) +
         returning.suffix;
-      return frozenQuery(text, params, queryTelemetry(d, 'UPDATE', table, telemetry));
+      return frozenQuery(
+        text,
+        params,
+        writeEffects('UPDATE', ret !== undefined && ret.length > 0),
+        queryTelemetry(d, 'UPDATE', table, telemetry),
+      );
     },
   };
 }
@@ -608,7 +619,12 @@ function makeDelete(
       const returning = returningSql(d, 'delete', 'old', ret);
       const text =
         `DELETE FROM ${quoteTable(d, table)}` + returning.inline + whereClause(d, wheres, params) + returning.suffix;
-      return frozenQuery(text, params, queryTelemetry(d, 'DELETE', table, telemetry));
+      return frozenQuery(
+        text,
+        params,
+        writeEffects('DELETE', ret !== undefined && ret.length > 0),
+        queryTelemetry(d, 'DELETE', table, telemetry),
+      );
     },
   };
 }

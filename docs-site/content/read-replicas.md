@@ -1,5 +1,5 @@
 Read replicas distribute read traffic across multiple database instances while writes always go to the primary. zmdb's `withReplicas` wrapper creates a composite driver that routes queries based on
-the SQL statement type.
+execution effects recorded by the query compiler.
 
 ## Configuring Replicas
 
@@ -30,18 +30,23 @@ await repo.create({ name: 'Alice' }); // Always hits primary
 
 ## How Routing Works
 
-Writes (INSERT, UPDATE, DELETE) always go to the primary. Reads are round-robin'd across replicas:
+Writes, DDL, locking reads and unknown raw statements require the primary. Ordinary compiled reads may use replicas in round-robin order. Raw-query callers declare the execution facts explicitly:
 
 ```ts {"mode":"compile","id":"example-003"}
-import { isWrite } from '@zmdb/orm/replicas';
+import type { CompiledQuery } from '@zmdb/sql';
 
-isWrite('SELECT * FROM users'); // false
-isWrite('INSERT INTO users ...'); // true
-isWrite('UPDATE users SET ...'); // true
-isWrite('DELETE FROM users ...'); // true
+const query: CompiledQuery = {
+  text: 'SELECT id FROM users',
+  parameters: [],
+  effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+};
+
+void query; // Eligible for a replica; no SQL text is parsed to make that decision.
 ```
 
 > [!NOTE] There's no replication lag detection. Reads may return stale data. For use cases requiring strong consistency, query the primary explicitly.
+
+Transactions stay on the primary. A row-returning write still requires the primary; returning rows does not make it a replica read.
 
 ## Custom Load Balancing
 

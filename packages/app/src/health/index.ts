@@ -1,5 +1,11 @@
 import { type Driver } from '@zmdb/orm';
 
+const DATABASE_READINESS_QUERY = Object.freeze({
+  text: 'SELECT 1',
+  parameters: Object.freeze([]),
+  effects: Object.freeze({ operation: 'SELECT', requiresPrimary: true, returnsRows: true } as const),
+});
+
 /** The process is not wedged. Synchronous by construction. */
 export interface LivenessCheck {
   readonly name: string;
@@ -47,7 +53,7 @@ export function databaseReadinessCheck(
     timeoutMs: options.timeoutMs,
     ...(options.cacheMs === undefined ? {} : { cacheMs: options.cacheMs }),
     async run(signal) {
-      await driver.execute({ text: 'SELECT 1', parameters: [] }, { signal });
+      await driver.execute(DATABASE_READINESS_QUERY, { signal });
       return { ok: true };
     },
   };

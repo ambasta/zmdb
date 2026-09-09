@@ -114,6 +114,7 @@ describe('@zmdb/otel', () => {
       const observability = fromOpenTelemetry({ tracer: provider.getTracer('@zmdb/otel/framework-test') });
       const driver = tracedDriver({ execute: () => Promise.resolve([]) }, observability);
       await driver.execute({
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
         text: 'SELECT "id" FROM "orders"',
         parameters: [],
         telemetry: {

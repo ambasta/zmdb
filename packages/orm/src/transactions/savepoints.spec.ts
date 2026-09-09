@@ -12,7 +12,11 @@ describe('nested transactions / savepoints', () => {
     await db.transaction(async tx => {
       await tx.savepoint(async inner => {
         await inner.savepoint(async innermost => {
-          await innermost.execute({ text: 'X', parameters: [] });
+          await innermost.execute({
+            effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+            text: 'X',
+            parameters: [],
+          });
         });
       });
     });
@@ -31,7 +35,11 @@ describe('nested transactions / savepoints', () => {
     const conn = recordingConn();
     const db = createTransactionalDb(conn);
     await db.transaction(async tx => {
-      await tx.execute({ text: 'OUTER', parameters: [] });
+      await tx.execute({
+        effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+        text: 'OUTER',
+        parameters: [],
+      });
       await tx
         .savepoint(async () => {
           throw new Error('inner failed');

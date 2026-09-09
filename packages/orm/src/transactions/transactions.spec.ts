@@ -17,7 +17,11 @@ describe('transaction lifecycle', () => {
     const conn = recordingConn();
     const db = createTransactionalDb(conn);
     await db.transaction(async tx => {
-      await tx.execute({ text: 'X', parameters: [] });
+      await tx.execute({
+        effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+        text: 'X',
+        parameters: [],
+      });
     });
     expect(conn.log).toEqual(['BEGIN', 'EXEC', 'COMMIT']);
   });
@@ -38,7 +42,11 @@ describe('transaction lifecycle', () => {
     const db = createTransactionalDb(conn);
     await db.transaction(async tx => {
       await tx.savepoint(async inner => {
-        await inner.execute({ text: 'X', parameters: [] });
+        await inner.execute({
+          effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
+          text: 'X',
+          parameters: [],
+        });
       });
     });
     expect(conn.log).toEqual(['BEGIN', 'SAVEPOINT s1', 'EXEC', 'RELEASE SAVEPOINT s1', 'COMMIT']);

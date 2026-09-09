@@ -59,12 +59,12 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
     const compiler = createQueryCompiler(mssql);
     const aliased = [{ column: 'created_at', alias: 'createdAt' }] as const;
 
-    expect(compiler.insertInto(trustedTable('users')).values({ email: 'a@b.com' }).returning(['id']).compile()).toEqual(
-      {
-        text: 'INSERT INTO [users] ([email]) OUTPUT INSERTED.[id] VALUES (@p1)',
-        parameters: ['a@b.com'],
-      },
-    );
+    expect(
+      compiler.insertInto(trustedTable('users')).values({ email: 'a@b.com' }).returning(['id']).compile(),
+    ).toMatchObject({
+      text: 'INSERT INTO [users] ([email]) OUTPUT INSERTED.[id] VALUES (@p1)',
+      parameters: ['a@b.com'],
+    });
     expect(
       compiler
         .updateTable(trustedTable('users'))
@@ -72,15 +72,15 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
         .where('id', '=', 1)
         .returning(['*'])
         .compile(),
-    ).toEqual({
+    ).toMatchObject({
       text: 'UPDATE [users] SET [email] = @p1 OUTPUT INSERTED.* WHERE [id] = @p2',
       parameters: ['b@c.com', 1],
     });
-    expect(compiler.deleteFrom(trustedTable('users')).where('id', '=', 1).returning(['id']).compile()).toEqual({
+    expect(compiler.deleteFrom(trustedTable('users')).where('id', '=', 1).returning(['id']).compile()).toMatchObject({
       text: 'DELETE FROM [users] OUTPUT DELETED.[id] WHERE [id] = @p1',
       parameters: [1],
     });
-    expect(compiler.deleteFrom(trustedTable('users')).where('id', '=', 1).returning(aliased).compile()).toEqual({
+    expect(compiler.deleteFrom(trustedTable('users')).where('id', '=', 1).returning(aliased).compile()).toMatchObject({
       text: 'DELETE FROM [users] OUTPUT DELETED.[created_at] AS [createdAt] WHERE [id] = @p1',
       parameters: [1],
     });
@@ -95,7 +95,7 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
       .returning(['*'])
       .compile();
 
-    expect(query).toEqual({
+    expect(query).toMatchObject({
       text:
         'MERGE [users] WITH (HOLDLOCK) AS tgt ' +
         'USING (VALUES (@p1, @p2, @p3)) AS src ([email], [role], [visits]) ' +
@@ -157,7 +157,7 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
         .where('tenant]id', '=', 7)
         .andWhere('active', '=', true)
         .compile(),
-    ).toEqual({
+    ).toMatchObject({
       text: 'SELECT * FROM [audit]]schema].[user]]events] WHERE [tenant]]id] = @p1 AND [active] = @p2',
       parameters: [7, true],
     });

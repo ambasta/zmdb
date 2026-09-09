@@ -155,7 +155,7 @@ live() { return { ok: true }; }              // is the process up
 
 @Get('/readyz')
 async ready() {                              // can it serve traffic
-  await this.driver.execute({ text: 'SELECT 1', parameters: [] });
+  await this.driver.execute({ text: 'SELECT 1', parameters: [], effects: { operation: 'SELECT', requiresPrimary: true, returnsRows: true } });
   return { ok: true };
 }
 ```

@@ -65,7 +65,7 @@ That array is what the tools that used to read a registry take directly:
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ALL_TABLES, driver; this excerpt does not repeat those declarations."}
 // truncate everything between tests
 const tables = ALL_TABLES.map(s => `"${s.table}"`).join(', ');
-await driver.execute({ text: `TRUNCATE ${tables} RESTART IDENTITY CASCADE`, parameters: [] });
+await driver.execute({ effects: { operation: 'DDL', requiresPrimary: true, returnsRows: false }, text: `TRUNCATE ${tables} RESTART IDENTITY CASCADE`, parameters: [] });
 ```
 
 ```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies ALL_TABLES, diff, emitUp, exec, snapshot; this excerpt does not repeat those declarations."}

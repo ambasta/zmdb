@@ -4,28 +4,23 @@ Part of `@zmdb/orm`. A transparent, stateless driver wrapper that routes reads t
 
 ## API
 
-```ts
-interface ReplicaOptions {
-  primary: Driver;
-  replicas: readonly Driver[];
-  pick?: (replicas: readonly Driver[]) => Driver; // default: round-robin
-}
-function withReplicas(opts: ReplicaOptions): Driver;
-```
+The canonical signatures are [`ReplicaOptions` and `withReplicas`](./index.ts). When the primary supports transactions, the wrapper preserves that capability and delegates each transaction to the
+primary.
 
 ## Routing (frozen)
 
-- A query is a **write** if its SQL (trimmed, upper-cased) starts with `INSERT` / `UPDATE` / `DELETE` — routed to `primary`.
-- Everything else (`SELECT`, `WITH … SELECT`) is a **read** — routed to a replica chosen by `pick` (default round-robin over `replicas`).
+- Every compiled query carries immutable execution effects. `requiresPrimary: true` routes to `primary`.
+- Only a declared `SELECT` with `requiresPrimary: false` may use a replica chosen by `pick` (default round-robin). Writes, DDL, unknown raw statements and locking reads require the primary. Nested
+  statements and set operations preserve any primary requirement.
 - If `replicas` is empty, reads fall back to `primary`.
 - Deterministic default: round-robin advances one replica per read call.
 - Frozen: the wrapper adds no caching/identity-map; it only chooses a driver and delegates `execute`, including its options.
 - The wrapper exposes `stream` only when the primary and every possible replica expose it. Streaming uses the same routing rule and forwards `ExecuteOptions`.
 
-## The rule is SQL-shaped, and that is a constraint on anything non-SQL
+## Execution metadata
 
-`isWrite` reads `query.text`. It is the only place in `@zmdb/orm` that makes a routing decision by inspecting SQL, and it works because `CompiledQuery` is SQL text — a fact `@zmdb/sql`'s
-`src/targets/SPEC.md` §2.2 records against this file, since a query object with no `text` would not fail here. It would return `false` and send every write to a replica.
+The statement builder derives effects while compiling SQL. The wrapper reads `query.effects.requiresPrimary`; it never parses SQL text. Raw-query callers must declare their effects explicitly. An
+unknown operation requires primary execution, and the old `isWrite` text scanner is removed.
 
-That is not a defect to fix now: there is no non-SQL target and none is planned. It is the reason the routing rule is a prefix test rather than a capability the `Driver` declares, and it is the first
-thing a future target has to answer, because the failure is a silent one.
+`returnsRows` describes whether the statement produces rows, including writes with returning output. Native driver result metadata may establish that fact directly. Comments and literals do not affect
+routing or row-return mode. Query decorators preserve effects when forwarding statements.

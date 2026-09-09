@@ -1,3 +1,4 @@
+import { READ_EFFECTS, PRIMARY_READ_EFFECTS } from '../compiled-query.js';
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
 import type { DialectTarget } from '../dialects/index.js';
 import { type CompiledQuery } from '../index.js';
@@ -20,6 +21,8 @@ export const SET_KEYWORD: Record<SetOp, string> = {
 export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: DialectTarget): CompiledQuery {
   const [first] = queries;
   if (!first) throw new Error('setOperation requires at least one query');
+  if (queries.some(query => !query.effects.returnsRows))
+    throw new TypeError('set operations require row-returning statements');
   if (queries.length === 1) return first;
   const params: unknown[] = [];
   const fragments = queries.map(q => {
@@ -29,7 +32,8 @@ export function setOperation(op: SetOp, queries: readonly CompiledQuery[], diale
     return text;
   });
   const text = fragments.join(` ${SET_KEYWORD[op]} `);
-  return Object.freeze({ text, parameters: Object.freeze(params) });
+  const effects = queries.some(query => query.effects.requiresPrimary) ? PRIMARY_READ_EFFECTS : READ_EFFECTS;
+  return Object.freeze({ text, parameters: Object.freeze(params), effects });
 }
 
 // ---- Batch (§2) ----

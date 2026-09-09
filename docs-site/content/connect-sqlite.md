@@ -87,7 +87,7 @@ If you deploy on one instance with a persistent disk (Fly, Railway with a volume
 `VACUUM INTO` is atomic and safe on a live database:
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
-await driver.execute({ text: `VACUUM INTO '/backups/app-${Date.now()}.db'`, parameters: [] });
+await driver.execute({ effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false }, text: `VACUUM INTO '/backups/app-${Date.now()}.db'`, parameters: [] });
 ```
 
 Copying the `.db` file while a write is in progress produces a corrupt backup. Do not do that.

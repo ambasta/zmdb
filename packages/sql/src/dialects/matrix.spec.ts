@@ -260,7 +260,7 @@ function spatialPredicate(
   column: string,
   geometry: unknown,
   distance?: number,
-): CompiledQuery {
+): Pick<CompiledQuery, 'text' | 'parameters'> {
   const parameters: unknown[] = [];
   const predicate =
     distance === undefined
@@ -1111,7 +1111,7 @@ function observedFor(entry: MatrixCase): Readonly<Record<string, Outcome>> {
 
 function expectDialect(name: string, dialect: FrozenDialect): void {
   const entry = matrixCase(name);
-  expect(capture(() => entry.build(dialect))).toEqual(entry.expected[dialect]);
+  expect(capture(() => entry.build(dialect))).toMatchObject(entry.expected[dialect]);
 }
 
 describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
@@ -1151,13 +1151,13 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
 
   for (const entry of MATRIX.filter(candidate => implementedExtensionConstructs.has(candidate.name))) {
     it(`matches ${entry.name} across all six dialects`, () => {
-      expect(observedFor(entry)).toEqual(entry.expected);
+      expect(observedFor(entry)).toMatchObject(entry.expected);
     });
   }
 
   for (const entry of MATRIX.filter(candidate => !implementedExtensionConstructs.has(candidate.name))) {
     it(`matches ${entry.name} across all six dialects`, () => {
-      expect(observedFor(entry)).toEqual(entry.expected);
+      expect(observedFor(entry)).toMatchObject(entry.expected);
     });
   }
 

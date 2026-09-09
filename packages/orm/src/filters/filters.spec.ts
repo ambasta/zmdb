@@ -258,7 +258,7 @@ describe('declared repository filters', () => {
       // the assertion this test owns.
     }
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'SELECT * FROM "users" WHERE "id" = $1 AND "active" = $2 LIMIT 1',
         parameters: [7, true],
@@ -300,7 +300,7 @@ describe('declared repository filters', () => {
 
     await repo.aggregate(aggregate => aggregate.select(['role']).count('id', 'n').groupBy('role'));
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'SELECT "role", COUNT("id") AS "n" FROM "users" WHERE "active" = $1 GROUP BY "role"',
         parameters: [true],
@@ -315,7 +315,7 @@ describe('declared repository filters', () => {
     await repo.update(7, { role: 'user' });
     await repo.delete(7);
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'UPDATE "users" SET "role" = $1 WHERE "id" = $2 AND "active" = $3 RETURNING *',
         parameters: ['user', 7, true],
@@ -334,7 +334,7 @@ describe('declared repository filters', () => {
     await repo.updateMany({ tenantId: 42 }, { role: 'user' });
     await repo.deleteMany({ tenantId: 42 });
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'UPDATE "users" SET "role" = $1 WHERE "tenantId" = $2 AND "active" = $3 RETURNING "id"',
         parameters: ['user', 42, true],
@@ -355,13 +355,13 @@ describe('declared repository filters', () => {
     const readOnly = new ReadOnlyFilteredUsers(readOnlyDriver);
     await readOnly.update(7, { role: 'reviewer' });
 
-    expect(statements(groupedDriver.calls)).toEqual([
+    expect(statements(groupedDriver.calls)).toMatchObject([
       {
         text: 'UPDATE "users" SET "role" = $1 WHERE "id" = $2 AND ("active" = $3 OR "role" = $4) RETURNING *',
         parameters: ['reviewer', 7, true, 'admin'],
       },
     ]);
-    expect(statements(readOnlyDriver.calls)).toEqual([
+    expect(statements(readOnlyDriver.calls)).toMatchObject([
       {
         text: 'UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING *',
         parameters: ['reviewer', 7],
@@ -378,7 +378,7 @@ describe('declared repository filters', () => {
     );
     await repo.update(7, { role: 'user' }, { filters: { tenant: { tenantId: 42 } } });
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'UPDATE "users" SET "role" = $1 WHERE "id" = $2 AND "tenantId" = $3 RETURNING *',
         parameters: ['user', 7, 42],
@@ -402,7 +402,7 @@ describe('declared repository filters', () => {
     const repo = new TenantAndActiveUsers(driver);
     await repo.findAll({ filters: { tenant: { tenantId: 42 }, active: false } });
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'SELECT * FROM "users" WHERE "tenantId" = $1',
         parameters: [42],
@@ -416,7 +416,7 @@ describe('declared repository filters', () => {
 
     await repo.find({ tenantId: 42 });
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'SELECT * FROM "users" WHERE "tenantId" = $1 AND ("active" = $2 OR "role" = $3)',
         parameters: [42, true, 'admin'],
@@ -431,7 +431,7 @@ describe('declared repository filters', () => {
     await repo.find({ role: 'admin' });
     await repo.list({ page: { mode: 'offset', limit: 2, offset: 0 } });
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'SELECT * FROM "users" WHERE "role" = $1',
         parameters: ['admin'],
@@ -449,7 +449,7 @@ describe('declared repository filters', () => {
 
     await repo.findAll();
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text: 'SELECT * FROM "users" WHERE "active" = $1',
         parameters: [true],
@@ -532,7 +532,7 @@ describe('declared repository filters', () => {
 
     await repo.findAllWithMany('posts', { filters: { postTenant: { tenantId: 42 } } });
 
-    expect(statements(calls)).toEqual([
+    expect(statements(calls)).toMatchObject([
       { text: 'SELECT * FROM "users"', parameters: [] },
       {
         text: 'SELECT * FROM "posts" WHERE "userId" IN ($1) AND "posts"."tenantId" = $2',
@@ -552,7 +552,7 @@ describe('declared repository filters', () => {
 
     await repo.find({ role: 'admin' });
 
-    expect(observations).toEqual([
+    expect(observations).toMatchObject([
       {
         query: {
           text: 'SELECT * FROM "users" WHERE "role" = $1 AND "active" = $2',
@@ -627,7 +627,7 @@ describe('declared repository filters', () => {
       },
     });
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text:
           'SELECT * FROM "users" WHERE "tenantId" = $1 AND "active" = $2 AND "role" > $3 ' +
@@ -665,7 +665,7 @@ describe('declared repository filters', () => {
     await repo.findById(1, { populate: ['posts'] });
     await repo.aggregate(aggregate => aggregate.joinRelation('posts', 'left').count('posts.id', 'n'));
 
-    expect(statements(calls)).toEqual([
+    expect(statements(calls)).toMatchObject([
       {
         text:
           'SELECT * FROM "users" LEFT JOIN "organizations" ' +
@@ -707,7 +707,7 @@ describe('declared repository filters', () => {
         .count('posts.id', 'n'),
     );
 
-    expect(statements(driver.calls)).toEqual([
+    expect(statements(driver.calls)).toMatchObject([
       {
         text:
           'SELECT COUNT("posts"."id") AS "n" FROM "users" LEFT JOIN "posts" AS "posts" ' +
@@ -795,7 +795,7 @@ describe('soft delete against real SQLite', () => {
 
       expect(await repo.deleteMany({ tenantId: 7 })).toBe(2);
 
-      expect(statements(calls)).toEqual([
+      expect(statements(calls)).toMatchObject([
         {
           text: 'UPDATE "users" SET "deletedAt" = ? WHERE "tenantId" = ? AND "deletedAt" IS NULL RETURNING "id"',
           parameters: [expect.any(Date), 7],
@@ -822,7 +822,7 @@ describe('soft delete against real SQLite', () => {
       expect(await repo.hardDelete(2)).toBe(false);
       expect(await repo.hardDelete(2, { filters: { softDelete: false } })).toBe(true);
 
-      expect(statements(calls)).toEqual([
+      expect(statements(calls)).toMatchObject([
         {
           text: 'DELETE FROM "users" WHERE "id" = ? AND "deletedAt" IS NULL RETURNING "id"',
           parameters: [1],
@@ -857,7 +857,7 @@ describe('soft delete against real SQLite', () => {
         deletedAt: null,
       });
 
-      expect(statements(calls)).toEqual([
+      expect(statements(calls)).toMatchObject([
         {
           text: 'UPDATE "users" SET "deletedAt" = ? WHERE "id" = ? AND "tenantId" = ? RETURNING "id"',
           parameters: [null, 2, 8],
@@ -947,7 +947,7 @@ describe('soft delete against real SQLite', () => {
       const restored = await repo.upsert({ tenantId: 9, role: 'same', active: false }, { target: 'role' });
 
       expect(restored).toMatchObject({ id: 1, tenantId: 9, role: 'same', active: 0, deletedAt: null });
-      expect(calls[0]).toEqual({
+      expect(calls[0]).toMatchObject({
         text:
           'INSERT INTO "users" ("tenantId", "role", "active") VALUES (?, ?, ?) ' +
           'ON CONFLICT ("role") DO UPDATE SET "tenantId" = EXCLUDED."tenantId", ' +
@@ -969,7 +969,7 @@ describe('soft delete against real SQLite', () => {
       const hidden = await repo.findById(1);
       const visible = await repo.findById(1, { filters: { softDelete: false } });
 
-      expect(statements(calls)).toEqual([
+      expect(statements(calls)).toMatchObject([
         {
           text: 'SELECT * FROM "users" WHERE "id" = ? AND "deletedAt" IS NULL LIMIT 1',
           parameters: [1],
@@ -1001,7 +1001,7 @@ describe('soft delete against real SQLite', () => {
 
       const result = await repo.list({ page: { mode: 'offset', limit: 10, offset: 0 } });
 
-      expect(statements(calls)).toEqual([
+      expect(statements(calls)).toMatchObject([
         {
           text: 'SELECT * FROM "users" WHERE "deletedAt" IS NULL ORDER BY "id" ASC LIMIT 11 OFFSET 0',
           parameters: [],

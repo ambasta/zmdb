@@ -36,7 +36,13 @@ describe('postgresDriver', () => {
     const query = vi.fn(async (_text: string, _params?: readonly unknown[]) => ({ rows: [{ id: 1 }] }));
     const driver = postgresDriver({ query } as unknown as PgQueryable);
 
-    await expect(driver.execute({ text: 'SELECT 1', parameters: [10] })).resolves.toEqual([{ id: 1 }]);
+    await expect(
+      driver.execute({
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: 'SELECT 1',
+        parameters: [10],
+      }),
+    ).resolves.toEqual([{ id: 1 }]);
     expect(query).toHaveBeenCalledWith('SELECT 1', [10]);
   });
 
@@ -50,7 +56,11 @@ describe('postgresDriver', () => {
     const driver = postgresDriver({ query } as unknown as PgQueryable);
     const at = new Date('2026-01-01T12:30:00.000Z');
 
-    await driver.execute({ text: 'INSERT INTO events (at, seq) VALUES ($1, $2)', parameters: [at, 7n] });
+    await driver.execute({
+      effects: { operation: 'INSERT', requiresPrimary: true, returnsRows: false },
+      text: 'INSERT INTO events (at, seq) VALUES ($1, $2)',
+      parameters: [at, 7n],
+    });
 
     expect(query).toHaveBeenCalledWith('INSERT INTO events (at, seq) VALUES ($1, $2)', [at, 7n]);
   });
@@ -59,7 +69,13 @@ describe('postgresDriver', () => {
     const query = vi.fn(async () => ({ rows: [{ id: 1 }] }));
     const driver = postgresDriver({ query } as unknown as PgQueryable, { prepared: true });
 
-    await expect(driver.execute({ text: 'SELECT 1', parameters: [10] })).resolves.toEqual([{ id: 1 }]);
+    await expect(
+      driver.execute({
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: 'SELECT 1',
+        parameters: [10],
+      }),
+    ).resolves.toEqual([{ id: 1 }]);
     expect(query).toHaveBeenCalledWith({
       name: expect.any(String),
       text: 'SELECT 1',
@@ -75,8 +91,16 @@ describe('postgresDriver', () => {
     });
     const driver = postgresDriver({ query } as unknown as PgQueryable, { prepared: true });
 
-    await driver.execute({ text: 'SELECT $1', parameters: [1] });
-    await driver.execute({ text: 'SELECT $1', parameters: [2] });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT $1',
+      parameters: [1],
+    });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT $1',
+      parameters: [2],
+    });
 
     expect(configs).toHaveLength(2);
     expect(typeof configs[0]?.name).toBe('string');
@@ -87,8 +111,16 @@ describe('postgresDriver', () => {
     const query = vi.fn(async () => ({ rows: [] }));
     const driver = postgresDriver({ query } as unknown as PgQueryable, { prepared: true, maxCacheSize: 0 });
 
-    await driver.execute({ text: 'SELECT $1', parameters: [1] });
-    await driver.execute({ text: 'SELECT 1', parameters: [] });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT $1',
+      parameters: [1],
+    });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT 1',
+      parameters: [],
+    });
 
     expect(query).toHaveBeenNthCalledWith(1, {
       queryMode: 'extended',
@@ -110,17 +142,41 @@ describe('postgresDriver', () => {
     });
     const driver = postgresDriver({ query } as unknown as PgQueryable, { prepared: true, maxCacheSize: 2 });
 
-    await driver.execute({ text: 'SELECT 1', parameters: [] });
-    await driver.execute({ text: 'SELECT 2', parameters: [] });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT 1',
+      parameters: [],
+    });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT 2',
+      parameters: [],
+    });
     const firstName = Reflect.get(calls[0] ?? {}, 'name');
     const secondName = Reflect.get(calls[1] ?? {}, 'name');
-    await driver.execute({ text: 'SELECT 1', parameters: [] });
-    await driver.execute({ text: 'SELECT 3', parameters: [] });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT 1',
+      parameters: [],
+    });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT 3',
+      parameters: [],
+    });
 
     expect(calls).toContain(`DEALLOCATE ${String(secondName)}`);
-    await driver.execute({ text: 'SELECT 1', parameters: [] });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT 1',
+      parameters: [],
+    });
     expect(Reflect.get(calls.at(-1) ?? {}, 'name')).toBe(firstName);
-    await driver.execute({ text: 'SELECT 2', parameters: [] });
+    await driver.execute({
+      effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+      text: 'SELECT 2',
+      parameters: [],
+    });
     expect(Reflect.get(calls.at(-1) ?? {}, 'name')).not.toBe(secondName);
   });
 
@@ -140,7 +196,11 @@ describe('postgresDriver', () => {
 
     await expect(
       postgresDriver(pool).transaction(async transaction => {
-        await transaction.execute({ text: 'CREATE TABLE probe (id INTEGER)', parameters: [] });
+        await transaction.execute({
+          effects: { operation: 'DDL', requiresPrimary: true, returnsRows: false },
+          text: 'CREATE TABLE probe (id INTEGER)',
+          parameters: [],
+        });
         throw new Error('stop');
       }),
     ).rejects.toThrow('stop');
@@ -176,7 +236,11 @@ describe('postgresDriver', () => {
 
     const rows: Record<string, unknown>[] = [];
     for await (const row of stream(
-      { text: 'SELECT id FROM users WHERE role = $1', parameters: ['admin'] },
+      {
+        effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+        text: 'SELECT id FROM users WHERE role = $1',
+        parameters: ['admin'],
+      },
       { batchSize: 2 },
     )) {
       rows.push(row);
@@ -228,7 +292,14 @@ describe('postgresDriver', () => {
       const stream = transaction.stream;
       if (stream === undefined) throw new Error('transaction driver did not expose stream');
       const result: Record<string, unknown>[] = [];
-      for await (const row of stream({ text: 'SELECT id FROM users', parameters: [] }, { batchSize: 4 })) {
+      for await (const row of stream(
+        {
+          effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
+          text: 'SELECT id FROM users',
+          parameters: [],
+        },
+        { batchSize: 4 },
+      )) {
         result.push(row);
       }
       return result;

@@ -424,6 +424,9 @@ async function migrationChecksum(sql: string): Promise<string> {
   return `sha256:${hex}`;
 }
 
+const MIGRATION_EFFECTS = Object.freeze({ operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false } as const);
+const MIGRATION_ROW_EFFECTS = Object.freeze({ ...MIGRATION_EFFECTS, returnsRows: true } as const);
+
 function connection(
   driver: MigrationDriver<'sqlite'>,
   options: MigrationTableOptions = {},
@@ -436,10 +439,11 @@ function connection(
     );
   }
   const table = q(options.table ?? '_zmdb_migrations');
-  const execute = (text: string, parameters: readonly unknown[] = []) => driver.execute({ text, parameters });
+  const execute = (text: string, parameters: readonly unknown[] = [], returnsRows = false) =>
+    driver.execute({ text, parameters, effects: returnsRows ? MIGRATION_ROW_EFFECTS : MIGRATION_EFFECTS });
 
   const appliedMigrations = async (): Promise<readonly AppliedMigration[]> =>
-    parseAppliedMigrations(await execute(`SELECT version, name, checksum FROM ${table} ORDER BY version`));
+    parseAppliedMigrations(await execute(`SELECT version, name, checksum FROM ${table} ORDER BY version`, [], true));
 
   const adapter: MigrationConnection<'sqlite'> = {
     name: 'sqlite',
@@ -468,7 +472,7 @@ function connection(
           'version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at INTEGER NOT NULL, checksum TEXT)',
       );
       try {
-        await execute(`SELECT checksum FROM ${table} WHERE 1 = 0`);
+        await execute(`SELECT checksum FROM ${table} WHERE 1 = 0`, [], true);
       } catch {
         await execute(`ALTER TABLE ${table} ADD COLUMN checksum TEXT`);
       }
