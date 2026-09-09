@@ -21,9 +21,17 @@ import {
   type QueryValues,
 } from '../context/index.js';
 import type { CompiledHttpContract, HttpOperationIR, SecurityRequirement } from '../contract/index.js';
-import { BoundaryStatusError } from '../middleware/errors.js';
-import type { Guard, SecurityAwareGuard } from '../middleware/index.js';
-import { getRoutes, isPublic, type ResolvedRoute } from '../routing/index.js';
+import { ChainError } from '../middleware/errors.js';
+import {
+  composeChain,
+  type Chain,
+  type Guard,
+  type Pipe,
+  type Interceptor,
+  type ExceptionFilter,
+  type SecurityAwareGuard,
+} from '../middleware/index.js';
+import { getRoutes, isPublic, middlewareFor, type ResolvedRoute } from '../routing/index.js';
 import { versionsOf, type VersionStrategy } from '../versioning/index.js';
 import { jsonMediaTypeForVersion, pathForVersion } from '../versioning/runtime.js';
 import { resolveGuards, type GuardRegistry } from './guards.js';
@@ -67,6 +75,9 @@ export interface WebResponse {
 export interface RouteOptions {
   readonly validateBody?: (raw: unknown) => unknown;
   readonly guards?: readonly Guard[];
+  readonly pipes?: readonly Pipe[];
+  readonly interceptors?: readonly Interceptor[];
+  readonly filters?: readonly ExceptionFilter[];
   readonly security?: readonly SecurityRequirement[];
   readonly deprecated?: true;
 }
@@ -1171,7 +1182,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           failed = true;
           failure = error;
           recordFailure(handlerSpan, error);
-          if (error instanceof BoundaryStatusError) {
+          if (error instanceof ChainError) {
             response = jsonResponse(error.status, { error: error.message });
             return response;
           }
@@ -1232,7 +1243,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           continue;
         }
         const opts = options[route.handlerName];
-        const routeGuards = opts?.guards ?? [];
+        const middleware = middlewareFor(controller, ctor, route.handlerName);
+        const routeGuards = [...middleware.guards, ...(opts?.guards ?? [])];
         const publicRoute = isPublic(ctor, route.handlerName);
         if (publicRoute && (routeGuards.length > 0 || (opts?.security !== undefined && opts.security.length > 0))) {
           throw new Error(
@@ -1240,7 +1252,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           );
         }
         const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
-        addBoundRoute(ctor, route, handler, opts?.validateBody, guards);
+        addBoundRoute(ctor, route, middlewareHandler(handler, middleware, opts), opts?.validateBody, guards);
       }
     },
 
@@ -1313,7 +1325,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           );
         }
 
-        const routeGuards = opts?.guards ?? [];
+        const middleware = middlewareFor(controller, binding.controller, binding.handler);
+        const routeGuards = [...middleware.guards, ...(opts?.guards ?? [])];
         const publicRoute = isPublic(binding.controller, binding.handler);
         if (publicRoute && (routeGuards.length > 0 || (opts?.security !== undefined && opts.security.length > 0))) {
           throw new Error(
@@ -1338,7 +1351,13 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             `Contract registration error at ${operation.operationId}: effective runtime security disagrees with the contract`,
           );
         }
-        addContractRoute(binding.controller, operation, handler, opts?.validateBody, guards);
+        addContractRoute(
+          binding.controller,
+          operation,
+          middlewareHandler(handler, middleware, opts),
+          opts?.validateBody,
+          guards,
+        );
         registeredOperationIds.add(operation.operationId);
       }
     },
@@ -1347,12 +1366,20 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       for (const route of getRoutes(controller)) {
         let resolved: Handler | undefined;
         const handler: Handler = async ctx => {
+          if (resolved !== undefined) return resolved(ctx);
+          // The application owns admission and coalescing while activation is
+          // pending, including refusal of requests arriving during shutdown.
+          const built = await instance();
           if (resolved === undefined) {
-            const built = await instance();
-            resolved = readHandler(built, route.handlerName);
-            if (resolved === undefined) {
+            const boundHandler = readHandler(built, route.handlerName);
+            if (boundHandler === undefined) {
               throw new Error(`@zmdb/web: controller has no handler named "${route.handlerName}"`);
             }
+            const middleware = middlewareFor(built, controller, route.handlerName);
+            if (isPublic(controller, route.handlerName) && middleware.guards.length > 0) {
+              throw new Error('@zmdb/web: a public route cannot declare guards');
+            }
+            resolved = composeChain(middleware, boundHandler);
           }
           return resolved(ctx);
         };
@@ -1415,7 +1442,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           // A framework boundary refusal keeps its selected status. A validation
           // error out of the handler is the request's fault and becomes 400;
           // anything else is 500 with its message and nothing invented.
-          if (error instanceof BoundaryStatusError) {
+          if (error instanceof ChainError) {
             return jsonResponse(error.status, { error: error.message });
           }
           if (error instanceof ValidationError || claimsValidationIssues(error)) {
@@ -2073,4 +2100,16 @@ function fetchTextBody(
     if (key.toLowerCase() === 'content-type') return value;
   }
   return new TextEncoder().encode(value);
+}
+
+function middlewareHandler(handler: Handler, declared: Chain, options: RouteOptions | undefined): Handler {
+  return composeChain(
+    {
+      guards: [],
+      pipes: [...declared.pipes, ...(options?.pipes ?? [])],
+      interceptors: [...declared.interceptors, ...(options?.interceptors ?? [])],
+      filters: [...(options?.filters ?? []), ...declared.filters],
+    },
+    handler,
+  );
 }

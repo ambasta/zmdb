@@ -6,7 +6,10 @@
 // Ensure Symbol.metadata exists before any decorated class in a consumer module
 // is evaluated (Node 26/V8 lacks it). Side-effect import; safe/no-op if present.
 import '@zmdb/app';
+import type { Token } from '@zmdb/app/di';
+
 import type { HttpMethod } from '../contract/index.js';
+import type { Chain, Guard, Pipe, Interceptor, ExceptionFilter } from '../middleware/index.js';
 
 export type { HttpMethod } from '../contract/index.js';
 
@@ -198,4 +201,124 @@ export function getRoutes(controller: abstract new (...args: never[]) => unknown
     path: normalizePath(prefix, route.path),
     handlerName: route.handlerName,
   }));
+}
+
+/** Middleware declarations are inert instances or typed application injection tokens. */
+export type MiddlewareDeclaration<T> = T | Token<T>;
+export interface MiddlewareDeclarations {
+  readonly guards: readonly MiddlewareDeclaration<Guard>[];
+  readonly pipes: readonly MiddlewareDeclaration<Pipe>[];
+  readonly interceptors: readonly MiddlewareDeclaration<Interceptor>[];
+  readonly filters: readonly MiddlewareDeclaration<ExceptionFilter>[];
+}
+
+const MIDDLEWARE = Symbol('zmdb.web.middleware');
+interface MiddlewareMetadata {
+  [MIDDLEWARE]?: Map<string | undefined, MiddlewareDeclarations>;
+}
+const EMPTY_MIDDLEWARE: MiddlewareDeclarations = { guards: [], pipes: [], interceptors: [], filters: [] };
+const preparedMiddleware = new WeakMap<object, ReadonlyMap<string, Chain>>();
+
+function middlewareDecorator<K extends keyof MiddlewareDeclarations>(kind: K) {
+  return (...values: MiddlewareDeclarations[K]) =>
+    (_target: unknown, context: ClassDecoratorContext | ClassMethodDecoratorContext): void => {
+      const metadata: MiddlewareMetadata = context.metadata;
+      if (!Object.hasOwn(context.metadata, MIDDLEWARE)) metadata[MIDDLEWARE] = new Map();
+      const own = metadata[MIDDLEWARE];
+      const name = context.kind === 'class' ? undefined : String(context.name);
+      const current = own?.get(name) ?? EMPTY_MIDDLEWARE;
+      own?.set(name, { ...current, [kind]: [...values, ...current[kind]] });
+    };
+}
+
+export const UseGuards = middlewareDecorator('guards');
+export const UsePipes = middlewareDecorator('pipes');
+export const UseInterceptors = middlewareDecorator('interceptors');
+export const UseFilters = middlewareDecorator('filters');
+
+function declarationsOf(
+  controller: abstract new (...args: never[]) => unknown,
+  handler: string,
+): MiddlewareDeclarations {
+  const layers: MiddlewareDeclarations[] = [];
+  const methods: MiddlewareDeclarations[] = [];
+  for (let record = controller[Symbol.metadata]; record != null; record = Object.getPrototypeOf(record)) {
+    if (!Object.hasOwn(record, MIDDLEWARE)) continue;
+    const metadata: MiddlewareMetadata = record;
+    const own = metadata[MIDDLEWARE];
+    const classLayer = own?.get(undefined);
+    const methodLayer = own?.get(handler);
+    if (classLayer !== undefined) layers.unshift(classLayer);
+    if (methodLayer !== undefined) methods.unshift(methodLayer);
+  }
+  return {
+    guards: [...layers, ...methods].flatMap(layer => layer.guards),
+    pipes: [...layers, ...methods].flatMap(layer => layer.pipes),
+    interceptors: [...layers, ...methods].flatMap(layer => layer.interceptors),
+    filters: [...methods, ...layers].flatMap(layer => layer.filters),
+  };
+}
+
+export type MiddlewareResolver = <T>(token: Token<T>) => T;
+
+function resolveDeclaration<T extends object>(
+  value: MiddlewareDeclaration<T>,
+  member: keyof T,
+  resolve?: MiddlewareResolver,
+): T {
+  if (isMiddlewareInstance(value, member)) return value;
+  if (resolve === undefined)
+    throw new Error(`@zmdb/web: middleware token "${value.description}" requires application DI`);
+  return resolve(value);
+}
+
+function isMiddlewareInstance<T extends object>(value: MiddlewareDeclaration<T>, member: keyof T): value is T {
+  return member in value;
+}
+
+function resolveDeclarations(
+  controller: abstract new (...args: never[]) => unknown,
+  handler: string,
+  resolve?: MiddlewareResolver,
+): Chain {
+  const declared = declarationsOf(controller, handler);
+  return {
+    guards: declared.guards.map(value => resolveDeclaration(value, 'canActivate', resolve)),
+    pipes: declared.pipes.map(value => resolveDeclaration(value, 'transform', resolve)),
+    interceptors: declared.interceptors.map(value => resolveDeclaration(value, 'intercept', resolve)),
+    filters: declared.filters.map(value => resolveDeclaration(value, 'catch', resolve)),
+  };
+}
+
+/** Internal app registration bridge: resolve declarations before lifecycle initialization. */
+export function prepareMiddleware(controller: object, resolve: MiddlewareResolver): readonly object[] {
+  const ctor = controller.constructor;
+  if (typeof ctor !== 'function') return [];
+  const constructor = middlewareConstructor(ctor);
+  const chains = new Map<string, Chain>();
+  for (const route of getRoutes(constructor)) {
+    if (!chains.has(route.handlerName))
+      chains.set(route.handlerName, resolveDeclarations(constructor, route.handlerName, resolve));
+  }
+  preparedMiddleware.set(controller, chains);
+  return [...chains.values()].flatMap(chain => [
+    ...chain.guards,
+    ...chain.pipes,
+    ...chain.interceptors,
+    ...chain.filters,
+  ]);
+}
+
+// Boundary: instance.constructor is the controller constructor supplied by the module graph.
+function middlewareConstructor(value: Function): abstract new (...args: never[]) => unknown {
+  return value as abstract new (...args: never[]) => unknown;
+}
+
+/** Resolve standalone instances, or use the app's already prepared declaration instances. */
+export function middlewareFor(
+  controller: object,
+  ctor: abstract new (...args: never[]) => unknown,
+  handler: string,
+): Chain {
+  return preparedMiddleware.get(controller)?.get(handler) ?? resolveDeclarations(ctor, handler);
 }

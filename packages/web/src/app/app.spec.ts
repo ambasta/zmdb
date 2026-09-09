@@ -1,4 +1,5 @@
 import { createRequestData } from '@zmdb/app/data';
+import { createToken } from '@zmdb/app/di';
 import {
   EventPattern,
   MessagePattern,
@@ -9,16 +10,16 @@ import {
   type TransportStrategy,
   type WithHeaders,
 } from '@zmdb/app/messaging';
-import { Module } from '@zmdb/app/modules';
+import { Module, lazy } from '@zmdb/app/modules';
 // Tests (#294) for app bootstrap & lifecycle — RED first (app exports absent).
 // createApp routes a request; init runs hooks in order; dispose runs onShutdown
 // reversed. Per packages/web/src/app/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
 import type { Ctx } from '../context/index.js';
-import type { Guard } from '../middleware/index.js';
+import type { Guard, Pipe } from '../middleware/index.js';
 import { bodyText } from '../pipeline/index.js';
-import { Controller, Get, Post } from '../routing/index.js';
+import { Controller, Get, Post, UsePipes } from '../routing/index.js';
 import { createApp, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './index.js';
 
 const order: string[] = [];
@@ -244,3 +245,68 @@ function orderId(raw: unknown): number {
   }
   return raw.id;
 }
+
+it.each([false, true])('resolves middleware through app DI with deferred subtree %s', async deferred => {
+  const events: string[] = [];
+  const literalEvents: string[] = [];
+  const literal = {
+    transform: (value: unknown) => value,
+    onModuleInit() {
+      literalEvents.push('init');
+    },
+    onShutdown() {
+      literalEvents.push('shutdown');
+    },
+  };
+  const token = createToken<Pipe>('body-pipe');
+  const middleware = {
+    transform: () => 'from-provider',
+    onModuleInit() {
+      events.push('init');
+    },
+    onShutdown() {
+      events.push('shutdown');
+    },
+  };
+  @Controller('/owned')
+  @UsePipes(token, literal)
+  class Owned {
+    @Get()
+    get(ctx: Ctx) {
+      return ctx.body;
+    }
+  }
+  @Module({
+    controllers: [Owned],
+    providers: [
+      {
+        token,
+        useFactory: () => {
+          events.push('construct');
+          return middleware;
+        },
+      },
+    ],
+  })
+  class Feature {}
+  @Module({ imports: [deferred ? lazy(Feature) : Feature] })
+  class Root {}
+  const app = createApp(Root);
+  if (deferred) {
+    expect(events).toEqual([]);
+    expect(literalEvents).toEqual([]);
+  }
+  await app.init();
+  if (deferred) {
+    expect(events).toEqual([]);
+    expect(literalEvents).toEqual([]);
+  }
+  const response = await app.handle({ method: 'GET', path: '/owned', headers: {} });
+  expect(await bodyText(response)).toBe('"from-provider"');
+  expect(app.container.resolve(token)).toBe(middleware);
+  expect(events).toEqual(['construct', 'init']);
+  expect(literalEvents).toEqual(['init']);
+  await app[Symbol.asyncDispose]();
+  expect(events).toEqual(['construct', 'init', 'shutdown']);
+  expect(literalEvents).toEqual(['init', 'shutdown']);
+});

@@ -6,7 +6,7 @@ import { ValidationError } from '@zmdb/validator';
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Controller, Get, Post } from '../routing/index.js';
+import { Controller, Get, Post, UseGuards, UsePipes, UseInterceptors, UseFilters } from '../routing/index.js';
 import {
   bodyText,
   createRouter,
@@ -679,5 +679,106 @@ describe('HTTP policy', () => {
     );
     const disabled = createRouter({ policy: { cors: false, securityHeaders: { 'X-Frame-Options': 'DENY' } } });
     expect((await disabled.handle({ method: 'OPTIONS', path: '/', headers })).status).toBe(404);
+  });
+});
+
+describe('registered middleware', () => {
+  it.each([false, true])('runs declarations around exactly one validation with observability %s', async observed => {
+    const events: string[] = [];
+    const guard = (name: string) => ({
+      canActivate: () => {
+        events.push(name);
+        return true;
+      },
+    });
+    const pipe = (name: string) => ({
+      transform: (value: unknown) => {
+        events.push(name);
+        return String(value) + name;
+      },
+    });
+    const interceptor = (name: string) => ({
+      async intercept(_ctx: Ctx, next: () => Promise<unknown>) {
+        events.push(name + ':before');
+        const result = await next();
+        events.push(name + ':after');
+        return result;
+      },
+    });
+    @Controller('/composed')
+    @UseGuards(guard('class-guard'))
+    @UsePipes(pipe('class-pipe'))
+    @UseInterceptors(interceptor('class'))
+    class Composed {
+      @Post()
+      @UseGuards(guard('method-guard'))
+      @UsePipes(pipe('method-pipe'))
+      @UseInterceptors(interceptor('method'))
+      post(ctx: Ctx) {
+        events.push('handler');
+        return text(String(ctx.body));
+      }
+      @Get('/raw')
+      raw(ctx: Ctx) {
+        return { value: ctx.body };
+      }
+    }
+    const router = createRouter(
+      observed ? { meter: { counter: () => ({ add() {} }), histogram: () => ({ record() {} }) } } : {},
+    );
+    router.register(new Composed(), {
+      post: {
+        validateBody: value => {
+          events.push('validate');
+          return value;
+        },
+      },
+    });
+    const response = await router.handle({ method: 'POST', path: '/composed', headers: {}, rawBody: 'body:' });
+    expect(await bodyText(response)).toBe('body:class-pipemethod-pipe');
+    expect(events).toEqual([
+      'class-guard',
+      'method-guard',
+      'validate',
+      'class-pipe',
+      'method-pipe',
+      'class:before',
+      'method:before',
+      'handler',
+      'method:after',
+      'class:after',
+    ]);
+    const raw = await router.handle({ method: 'GET', path: '/composed/raw', headers: {}, rawBody: 'raw:' });
+    expect(JSON.parse(await bodyText(raw))).toEqual({ value: 'raw:class-pipe' });
+  });
+
+  it('short circuits before validation and gives method filters precedence', async () => {
+    let validated = 0;
+    @Controller('/filtered')
+    @UseFilters({ catch: () => text('class') })
+    class Filtered {
+      @Get()
+      @UseFilters({ catch: () => text('method') })
+      get() {
+        throw new Error('failure');
+      }
+      @Post()
+      @UseGuards({ canActivate: () => false })
+      post() {
+        throw new Error('must not run');
+      }
+    }
+    const router = createRouter();
+    router.register(new Filtered(), {
+      post: {
+        validateBody: value => {
+          validated += 1;
+          return value;
+        },
+      },
+    });
+    expect(await bodyText(await router.handle({ method: 'GET', path: '/filtered', headers: {} }))).toBe('method');
+    expect((await router.handle({ method: 'POST', path: '/filtered', headers: {} })).status).toBe(403);
+    expect(validated).toBe(0);
   });
 });

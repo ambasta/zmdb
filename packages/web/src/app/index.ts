@@ -14,6 +14,7 @@ import {
   type WebRequest,
   type WebResponse,
 } from '../pipeline/index.js';
+import { prepareMiddleware } from '../routing/index.js';
 import type { VersionStrategy } from '../versioning/index.js';
 import { applicationControllersOf, type CompiledController } from './bridge.js';
 
@@ -50,6 +51,7 @@ export function createApp(rootModule: ModuleClass, options: WebApplicationOption
 
   const router: Router = createRouter(routerOptions(options));
   for (const binding of controllerBindings) {
+    binding.prepare(controller => prepareMiddleware(controller, token => application.container.resolve(token)));
     if (binding.kind === 'eager') {
       router.register(binding.controller);
     } else {

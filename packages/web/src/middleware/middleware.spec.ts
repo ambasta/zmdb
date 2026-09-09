@@ -5,7 +5,8 @@ import { createRequestData } from '@zmdb/app/data';
 import { describe, it, expect } from 'vitest';
 
 import type { Ctx } from '../context/index.js';
-import { text } from '../pipeline/index.js';
+import { createRouter, bodyText, text } from '../pipeline/index.js';
+import { Controller, Get, UsePipes } from '../routing/index.js';
 import { runChain, type Guard, type Pipe, type Interceptor, type ExceptionFilter, type Chain } from './index.js';
 
 function ctxWith(body: unknown): Ctx<Record<string, string>, unknown> {
@@ -85,4 +86,32 @@ describe('@zmdb/web middleware: chain', () => {
     const result = await runChain(chain, ctxWith({ n: 1 }), ctx => ctx.body);
     expect(result).toEqual({ n: 20 }); // (1+1)*10
   });
+});
+
+it('isolates inherited middleware declarations between siblings', async () => {
+  @Controller('/base')
+  @UsePipes({ transform: value => String(value) + 'base' })
+  class Base {
+    @Get()
+    get(ctx: Ctx) {
+      return text(String(ctx.body));
+    }
+  }
+  @Controller('/child')
+  @UsePipes({ transform: value => String(value) + 'child' })
+  class Child extends Base {}
+  @Controller('/sibling')
+  class Sibling extends Base {}
+  const router = createRouter();
+  router.register(new Base());
+  router.register(new Child());
+  router.register(new Sibling());
+  for (const [path, expected] of [
+    ['/base', 'base'],
+    ['/child', 'basechild'],
+    ['/sibling', 'base'],
+  ]) {
+    const response = await router.handle({ method: 'GET', path: path ?? '', headers: {}, rawBody: '' });
+    expect(await bodyText(response)).toBe(expected);
+  }
 });

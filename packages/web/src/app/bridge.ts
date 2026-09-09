@@ -4,11 +4,16 @@ const APPLICATION_BRIDGE = Symbol.for('@zmdb/app.application-bridge');
 const COMPILED_APPLICATION = Symbol.for('@zmdb/app.compiled-application');
 
 export type CompiledController =
-  | { readonly kind: 'eager'; readonly controller: object }
+  | {
+      readonly kind: 'eager';
+      readonly controller: object;
+      readonly prepare: (callback: (controller: object) => readonly object[]) => void;
+    }
   | {
       readonly kind: 'deferred';
       readonly controller: Constructor<object>;
       readonly instance: () => Promise<object>;
+      readonly prepare: (callback: (controller: object) => readonly object[]) => void;
     };
 
 interface ApplicationBridge {
