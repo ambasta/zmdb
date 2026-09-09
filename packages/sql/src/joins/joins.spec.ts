@@ -102,6 +102,9 @@ it('composes a schema-bound join with typed projection, physical columns and ord
   expect(query.compile()).toMatchObject({
     text: 'SELECT "u"."user_id" AS "u.id", "p"."post_title" AS "postTitle" FROM "user_accounts" AS "u" LEFT JOIN "blog_posts" AS "p" ON "u"."user_id" = "p"."author_id" WHERE "u"."age_years" > $1 ORDER BY "p"."post_title" ASC',
     parameters: [18],
+    operation: 'select',
+    isWrite: false,
+    returnsRows: true,
   });
 });
 
@@ -112,6 +115,9 @@ it('retains root ownership for unqualified columns before and after a join', () 
   expect(joined.compile()).toMatchObject({
     text: 'SELECT "u"."user_id" AS "id" FROM "user_accounts" AS "u" LEFT JOIN "blog_posts" AS "p" ON "u"."user_id" = "p"."author_id" WHERE "u"."user_id" = $1 ORDER BY "u"."user_id" ASC',
     parameters: [1],
+    operation: 'select',
+    isWrite: false,
+    returnsRows: true,
   });
   expect(
     users
@@ -124,5 +130,8 @@ it('retains root ownership for unqualified columns before and after a join', () 
   expect(beforeJoin.compile()).toMatchObject({
     text: 'SELECT "user_id" AS "id" FROM "user_accounts" AS "u" WHERE "user_id" = $1 ORDER BY "user_id" ASC',
     parameters: [1],
+    operation: 'select',
+    isWrite: false,
+    returnsRows: true,
   });
 });

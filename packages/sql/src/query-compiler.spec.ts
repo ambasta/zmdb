@@ -152,7 +152,9 @@ describe('aliased write results', () => {
     });
   });
   it('aliases SQL Server OUTPUT columns', () => {
-    expect(createQueryCompiler(mssql).deleteFrom('users').where('id', '=', 1).returning(returned).compile()).toMatchObject({
+    expect(
+      createQueryCompiler(mssql).deleteFrom(trustedTable('users')).where('id', '=', 1).returning(returned).compile(),
+    ).toMatchObject({
       text: 'DELETE FROM [users] OUTPUT DELETED.[created_at] AS [createdAt] WHERE [id] = @p1',
       parameters: [1],
       operation: 'delete',
@@ -756,7 +758,7 @@ describe('Operator normalization & bounded dialect operators', () => {
     const qb = createQueryCompiler(postgresDialect);
 
     it('attaches metadata to SELECT queries', () => {
-      const q = qb.selectFrom('users').where('id', '=', 1).compile();
+      const q = qb.selectFrom(trustedTable('users')).where('id', '=', 1).compile();
       expect(q.operation).toBe('select');
       expect(q.isWrite).toBe(false);
       expect(q.returnsRows).toBe(true);
@@ -765,7 +767,7 @@ describe('Operator normalization & bounded dialect operators', () => {
     it('detects locking SELECT reads as write operations for primary routing', () => {
       // Manually compiled raw locking read or query text
       const qLock = { text: 'SELECT * FROM "users" WHERE "id" = $1 FOR UPDATE', parameters: [1] };
-      const compiled = qb.selectFrom('users').compile();
+      const compiled = qb.selectFrom(trustedTable('users')).compile();
       expect(compiled.isWrite).toBe(false);
 
       const lockingCompiled = { ...qLock, isWrite: true, returnsRows: true, operation: 'select' as const };
@@ -773,26 +775,26 @@ describe('Operator normalization & bounded dialect operators', () => {
     });
 
     it('attaches metadata to INSERT queries without and with RETURNING', () => {
-      const qNoRet = qb.insertInto('users').values({ name: 'Alice' }).compile();
+      const qNoRet = qb.insertInto(trustedTable('users')).values({ name: 'Alice' }).compile();
       expect(qNoRet.operation).toBe('insert');
       expect(qNoRet.isWrite).toBe(true);
       expect(qNoRet.returnsRows).toBe(false);
 
-      const qRet = qb.insertInto('users').values({ name: 'Alice' }).returning(['id']).compile();
+      const qRet = qb.insertInto(trustedTable('users')).values({ name: 'Alice' }).returning(['id']).compile();
       expect(qRet.operation).toBe('insert');
       expect(qRet.isWrite).toBe(true);
       expect(qRet.returnsRows).toBe(true);
     });
 
     it('attaches metadata to UPDATE queries', () => {
-      const q = qb.updateTable('users').set({ name: 'Bob' }).where('id', '=', 1).compile();
+      const q = qb.updateTable(trustedTable('users')).set({ name: 'Bob' }).where('id', '=', 1).compile();
       expect(q.operation).toBe('update');
       expect(q.isWrite).toBe(true);
       expect(q.returnsRows).toBe(false);
     });
 
     it('attaches metadata to DELETE queries', () => {
-      const q = qb.deleteFrom('users').where('id', '=', 1).compile();
+      const q = qb.deleteFrom(trustedTable('users')).where('id', '=', 1).compile();
       expect(q.operation).toBe('delete');
       expect(q.isWrite).toBe(true);
       expect(q.returnsRows).toBe(false);
@@ -942,10 +944,16 @@ describe('schema-bound canonical queries (#774)', () => {
     expect(branch.compile()).toMatchObject({
       text: 'SELECT "user_id" AS "id", "display_name" AS "label" FROM "user_accounts" WHERE "age_years" > $1 AND ("active_flag" = $2) ORDER BY "display_name" ASC LIMIT 2',
       parameters: [18, true],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
     expect(base.compile()).toMatchObject({
       text: 'SELECT "user_id" AS "id", "display_name" AS "label" FROM "user_accounts" WHERE "age_years" > $1',
       parameters: [18],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
     expect(Object.isFrozen(branch.compile().parameters)).toBe(true);
     expect(branch.compile()).toEqual(branch.compile());
@@ -961,6 +969,9 @@ describe('schema-bound canonical queries (#774)', () => {
     expect(query.compile()).toMatchObject({
       text: 'INSERT INTO "user_accounts" ("display_name", "age_years", "active_flag") VALUES ($1, $2, $3) ON CONFLICT ("display_name") DO UPDATE SET "age_years" = "age_years" + $4 RETURNING "user_id" AS "id", "display_name" AS "name"',
       parameters: ['Ada', 30, true, 1],
+      operation: 'insert',
+      isWrite: true,
+      returnsRows: true,
     });
     expect(
       createQueryCompiler(postgresDialect)
@@ -972,12 +983,18 @@ describe('schema-bound canonical queries (#774)', () => {
     ).toMatchObject({
       text: 'UPDATE "user_accounts" SET "age_years" = "age_years" + $1 WHERE "user_id" = $2 RETURNING "user_id" AS "id"',
       parameters: [2, 7],
+      operation: 'update',
+      isWrite: true,
+      returnsRows: true,
     });
     expect(
       createQueryCompiler(postgresDialect).deleteFrom(QueryUserSchema).where('id', '=', 7).returning(['id']).compile(),
     ).toMatchObject({
       text: 'DELETE FROM "user_accounts" WHERE "user_id" = $1 RETURNING "user_id" AS "id"',
       parameters: [7],
+      operation: 'delete',
+      isWrite: true,
+      returnsRows: true,
     });
   });
 

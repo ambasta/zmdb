@@ -68,7 +68,6 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
       operation: 'insert',
       isWrite: true,
     });
-    });
     expect(
       compiler
         .updateTable(trustedTable('users'))
