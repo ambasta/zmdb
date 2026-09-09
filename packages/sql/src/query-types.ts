@@ -36,20 +36,19 @@ type SelectedRow<Row, Selected, Computed> =
     : Simplify<(Selected extends undefined ? (keyof Computed extends never ? Row : {}) : Selected) & Computed>;
 
 type ScalarSubquery<V> = { compile(): CompiledQuery; readonly _type?: Readonly<Record<string, Primitive<V>>> };
-type Operand<V, Op> =
-  Op extends UnsafeOperator
-    ? unknown
-    : Op extends string
-      ? Lowercase<Op> extends 'in' | 'not in' | 'nin'
-        ? readonly V[] | ScalarSubquery<V>
-        : Lowercase<Op> extends 'is null' | 'is not null'
-          ? null | undefined
-          : Lowercase<Op> extends 'like' | 'ilike'
-            ? NonNullable<V> extends string
-              ? V | ScalarSubquery<V>
-              : never
-            : V | ScalarSubquery<V>
-      : V | ScalarSubquery<V>;
+type Operand<V, Op> = Op extends UnsafeOperator
+  ? unknown
+  : Op extends string
+    ? Lowercase<Op> extends 'in' | 'not in' | 'nin'
+      ? readonly V[] | ScalarSubquery<V>
+      : Lowercase<Op> extends 'is null' | 'is not null'
+        ? null | undefined
+        : Lowercase<Op> extends 'like' | 'ilike'
+          ? NonNullable<V> extends string
+            ? V | ScalarSubquery<V>
+            : never
+          : V | ScalarSubquery<V>
+    : V | ScalarSubquery<V>;
 type WhereOperand<Row, K extends Key<Row>, Op> = Wide<Row> extends true ? unknown : Operand<Row[K], Op>;
 
 type Comparison<Row> = {
