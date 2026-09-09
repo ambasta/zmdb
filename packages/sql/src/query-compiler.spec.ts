@@ -601,20 +601,14 @@ describe('Operator validation and strict typing', () => {
 
     for (const [op, expectedSqlOp] of ops) {
       if (expectedSqlOp === 'IN' || expectedSqlOp === 'NOT IN') {
-        const q = qb
-          .selectFrom(trustedTable('users'))
-          .where('col', op, [1, 2])
-          .compile();
+        const q = qb.selectFrom(trustedTable('users')).where('col', op, [1, 2]).compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} ($1, $2)`);
       } else if (expectedSqlOp === 'IS NULL' || expectedSqlOp === 'IS NOT NULL') {
         const q = qb.selectFrom(trustedTable('users')).where('col', op, null).compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp}`);
         expect(q.parameters).toEqual([]);
       } else {
-        const q = qb
-          .selectFrom(trustedTable('users'))
-          .where('col', op, 'val')
-          .compile();
+        const q = qb.selectFrom(trustedTable('users')).where('col', op, 'val').compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} $1`);
       }
     }
@@ -637,7 +631,10 @@ describe('Operator validation and strict typing', () => {
     expect(q1.text).toBe('SELECT * FROM "users" WHERE "tags" @> $1');
     expect(q1.parameters).toEqual([['a', 'b']]);
 
-    const q2 = qb.selectFrom(trustedTable('events')).where('duration', unsafeOperator('&&'), '[2020-01-01,2020-01-02]').compile();
+    const q2 = qb
+      .selectFrom(trustedTable('events'))
+      .where('duration', unsafeOperator('&&'), '[2020-01-01,2020-01-02]')
+      .compile();
     expect(q2.text).toBe('SELECT * FROM "events" WHERE "duration" && $1');
     expect(q2.parameters).toEqual(['[2020-01-01,2020-01-02]']);
   });
@@ -745,7 +742,7 @@ describe('Operator validation and strict typing', () => {
     for (const testCase of cases) {
       const query = createQueryCompiler(officialDialects[testCase.dialect])
         .selectFrom(trustedTable(testCase.table))
-        .where(testCase.column, testCase.operator, testCase.value)
+        .where(testCase.column, unsafeOperator(testCase.operator), testCase.value)
         .compile();
       expect(query.text).toBe(testCase.text);
     }
@@ -755,7 +752,7 @@ describe('Operator validation and strict typing', () => {
     const compile = () =>
       createQueryCompiler(postgresDialect)
         .selectFrom(trustedTable('users'))
-        .where('role', "= 'x' OR 1=1 --", 1)
+        .where('role', "= 'x' OR 1=1 --" as unknown as Operator, 1)
         .compile();
 
     expect(compile).toThrow(
@@ -771,7 +768,7 @@ describe('Operator validation and strict typing', () => {
       const compile = () =>
         createQueryCompiler(postgresDialect)
           .selectFrom(trustedTable('users'))
-          .where('role', operator, 1)
+          .where('role', operator as unknown as Operator, 1)
           .compile();
       expect(compile, JSON.stringify(operator)).toThrow(/invalid unmapped SQL operator/);
     }
@@ -790,7 +787,7 @@ describe('Operator validation and strict typing', () => {
       const compile = () =>
         createQueryCompiler(officialDialects[dialect])
           .selectFrom(trustedTable('users'))
-          .where('payload', operator, 1)
+          .where('payload', operator as unknown as Operator, 1)
           .compile();
       expect(compile, `${dialect} ${operator}`).toThrow(/invalid unmapped SQL operator/);
     }
@@ -807,7 +804,7 @@ describe('Operator validation and strict typing', () => {
       const compile = () =>
         createQueryCompiler(postgresDialect)
           .selectFrom(trustedTable('users'))
-          .where('col', inherited, 'val')
+          .where('col', inherited as unknown as Operator, 'val')
           .compile();
       expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
     }
@@ -909,7 +906,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
     expect(() =>
       createQueryCompiler(postgresDialect)
         .selectFrom(trustedTable('items'))
-        .where('embedding', 'cosine', [0.1, Number.NaN, 0.3])
+        .where('embedding', unsafeOperator('cosine'), [0.1, Number.NaN, 0.3])
         .compile(),
     ).toThrow(/pgvector query may contain only finite numbers/);
   });
