@@ -53,7 +53,7 @@ function facadeReport(): ReturnType<typeof inspectProductFacade> {
 }
 
 describe('product facade runtime identities', () => {
-  it('imports the complete application surface from zmdb without internal package imports', () => {
+  it('imports the complete application surface from @zmdb/core without internal package imports', () => {
     const report = facadeReport();
 
     expect(report.processProblems).toEqual([]);
@@ -61,7 +61,7 @@ describe('product facade runtime identities', () => {
     expect(report.missingSubpaths).toEqual([]);
   }, 15_000);
 
-  it('does not reach tooling or optional integrations when the zmdb root is imported', () => {
+  it('does not reach tooling or optional integrations when the @zmdb/core root is imported', () => {
     const report = facadeReport();
 
     expect(report.processProblems).toEqual([]);
@@ -113,7 +113,7 @@ describe('product facade runtime identities', () => {
   it('preserves every concern-facade runtime identity', async () => {
     const cases = [
       {
-        facade: 'zmdb/schema',
+        facade: '@zmdb/core/schema',
         owners: [
           '@zmdb/schema',
           '@zmdb/schema/dto',
@@ -134,7 +134,7 @@ describe('product facade runtime identities', () => {
         ]),
       },
       {
-        facade: 'zmdb/sql',
+        facade: '@zmdb/core/sql',
         owners: [
           '@zmdb/sql',
           '@zmdb/sql/fts',
@@ -154,12 +154,12 @@ describe('product facade runtime identities', () => {
         ]),
       },
       {
-        facade: 'zmdb/validator',
+        facade: '@zmdb/core/validator',
         owners: ['@zmdb/validator', '@zmdb/validator', '@zmdb/validator/advanced', '@zmdb/validator/serialization'],
         excluded: new Set(['validate', 'claimsValidationIssues', 'validationIssuesOf', 'validateRule']),
       },
       {
-        facade: 'zmdb/orm',
+        facade: '@zmdb/core/orm',
         owners: [
           '@zmdb/orm',
           '@zmdb/orm/seeding',
@@ -172,7 +172,7 @@ describe('product facade runtime identities', () => {
         excluded: new Set<string>(),
       },
       {
-        facade: 'zmdb/compiler',
+        facade: '@zmdb/core/compiler',
         owners: [
           '@zmdb/compiler',
           '@zmdb/compiler/emit',
@@ -184,7 +184,7 @@ describe('product facade runtime identities', () => {
         excluded: new Set(['default', 'zmdbAot']),
       },
       {
-        facade: 'zmdb/migrations',
+        facade: '@zmdb/core/migrations',
         owners: ['@zmdb/migrations', '@zmdb/migrations/embedded', '@zmdb/migrations/introspect'],
         excluded: new Set([
           'action',
@@ -202,7 +202,7 @@ describe('product facade runtime identities', () => {
         ]),
       },
       {
-        facade: 'zmdb/testing',
+        facade: '@zmdb/core/testing',
         owners: ['@zmdb/compiler/testing', '@zmdb/web/testing'],
         excluded: new Set<string>(),
       },
@@ -220,12 +220,16 @@ describe('product facade runtime identities', () => {
     }
 
     for (const [facade, ownerSpecifier, names] of [
-      ['zmdb/schema', '@zmdb/validator', ['ValidationError', 'claimsValidationIssues', 'validationIssuesOf']],
-      ['zmdb/schema', '@zmdb/orm/dto', ['applyKeysetFilter', 'applyOrderBy', 'applyPagination', 'compileWhere']],
-      ['zmdb/schema', '@zmdb/orm/relations', ['aliasRow', 'attachPopulated', 'compilePopulate']],
-      ['zmdb/schema', '@zmdb/app', ['createStateUpdatePayload', 'defineEntityStateMachine', 'defineStateTransitions']],
+      ['@zmdb/core/schema', '@zmdb/validator', ['ValidationError', 'claimsValidationIssues', 'validationIssuesOf']],
+      ['@zmdb/core/schema', '@zmdb/orm/dto', ['applyKeysetFilter', 'applyOrderBy', 'applyPagination', 'compileWhere']],
+      ['@zmdb/core/schema', '@zmdb/orm/relations', ['aliasRow', 'attachPopulated', 'compilePopulate']],
       [
-        'zmdb/orm',
+        '@zmdb/core/schema',
+        '@zmdb/app',
+        ['createStateUpdatePayload', 'defineEntityStateMachine', 'defineStateTransitions'],
+      ],
+      [
+        '@zmdb/core/orm',
         '@zmdb/schema/entity-modeling',
         ['discriminatorFor', 'flattenEmbeddable', 'liftEmbeddable', 'rowToSubtype'],
       ],
@@ -237,12 +241,12 @@ describe('product facade runtime identities', () => {
       }
     }
 
-    const orm: Readonly<Record<string, unknown>> = await import('zmdb/orm');
+    const orm: Readonly<Record<string, unknown>> = await import('@zmdb/core/orm');
     expect(orm).not.toHaveProperty('jobPendingIndexDdl');
 
-    const validator: Readonly<Record<string, unknown>> = await import('zmdb/validator');
+    const validator: Readonly<Record<string, unknown>> = await import('@zmdb/core/validator');
     const utilities: Readonly<Record<string, unknown>> = await import('@zmdb/validator');
-    const compiler: Readonly<Record<string, unknown>> = await import('zmdb/compiler');
+    const compiler: Readonly<Record<string, unknown>> = await import('@zmdb/core/compiler');
     const lint: Readonly<Record<string, unknown>> = await import('@zmdb/compiler/lint');
     const productCompiler: Readonly<Record<string, unknown>> = await import('@zmdb/compiler');
     expect(compiler.lintPlugin).toBe(lint.default);

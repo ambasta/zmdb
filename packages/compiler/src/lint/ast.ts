@@ -8,7 +8,7 @@ type PropertyNode = VisitorNode<'Property'>;
 type TSInterfaceDeclarationNode = VisitorNode<'TSInterfaceDeclaration'>;
 type TSTypeNode = VisitorNode<'TSIntersectionType'>['types'][number];
 
-const TAG_MODULES: ReadonlySet<string> = new Set(['@zmdb/schema/tags', 'zmdb/tags']);
+const TAG_MODULES: ReadonlySet<string> = new Set(['@zmdb/schema/tags', '@zmdb/core/tags']);
 const TAG_EXPORTS: ReadonlySet<string> = new Set([
   'AnyRelation',
   'Codec',

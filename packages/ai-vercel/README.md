@@ -9,7 +9,7 @@ neither imports the SDK at runtime nor fabricates its schema brand with a cast.
 yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.93
 ```
 
-> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. The supported and tested peer floor is exact AI SDK `7.0.93`.
+> **Prerelease** (`1.0.0-beta.2`). Requires **Node.js 26+** and is **ESM-only**. The supported and tested peer floor is exact AI SDK `7.0.93`.
 
 ## Usage
 

@@ -565,38 +565,38 @@ describe('server facade and reflection identity (#646)', () => {
   it('preserves app concern-facade and curated-root runtime identity', async () => {
     const [appValue, appFacadeValue, productValue] = await Promise.all([
       loadModule(APP_SPECIFIER),
-      loadModule('zmdb/app'),
-      loadModule('zmdb'),
+      loadModule('@zmdb/core/app'),
+      loadModule('@zmdb/core'),
     ]);
     const app = moduleRecord(appValue, APP_SPECIFIER);
-    const appFacade = moduleRecord(appFacadeValue, 'zmdb/app');
-    const product = moduleRecord(productValue, 'zmdb');
+    const appFacade = moduleRecord(appFacadeValue, '@zmdb/core/app');
+    const product = moduleRecord(productValue, '@zmdb/core');
 
     for (const name of Object.keys(app)) {
-      expect(appFacade[name], `zmdb/app#${name}`).toBe(app[name]);
+      expect(appFacade[name], `@zmdb/core/app#${name}`).toBe(app[name]);
     }
     for (const name of ['Container', 'Module', 'createApplication', 'createToken']) {
       expect(product[name], `zmdb#${name}`).toBe(app[name]);
     }
   });
 
-  it('zmdb/web exports app and HTTP values by identity', async () => {
+  it('@zmdb/core/web exports app and HTTP values by identity', async () => {
     const [appValue, webValue, webFacadeValue, productValue] = await Promise.all([
       loadModule(APP_SPECIFIER),
       loadModule(WEB_SPECIFIER),
-      loadModule('zmdb/web'),
-      loadModule('zmdb'),
+      loadModule('@zmdb/core/web'),
+      loadModule('@zmdb/core'),
     ]);
     const app = moduleRecord(appValue, APP_SPECIFIER);
     const web = moduleRecord(webValue, WEB_SPECIFIER);
-    const facade = moduleRecord(webFacadeValue, 'zmdb/web');
-    const product = moduleRecord(productValue, 'zmdb');
+    const facade = moduleRecord(webFacadeValue, '@zmdb/core/web');
+    const product = moduleRecord(productValue, '@zmdb/core');
 
     for (const name of Object.keys(app)) {
-      expect(facade[name], `zmdb/web#${name}`).toBe(app[name]);
+      expect(facade[name], `@zmdb/core/web#${name}`).toBe(app[name]);
     }
     for (const name of Object.keys(web)) {
-      expect(facade[name], `zmdb/web#${name}`).toBe(web[name]);
+      expect(facade[name], `@zmdb/core/web#${name}`).toBe(web[name]);
     }
     for (const name of ['Controller', 'Get', 'createApp']) {
       expect(product[name], `zmdb#${name}`).toBe(web[name]);
@@ -606,7 +606,7 @@ describe('server facade and reflection identity (#646)', () => {
   it('keeps jobs package-owned and absent from the default product facade', async () => {
     const jobs = moduleRecord(await loadModule(JOBS_SPECIFIER), JOBS_SPECIFIER);
     expect(typeof jobs.createQueue).toBe('function');
-    await expect(loadModule('zmdb/jobs')).rejects.toThrow(/not exported/);
+    await expect(loadModule('@zmdb/core/jobs')).rejects.toThrow(/not exported/);
   });
 
   it('keeps extension dispatch off the HTTP request hot path and shares controller identity', async () => {

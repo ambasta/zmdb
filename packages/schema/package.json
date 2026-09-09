@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/schema",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.",
   "keywords": [
     "dto",

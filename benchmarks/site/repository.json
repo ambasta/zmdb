@@ -1,0 +1,230 @@
+{
+  "captureId": "peer-refresh-2026-09-09",
+  "sourceRevision": "a86e01861b7609e8c3bc76aa9a1d85ced96cdb9f",
+  "rawFile": "peer-refresh-2026-09-09-samples.json.gz",
+  "machine": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
+  "harnessRevision": "3c1c84dc5d1b5c41277f77983697dcaa8f660083",
+  "measuredAt": "2026-09-08T23:35:00.608Z",
+  "runtime": "v26.8.1",
+  "database": "postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2)",
+  "driver": "pg8.23.0; pool12; Drizzle0.45.2; Kysely0.29.5",
+  "methodology": "Direct SQL-builder comparison uses each library to compile statements, then one common pg Pool transport and one common manual assembler. Repository/deferred lanes use the real BaseRepository. The separately labeled drizzle-relational strategy executes native findMany with one lateral JSON aggregation statement and its own result mapper through the same pool. Same selected columns and bound predicates; unordered graph equality is checked outside timing. All statements use the unprepared unnamed extended protocol. Trace timings are instrumented and excluded from clean ranking; roundtrip includes driver/network/server. Other time includes JS attachment, uninstrumented native relational compilation and async scheduling, not pure CPU. Three rotated rounds,1s warmup and4s measurement per cell; caller CPU4 and PostgreSQL CPUs6-11.",
+  "groups": [
+    {
+      "workload": "lookup",
+      "concurrency": 1,
+      "rows": [
+        {
+          "name": "zmdb-builder",
+          "isZmdb": true,
+          "operationsPerSecond": 16764.711822986083,
+          "p95": 0.0718359999882523,
+          "p99": 0.10442600000533275,
+          "range": [
+            16584.09043617385,
+            17017.8042824874
+          ],
+          "selectedRound": 3
+        },
+        {
+          "name": "kysely",
+          "isZmdb": false,
+          "operationsPerSecond": 16437.33533077464,
+          "p95": 0.0741099999868311,
+          "p99": 0.10382500001287553,
+          "range": [
+            16435.35184762965,
+            16555.817434862187
+          ],
+          "selectedRound": 2
+        },
+        {
+          "name": "repository",
+          "isZmdb": true,
+          "operationsPerSecond": 15762.714636349725,
+          "p95": 0.07636399997863919,
+          "p99": 0.11896399999386631,
+          "range": [
+            15657.909371704105,
+            16432.00125647298
+          ],
+          "selectedRound": 3
+        }
+      ]
+    },
+    {
+      "workload": "nested",
+      "concurrency": 1,
+      "rows": [
+        {
+          "name": "zmdb-builder",
+          "isZmdb": true,
+          "operationsPerSecond": 1463.9959150853972,
+          "p95": 0.918310000008205,
+          "p99": 1.0695449999766424,
+          "range": [
+            1443.911761108363,
+            1515.7639966825395
+          ],
+          "selectedRound": 3
+        },
+        {
+          "name": "kysely",
+          "isZmdb": false,
+          "operationsPerSecond": 1463.1343085070919,
+          "p95": 0.9210149999998976,
+          "p99": 1.0823489999893354,
+          "range": [
+            1424.8624074491881,
+            1517.7627304289972
+          ],
+          "selectedRound": 2
+        },
+        {
+          "name": "repository",
+          "isZmdb": true,
+          "operationsPerSecond": 1242.4107796864816,
+          "p95": 1.0548669999989215,
+          "p99": 1.2490530000068247,
+          "range": [
+            1183.9076966364312,
+            1270.3793692214265
+          ],
+          "selectedRound": 3
+        },
+        {
+          "name": "deferred",
+          "isZmdb": true,
+          "operationsPerSecond": 1215.7777685895699,
+          "p95": 1.0622309999889694,
+          "p99": 1.26705700000457,
+          "range": [
+            1208.8237550075542,
+            1242.722141897745
+          ],
+          "selectedRound": 2
+        },
+        {
+          "name": "drizzle-relational",
+          "isZmdb": false,
+          "operationsPerSecond": 1086.362445601905,
+          "p95": 1.2759840000071563,
+          "p99": 1.477573999989545,
+          "range": [
+            1048.8448058428262,
+            1087.4971627199034
+          ],
+          "selectedRound": 3
+        }
+      ]
+    },
+    {
+      "workload": "lookup",
+      "concurrency": 48,
+      "rows": [
+        {
+          "name": "zmdb-builder",
+          "isZmdb": true,
+          "operationsPerSecond": 48183.92401524536,
+          "p95": 1.5743559999973513,
+          "p99": 2.167293000005884,
+          "range": [
+            47721.745232021865,
+            48284.18492710797
+          ],
+          "selectedRound": 3
+        },
+        {
+          "name": "kysely",
+          "isZmdb": false,
+          "operationsPerSecond": 44505.0158602041,
+          "p95": 1.6838319999951636,
+          "p99": 2.0672450000129174,
+          "range": [
+            42060.13238495093,
+            45722.13361000195
+          ],
+          "selectedRound": 2
+        },
+        {
+          "name": "repository",
+          "isZmdb": true,
+          "operationsPerSecond": 41179.504169999396,
+          "p95": 1.8802030000078958,
+          "p99": 2.2889720000093803,
+          "range": [
+            38581.411533712446,
+            41624.802342600386
+          ],
+          "selectedRound": 2
+        }
+      ]
+    },
+    {
+      "workload": "nested",
+      "concurrency": 48,
+      "rows": [
+        {
+          "name": "zmdb-builder",
+          "isZmdb": true,
+          "operationsPerSecond": 2930.7487963505873,
+          "p95": 18.99220000000787,
+          "p99": 20.416041999997105,
+          "range": [
+            2895.5839408755664,
+            2976.530063687239
+          ],
+          "selectedRound": 2
+        },
+        {
+          "name": "kysely",
+          "isZmdb": false,
+          "operationsPerSecond": 2757.3237448116292,
+          "p95": 20.38033300000825,
+          "p99": 22.478044000003138,
+          "range": [
+            2683.631568849886,
+            2801.2643558231675
+          ],
+          "selectedRound": 1
+        },
+        {
+          "name": "repository",
+          "isZmdb": true,
+          "operationsPerSecond": 2021.2614569661155,
+          "p95": 27.142915000003995,
+          "p99": 29.067691000003833,
+          "range": [
+            2020.4150890970807,
+            2085.938983537805
+          ],
+          "selectedRound": 2
+        },
+        {
+          "name": "drizzle-relational",
+          "isZmdb": false,
+          "operationsPerSecond": 1882.2824757905596,
+          "p95": 32.04966499999864,
+          "p99": 44.93564900000638,
+          "range": [
+            1829.3550888302377,
+            1949.2582946767334
+          ],
+          "selectedRound": 1
+        },
+        {
+          "name": "deferred",
+          "isZmdb": true,
+          "operationsPerSecond": 1802.6317319024643,
+          "p95": 30.733904999986407,
+          "p99": 34.67342700000154,
+          "range": [
+            1746.7675661164922,
+            1829.1681563246605
+          ],
+          "selectedRound": 1
+        }
+      ]
+    }
+  ]
+}

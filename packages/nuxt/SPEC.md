@@ -140,4 +140,4 @@ This package does not provide:
 - a global client singleton;
 - a root barrel mixing server and client runtime implementations;
 - Vue composable reimplementations; or
-- a default `zmdb` facade export.
+- a default `@zmdb/core` facade export.

@@ -7,7 +7,7 @@ queries `populate` batches.
 ## Declaring relations on the type
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -44,7 +44,7 @@ row, not present and empty.
 The result type is `Populated<User, 'posts'>`:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Post, User; this excerpt does not repeat those declarations."}
-import type { Entity, Populated } from 'zmdb/derive';
+import type { Entity, Populated } from '@zmdb/core/derive';
 
 type UserWithPosts = Populated<User, 'posts'>;
 // { id: number; email: string; posts: readonly Entity<Post>[] }
@@ -147,7 +147,7 @@ type UserPostLeft = JoinRow<Entity<User>, Entity<Post>, 'left'>;
 // Joined columns are Partial<>
 ```
 
-`zmdb/derive` exports a `JoinRow<T, K, Kind>` that names the joined side by relation key instead of by type — `JoinRow<User, 'posts', 'inner'>`. Same asymmetry, different argument.
+`@zmdb/core/derive` exports a `JoinRow<T, K, Kind>` that names the joined side by relation key instead of by type — `JoinRow<User, 'posts', 'inner'>`. Same asymmetry, different argument.
 
 ## Related
 

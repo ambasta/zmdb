@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/transport-kafka",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Kafka event transport with ordered manual offsets, partition retries and bounded application lifecycle.",
   "keywords": [
     "kafka",
@@ -44,7 +44,7 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/app": "1.0.0-beta.1",
+    "@zmdb/app": "1.0.0-beta.2",
     "kafkajs": ">=2.2.4 <3.0.0"
   },
   "engines": {

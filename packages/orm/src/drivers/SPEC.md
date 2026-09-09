@@ -5,8 +5,8 @@
 
 ## Issue #635 ownership exit
 
-`Driver`, `ExecuteOptions`, and `TransactionalDriver` remain structural contracts in `@zmdb/orm`, exposed through `zmdb/orm`. Concrete adapters live in the six database packages with their client
-peers and acceptance fixtures. The generic repository does not import, probe, register, or re-export a concrete adapter.
+`Driver`, `ExecuteOptions`, and `TransactionalDriver` remain structural contracts in `@zmdb/orm`, exposed through `@zmdb/core/orm`. Concrete adapters live in the six database packages with their
+client peers and acceptance fixtures. The generic repository does not import, probe, register, or re-export a concrete adapter.
 
 Epic #209 shipped official `Driver` implementations so users do not hand-write one. The `Driver` interface itself is `../../SPEC.md` §1 — a required `SqlDialect` object and `execute`, plus optional
 `stream` (§1a there). Adapters are thin, dependency-injected wrappers — the repository still never opens connections itself.

@@ -6,7 +6,7 @@ repository and driver contracts come from `@zmdb/orm`. `postgresVertical` pairs 
 ## Install
 
 ```bash
-yarn add @zmdb/postgres@1.0.0-beta.1 @zmdb/sql@1.0.0-beta.1 @zmdb/migrations@1.0.0-beta.1 pg@^8.23.0
+yarn add @zmdb/postgres@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2 @zmdb/migrations@1.0.0-beta.2 pg@^8.23.0
 ```
 
 For the TypeScript snippets, install the declaration inputs used by the packed consumer:
@@ -15,7 +15,7 @@ For the TypeScript snippets, install the declaration inputs used by the packed c
 yarn add --dev typescript@7.0.2 @types/node@26.4.1 @types/pg@8.23.1
 ```
 
-Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `zmdb` adds its selected
+Use Node.js 26+ and ESM. Keep the required `@zmdb/sql` and `@zmdb/orm` peers aligned with this package's version; npm resolves those peers. An application already using `@zmdb/core` adds its selected
 database package and client rather than replacing the product facade.
 
 `pg` is an optional peer in package metadata because callers supply the structural client. Install it explicitly for this node-postgres recipe; importing the vertical itself does not import the SDK or

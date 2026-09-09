@@ -2,6 +2,216 @@
 
 ## [Unreleased]
 
+## [ai@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **ai:** Prepare `@zmdb/ai` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [ai-anthropic@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **ai-anthropic:** Prepare `@zmdb/ai-anthropic` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [ai-langchain@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **ai-langchain:** Prepare `@zmdb/ai-langchain` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [ai-vercel@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **ai-vercel:** Prepare `@zmdb/ai-vercel` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [angular@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **angular:** Prepare `@zmdb/angular` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [cli@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **cli:** Generate project dependencies and imports using `@zmdb/core`, retaining the `zmdb` executable.
+
+## [client@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **client:** Prepare `@zmdb/client` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [cockroach@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **cockroach:** Prepare `@zmdb/cockroach` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [compiler@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **compiler:** Recognize `@zmdb/core` AOT imports and emit schema support types from `@zmdb/core/schema`.
+
+## [core@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **product:** Publish the umbrella package as `@zmdb/core`, keeping its existing API and concern subpaths.
+
+## [jobs-postgres@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **jobs-postgres:** Prepare `@zmdb/jobs-postgres` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [jobs-sqlite@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **jobs-sqlite:** Prepare `@zmdb/jobs-sqlite` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [mcp@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **mcp:** Prepare `@zmdb/mcp` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [migrations@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **migrations:** Prepare `@zmdb/migrations` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [mssql@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **mssql:** Prepare `@zmdb/mssql` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [mysql@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **mysql:** Prepare `@zmdb/mysql` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [next@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **next:** Prepare `@zmdb/next` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [nuxt@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **nuxt:** Prepare `@zmdb/nuxt` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [otel@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **otel:** Prepare `@zmdb/otel` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [postgres@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **postgres:** Prepare `@zmdb/postgres` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [protobuf@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **protobuf:** Prepare `@zmdb/protobuf` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [react@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **react:** Prepare `@zmdb/react` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [react-native@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **react-native:** Prepare `@zmdb/react-native` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [singlestore@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **singlestore:** Prepare `@zmdb/singlestore` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [solid@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **solid:** Prepare `@zmdb/solid` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [sqlite@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **sqlite:** Prepare `@zmdb/sqlite` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [svelte@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **svelte:** Prepare `@zmdb/svelte` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [sveltekit@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **sveltekit:** Prepare `@zmdb/sveltekit` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [transport-grpc@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **transport-grpc:** Prepare `@zmdb/transport-grpc` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [transport-kafka@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **transport-kafka:** Prepare `@zmdb/transport-kafka` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [transport-nats@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **transport-nats:** Prepare `@zmdb/transport-nats` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [transport-rabbitmq@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **transport-rabbitmq:** Prepare `@zmdb/transport-rabbitmq` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [transport-redis@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **transport-redis:** Prepare `@zmdb/transport-redis` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [transport-sqs@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **transport-sqs:** Prepare `@zmdb/transport-sqs` for the coordinated scoped-package beta with updated package versions and installation examples.
+
+## [vue@1.0.0-beta.2] - 2026-09-09
+
+### Changed
+
+- **vue:** Prepare `@zmdb/vue` for the coordinated scoped-package beta with updated package versions and installation examples.
+
 ## [core@1.0.0-beta.1] - 2026-09-08
 
 ### Added

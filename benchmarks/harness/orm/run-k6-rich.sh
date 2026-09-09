@@ -19,11 +19,15 @@
 #   REPEATS=5 ./run-k6-rich.sh
 #   WARMUP=0 ./run-k6-rich.sh
 #   ORMS="zmdb drizzle kysely" ./run-k6-rich.sh  # explicitly refresh competitors
-set -u
+set -euo pipefail
 # shellcheck source=bench-env.sh
 . "$(dirname -- "${BASH_SOURCE[0]}")/bench-env.sh"
 OUT="$WORK/k6rich"
 mkdir -p "$OUT"
+ACTIVE_SERVER_PID=""
+trap 'if [ -n "$ACTIVE_SERVER_PID" ]; then stop_server "$ACTIVE_SERVER_PID"; fi' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 cat > "$WORK/bench-rich.js" <<'JS'
 import { scenario } from 'k6/execution';
@@ -78,33 +82,50 @@ JS
 sample_one() { # $1=orm $2=rep
   local orm=$1 rep=$2 port=${PORT[$1]}
   local pid
-  pid=$(start_server "$orm" "$port" "$WORK/rich-$orm.log") || return 1
+  start_server "$orm" "$port" "$WORK/rich-$orm-rep$rep.log" >/dev/null || return 1
+  pid=$SERVER_PID
+  ACTIVE_SERVER_PID=$pid
+  printf '%s %s %s\n' "$rep" "$orm" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT/order.txt"
   if [ "$WARMUP" = 1 ]; then
-    if ! HOST="http://localhost:$port" REQ="$REQ" "$K6" run --quiet "$WORK/warmup-rich.js" \
+    if ! HOST="http://localhost:$port" REQ="$REQ" "$K6" run --quiet --summary-trend-stats="$TREND_STATS" --summary-export="$OUT/$orm-warmup-rep$rep.json" "$WORK/warmup-rich.js" \
       >"$WORK/warmup-rich-$orm-rep$rep.log" 2>&1; then
       stop_server "$pid"
+      ACTIVE_SERVER_PID=""
       return 1
     fi
   fi
   if ! HOST="http://localhost:$port" REQ="$REQ" "$K6" run --quiet --summary-trend-stats="$TREND_STATS" --summary-export="$OUT/$orm-rep$rep.json" \
     "$WORK/bench-rich.js" >"$WORK/k6rich-$orm-rep$rep.log" 2>&1; then
     stop_server "$pid"
+    ACTIVE_SERVER_PID=""
     return 1
   fi
   echo "  pass $rep: $orm done"
   stop_server "$pid"
+  ACTIVE_SERVER_PID=""
 }
 
+read -r -a candidates <<< "$ORMS"
 for rep in $(seq 1 "$REPEATS"); do
   echo "### pass $rep of $REPEATS"
-  for orm in $ORMS; do sample_one "$orm" "$rep" || exit 1; done
+  for ((slot = 0; slot < ${#candidates[@]}; slot++)); do
+    orm=${candidates[$(((rep - 1 + slot) % ${#candidates[@]}))]}
+    sample_one "$orm" "$rep" || exit 1
+  done
 done
 
 # Emit a combined summary the doc can use.
-REPEATS="$REPEATS" OUT="$OUT" ORMS="$ORMS" node -e '
+REPEATS="$REPEATS" OUT="$OUT" ORMS="$ORMS" REQ="$REQ" node -e '
 const fs = require("fs");
 const dir = process.env.OUT, reps = Number(process.env.REPEATS);
 const orms = process.env.ORMS.trim().split(/\s+/);
+const routeKeys = [...new Set(JSON.parse(fs.readFileSync(process.env.REQ)).map(path =>
+  "lat_" + path.split("?")[0].replace(/[^A-Za-z0-9_]/g, "_")))].sort();
+const numeric = (value, label) => {
+  if (!Number.isFinite(value)) throw new Error(`missing or invalid metric: ${label}`);
+  return value;
+};
+const samples = {};
 
 // For each ORM: load every pass, then keep the pass whose throughput is the
 // median. Reporting one real pass keeps the percentiles and the per-route
@@ -114,11 +135,25 @@ for (const o of orms) {
   const passes = [];
   for (let r = 1; r <= reps; r += 1) {
     const path = `${dir}/${o}-rep${r}.json`;
-    if (!fs.existsSync(path)) continue;
     const m = JSON.parse(fs.readFileSync(path)).metrics;
-    passes.push({ rate: m.http_reqs.rate, m });
+    for (const key of ["http_req_duration", ...routeKeys]) {
+      for (const field of ["avg", "med", "p(90)", "p(95)", "p(99)"]) {
+        numeric(m[key]?.[field], `${o} pass ${r} ${key}.${field}`);
+      }
+    }
+    numeric(m.http_reqs?.count, `${o} pass ${r} request count`);
+    numeric(m.http_req_failed?.passes, `${o} pass ${r} HTTP failures`);
+    const rate = numeric(m.http_reqs?.rate, `${o} pass ${r} request rate`);
+    if (rate <= 0) throw new Error(`${o} pass ${r} has no successful throughput sample`);
+    passes.push({ pass: r, rate, m });
   }
-  if (!passes.length) continue;
+  samples[o] = passes.map(({ pass, rate, m }) => ({
+    pass, rate, requests: m.http_reqs.count, failed: m.http_req_failed.passes,
+    p95: m.http_req_duration["p(95)"], p99: m.http_req_duration["p(99)"],
+    routes: Object.fromEntries(routeKeys.map(key => [key.slice(4), {
+      p95: m[key]["p(95)"], p99: m[key]["p(99)"],
+    }])),
+  }));
   const byRate = passes.slice().sort((a, b) => a.rate - b.rate);
   const rates = byRate.map(p => p.rate);
   picked[o] = {
@@ -128,15 +163,17 @@ for (const o of orms) {
   };
 }
 
-const rows = orms.filter(o => picked[o]).map(o => {
+fs.writeFileSync(`${dir}/passes.json`, JSON.stringify(samples, null, 2) + "\n");
+
+const rows = orms.map(o => {
   const { m, spread, n } = picked[o];
   const d = m.http_req_duration;
   return {
     o, n, spread: spread.toFixed(2) + "x",
     reqs: Math.round(m.http_reqs.rate), total: m.http_reqs.count,
     avg: +d.avg.toFixed(1), p50: +d.med.toFixed(1), p90: +d["p(90)"].toFixed(1),
-    p95: +d["p(95)"].toFixed(1), p99: +(d["p(99)"] || 0).toFixed(1),
-    failed: m.http_req_failed ? (m.http_req_failed.passes || 0) : 0,
+    p95: +d["p(95)"].toFixed(1), p99: +d["p(99)"].toFixed(1),
+    failed: m.http_req_failed.passes,
   };
 });
 
@@ -165,22 +202,14 @@ if (rows.length > 1) {
   );
 }
 
-const zm = picked.zmdb && picked.zmdb.m;
-if (zm) {
-  const keys = Object.keys(zm).filter(k => k.startsWith("lat_")).sort();
-  // Say so out loud rather than printing an empty table under a heading, which
-  // is what this did while the trends were being silently dropped by k6.
-  if (!keys.length) {
-    console.log("\nPER-ROUTE: no lat_* metrics in the summary — the per-route trends did not register.");
-  } else {
-    console.log(`\nPER-ROUTE p95 ms (${orms.join(" / ")}), from each ORM\x27s median pass`);
-    const g = m => k => (m && m[k] ? +m[k]["p(95)"].toFixed(1) : "-");
-    for (const k of keys) {
-      console.log(
-        `${k.slice(4).padEnd(34)} ${orms.map(o => String(g(picked[o]?.m)(k)).padStart(8)).join(" ")}`,
-      );
-    }
+for (const percentile of ["p(95)", "p(99)"]) {
+  console.log(`\nPER-ROUTE ${percentile} ms (${orms.join(" / ")}), from each ORM\x27s median pass`);
+  for (const key of routeKeys) {
+    console.log(
+      `${key.slice(4).padEnd(34)} ${orms.map(o => String(+picked[o].m[key][percentile].toFixed(1)).padStart(8)).join(" ")}`,
+    );
   }
 }
+
 '
 echo DONE

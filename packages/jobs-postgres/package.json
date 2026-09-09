@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/jobs-postgres",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.",
   "keywords": [
     "adapter",
@@ -41,7 +41,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/postgres": "workspace:1.0.0-beta.1"
+    "@zmdb/postgres": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
@@ -50,7 +50,7 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/jobs": "1.0.0-beta.1",
+    "@zmdb/jobs": "1.0.0-beta.2",
     "pg": "^8.23.0"
   },
   "engines": {

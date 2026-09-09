@@ -5,7 +5,7 @@
 // Types only; contributes nothing to a bundle.
 //
 // Four of these names — `Entity`, `CreateDTO`, `UpdateDTO`, `PrimaryKeyOf` — are also on
-// `zmdb` itself. They are the same types: the root used to define schema-value twins that
+// `@zmdb/core` itself. They are the same types: the root used to define schema-value twins that
 // deferred here when the value carried a phantom, and those are gone, so both paths now
 // resolve to the definitions in `@zmdb/schema/derive`. Import from whichever reads
 // better at the use site.

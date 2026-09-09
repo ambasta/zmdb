@@ -295,7 +295,7 @@ describe('the zmdb database CLI in a temporary consumer project', { timeout: CLI
     const project = copyProject();
     write(
       join(project.root, 'src', 'schema.ts'),
-      `import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+      `import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface UserAccount extends Table<'userAccount'> {
   id: number & Sql<'integer'> & PrimaryKey;
@@ -336,7 +336,7 @@ export default {
     const project = copyProject();
     write(
       join(project.root, 'src', 'schema.ts'),
-      `import type { Ext, PrimaryKey, Sql, Table } from 'zmdb/tags';
+      `import type { Ext, PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface Item extends Table<'items'> {
   id: number & Sql<'integer'> & PrimaryKey;

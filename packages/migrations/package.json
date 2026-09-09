@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/migrations",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.",
   "keywords": [
     "database",
@@ -61,8 +61,8 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/schema": "1.0.0-beta.1",
-    "@zmdb/sql": "1.0.0-beta.1"
+    "@zmdb/schema": "1.0.0-beta.2",
+    "@zmdb/sql": "1.0.0-beta.2"
   },
   "engines": {
     "node": ">=26"

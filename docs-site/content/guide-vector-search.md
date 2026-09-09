@@ -4,7 +4,7 @@ runs the whole path. It assumes the [AOT transform](./aot-setup.html) is configu
 ## Declare the column
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { Ext, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { Ext, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface Embedding extends Table<'embeddings'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

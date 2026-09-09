@@ -45,7 +45,7 @@ const projects = [
   join(root, 'docs-site', 'tsconfig.json'),
   // The consumer fixtures, one per route into the compiled validator. Enumerated rather than
   // listed for the same reason as packages/*, and each one is a standalone project with no
-  // `paths` mapping — so this is also the check that `zmdb` and `zmdb/tags` resolve for
+  // `paths` mapping — so this is also the check that `@zmdb/core` and `@zmdb/core/tags` resolve for
   // somebody who merely installed them.
   ...readdirSync(join(root, 'fixtures'), { withFileTypes: true })
     .filter(e => e.isDirectory())

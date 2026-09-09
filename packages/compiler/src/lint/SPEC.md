@@ -91,8 +91,8 @@ The fix is safe, and the reason is worth writing down rather than assuming: ever
 stops tagging is uninhabitable before the fix, so no code can depend on it.
 
 That reasoning is also the fix's precondition — it fires only when the union has exactly one `null`/`undefined` arm _and_ every other intersection member is a local binding for a known declaration-tag
-export from `@zmdb/schema/tags` or `zmdb/tags`. Those modules also export non-tag helpers such as `Nullable`, `NonNull`, `ColumnSqlType` and `RelationKind`; importing one of those does not satisfy the
-precondition.
+export from `@zmdb/schema/tags` or `@zmdb/core/tags`. Those modules also export non-tag helpers such as `Nullable`, `NonNull`, `ColumnSqlType` and `RelationKind`; importing one of those does not
+satisfy the precondition.
 
 Import tracking, not type resolution; `(A | B) & C` for arbitrary `A`, `B`, `C` is a real semantic change and the rule leaves it alone.
 

@@ -2,7 +2,7 @@ A table is a TypeScript type. You declare it once, as an interface, and everythi
 that one declaration.
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { HasDefault, Length, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/schema';
+import type { HasDefault, Length, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/schema';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -60,8 +60,8 @@ The full list is the [tag reference](./tags-reference.html). These five cover mo
 ## What you get from it
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, driver; this excerpt does not repeat those declarations."}
-import { defineRepository, schemaOf } from 'zmdb';
-import type { CreateDTO, Entity, UpdateDTO } from 'zmdb';
+import { defineRepository, schemaOf } from '@zmdb/core';
+import type { CreateDTO, Entity, UpdateDTO } from '@zmdb/core';
 
 type Row = Entity<User>;
 // { id: number; email: string; name: string | null; role: 'admin' | 'user'; createdAt: Date }
@@ -87,7 +87,7 @@ See [Type Derivation](./type-derivation.html) for the full family, including the
 Soft delete is an entity-level declaration because it changes repository behavior for the whole table:
 
 ```ts {"mode":"compile","id":"example-004"}
-import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from 'zmdb/schema';
+import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from '@zmdb/core/schema';
 
 export interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -121,7 +121,7 @@ or the [codegen CLI](./cli-codegen.html), which commits the generated files so a
 ## Foreign keys
 
 ```ts {"mode":"compile","id":"example-006"}
-import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/schema';
+import type { PrimaryKey, References, Serial, Sql, Table } from '@zmdb/core/schema';
 
 export interface Post extends Table<'posts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -157,8 +157,8 @@ parameter at runtime, so the shape reached nothing downstream.
 `schemaOf<T>()` returns a plain frozen object when you need one:
 
 ```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies User, schemaOf; this excerpt does not repeat those declarations."}
-import { createQueryCompiler } from 'zmdb/sql';
-import { postgres } from 'zmdb/postgres';
+import { createQueryCompiler } from '@zmdb/core/sql';
+import { postgres } from '@zmdb/core/postgres';
 
 const schema = schemaOf<User>();
 const compiler = createQueryCompiler(postgres);

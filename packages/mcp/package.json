@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/mcp",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.",
   "keywords": [
     "ai",
@@ -41,7 +41,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/ai": "workspace:1.0.0-beta.1"
+    "@zmdb/ai": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@zmdb/compiler": "workspace:^",

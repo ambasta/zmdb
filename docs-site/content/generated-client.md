@@ -157,8 +157,8 @@ Point the canonical CLI at the exported contract and name both committed artifac
 
 ```ts {"mode":"compile","id":"example-004"}
 // docs-file: zmdb.config.ts
-import { sqlite } from 'zmdb/sqlite';
-import { defineConfig } from 'zmdb/config';
+import { sqlite } from '@zmdb/core/sqlite';
+import { defineConfig } from '@zmdb/core/config';
 
 export default defineConfig({
   schema: './src/schema.ts',

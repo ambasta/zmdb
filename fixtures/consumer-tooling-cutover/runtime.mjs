@@ -151,7 +151,7 @@ if (role === 'compiler') {
   );
   assert.deepEqual(Object.keys(manifest('@zmdb/cli').bin), ['zmdb']);
   assert.equal(existsSync('node_modules/.bin/zmdb-codegen'), false);
-  assert.equal(existsSync('node_modules/zmdb'), false);
+  assert.equal(existsSync('node_modules/@zmdb/core'), false);
   result.lazyStandaloneCli = true;
 } else if (role === 'product') {
   const loaded = [];
@@ -172,12 +172,12 @@ if (role === 'compiler') {
     '@zmdb/validator',
     '@zmdb/orm',
     '@zmdb/web',
-    'zmdb',
-    'zmdb/schema',
-    'zmdb/sql',
-    'zmdb/validator',
-    'zmdb/orm',
-    'zmdb/web',
+    '@zmdb/core',
+    '@zmdb/core/schema',
+    '@zmdb/core/sql',
+    '@zmdb/core/validator',
+    '@zmdb/core/orm',
+    '@zmdb/core/web',
   ]) {
     await import(specifier);
   }
@@ -202,7 +202,7 @@ if (role === 'compiler') {
     [],
   );
   const compiler = await import('@zmdb/compiler');
-  const compilerFacade = await import('zmdb/compiler');
+  const compilerFacade = await import('@zmdb/core/compiler');
   assert.equal(compilerFacade.compileProject, compiler.compileProject);
   assert.equal(compilerFacade.zmdbAot, compiler.zmdbAot);
   const metro = await import('@zmdb/compiler/metro');
@@ -212,19 +212,19 @@ if (role === 'compiler') {
   }
   assert.equal(Object.hasOwn(compilerFacade, 'MetroOptions'), false);
   const config = await import('@zmdb/compiler/config');
-  const configFacade = await import('zmdb/config');
+  const configFacade = await import('@zmdb/core/config');
   for (const name of ['defineConfig', 'loadConfig', 'resolveConfig']) assert.equal(configFacade[name], config[name]);
   const testing = await import('@zmdb/compiler/testing');
-  const testingFacade = await import('zmdb/testing');
+  const testingFacade = await import('@zmdb/core/testing');
   assert.equal(testingFacade.schemasFromFiles, testing.schemasFromFiles);
-  const migrationFacade = await import('zmdb/migrations');
+  const migrationFacade = await import('@zmdb/core/migrations');
   const migrations = await import('@zmdb/migrations');
   for (const name of ['snapshot', 'diff', 'up', 'down', 'status'])
     assert.equal(migrationFacade[name], migrations[name]);
   assert.equal(Object.hasOwn(migrationFacade, 'runCli'), false);
   const cli = await import('@zmdb/cli');
-  assert.equal((await import('zmdb/cli')).runCli, cli.runCli);
-  await refuse(['zmdb/unplugin']);
+  assert.equal((await import('@zmdb/core/cli')).runCli, cli.runCli);
+  await refuse(['@zmdb/core/unplugin']);
   await refuse(
     [
       ...['codegen', 'emit', 'lint', 'metro', 'plugin', 'reflect', 'testing', 'transformer', 'unplugin'].map(
@@ -236,7 +236,7 @@ if (role === 'compiler') {
     ],
     'ERR_MODULE_NOT_FOUND',
   );
-  assert.equal(manifest('zmdb').bin, undefined);
+  assert.equal(manifest('@zmdb/core').bin, undefined);
   assert.equal(existsSync('node_modules/.bin/zmdb-codegen'), false);
   result.runtimeAndFacadeBoundary = true;
 } else {

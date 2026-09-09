@@ -1,6 +1,6 @@
 # The `zmdb` executable — Spec (epic "The zmdb executable")
 
-> `@zmdb/cli` owns the `zmdb` executable and public tooling API; `zmdb/cli` preserves their identities (§12). Config schema and loading belong to `../compiler/src/config/SPEC.md`.
+> `@zmdb/cli` owns the `zmdb` executable and public tooling API; `@zmdb/core/cli` preserves their identities (§12). Config schema and loading belong to `../compiler/src/config/SPEC.md`.
 
 ## 1. The database verbs, and `up` is not one of them
 
@@ -237,8 +237,8 @@ hanging until the job times out. `--yes` answers every prompt in advance; on a T
 `@zmdb/cli` owns all command implementations and declares the sole executable as `"bin": { "zmdb": "./src/bin.ts" }`. Its only package export is `".": "./src/index.ts"`; publication emits the
 corresponding JavaScript and declarations under `dist`. The build lowers decorators to ES2022 for plain Node execution.
 
-The product package depends on `@zmdb/cli` and retains `zmdb/cli` as explicit identity re-exports. Its old executable, command and Studio implementation paths are deleted. The canonical architecture
-policy classifies the CLI root, its executable and the product concern facade as tooling; runtime reachability keeps them outside ordinary application exports.
+The product package depends on `@zmdb/cli` and retains `@zmdb/core/cli` as explicit identity re-exports. Its old executable, command and Studio implementation paths are deleted. The canonical
+architecture policy classifies the CLI root, its executable and the product concern facade as tooling; runtime reachability keeps them outside ordinary application exports.
 
 Dispatch, argument parsing, output and exit-code decisions live behind `index.ts`; `bin.ts` only passes `process.argv` into `runCli` and assigns the returned exit code. That split is what makes the
 commands testable without spawning a process.
@@ -497,7 +497,7 @@ Loading the spec cannot use Node's type stripping alone. Measured on the realist
 lower standard Stage-3 decorators. The CLI therefore installs a synchronous loader only for the application import and applies esbuild's standard-decorator transform, the same transform the Vitest
 configuration uses.
 
-Relative `.js` specifiers are mapped to their `.ts` siblings in that loader. `esbuild` is a dependency of the build-time-only `zmdb/cli` entry; no runtime package entry reaches it.
+Relative `.js` specifiers are mapped to their `.ts` siblings in that loader. `esbuild` is a dependency of the build-time-only `@zmdb/core/cli` entry; no runtime package entry reaches it.
 
 The cost that §4 names still applies, plus one that belongs here: **importing a root module evaluates that file and everything it imports.** Decorators run, which is the point, and any top-level side
 effect in application code runs too. `zmdb modules` constructs no provider and calls no hook, so a pool declared in a `useFactory` stays closed; a pool opened at module scope was already opening on
@@ -573,7 +573,7 @@ leaves the property true:
    the specific attack the rule exists for — piping a socket into stdin — because that is not a TTY either. The failure mode it prevents is a production process acquiring an interactive prompt on a
    stream somebody else controls.
 4. **A gate.** `yarn verify:runtime-reachability` enforces the policy for every package export and executable. `yarn verify:devtools-boundary` remains a compatibility wrapper over that same verifier
-   and therefore also catches `zmdb`'s `.` or `./web` re-exporting the inspector (`@zmdb/web`'s `src/devtools/SPEC.md` §9). The facade enumerates every public symbol by habit
+   and therefore also catches `@zmdb/core`'s `.` or `./web` re-exporting the inspector (`@zmdb/web`'s `src/devtools/SPEC.md` §9). The facade enumerates every public symbol by habit
    (`packages/zmdb/src/web.ts:1-2`), so that file is where this rule breaks first, and a gate is the only thing that notices.
 
 **There is no socket, no `--inspect`, no `--host` and no `--port`.** §14.3's argument for `studio` applies here in a stronger form: for the studio, the loopback bind _is_ the security boundary; for
@@ -683,8 +683,8 @@ least one output was missing or byte-different before the command. There is no b
 
 ## Amendment: package owner and lazy command graph (#626)
 
-`@zmdb/cli` owns `runCli`, argument parsing, output, prompts, scaffolding and the one `zmdb` binary. The facade's own bin and implementation are deleted, while `zmdb/cli` remains the stable identity
-product entry.
+`@zmdb/cli` owns `runCli`, argument parsing, output, prompts, scaffolding and the one `zmdb` binary. The facade's own bin and implementation are deleted, while `@zmdb/core/cli` remains the stable
+identity product entry.
 
 Database verbs delegate to `@zmdb/migrations`; `codegen` delegates to `@zmdb/compiler`. `new`, `modules`, `repl`, `studio` and `client generate` are selected through literal lazy loaders, so help and
 database/compiler commands do not import web, application loaders, REPL, Studio or optional client-generation code. A missing optional command dependency is an exit-2 diagnostic naming the command and
@@ -694,7 +694,7 @@ No command implementation is registered by import side effect, and no compatibil
 
 ## Unified executable ownership (#630)
 
-`@zmdb/cli` owns the only `zmdb` bin and command implementation. `zmdb/cli` is the identity facade. The compiler root exposes `watchCodegen`, `CodegenOptions`, `CodegenResult` and `WatchOptions`;
-owned sessions close on initial or timer failure, borrowed sessions remain usable, and either until outcome stops pending work. Codegen check writes nothing; finite generation uses `compileProject`
-then `writeCompileResult`. All other commands and their public result shapes remain as specified above. App/web/esbuild are optional command-selected peers; root/help/version load no compiler,
-migrations, application or REPL. No compatibility or old-data conversion layer is permitted.
+`@zmdb/cli` owns the only `zmdb` bin and command implementation. `@zmdb/core/cli` is the identity facade. The compiler root exposes `watchCodegen`, `CodegenOptions`, `CodegenResult` and
+`WatchOptions`; owned sessions close on initial or timer failure, borrowed sessions remain usable, and either until outcome stops pending work. Codegen check writes nothing; finite generation uses
+`compileProject` then `writeCompileResult`. All other commands and their public result shapes remain as specified above. App/web/esbuild are optional command-selected peers; root/help/version load no
+compiler, migrations, application or REPL. No compatibility or old-data conversion layer is permitted.

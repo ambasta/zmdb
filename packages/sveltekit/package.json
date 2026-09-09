@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/sveltekit",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.",
   "keywords": [
     "client",
@@ -41,8 +41,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-beta.1",
-    "@zmdb/svelte": "workspace:1.0.0-beta.1"
+    "@zmdb/client": "workspace:1.0.0-beta.2",
+    "@zmdb/svelte": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@sveltejs/kit": "2.70.3",

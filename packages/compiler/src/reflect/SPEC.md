@@ -169,8 +169,8 @@ again or agrees with another pass by luck.
 The order for one column is: read the tags, then take `Physical<'…'>` if the declaration carries one, else `naming.column(property, …)` if configured, else the property name. Explicit beats strategy,
 and the strategy is never consulted for a column that already answered the question.
 
-`Physical` is a type-only export from both `@zmdb/schema/tags` and `zmdb/tags`. The same optional unique-symbol slot is read in two positions: directly on the interface for `physicalTable`, and from a
-property's intersection members for `physicalName`.
+`Physical` is a type-only export from both `@zmdb/schema/tags` and `@zmdb/core/tags`. The same optional unique-symbol slot is read in two positions: directly on the interface for `physicalTable`, and
+from a property's intersection members for `physicalName`.
 
 `context.table` is the **declared** table name, not the physical one. A user function that special-cases a table wants the string the author wrote, and passing the declared name means that function
 reads the same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently changes which branch a `column` strategy takes.
@@ -190,7 +190,7 @@ names both property names; the known defect in `EmitDiagnostic.path` (it carries
 Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved from `@zmdb/compiler/config`, so the reflector receives one strategy object and never discovers or
 evaluates project configuration itself.
 
-Both AOT routes have to resolve the same config: the `zmdb/unplugin` transformer entry and `@zmdb/compiler` project compilation each receive the `resolvedNaming` produced by `loadConfig`, and
+Both AOT routes have to resolve the same config: the `@zmdb/core/unplugin` transformer entry and `@zmdb/compiler` project compilation each receive the `resolvedNaming` produced by `loadConfig`, and
 `yarn verify:fixtures` is the gate that proves the two routes emit the same physical names. The consumer pair declares `Table<'order'>` with a `shipTo` property and both routes emit `orders.ship_to`.
 
 ## 8. What a declaration says and a schema value cannot

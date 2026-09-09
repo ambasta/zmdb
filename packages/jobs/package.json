@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/jobs",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Portable typed queues, workers, scheduling, leases, and application lifecycle integration.",
   "keywords": [
     "cron",

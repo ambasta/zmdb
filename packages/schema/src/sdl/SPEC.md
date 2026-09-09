@@ -131,7 +131,7 @@ it changes when the property is renamed, when the property moves to another type
 side is one line — give the interface a name — and the diagnostic says so:
 
 ```
-zmdb/sdl: Order.shipTo is an anonymous object type and GraphQL requires every type to be named.
+@zmdb/core/sdl: Order.shipTo is an anonymous object type and GraphQL requires every type to be named.
   Extract it: `interface ShipTo { line1: string; city: string }`.
   at src/orders.ts:14
 ```
@@ -150,7 +150,7 @@ name of its own. The values are emitted in that sorted order, which is what make
 name, and inventing `FREE_TIER` would promise a client a value the resolver never returns. The diagnostic offers the declaration that requests the degradation explicitly:
 
 ```
-zmdb/sdl: User.plan has the value "free-tier", which is not a GraphQL enum value name.
+@zmdb/core/sdl: User.plan has the value "free-tier", which is not a GraphQL enum value name.
   Rename the member, or declare the column as a plain string on the wire with `WireAs<string>`.
 ```
 
@@ -329,7 +329,7 @@ This changes the epic's Definition of Done item 5 and two of #539's test titles;
 - **`CALLEES` in `packages/compiler/src/transform/index.ts` gains `sdlOf`, `sdlFields` and `costsOf`.** An untransformed call is a runtime type walk, and there is no runtime to walk to — both throw
   the same "was not replaced at build time" error `schemaOf` does. The test that pins the list, `it('names every transformed call, and every one of them is a function somebody can call', …)`, asserts
   the members literally without putting a moving count in its title, as `packages/compiler/src/emit/SPEC.md` §7 requires.
-- **A new `./sdl` subpath** on `@zmdb/schema`, re-exported by the `zmdb` umbrella, covered by `yarn verify:exports` and `yarn verify:publish`. It is **not** a `BUILD_TIME_ENTRIES` addition: the
+- **A new `./sdl` subpath** on `@zmdb/schema`, re-exported by the `@zmdb/core` umbrella, covered by `yarn verify:exports` and `yarn verify:publish`. It is **not** a `BUILD_TIME_ENTRIES` addition: the
   emitter consumes IR, so nothing here imports `typescript`, exactly as `./openapi` does not.
 - **`yarn verify:one-walker` stays green without an exemption**, which §2 is what makes true. An emitter that needed a `MAY_NAME` entry would be the second front end this epic's architecture
   constraints forbid.

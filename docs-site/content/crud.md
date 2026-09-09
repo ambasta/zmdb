@@ -45,7 +45,7 @@ const allUsers = await users.findAll();
 Partial update. The payload is an `UpdatePatch<S>` — all fields are optional; ordinary values must match `UpdateDTO<S>`, and branded expression operands must match the same column type.
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies posts, users; this excerpt does not repeat those declarations."}
-import { inc } from 'zmdb/sql';
+import { inc } from '@zmdb/core/sql';
 
 const updated = await users.update(1, { role: 'admin' });
 // updated: Entity<UserSchema> | undefined (undefined if id not found)

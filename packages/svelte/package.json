@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/svelte",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.",
   "keywords": [
     "client",
@@ -39,7 +39,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-beta.1"
+    "@zmdb/client": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "svelte": "5.57.0",

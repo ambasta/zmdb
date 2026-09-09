@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/react-native",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.",
   "keywords": [
     "client",
@@ -40,8 +40,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-beta.1",
-    "@zmdb/react": "workspace:1.0.0-beta.1"
+    "@zmdb/client": "workspace:1.0.0-beta.2",
+    "@zmdb/react": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@types/react": "19.2.18",

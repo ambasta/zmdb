@@ -7,7 +7,7 @@ Reach for it where a failure means something upstream is broken. Where a failure
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies req; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
-import type { MaxLength, Min } from 'zmdb/tags';
+import type { MaxLength, Min } from '@zmdb/core/tags';
 
 interface Player {
   username: string & MaxLength<20>;
@@ -62,7 +62,7 @@ a wrong type reads the type (`number`, `string`, `Date`, `"draft" | "published"`
 ## Asserting a table's write shape
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, app, assert, users; this excerpt does not repeat those declarations."}
-import type { CreateDTO, Entity } from 'zmdb/derive';
+import type { CreateDTO, Entity } from '@zmdb/core/derive';
 
 app.post('/users', async (req, reply) => {
   const dto = assert<CreateDTO<User>>(await req.body); // throws on a bad body
@@ -98,10 +98,10 @@ wrong — "you also passed `extra`" is noise next to "`name` is not a string".
 
 ## Constraints
 
-The tags from `zmdb/tags` are what the checks come from, on a bare type argument as much as on a table:
+The tags from `@zmdb/core/tags` are what the checks come from, on a bare type argument as much as on a table:
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies assert, input; this excerpt does not repeat those declarations."}
-import type { Pattern } from 'zmdb/tags';
+import type { Pattern } from '@zmdb/core/tags';
 
 type Email = string & Pattern<'^[^@]+@[^@]+$'>;
 

@@ -8,12 +8,12 @@ operations under a bounded deadline; only internally acquired pool connections a
 ## Install
 
 ```bash
-yarn add @zmdb/jobs@1.0.0-beta.1 @zmdb/jobs-postgres@1.0.0-beta.1 pg@^8.23.0
+yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-postgres@1.0.0-beta.2 pg@^8.23.0
 ```
 
-> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+> **Prerelease** (`1.0.0-beta.2`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-The required peers are `@zmdb/jobs@1.0.0-beta.1` and `pg@^8.23.0`. Neither jobs, pg nor this adapter is installed by `yarn add zmdb@1.0.0-beta.1`. Portable jobs owns queues, workers, retries and
+The required peers are `@zmdb/jobs@1.0.0-beta.2` and `pg@^8.23.0`. Neither jobs, pg nor this adapter is installed by `yarn add @zmdb/core@1.0.0-beta.2`. Portable jobs owns queues, workers, retries and
 scheduling; the provider owns its fresh schema.
 
 ## Usage

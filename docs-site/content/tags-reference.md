@@ -1,4 +1,4 @@
-Every tag, in one place. Import from `zmdb/tags` (or `@zmdb/schema/tags`) unless noted.
+Every tag, in one place. Import from `@zmdb/core/tags` (or `@zmdb/schema/tags`) unless noted.
 
 Most tags are optional `unique symbol` property slots:
 
@@ -177,7 +177,7 @@ TypeScript already says all six, the reflection reads them off the type directly
 > [!WARNING] Spell a nullable column `(T & Tags) | null` — tags inside, `| null` outside. TypeScript normalises `(T | null) & Unique` into `(T & Unique) | (null & Unique)`, and `null & Unique` reduces
 > to `never`, so the column silently stops being nullable. A trap with a mechanism, not a style preference.
 
-## Two installs of `zmdb`
+## Two installs of `@zmdb/core`
 
 `unique symbol` identity is nominal, so two copies of `@zmdb/schema` in one `node_modules` produce two non-matching `Serial` tags from identical source text. The consequence is not a type error: the
 filter that picks serial columns collapses to `never`, `Omit<T, never>` is `T`, and a generated column silently becomes **required** on insert — while the emitted validator, which matches tags by

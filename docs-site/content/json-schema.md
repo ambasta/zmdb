@@ -7,8 +7,8 @@ systems, and code generation tools.
 
 ```ts {"mode":"compile","id":"example-001"}
 import { toJsonSchema } from '@zmdb/schema/openapi';
-import { schemaOf } from 'zmdb';
-import type { Min, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import { schemaOf } from '@zmdb/core';
+import type { Min, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

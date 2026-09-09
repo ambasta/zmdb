@@ -1,6 +1,6 @@
 export interface ProductPackageFacade {
   readonly root: readonly string[];
-  readonly subpaths: readonly `zmdb/${string}`[];
+  readonly subpaths: readonly `@zmdb/core/${string}`[];
 }
 
 export type ProductPackageOptionality =

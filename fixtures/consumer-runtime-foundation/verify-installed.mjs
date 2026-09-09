@@ -183,7 +183,7 @@ export async function qualifyRuntimeFoundation({ tarballs, evidence }) {
         const name = path.slice(path.lastIndexOf('node_modules/') + 13);
         const record = records.get(name);
         if (!record) {
-          assert(!name.startsWith('@zmdb/') && name !== 'zmdb', `unprovided workspace package ${name}`);
+          assert(!name.startsWith('@zmdb/'), `unprovided workspace package ${name}`);
           continue;
         }
         assert.equal(locked.resolved, `${registry.origin}/tarballs/${record.sha256}.tgz`);

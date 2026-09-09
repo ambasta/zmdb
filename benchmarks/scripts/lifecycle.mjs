@@ -138,7 +138,7 @@ async function build() {
         if (!manifest.peerDependenciesMeta?.[peer]?.optional) visit(peer);
       }
     }
-    visit('zmdb');
+    visit('@zmdb/core');
     const plan = JSON.parse(
       (await run('canonical build plan', process.execPath, ['scripts/build-workspaces.mjs', '--plan'], checkout, env))
         .stdout,
@@ -210,7 +210,7 @@ async function consume() {
       name: 'zmdb-lifecycle-consumer',
       private: true,
       type: 'module',
-      dependencies: { zmdb: records.get('zmdb').manifest.version },
+      dependencies: { '@zmdb/core': records.get('@zmdb/core').manifest.version },
       devDependencies: {
         typescript: rootManifest.devDependencies.typescript,
         '@types/node': rootManifest.devDependencies['@types/node'],
@@ -280,7 +280,7 @@ async function consume() {
       [
         '--input-type=module',
         '--eval',
-        "const product = await import('zmdb'); if (typeof product.createApp !== 'function') throw new Error('createApp missing'); console.log(import.meta.resolve('zmdb'));",
+        "const product = await import('@zmdb/core'); if (typeof product.createApp !== 'function') throw new Error('createApp missing'); console.log(import.meta.resolve('@zmdb/core'));",
       ],
       consumer,
       {},

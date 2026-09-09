@@ -218,8 +218,8 @@ function installCommand(row, manifest, productManifest) {
   }
   const productVersion = typeof productManifest.version === 'string' ? productManifest.version : 'missing';
   const productDependencies = productManifest.dependencies ?? {};
-  if (row.npmName === 'zmdb' || Object.hasOwn(productDependencies, row.npmName)) {
-    return `yarn add zmdb@${productVersion}`;
+  if (row.npmName === '@zmdb/core' || Object.hasOwn(productDependencies, row.npmName)) {
+    return `yarn add @zmdb/core@${productVersion}`;
   }
   return `yarn add ${String(manifest.name ?? row.npmName)}@${version}`;
 }
@@ -227,7 +227,7 @@ function installCommand(row, manifest, productManifest) {
 export function renderPackageReferenceRows(rows, manifests, releasePolicy) {
   const productManifest = packageManifest(
     manifests,
-    rows.find(row => row.npmName === 'zmdb')?.directory ?? 'packages/zmdb',
+    rows.find(row => row.npmName === '@zmdb/core')?.directory ?? 'packages/zmdb',
   );
   const packages = [...rows]
     .toSorted((left, right) => left.npmName.localeCompare(right.npmName))

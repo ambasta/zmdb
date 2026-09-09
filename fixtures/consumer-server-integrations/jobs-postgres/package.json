@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@zmdb/jobs": "1.0.0-beta.1",
-    "@zmdb/jobs-postgres": "1.0.0-beta.1",
+    "@zmdb/jobs": "1.0.0-beta.2",
+    "@zmdb/jobs-postgres": "1.0.0-beta.2",
     "pg": "8.23.0"
   },
   "devDependencies": {

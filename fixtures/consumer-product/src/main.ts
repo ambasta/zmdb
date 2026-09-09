@@ -17,8 +17,8 @@ import {
   type Ctx,
   type Entity,
   type UpdateDTO,
-} from 'zmdb';
-import { sqlite, sqliteDriver } from 'zmdb/sqlite';
+} from '@zmdb/core';
+import { sqlite, sqliteDriver } from '@zmdb/core/sqlite';
 
 import type { Order } from './schema.js';
 

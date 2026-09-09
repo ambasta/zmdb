@@ -1,4 +1,4 @@
-import { defineSqlDialect } from 'zmdb/sql';
+import { defineSqlDialect } from '@zmdb/core/sql';
 
 function outsideJourney(): never {
   throw new Error('default consumer does not exercise migrations or introspection');

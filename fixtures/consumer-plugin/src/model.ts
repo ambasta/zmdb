@@ -9,7 +9,7 @@
 // `Sql<'integer'>` is the one to read twice: `integer`, `bigint` and `numeric` are all
 // `number` in TypeScript, so the column type is a fact only the declaration can carry.
 
-import type { Length, Min, MinLength, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { Length, Min, MinLength, PrimaryKey, Serial, Sql, Table, Unique } from '@zmdb/core/tags';
 
 export interface Address {
   readonly line1: string & MinLength<1>;

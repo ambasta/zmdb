@@ -12,8 +12,8 @@ Point `http.contracts` at the exported contract object the router registers, the
 
 ```ts {"mode":"compile","id":"example-001"}
 // zmdb.config.ts
-import { postgres } from 'zmdb/postgres';
-import { defineConfig } from 'zmdb/config';
+import { postgres } from '@zmdb/core/postgres';
+import { defineConfig } from '@zmdb/core/config';
 
 export default defineConfig({
   schema: './src/schema.ts',

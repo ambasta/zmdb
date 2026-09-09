@@ -9,7 +9,7 @@ The six official database packages use the same selection workflow. The [package
 
 | Step             | SingleStore selection                                                                                                                                                                                                                                         |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install          | `yarn add @zmdb/singlestore@1.0.0-beta.1 mysql2@^3.24.3`                                                                                                                                                                                                      |
+| Install          | `yarn add @zmdb/singlestore@1.0.0-beta.2 mysql2@^3.24.3`                                                                                                                                                                                                      |
 | Configure        | Supply an application-owned `mysql2/promise` client to `singlestoreDriver(client)`; the application closes it.                                                                                                                                                |
 | Compile          | `createQueryCompiler(singlestore)` from `@zmdb/sql` produces SQL and a separate parameter array.                                                                                                                                                              |
 | Migrate          | `singlestore.migrations.emitUp(operation)` and `singlestore.migrations.connection(driver)` supply database-specific DDL and runner behavior; `@zmdb/migrations` owns `up`/`down`.                                                                             |
@@ -90,7 +90,7 @@ CREATE TABLE `orders` (
 SingleStore's default is columnstore, so there is no `COLUMNSTORE` keyword in that statement. For a transactional hot path, opt into row-oriented storage:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies PrimaryKey, Sql, Table; this excerpt does not repeat those declarations."}
-import type { Rowstore } from 'zmdb/tags';
+import type { Rowstore } from '@zmdb/core/tags';
 
 export interface Session extends Table<'sessions'>, Rowstore {
   id: string & Sql<'text'> & PrimaryKey;

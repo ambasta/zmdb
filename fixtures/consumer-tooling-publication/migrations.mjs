@@ -11,7 +11,8 @@ import { sqlite, sqliteDriver, sqliteMigrations } from '@zmdb/sqlite';
 const expected = JSON.parse(readFileSync('expected.json', 'utf8')).migrations;
 const manifest = JSON.parse(readFileSync('node_modules/@zmdb/migrations/package.json', 'utf8'));
 assert.deepEqual(Object.keys(manifest.exports).toSorted(), expected.subpaths);
-for (const name of ['@zmdb/cli', '@zmdb/compiler', 'zmdb']) assert.equal(existsSync(join('node_modules', name)), false);
+for (const name of ['@zmdb/cli', '@zmdb/compiler', '@zmdb/core'])
+  assert.equal(existsSync(join('node_modules', name)), false);
 for (const subpath of expected.subpaths) await import(`@zmdb/migrations${subpath === '.' ? '' : subpath.slice(1)}`);
 
 const empty = snapshot([]);

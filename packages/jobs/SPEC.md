@@ -7,7 +7,7 @@
 
 Selection classes are contextual to a product journey:
 
-- **default core** is a catalog package installed by `zmdb` that supplies or implements its schema, ORM, validation, application, or web runtime;
+- **default core** is a catalog package installed by `@zmdb/core` that supplies or implements its schema, ORM, validation, application, or web runtime;
 - **selected first-party capability** is product-owned and documented as part of zmdb, but enters the graph only through an explicit direct install;
 - **concrete provider** implements a technology-specific storage or database boundary; a product may deliberately include one provider in an opinionated journey;
 - **development-only** is installed for an explicit CLI/compiler/migration/tooling entry and must be unreachable from ordinary runtime entries; and
@@ -18,8 +18,8 @@ preserved in [ADR 0002](../../docs/adr/0002-selected-jobs-baseline.md).
 
 ## 2. Product-selection contract
 
-The default product is the opinionated `zmdb` schema, ORM, validation, application-kernel, and HTTP journey. Installing `zmdb` installs the metadata-declared default closure, including SQLite. It must
-not install another database package, `@zmdb/jobs`, a jobs provider, or `pg`.
+The default product is the opinionated `@zmdb/core` schema, ORM, validation, application-kernel, and HTTP journey. Installing `@zmdb/core` installs the metadata-declared default closure, including
+SQLite. It must not install another database package, `@zmdb/jobs`, a jobs provider, or `pg`.
 
 Jobs is one **selected first-party capability**. It is cohesive without being mandatory:
 
@@ -28,7 +28,7 @@ Jobs is one **selected first-party capability**. It is cohesive without being ma
 3. **Documentation:** the zmdb documentation presents one jobs capability and gives provider-specific install tabs; it does not present package boundaries as competing products.
 4. **Identity:** a value or type composed by a provider is the direct `@zmdb/jobs` value or type. Providers do not wrap, subclass, redeclare, or bundle a second jobs runtime.
 
-None of those cohesion rules authorises a production dependency from `zmdb` to jobs. Mandatory installation is explicitly not a cohesion mechanism.
+None of those cohesion rules authorises a production dependency from `@zmdb/core` to jobs. Mandatory installation is explicitly not a cohesion mechanism.
 
 ## 3. Frozen target graph
 
@@ -56,7 +56,7 @@ alongside its required exact peer, following the independent release policy.
 | `@zmdb/jobs`          | exactly `@zmdb/app`                    | none                   | none                                                 | `.`, `./schedule` |
 | `@zmdb/jobs-sqlite`   | exactly `@zmdb/sqlite@1.0.0-alpha.4`   | none                   | required `@zmdb/jobs@1.0.0-alpha.4`                  | `.`               |
 | `@zmdb/jobs-postgres` | exactly `@zmdb/postgres@1.0.0-alpha.4` | none                   | required `@zmdb/jobs@1.0.0-alpha.4` and `pg@^8.23.0` | `.`               |
-| `zmdb`                | its metadata-declared default packages | none for jobs          | none for jobs                                        | no `./jobs` entry |
+| `@zmdb/core`          | its metadata-declared default packages | none for jobs          | none for jobs                                        | no `./jobs` entry |
 
 Forbidden production edges are:
 
@@ -65,7 +65,7 @@ Forbidden production edges are:
   native foundation cut; this includes repository, query-compiler, schema-core, and aot-validator.
 - either jobs provider reaching the other provider or the other database technology;
 - any provider or facade importing another package's private source, a workspace source path, or an undeclared package; and
-- an optional dependency, conditional export, dynamic import, package-manager hook, source resolver, or catch-and-fallback import that makes jobs appear through `zmdb`.
+- an optional dependency, conditional export, dynamic import, package-manager hook, source resolver, or catch-and-fallback import that makes jobs appear through `@zmdb/core`.
 
 ## 4. Provider-neutral core API
 
@@ -221,19 +221,19 @@ The provider bundles emit dialect-specific reversible SQL. Applications register
 
 ## 6. Facade decision and exact journeys
 
-There is no runtime `zmdb/jobs` facade now or in the target. Product/catalog metadata may generate package-reference, support-matrix, fixture, or install guidance at tooling time, but generated
-discovery is not a JavaScript export and adds no `zmdb` dependency.
+There is no runtime `@zmdb/core/jobs` facade now or in the target. Product/catalog metadata may generate package-reference, support-matrix, fixture, or install guidance at tooling time, but generated
+discovery is not a JavaScript export and adds no `@zmdb/core` dependency.
 
 ### Default
 
 ```sh
-npm install zmdb@alpha @zmdb/sqlite@alpha
+npm install @zmdb/core@alpha @zmdb/sqlite@alpha
 ```
 
 ```ts
-import { assert, defineRepository, schemaOf } from 'zmdb';
-import { sqliteDriver } from 'zmdb/sqlite';
-import { Controller, Get, createApp } from 'zmdb/web';
+import { assert, defineRepository, schemaOf } from '@zmdb/core';
+import { sqliteDriver } from '@zmdb/core/sqlite';
+import { Controller, Get, createApp } from '@zmdb/core/web';
 ```
 
 The installed graph must contain the default metadata closure and must contain none of `@zmdb/jobs`, `@zmdb/jobs-sqlite`, `@zmdb/jobs-postgres`, or `pg`.
@@ -241,7 +241,7 @@ The installed graph must contain the default metadata closure and must contain n
 ### SQLite jobs
 
 ```sh
-npm install zmdb@alpha @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha
+npm install @zmdb/core@alpha @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha
 ```
 
 ```ts
@@ -256,7 +256,7 @@ import { createMemoryJobStore, createSqliteJobStore, jobsSqliteMigrations, sqlit
 ### PostgreSQL jobs
 
 ```sh
-npm install zmdb@alpha @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
+npm install @zmdb/core@alpha @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
 ```
 
 ```ts

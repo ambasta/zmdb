@@ -21,7 +21,7 @@ defaults, partial index or MySQL's bounded key columns.
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies OrderSchema, UserSchema, connection; this excerpt does not repeat those declarations."}
 import { outboxMigration } from '@zmdb/orm/outbox';
 import { OutboxSchema } from '@zmdb/orm/outbox';
-import { snapshot, up } from 'zmdb/migrations';
+import { snapshot, up } from '@zmdb/core/migrations';
 
 const migration = outboxMigration(17, 'postgres');
 await up(connection, [migration]);

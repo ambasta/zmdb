@@ -1,4 +1,4 @@
-> **Install:** `yarn add @zmdb/ai@1.0.0-beta.1 @zmdb/ai-langchain@1.0.0-beta.1 @langchain/core@^1.2.9`. The integration package is tested against `1.2.9` and declares that range as its sole optional
+> **Install:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/ai-langchain@1.0.0-beta.2 @langchain/core@^1.2.9`. The integration package is tested against `1.2.9` and declares that range as its sole optional
 > peer. Applications that do not install `@zmdb/ai-langchain` do not receive LangChain. Retrievers, vector stores and chat-memory backends remain application code.
 
 ## Know the boundary

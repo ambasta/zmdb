@@ -6,7 +6,7 @@ or credential implementation.
 ## Install
 
 ```bash
-yarn add @zmdb/react-native@1.0.0-beta.1 @zmdb/react@1.0.0-beta.1 react@19 react-native@0.87
+yarn add @zmdb/react-native@1.0.0-beta.2 @zmdb/react@1.0.0-beta.2 react@19 react-native@0.87
 ```
 
 ## Bind the native services

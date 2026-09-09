@@ -4,7 +4,7 @@ Start with the [generated HTTP client](./generated-client.html), then add Vue fo
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.1 @zmdb/vue@1.0.0-beta.1 vue@^3.5
+yarn add @zmdb/client@1.0.0-beta.2 @zmdb/vue@1.0.0-beta.2 vue@^3.5
 ```
 
 ## Provide

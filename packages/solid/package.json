@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/solid",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Solid context, resource and owner-lifetime bindings for generated zmdb clients.",
   "keywords": [
     "client",
@@ -39,7 +39,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-beta.1"
+    "@zmdb/client": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "solid-js": "1.9.15",

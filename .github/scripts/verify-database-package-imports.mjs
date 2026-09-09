@@ -159,8 +159,8 @@ function importPackages(directory, names) {
 export async function runPackedDatabasePackageProofs(root) {
   const packages = workspacePackages(root);
   const databaseClosure = dependencyClosure(packages, DATABASE_PACKAGES);
-  const defaultClosure = dependencyClosure(packages, ['zmdb']);
-  const buildOrder = dependencyClosure(packages, [...DATABASE_PACKAGES, 'zmdb']);
+  const defaultClosure = dependencyClosure(packages, ['@zmdb/core']);
+  const buildOrder = dependencyClosure(packages, [...DATABASE_PACKAGES, '@zmdb/core']);
   const scratch = mkdtempSync(join(tmpdir(), 'zmdb-database-package-proof-'));
   try {
     buildPackages(root, packages, buildOrder);
@@ -172,11 +172,13 @@ export async function runPackedDatabasePackageProofs(root) {
 
     const defaultApp = join(scratch, 'default-app');
     installPackedApp(defaultApp, archives, defaultClosure);
-    const defaultManifest = JSON.parse(readFileSync(join(defaultApp, 'node_modules', 'zmdb', 'package.json'), 'utf8'));
+    const defaultManifest = JSON.parse(
+      readFileSync(join(defaultApp, 'node_modules', '@zmdb/core', 'package.json'), 'utf8'),
+    );
     if (typeof defaultManifest.dependencies?.['@zmdb/sqlite'] !== 'string') {
       throw new Error('default zmdb installation does not require @zmdb/sqlite');
     }
-    const defaultImported = ['zmdb', 'zmdb/sqlite'];
+    const defaultImported = ['@zmdb/core', '@zmdb/core/sqlite'];
     importPackages(defaultApp, defaultImported);
     const absent = OPTIONAL_DATABASE_INSTALLS.filter(
       name => !existsSync(join(defaultApp, 'node_modules', ...name.split('/'))),

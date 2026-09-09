@@ -16,6 +16,7 @@ assert(['smoke', 'measure', 'profile'].includes(mode), `unknown mode ${mode}`);
 const knownCandidates = [
   'zmdb-node',
   'fastify-node',
+  'hono-node',
   'raw-node',
   'zmdb-bun',
   'elysia-bun',
@@ -37,15 +38,34 @@ const clientCpu = option('client-cpu', '10,12,14');
 const seconds = Number(option('seconds', '8'));
 const warmup = Number(option('warmup', '2'));
 const passes = Number(option('passes', '3'));
-const connections = Number(option('connections', '64'));
-const bundle = option('bundle', 'zmdb');
+const connections = option('connections', '64').split(',').map(Number);
+assert(
+  connections.every(value => Number.isInteger(value) && value > 0),
+  'connections must be positive integers',
+);
+const rate = Number(option('rate', '0'));
+assert(Number.isFinite(rate) && rate >= 0, 'rate must be nonnegative');
+const keepalive = option('keepalive', 'on');
+assert(['on', 'off'].includes(keepalive), 'keepalive must be on or off');
+const contract = option('contract', 'validation');
+assert(['validation', 'published'].includes(contract), 'contract must be validation or published');
+const bundle = option('bundle', contract === 'published' ? 'zmdb-published' : 'zmdb');
 const requestBody = JSON.stringify({ name: 'Ada', email: 'ada@example.test' });
-const allWorkloads = {
-  text: { path: '/text', expected: 'hello world' },
-  parameter: { path: '/user/42', expected: '42' },
-  validation: { path: '/user', method: 'POST', body: requestBody, expected: requestBody },
-};
-const workloads = option('workloads', 'parameter,validation').split(',');
+const allWorkloads =
+  contract === 'published'
+    ? {
+        root: { path: '/', expected: '' },
+        parameter: { path: '/user/42', expected: '42' },
+        post: { path: '/user', method: 'POST', expected: '' },
+      }
+    : {
+        text: { path: '/text', expected: 'hello world' },
+        parameter: { path: '/user/42', expected: '42' },
+        validation: { path: '/user', method: 'POST', body: requestBody, expected: requestBody },
+      };
+const workloads = option('workloads', contract === 'published' ? 'root,parameter,post' : 'parameter,validation').split(
+  ',',
+);
 for (const name of workloads) assert(allWorkloads[name], `unknown workload ${name}`);
 const runDirectory = path.join(out, `${mode}-${new Date().toISOString().replaceAll(':', '-')}`);
 await mkdir(runDirectory, { recursive: true });
@@ -62,6 +82,7 @@ const result = {
   oha: mode === 'smoke' ? undefined : execFileSync(oha, ['--version'], { encoding: 'utf8' }).trim(),
   settings: {
     candidates,
+    contract,
     bundle,
     workloads,
     serverCpu,
@@ -70,10 +91,14 @@ const result = {
     seconds,
     warmup,
     connections,
+    rate: rate || undefined,
     processes: 1,
     http: '1.1',
-    keepalive: true,
-    load: 'closed loop maximum throughput; latency is not coordinated-omission corrected',
+    keepalive: keepalive === 'on',
+    load:
+      rate > 0
+        ? `fixed offered rate ${rate} requests/second; oha latency correction enabled`
+        : 'closed loop maximum throughput; latency is not coordinated-omission corrected',
     rawPeers: 'minimal HTTP ceilings, not feature-equivalent framework implementations',
   },
   checks: [],
@@ -131,6 +156,7 @@ async function start(candidate, suffix) {
     out,
     nonce,
     bundle,
+    contract,
   ]);
   let stdout = '',
     stderr = '';
@@ -218,7 +244,9 @@ async function check(server, candidate) {
     assert.equal(response.status, 200, `${candidate}/${name} status`);
     assert.equal(await response.text(), workload.expected, `${candidate}/${name} body`);
   }
-  for (const body of [JSON.stringify({ name: 1, email: 'ada@example.test' }), '{', '']) {
+  for (const body of contract === 'validation'
+    ? [JSON.stringify({ name: 1, email: 'ada@example.test' }), '{', '']
+    : []) {
     const response = await fetch(`${server.base}/user`, {
       signal: AbortSignal.timeout(10_000),
       method: 'POST',
@@ -231,10 +259,10 @@ async function check(server, candidate) {
     );
     await response.arrayBuffer();
   }
-  result.checks.push({ candidate, requests: 6, passed: true });
+  result.checks.push({ candidate, requests: contract === 'validation' ? 6 : 3, passed: true });
 }
 
-async function load(server, workloadName, duration, label) {
+async function load(server, workloadName, duration, concurrency, label) {
   const workload = allWorkloads[workloadName];
   const flags = [
     '--no-tui',
@@ -244,14 +272,17 @@ async function load(server, workloadName, duration, label) {
     '1.1',
     '--disable-compression',
     '-c',
-    String(connections),
+    String(concurrency),
     '-z',
     `${duration}s`,
     '-w',
     '-t',
     '5s',
   ];
-  if (workload.body) flags.push('-m', 'POST', '-T', 'application/json', '-d', workload.body);
+  if (workload.method) flags.push('-m', workload.method);
+  if (workload.body !== undefined) flags.push('-T', 'application/json', '-d', workload.body);
+  if (keepalive === 'off') flags.push('--disable-keepalive');
+  if (rate > 0) flags.push('-q', String(rate), '--latency-correction');
   const process = child('taskset', ['-c', clientCpu, oha, ...flags, server.base + workload.path]);
   let stdout = '',
     stderr = '';
@@ -273,7 +304,7 @@ async function load(server, workloadName, duration, label) {
     `${label} unexpected statuses`,
   );
   assert(Object.keys(report.errorDistribution).length === 0, `${label} transport errors`);
-  return report;
+  return { ...report, command: ['taskset', '-c', clientCpu, oha, ...flags, server.base + workload.path] };
 }
 
 try {
@@ -286,36 +317,50 @@ try {
         await stop(server.process);
         await server.save();
       }
-      console.log(`${candidate}: response and generated-validation smoke passed`);
+      console.log(`${candidate}: ${contract} contract smoke passed`);
     }
   } else {
     for (let pass = 0; pass < passes; pass++) {
-      const order = [...candidates.slice(pass % candidates.length), ...candidates.slice(0, pass % candidates.length)];
-      for (const candidate of order) {
-        const label = `${pass + 1}-${candidate}`;
-        const server = await start(candidate, label);
-        try {
-          await check(server, candidate);
-          const workloadOrder = pass % 2 ? workloads.toReversed() : workloads;
-          for (const workload of workloadOrder) {
-            await load(server, workload, warmup, `${label}-${workload}-warmup`);
-            const report = await load(server, workload, seconds, `${label}-${workload}`);
-            result.samples.push({
-              pass: pass + 1,
-              candidate,
-              workload,
-              rps: report.summary.requestsPerSec,
-              p99Milliseconds: report.latencyPercentiles.p99 * 1000,
-              meanMilliseconds: report.summary.average * 1000,
-              bytes: report.summary.totalData,
-            });
-            console.log(JSON.stringify(result.samples.at(-1)));
+      const levels = [
+        ...connections.slice(pass % connections.length),
+        ...connections.slice(0, pass % connections.length),
+      ];
+      for (const [levelIndex, concurrency] of levels.entries()) {
+        const offset = (pass + levelIndex) % candidates.length;
+        const order = [...candidates.slice(offset), ...candidates.slice(0, offset)];
+        for (const candidate of order) {
+          const label = `${pass + 1}-c${concurrency}-${candidate}`;
+          const server = await start(candidate, label);
+          try {
+            await check(server, candidate);
+            const workloadOffset = (pass + levelIndex) % workloads.length;
+            const workloadOrder = [...workloads.slice(workloadOffset), ...workloads.slice(0, workloadOffset)];
+            for (const workload of workloadOrder) {
+              await load(server, workload, warmup, concurrency, `${label}-${workload}-warmup`);
+              const report = await load(server, workload, seconds, concurrency, `${label}-${workload}`);
+              result.samples.push({
+                pass: pass + 1,
+                connections: concurrency,
+                candidate,
+                workload,
+                route: `${allWorkloads[workload].method ?? 'GET'} ${allWorkloads[workload].path}`,
+                rps: report.summary.requestsPerSec,
+                p95Milliseconds: report.latencyPercentiles.p95 * 1000,
+                p99Milliseconds: report.latencyPercentiles.p99 * 1000,
+                meanMilliseconds: report.summary.average * 1000,
+                bytes: report.summary.totalData,
+                command: report.command,
+                statusCodeDistribution: report.statusCodeDistribution,
+                errorDistribution: report.errorDistribution,
+              });
+              console.log(JSON.stringify(result.samples.at(-1)));
+            }
+            await check(server, candidate);
+          } finally {
+            await server.saveProfile?.();
+            await stop(server.process);
+            await server.save();
           }
-          await check(server, candidate);
-        } finally {
-          await server.saveProfile?.();
-          await stop(server.process);
-          await server.save();
         }
       }
     }

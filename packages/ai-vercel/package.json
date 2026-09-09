@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/ai-vercel",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Vercel AI SDK tool integration for provider-neutral zmdb AI contracts.",
   "keywords": [
     "ai",
@@ -39,7 +39,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/ai": "workspace:1.0.0-beta.1"
+    "@zmdb/ai": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "ai": "7.0.93",

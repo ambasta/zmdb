@@ -6,12 +6,12 @@ The arguments are an ordinary DTO. Its emitted JSON Schema defines the flat argv
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ../src/post.js, ../src/slugify.js, ../zmdb.config.js; this fence is an excerpt of that project."}
 // scripts/backfill-slugs.ts
-import { assert, defineRepository, schemaOf } from 'zmdb';
+import { assert, defineRepository, schemaOf } from '@zmdb/core';
 import { Command, createCommandApp } from '@zmdb/app/commands';
 import { toJsonSchema } from '@zmdb/schema/openapi';
-import type { BaseRepository } from 'zmdb/orm';
-import { repositoryToken } from 'zmdb/app/data';
-import { Inject, Module } from 'zmdb/web';
+import type { BaseRepository } from '@zmdb/core/orm';
+import { repositoryToken } from '@zmdb/core/app/data';
+import { Inject, Module } from '@zmdb/core/web';
 
 import config from '../zmdb.config.js';
 import type { Post } from '../src/post.js';

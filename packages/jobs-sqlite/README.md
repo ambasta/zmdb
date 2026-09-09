@@ -1,6 +1,6 @@
 # @zmdb/jobs-sqlite
 
-Explicit SQLite persistence for `@zmdb/jobs`. Install `@zmdb/jobs@1.0.0-beta.1` and `@zmdb/jobs-sqlite@1.0.0-beta.1` on Node.js 26 or later.
+Explicit SQLite persistence for `@zmdb/jobs`. Install `@zmdb/jobs@1.0.0-beta.2` and `@zmdb/jobs-sqlite@1.0.0-beta.2` on Node.js 26 or later.
 
 `createSqliteJobStore(database)` borrows a public `SqliteDatabase` connection. Apply the exported `jobsSqliteMigrations` before starting workers. `sqliteJobEnqueuer(database)` enqueues on the caller's
 transaction without beginning or ending it.
@@ -9,4 +9,4 @@ transaction without beginning or ending it.
 open.
 
 Pass stores to `jobsExtension({ workers, schedulers, stores })` to close them after background work stops. Both stores implement the portable queue and renewable scheduler-lease ports. The package has
-one root export and a required `@zmdb/jobs@1.0.0-beta.1` peer; it has no third-party runtime peer.
+one root export and a required `@zmdb/jobs@1.0.0-beta.2` peer; it has no third-party runtime peer.

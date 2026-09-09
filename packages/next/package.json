@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/next",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.",
   "keywords": [
     "client",
@@ -40,8 +40,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-beta.1",
-    "@zmdb/react": "workspace:1.0.0-beta.1",
+    "@zmdb/client": "workspace:1.0.0-beta.2",
+    "@zmdb/react": "workspace:1.0.0-beta.2",
     "server-only": "0.0.1"
   },
   "devDependencies": {

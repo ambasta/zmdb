@@ -37,7 +37,7 @@ CREATE SEQUENCE [order_number_seq] START WITH 1000 INCREMENT BY 1
 A column fed by an explicit sequence is an ordinary `integer` column that says `HasDefault`:
 
 ```ts {"mode":"compile","id":"example-002"}
-import type { HasDefault, PrimaryKey, Sql, Table } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface Order extends Table<'orders'> {
   order_id: number & Sql<'integer'> & PrimaryKey;

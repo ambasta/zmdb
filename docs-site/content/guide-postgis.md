@@ -4,7 +4,7 @@ PostGIS-backed columns participate in declaration and migration like core column
 ## Declare the column
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { Ext, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { Ext, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 interface GeoJsonPoint {
   readonly type: 'Point';

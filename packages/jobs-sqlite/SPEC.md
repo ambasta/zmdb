@@ -70,7 +70,7 @@ caller-owned SQLite connection remains usable after the adapter and application 
 
 The package must not:
 
-- appear in the packed `@zmdb/jobs` or `zmdb` closure;
+- appear in the packed `@zmdb/jobs` or `@zmdb/core` closure;
 - depend on PostgreSQL, `pg`, repository/query-compiler directly, or another jobs provider;
 - auto-migrate a caller-owned database;
 - close a caller-owned connection;

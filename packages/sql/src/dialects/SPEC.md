@@ -549,7 +549,7 @@ query filtered by customer touches one partition, sharding on `id` means it fans
 These are facts about a table, not a column, so they go where `Fts<Name>` already sits — the `extends` clause — which is the conclusion `dialect-singlestore.md:52` reaches independently:
 
 ```ts
-import type { PrimaryKey, ShardKey, SortKey, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, ShardKey, SortKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['id']> {
   id: number & Sql<'bigint'> & PrimaryKey;
@@ -919,15 +919,15 @@ private path, copy a parent implementation, mutate a parent object, or defer tra
 
 The extraction sequence is complete:
 
-| Surface          | Current contract                                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Compiler         | requires `SqlDialect<Name>`; no name overload or implicit default                                                   |
-| Compiler helpers | accept the selected object or an already-resolved strategy                                                          |
-| Migrations       | generic algorithms consume only the selected object's migration implementation                                      |
-| Introspection    | callers use `dialect.introspector`; generic code has no official-reader factory or switch                           |
-| Repository       | every `Driver<Name>` has one required object; repositories derive behavior from it                                  |
-| Config and CLI   | consume an explicitly imported object and its migrations/introspector                                               |
-| Facade           | `zmdb/sqlite`, `/postgres`, `/mysql`, `/mssql`, `/cockroach`, and `/singlestore` expose complete selected verticals |
+| Surface          | Current contract                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Compiler         | requires `SqlDialect<Name>`; no name overload or implicit default                                                         |
+| Compiler helpers | accept the selected object or an already-resolved strategy                                                                |
+| Migrations       | generic algorithms consume only the selected object's migration implementation                                            |
+| Introspection    | callers use `dialect.introspector`; generic code has no official-reader factory or switch                                 |
+| Repository       | every `Driver<Name>` has one required object; repositories derive behavior from it                                        |
+| Config and CLI   | consume an explicitly imported object and its migrations/introspector                                                     |
+| Facade           | `@zmdb/core/sqlite`, `/postgres`, `/mysql`, `/mssql`, `/cockroach`, and `/singlestore` expose complete selected verticals |
 
 ### 11.5 Complete ownership inventory
 
@@ -971,7 +971,7 @@ package. Every vendor-owned unit has one current owner:
 | `repository/package.json`: one remaining driver subpath and SQL Server client test dependencies; SQLite and PostgreSQL already moved                                | database package manifests/exports own their adapter                                                                                     | generic repository manifest retains no vendor subpath or client          |
 | `zmdb/src/config/index.ts` and generated validator/witness artifacts: closed name validation and PostgreSQL-family schema branch                                    | selected dialect object and its migration validation; `zmdb` remains the config consumer                                                 | config discovery, paths and plain-data validation                        |
 | `zmdb/src/cli/**` and `zmdb/src/studio/index.ts`: string propagation, SQLite-only branches, templates and fixtures                                                  | `zmdb` consumes one explicit database object; database behavior belongs to the selected package                                          | command/studio workflow, argument handling and generated-project UX      |
-| `zmdb/src/index.ts`, `zmdb/src/drivers-{sqlite,pg,mssql}.ts` and `zmdb/package.json`: old driver facades                                                            | `zmdb/sqlite`, `/postgres`, `/mysql`, `/mssql`, `/cockroach`, and `/singlestore` expose complete selected verticals                      | facade policy remains `zmdb`                                             |
+| `zmdb/src/index.ts`, `zmdb/src/drivers-{sqlite,pg,mssql}.ts` and `zmdb/package.json`: old driver facades                                                            | `@zmdb/core/sqlite`, `/postgres`, `/mysql`, `/mssql`, `/cockroach`, and `/singlestore` expose complete selected verticals                | facade policy remains `zmdb`                                             |
 
 The test move follows the same unit boundary:
 

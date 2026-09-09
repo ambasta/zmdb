@@ -15,15 +15,15 @@ output and process cleanup handled for you.
 | Apply a migration ledger through a connection          | `@zmdb/migrations/runner`                                       |
 | Apply bundle-resident SQLite migrations                | `@zmdb/migrations/embedded`                                     |
 
-The product facade offers curated APIs through `zmdb/compiler`, `zmdb/config`, `zmdb/migrations` and `zmdb/cli`. The direct packages are also independently installable. Only `@zmdb/cli` declares a
-binary; installing `zmdb@1.0.0-beta.1` includes that same executable.
+The product facade offers curated APIs through `@zmdb/core/compiler`, `@zmdb/core/config`, `@zmdb/core/migrations` and `@zmdb/core/cli`. The direct packages are also independently installable. Only
+`@zmdb/cli` declares a binary; installing `@zmdb/core@1.0.0-beta.2` includes that same executable.
 
 ## Install the selected tooling
 
 For the command workflow:
 
 ```bash
-yarn add --dev @zmdb/cli@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/cli@1.0.0-beta.2 typescript@^7.0.2
 yarn zmdb --help
 yarn zmdb codegen --project tsconfig.json
 yarn zmdb codegen --project tsconfig.json --check
@@ -32,13 +32,13 @@ yarn zmdb codegen --project tsconfig.json --check
 For a compiler integration that owns its build process:
 
 ```bash
-yarn add --dev @zmdb/compiler@1.0.0-beta.1 typescript@^7.0.2
+yarn add --dev @zmdb/compiler@1.0.0-beta.2 typescript@^7.0.2
 ```
 
 For a migration library using SQLite:
 
 ```bash
-yarn add @zmdb/migrations@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
+yarn add @zmdb/migrations@1.0.0-beta.2 @zmdb/sqlite@1.0.0-beta.2
 ```
 
 The packages require Node.js 26 or later. TypeScript is a required peer of the compiler and CLI. Metro, Metro's Babel transformer and Oxlint are selected compiler peers; `@zmdb/app`, `@zmdb/web` and
@@ -66,7 +66,7 @@ of that graph.
 ## Configuration and generated runtime code
 
 `defineConfig` and the structural authoring types live in `@zmdb/compiler/config/contract`. `loadConfig` in `@zmdb/compiler/config` discovers and executes one config, validates it and resolves its
-paths. `zmdb/config` exposes the product-facing entry. Loading config does not start an application or open its database driver.
+paths. `@zmdb/core/config` exposes the product-facing entry. Loading config does not start an application or open its database driver.
 
 The CLI and configured root plugin pass the resolved project and naming strategy into the compiler. A direct `compileProject` or synchronous unplugin caller supplies those options itself. See
 [Config File](./config-file.html) for discovery boundaries and [Code Generation](./cli-codegen.html) for writing and checking project artifacts.

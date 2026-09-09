@@ -4,7 +4,7 @@
 ## What the declaration says
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface Membership extends Table<'memberships'> {
   orgId: number & Sql<'integer'> & PrimaryKey;
@@ -40,7 +40,7 @@ existing primary-key constraint name needed for `DROP CONSTRAINT`.
 > local and target columns, declare it explicitly on the table:
 >
 > ```ts
-> import type { ForeignKey, Table } from 'zmdb/tags';
+> import type { ForeignKey, Table } from '@zmdb/core/tags';
 >
 > interface Membership extends Table<'memberships'>, ForeignKey<'orgId,userId', 'users', 'orgId,id'> {
 >   // columns
@@ -127,7 +127,7 @@ A single-column key intentionally accepts only the scalar form. Supporting both 
 Relations use comma-separated `via` columns in the same order as the parent key:
 
 ```ts {"mode":"illustrative","id":"example-006","reason":"This partial declaration omits the containing TypeScript construct described by the surrounding article."}
-import type { ManyToOne, OneToMany } from 'zmdb/tags';
+import type { ManyToOne, OneToMany } from '@zmdb/core/tags';
 
 posts?: Post[] & OneToMany<'posts', 'orgId,userId'>;
 author?: User & ManyToOne<'users', 'orgId,userId'>;

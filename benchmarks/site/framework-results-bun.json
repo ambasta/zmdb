@@ -1,316 +1,967 @@
 {
+  "captureId": "peer-refresh-2026-09-09",
+  "sourceRevision": "a86e01861b7609e8c3bc76aa9a1d85ced96cdb9f",
+  "rawFile": "peer-refresh-2026-09-09-samples.json.gz",
+  "machine": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
+  "harnessRevision": "ed507604aa8d0cf67b93ddd5bb02d8729c50dd30",
   "suite": "the-benchmarker/web-frameworks",
-  "framework": "@zmdb/web",
-  "runtime": "bun",
-  "runtimeVersion": "1.4.0",
   "upstream": "https://github.com/the-benchmarker/web-frameworks",
-  "port": 3000,
-  "methodology": "Served on bun 1.4.0. oha oha 1.16.0: per route for 10s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by 1 worker process(es) on 16 cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
-  "concurrencyModel": {
-    "workers": 1,
-    "cores": 16,
-    "note": "A JS runtime runs one thread per process, so worker count is the core count this framework can use; all three supported runtimes (node, bun, deno) fork via node:cluster and accept from a shared listening socket. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
-  },
-  "repeats": 3,
-  "generatedAt": "2026-09-01T20:51:55Z",
-  "machine": "Linux x86_64, 16 cores, bun 1.4.0",
+  "generatedAt": "2026-09-08T23:48:19.553Z",
+  "methodology": "Three rotated repetitions per candidate and each of the three published routes at c256; one server process on CPU4, oha on CPUs10,12,14, keepalive off. Each repetition has 1s warmup and 5s measurement. Saturation is closed-loop without coordinated-omission correction; fixed-rate uses -q20000 with --latency-correction. Each displayed row is the median-throughput repetition with its own percentiles. Other source builds, tests and benchmark captures were stopped during timing.",
   "contract": [
     {
       "method": "GET",
       "route": "/",
-      "status": "2xx",
-      "body": "empty",
+      "status": 200,
+      "body": "",
       "pass": true
     },
     {
       "method": "GET",
       "route": "/user/:id",
-      "status": "2xx",
-      "body": "the id path parameter",
+      "status": 200,
+      "body": "42 (for /user/42)",
       "pass": true
     },
     {
       "method": "POST",
       "route": "/user",
-      "status": "2xx",
-      "body": "empty",
+      "status": 200,
+      "body": "",
       "pass": true
     }
   ],
-  "contractVerdict": "PASSED — @zmdb/web fulfills the the-benchmarker/web-frameworks shared contract (verified by contract-check.mjs before load).",
-  "throughput": {
-    "measured": true
+  "contractVerdict": "Every measured participant passed the three shared-route status/body checks before and after load.",
+  "framework": "@zmdb/web",
+  "runtime": "bun",
+  "runtimeVersion": "1.4.0",
+  "concurrencyModel": {
+    "workers": 1
   },
   "metrics": [
     {
-      "level": 64,
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
       "label": "total_requests_per_s",
-      "value": 36743.3914740486,
-      "route": "GET:/"
+      "value": 66316.34917752538,
+      "selectedPass": 2
     },
     {
-      "level": 64,
-      "label": "average_latency",
-      "value": 0.0017398416473715975,
-      "route": "GET:/"
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "requests_per_s_min",
+      "value": 65445.88395812509,
+      "selectedPass": 2
     },
     {
-      "level": 64,
-      "label": "percentile50",
-      "value": 0.001570387,
-      "route": "GET:/"
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "requests_per_s_max",
+      "value": 67795.26016118613,
+      "selectedPass": 2
     },
     {
-      "level": 64,
-      "label": "percentile75",
-      "value": 0.001933681,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "percentile90",
-      "value": 0.002472226,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "percentile99",
-      "value": 0.003802691,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "percentile99999",
-      "value": 0.00598464,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
       "label": "total_requests",
-      "value": 367499,
-      "route": "GET:/"
+      "value": 331957,
+      "selectedPass": 2
     },
     {
-      "level": 64,
-      "label": "total_bytes_received",
-      "value": 0,
-      "route": "GET:/"
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "average_latency",
+      "value": 0.003841134287886719,
+      "selectedPass": 2
     },
     {
-      "level": 64,
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile50",
+      "value": 0.003742812,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile90",
+      "value": 0.004209171,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile95",
+      "value": 0.004562016,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile99",
+      "value": 0.005332307,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile95_min",
+      "value": 0.004562016,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile95_max",
+      "value": 0.004735543,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile99_min",
+      "value": 0.005332307,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
+      "label": "percentile99_max",
+      "value": 0.005665205,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "saturation",
       "label": "http_errors",
       "value": 0,
-      "route": "GET:/"
+      "selectedPass": 2
     },
     {
-      "level": 64,
-      "label": "standard_deviation",
-      "value": 0.005839326,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "duration_ms",
-      "value": 10001.771346,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "requests_per_s_min",
-      "value": 36731.63136942709,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "requests_per_s_max",
-      "value": 37392.29616869717,
-      "route": "GET:/"
-    },
-    {
-      "level": 64,
-      "label": "repeats",
-      "value": 3,
-      "route": "GET:/"
-    },
-    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
       "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
       "label": "total_requests_per_s",
-      "value": 32634.131101274357,
-      "route": "GET:/"
+      "value": 64100.04969757253,
+      "selectedPass": 3
     },
     {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
       "level": 256,
-      "label": "average_latency",
-      "value": 0.007838486979586874,
-      "route": "GET:/"
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "requests_per_s_min",
+      "value": 62487.57399661128,
+      "selectedPass": 3
     },
     {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
       "level": 256,
-      "label": "percentile50",
-      "value": 0.00742869,
-      "route": "GET:/"
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "requests_per_s_max",
+      "value": 64804.34336995784,
+      "selectedPass": 3
     },
     {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
       "level": 256,
-      "label": "percentile75",
-      "value": 0.008659208,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "percentile90",
-      "value": 0.009837166,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "percentile99",
-      "value": 0.018767545,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "percentile99999",
-      "value": 0.030900896,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
       "label": "total_requests",
-      "value": 326514,
-      "route": "GET:/"
+      "value": 320916,
+      "selectedPass": 3
     },
     {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
       "level": 256,
-      "label": "total_bytes_received",
-      "value": 0,
-      "route": "GET:/"
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "average_latency",
+      "value": 0.003975405648808386,
+      "selectedPass": 3
     },
     {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
       "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile50",
+      "value": 0.003854897,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile90",
+      "value": 0.004272138,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile95",
+      "value": 0.004891925,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile99",
+      "value": 0.005490721,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile95_min",
+      "value": 0.004646435,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile95_max",
+      "value": 0.004990784,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile99_min",
+      "value": 0.005490721,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
+      "label": "percentile99_max",
+      "value": 0.005874619,
+      "selectedPass": 3
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "saturation",
       "label": "http_errors",
       "value": 0,
-      "route": "GET:/"
+      "selectedPass": 3
     },
     {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
       "level": 256,
-      "label": "standard_deviation",
-      "value": 0.031705402,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "duration_ms",
-      "value": 10005.291668,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "requests_per_s_min",
-      "value": 32194.592076609068,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "requests_per_s_max",
-      "value": 33448.00374638353,
-      "route": "GET:/"
-    },
-    {
-      "level": 256,
-      "label": "repeats",
-      "value": 3,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
+      "route": "POST:/user",
+      "load": "saturation",
       "label": "total_requests_per_s",
-      "value": 32171.772628664003,
-      "route": "GET:/"
+      "value": 65644.44061928135,
+      "selectedPass": 2
     },
     {
-      "level": 512,
-      "label": "average_latency",
-      "value": 0.015902878268197772,
-      "route": "GET:/"
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "requests_per_s_min",
+      "value": 65286.77365617553,
+      "selectedPass": 2
     },
     {
-      "level": 512,
-      "label": "percentile50",
-      "value": 0.015335584,
-      "route": "GET:/"
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "requests_per_s_max",
+      "value": 66059.52281915149,
+      "selectedPass": 2
     },
     {
-      "level": 512,
-      "label": "percentile75",
-      "value": 0.016914657,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
-      "label": "percentile90",
-      "value": 0.018905136,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
-      "label": "percentile99",
-      "value": 0.032023083,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
-      "label": "percentile99999",
-      "value": 0.070183494,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
       "label": "total_requests",
-      "value": 321880,
-      "route": "GET:/"
+      "value": 328548,
+      "selectedPass": 2
     },
     {
-      "level": 512,
-      "label": "total_bytes_received",
-      "value": 0,
-      "route": "GET:/"
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "average_latency",
+      "value": 0.0038879061847248934,
+      "selectedPass": 2
     },
     {
-      "level": 512,
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile50",
+      "value": 0.003831239,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile90",
+      "value": 0.004136504,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile95",
+      "value": 0.004295825,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile99",
+      "value": 0.004941882,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile95_min",
+      "value": 0.004295825,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile95_max",
+      "value": 0.004871116,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile99_min",
+      "value": 0.004875547,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
+      "label": "percentile99_max",
+      "value": 0.005464854,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "saturation",
       "label": "http_errors",
       "value": 0,
-      "route": "GET:/"
+      "selectedPass": 2
     },
     {
-      "level": 512,
-      "label": "standard_deviation",
-      "value": 0.074435953,
-      "route": "GET:/"
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "total_requests_per_s",
+      "value": 19989.71721636395,
+      "selectedPass": 2
     },
     {
-      "level": 512,
-      "label": "duration_ms",
-      "value": 10005.043978,
-      "route": "GET:/"
-    },
-    {
-      "level": 512,
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
       "label": "requests_per_s_min",
-      "value": 31306.785892841002,
-      "route": "GET:/"
+      "value": 19987.526329742945,
+      "selectedPass": 2
     },
     {
-      "level": 512,
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
       "label": "requests_per_s_max",
-      "value": 32295.55225397902,
-      "route": "GET:/"
+      "value": 19990.011683418234,
+      "selectedPass": 2
     },
     {
-      "level": 512,
-      "label": "repeats",
-      "value": 3,
-      "route": "GET:/"
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "total_requests",
+      "value": 99976,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "average_latency",
+      "value": 0.00031388305210250367,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile50",
+      "value": 0.000293656,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile90",
+      "value": 0.000497232,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile95",
+      "value": 0.000581801,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile99",
+      "value": 0.000741484,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile95_min",
+      "value": 0.000581801,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile95_max",
+      "value": 0.000602592,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile99_min",
+      "value": 0.000741484,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "percentile99_max",
+      "value": 0.001084986,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/",
+      "load": "fixed-rate",
+      "label": "http_errors",
+      "value": 0,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "total_requests_per_s",
+      "value": 19988.462760358412,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "requests_per_s_min",
+      "value": 19988.186580255868,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "requests_per_s_max",
+      "value": 19988.7898028289,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "total_requests",
+      "value": 99998,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "average_latency",
+      "value": 0.00032776938419768446,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile50",
+      "value": 0.000306581,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile90",
+      "value": 0.000523321,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile95",
+      "value": 0.000610647,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile99",
+      "value": 0.000790347,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile95_min",
+      "value": 0.000599605,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile95_max",
+      "value": 0.000629663,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile99_min",
+      "value": 0.000790347,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "percentile99_max",
+      "value": 0.001038127,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "GET:/user/42",
+      "load": "fixed-rate",
+      "label": "http_errors",
+      "value": 0,
+      "selectedPass": 2
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "total_requests_per_s",
+      "value": 19989.074335870955,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "requests_per_s_min",
+      "value": 19989.012723135063,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "requests_per_s_max",
+      "value": 19989.137864217337,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "total_requests",
+      "value": 99994,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "average_latency",
+      "value": 0.0003288527898873936,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile50",
+      "value": 0.000309036,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile90",
+      "value": 0.000516268,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile95",
+      "value": 0.00060156,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile99",
+      "value": 0.000779307,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile95_min",
+      "value": 0.00060156,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile95_max",
+      "value": 0.000605266,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile99_min",
+      "value": 0.000766691,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "percentile99_max",
+      "value": 0.000780027,
+      "selectedPass": 1
+    },
+    {
+      "id": "zmdb-bun",
+      "runtime": "bun",
+      "language": "typescript",
+      "level": 256,
+      "route": "POST:/user",
+      "load": "fixed-rate",
+      "label": "http_errors",
+      "value": 0,
+      "selectedPass": 1
     }
   ]
 }

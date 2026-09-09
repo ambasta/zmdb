@@ -21,7 +21,7 @@ resolved project and naming strategy to the transformer:
 
 ```ts {"mode":"compile","id":"example-002"}
 // vite.config.ts / rollup.config.js / esbuild plugin list
-import { zmdbAot } from 'zmdb/compiler';
+import { zmdbAot } from '@zmdb/core/compiler';
 
 const plugin = await zmdbAot();
 ```
@@ -36,7 +36,7 @@ The useful pattern is one module that reads the environment and exports typed va
 // src/config.ts
 import { Pool } from 'pg';
 import { assert } from '@zmdb/validator';
-import { postgresDriver } from 'zmdb/postgres';
+import { postgresDriver } from '@zmdb/core/postgres';
 
 interface Env {
   DATABASE_URL: string;

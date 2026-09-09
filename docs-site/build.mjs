@@ -134,11 +134,17 @@ mkdirSync(join(OUT, 'benchmarks'), { recursive: true });
 // replaced by a fallback: benchmarks.mjs renders an explicit "not measured" panel
 // naming the command that produces it, because a placeholder zero is a claim.
 const BENCH_DATA = [
+  'optimizations-2026-09-09.json',
+  'optimizations-2026-09-09-samples.json.gz',
+  'app-startup.json',
+  'observability.json',
   'engineering.json',
   'engineering-raw.json.gz',
   'validation.json',
   'orm.json',
   'framework.json',
+  'repository.json',
+  'peer-refresh-2026-09-09-samples.json.gz',
   'validation-matrix.json',
   'orm-results.json',
   'framework-results.json',
@@ -224,7 +230,7 @@ import {
   type Serial,
   type Sql,
   type Table,
-} from 'zmdb';
+} from '@zmdb/core';
 
 // 1 — declare the table once, as a type
 export interface User extends Table<'users'> {
@@ -356,7 +362,7 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/transport-rabbitmq</code><p>RabbitMQ topic transport with positive prefetch, confirmed delayed retries, and owned dead-letter topology.</p></div>
     <div class="pkg"><code>@zmdb/transport-redis</code><p>Lossy Redis Pub/Sub messaging with concrete-channel dispatch and correlated request/reply.</p></div>
     <div class="pkg"><code>@zmdb/web</code><p>HTTP controllers, routing, request pipelines, OpenAPI, gateways, testing, and runtime adapters over <code>@zmdb/app</code>.</p></div>
-    <div class="pkg"><code>zmdb</code><p>The cohesive application facade: a lazy root plus focused schema, SQL, validator, ORM, web, compiler, migrations, and testing entries. It contains no implementation logic and does not re-export opt-in integrations.</p></div>
+    <div class="pkg"><code>@zmdb/core</code><p>The cohesive application facade: a lazy root plus focused schema, SQL, validator, ORM, web, compiler, migrations, and testing entries. It contains no implementation logic and does not re-export opt-in integrations.</p></div>
   </div>
 </section>
 

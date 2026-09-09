@@ -10,10 +10,10 @@ It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript sche
 ## Install
 
 ```bash
-yarn add @zmdb/orm@1.0.0-beta.1
+yarn add @zmdb/orm@1.0.0-beta.2
 ```
 
-> **Prerelease** (`1.0.0-beta.1`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+> **Prerelease** (`1.0.0-beta.2`). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
 ## Entry points
 

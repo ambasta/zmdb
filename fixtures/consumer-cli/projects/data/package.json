@@ -4,13 +4,13 @@
   "type": "module",
   "dependencies": {
     "@types/node": "26.4.1",
-    "@zmdb/compiler": "1.0.0-beta.1",
-    "@zmdb/migrations": "1.0.0-beta.1",
-    "@zmdb/orm": "1.0.0-beta.1",
-    "@zmdb/schema": "1.0.0-beta.1",
-    "@zmdb/sql": "1.0.0-beta.1",
-    "@zmdb/sqlite": "1.0.0-beta.1",
-    "@zmdb/validator": "1.0.0-beta.1",
+    "@zmdb/compiler": "1.0.0-beta.2",
+    "@zmdb/migrations": "1.0.0-beta.2",
+    "@zmdb/orm": "1.0.0-beta.2",
+    "@zmdb/schema": "1.0.0-beta.2",
+    "@zmdb/sql": "1.0.0-beta.2",
+    "@zmdb/sqlite": "1.0.0-beta.2",
+    "@zmdb/validator": "1.0.0-beta.2",
     "typescript": "7.0.2"
   }
 }

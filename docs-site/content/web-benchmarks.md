@@ -1,3 +1,8 @@
+The [latest HTTP measurements](../benchmarks/index.html#optimization-http), recorded on **9 September 2026**, compare the Fetch header conversions and shared lazy request-data accessor integrated in
+`4c9cf2f4` against baseline `9c8c206f`. Mean throughput increased 10.1% for Node POST, 5.6% for Bun POST, 19.8% for Deno POST and 18.7% for Deno parameter GET. Each variant has two four-second samples
+at 64 connections after warmup, in before/after/after/before order. Node throughput ranges and Bun p99 ranges overlap; these short runs do not establish statistical significance or a new framework
+ranking. The dashboard displays the actual p99 ranges and links the per-run measurements. The bounded request-body reader is unchanged.
+
 `@zmdb/web` resolves each controller's route table **once** at `register`/`compile` time and never re-reads `Symbol.metadata` per request. This is the concrete, testable form of the "no per-request
 reflection" claim — and it is the key difference from `reflect-metadata`-based frameworks that call `Reflect.getMetadata()` on every request.
 

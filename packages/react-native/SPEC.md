@@ -5,7 +5,7 @@
 ## 1. Package boundary
 
 `@zmdb/react-native` is ESM-only, has `sideEffects: false`, depends only on `@zmdb/client` and `@zmdb/react`, and declares React 19.2 and React Native 0.87 as required peers. It is opt-in and is not
-re-exported by `zmdb`.
+re-exported by `@zmdb/core`.
 
 The package owns device lifecycle policy around an opaque application-generated client. It does not inspect operations, construct URLs, encode requests, validate responses, choose a connectivity
 library, choose credential persistence, import a database or server package, or expose a `./metro` entry. `@zmdb/compiler/metro` owns the AOT build integration.

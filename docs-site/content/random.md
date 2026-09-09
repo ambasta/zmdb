@@ -42,7 +42,7 @@ A literal type samples to itself, which makes a discriminated union work the way
 Constraints narrow the range rather than being validated after the fact:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies random; this excerpt does not repeat those declarations."}
-import type { Max, MaxLength, Min, MinLength } from 'zmdb/tags';
+import type { Max, MaxLength, Min, MinLength } from '@zmdb/core/tags';
 
 random<number & Min<100> & Max<200>>(); // 100 … 200
 random<string & MinLength<8> & MaxLength<8>>(); // exactly eight characters
@@ -103,8 +103,8 @@ Only a reference with no non-recursive arm beside it is refused.
 
 ```ts {"mode":"compile","id":"example-006"}
 import { random } from '@zmdb/validator';
-import type { CreateDTO } from 'zmdb/derive';
-import type { Max, MaxLength, Min, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { CreateDTO } from '@zmdb/core/derive';
+import type { Max, MaxLength, Min, PrimaryKey, Serial, Sql, Table } from '@zmdb/core/tags';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

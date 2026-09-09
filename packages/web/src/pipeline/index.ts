@@ -592,7 +592,7 @@ function textBody(value: string): ResponseBody {
 // "plain object → 200 JSON" provably unchanged for every existing caller.
 //
 // Symbol.for, not a fresh Symbol: two copies of this package in one process
-// (a hoisting mismatch, or an app importing both `@zmdb/web` and `zmdb/web`)
+// (a hoisting mismatch, or an app importing both `@zmdb/web` and `@zmdb/core/web`)
 // must still recognise each other's responses.
 const RESPONSE_TAG = Symbol.for('zmdb.web.response');
 

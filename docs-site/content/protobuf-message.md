@@ -4,11 +4,11 @@
 ## Install and ownership
 
 ```bash
-yarn add @zmdb/protobuf@1.0.0-beta.1
-yarn add --dev @zmdb/compiler@1.0.0-beta.1
+yarn add @zmdb/protobuf@1.0.0-beta.2
+yarn add --dev @zmdb/compiler@1.0.0-beta.2
 ```
 
-`@zmdb/protobuf` has no runtime dependency or peer dependency and is not part of the `zmdb` default install. It owns the source calls, typed gRPC service artifacts, and generated-code wire ABI.
+`@zmdb/protobuf` has no runtime dependency or peer dependency and is not part of the `@zmdb/core` default install. It owns the source calls, typed gRPC service artifacts, and generated-code wire ABI.
 `@zmdb/compiler` owns TypeScript reflection and emission; its transform or project compiler replaces the calls before execution. Neither package loads a `.proto` parser at runtime.
 
 ## Field numbers are the wire contract

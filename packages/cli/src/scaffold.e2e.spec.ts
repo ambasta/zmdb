@@ -11,8 +11,8 @@ import {
 } from 'node:fs';
 import { delimiter, join, relative } from 'node:path';
 
+import { runCli } from '@zmdb/core/cli';
 import { afterEach, describe, expect, it } from 'vitest';
-import { runCli } from 'zmdb/cli';
 
 // Regression coverage for the scaffold contract frozen in #499 and implemented in #500.
 // Each assertion uses the real exported `runCli`; there is no scaffold stub. Temporary projects
@@ -174,6 +174,10 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
   it('generates the complete project file set and nothing else', async () => {
     const { project, run } = await generatedProject();
     expect(run.code).toBe(0);
+    const manifest = JSON.parse(readFileSync(join(project, 'package.json'), 'utf8')) as {
+      dependencies: Record<string, string>;
+    };
+    expect(Object.keys(manifest.dependencies).toSorted()).toEqual(['@zmdb/core', '@zmdb/sqlite']);
     expect(filesUnder(project)).toEqual(
       [
         '.gitignore',
@@ -249,6 +253,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
       expect((await cli(root, 'new', kind, name)).code).toBe(0);
       const source = readFileSync(join(root, spec), 'utf8');
       expect(source).toContain('createTestApp');
+      expect(source).toContain("from '@zmdb/core/testing'");
       expect(source).toMatch(/\bexpect\(/);
       expect(source).not.toMatch(/toBeDefined|toBeTruthy|it\.todo|it\.skip/);
     }

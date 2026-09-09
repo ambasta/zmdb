@@ -3,7 +3,7 @@ A `bigint` column is a 64-bit integer. The awkward part is not the DDL, it is th
 ## Declaring one
 
 ```ts {"mode":"compile","id":"example-001"}
-import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Sql, Table } from '@zmdb/core/tags';
 
 export interface Event extends Table<'events'> {
   id: bigint & Sql<'bigint'> & PrimaryKey;

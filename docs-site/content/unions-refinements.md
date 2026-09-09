@@ -74,7 +74,7 @@ assert<Node>(input); // walks the whole chain
 For a check the tag vocabulary does not model, `Rule<'name'>` names one:
 
 ```ts {"mode":"compile","id":"example-007"}
-import type { Rule, Sql, Table, PrimaryKey, Serial } from 'zmdb/tags';
+import type { Rule, Sql, Table, PrimaryKey, Serial } from '@zmdb/core/tags';
 
 export interface Account extends Table<'accounts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -92,7 +92,7 @@ carries two.
 The tags that _are_ honoured everywhere:
 
 ```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies age, assert, slug; this excerpt does not repeat those declarations."}
-import type { Max, MaxLength, Min, MinLength, Pattern } from 'zmdb/tags';
+import type { Max, MaxLength, Min, MinLength, Pattern } from '@zmdb/core/tags';
 
 type Adult = number & Min<18> & Max<120>;
 type Slug = string & MinLength<1> & MaxLength<64> & Pattern<'^[a-z0-9-]+$'>;

@@ -23,7 +23,7 @@ Use the library sections below when an application owns snapshots or migration a
 Install the library and the database package that owns the dialect:
 
 ```bash
-yarn add @zmdb/migrations@1.0.0-beta.1 @zmdb/sqlite@1.0.0-beta.1
+yarn add @zmdb/migrations@1.0.0-beta.2 @zmdb/sqlite@1.0.0-beta.2
 ```
 
 This complete example builds snapshots and a plan from schema data without connecting to a database:
@@ -57,7 +57,7 @@ console.log(plan.down); // SQL to drop users
 ```
 
 `snapshot` also accepts the structural data in generated schemas. It captures table names, column types, nullability and ordered primary keys. `diff` compares two snapshots; `planMigration` uses the
-selected dialect and its migration emitters to order SQL. The product's `zmdb/migrations` entry offers the curated lifecycle APIs, while the direct package provides the complete surface.
+selected dialect and its migration emitters to order SQL. The product's `@zmdb/core/migrations` entry offers the curated lifecycle APIs, while the direct package provides the complete surface.
 
 ## Change operations
 
