@@ -6,9 +6,10 @@
 // that file, and `expectTypeOf(...)` is a runtime no-op.
 import { type Equal, type Expect, type ExpectNot, type Extends } from '@zmdb/schema';
 
+import { zmdbAssertZmdbConfigData } from '../../../compiler/src/config/index.zmdb.generated.js';
 // pay: Draft -> Paid, ship: Paid -> Shipped. There is no Draft -> Shipped edge.
 import { Draft, pay, ship, type Order } from './fixtures.js';
-import { type Brand } from './index.js';
+import { defineState, type Brand } from './index.js';
 
 // --- branding --------------------------------------------------------------
 export type _State1 = ExpectNot<Equal<Brand<Order, 'Draft'>, Brand<Order, 'Paid'>>>;
@@ -30,6 +31,15 @@ export const _illegal = ship(draft);
 // @ts-expect-error — an unbranded order is not a Draft.
 export const _unbranded = pay({ id: 1, total: 10 });
 
-// `is` narrows to the branded state.
+// Erased brands have no runtime predicate, and unknown input is not a base value.
 declare const value: unknown;
-export const _narrowed: Brand<Order, 'Draft'> | undefined = Draft.is(value) ? value : undefined;
+// @ts-expect-error — State.is cannot establish an erased brand.
+Draft.is(value);
+// @ts-expect-error — create requires an already typed base value.
+Draft.create(value);
+
+const checked = zmdbAssertZmdbConfigData(value);
+const Configured = defineState<'Configured', typeof checked>();
+// @ts-expect-error — a generated base witness does not establish state history.
+export const _notHistoricallyBranded: Brand<typeof checked, 'Configured'> = checked;
+export const _intentional: Brand<typeof checked, 'Configured'> = Configured.create(checked);

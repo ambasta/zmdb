@@ -20,12 +20,14 @@ type PaidOrder = Brand<Order, 'Paid'>;
 
 ## Constructing states (no `as`)
 
-States are built through a **checked factory**, so you never cast:
+States are built through a **typed factory** that intentionally brands an already typed base value:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Draft; this excerpt does not repeat those declarations."}
 const order = Draft.create({ id: 1, total: 10 }); // DraftOrder
-Draft.is(order); // type guard → narrows to DraftOrder
 ```
+
+There is no `State.is`: phantom brands cannot be recognized at runtime. Validate unknown input with the existing generated `is<T>`/`assert<T>` or decoder for the base shape and any literal
+discriminant first. That validation does not establish transition history. After the domain authorization decision, call `create` deliberately; it returns the same value without runtime validation.
 
 ## Declaring transitions
 

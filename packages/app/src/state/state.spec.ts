@@ -1,9 +1,10 @@
 // Tests (#269) for compile-time domain state machines: runtime identity and
-// narrowing. Legal/illegal transitions are type-level claims, asserted in
+// deliberate construction. Legal/illegal transitions are type-level claims, asserted in
 // `state.type-test.ts` and compiled by `yarn typecheck`.
 // Per ./SPEC.md.
 import { describe, it, expect } from 'vitest';
 
+import { zmdbAssertZmdbConfigData } from '../../../compiler/src/config/index.zmdb.generated.js';
 import { Draft, Paid, pay, type Order } from './fixtures.js';
 import { defineState, transition, type Brand } from './index.js';
 
@@ -37,18 +38,19 @@ describe('@zmdb/app state: defineState', () => {
     const Closed = defineState<'Closed', Ticket>();
     expect(Open).not.toBe(Closed);
     expect(Open.create).not.toBe(Closed.create);
-    // And yet the values they make are indistinguishable at runtime, which is the trade: the
-    // brand is a compile-time fact, so `is` cannot tell one state from another and does not
-    // claim to. Keeping states apart is `transition`'s signature's job, not this predicate's.
-    expect(Closed.is(Open.create({ id: 1 }))).toBe(true);
   });
 
-  it('is() answers for anything that exists, and nothing that does not', () => {
-    const Open = defineState<'Open', Ticket>();
-    expect(Open.is({ id: 1 })).toBe(true);
-    expect(Open.is(0)).toBe(true);
-    expect(Open.is(null)).toBe(false);
-    expect(Open.is(undefined)).toBe(false);
+  it('does not expose a predicate for an erased brand', () => {
+    expect(defineState<'Open', Ticket>()).not.toHaveProperty('is');
+  });
+
+  it('validates unknown base fields and literals before intentional branding', () => {
+    expect(() => zmdbAssertZmdbConfigData({ schema: 42, naming: 'snake_case' })).toThrow();
+    expect(() => zmdbAssertZmdbConfigData({ schema: 'schema.ts', naming: 'invalid' })).toThrow();
+    const input: unknown = { schema: 'schema.ts', naming: 'snake_case' };
+    const base = zmdbAssertZmdbConfigData(input);
+    const Configured = defineState<'Configured', typeof base>();
+    expect(Configured.create(base)).toBe(input);
   });
 
   it('runs the transition function and rebrands what it returned', () => {
@@ -77,10 +79,5 @@ describe('@zmdb/app state: transitions', () => {
     // @ts-expect-error — pay expects a Draft order, not a Paid one
     pay(paid);
     expect(true).toBe(true);
-  });
-
-  it('is() narrows a value to the branded state', () => {
-    const draft = Draft.create({ id: 3, total: 30 });
-    expect(Draft.is(draft)).toBe(true);
   });
 });

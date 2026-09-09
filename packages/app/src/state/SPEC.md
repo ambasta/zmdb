@@ -8,13 +8,16 @@
 
 A nominal type: `T` tagged with a unique phantom brand `B`, so `Brand<Order, 'Draft'>` and `Brand<Order, 'Paid'>` are **incompatible** even though both erase to `Order` at runtime.
 
-### `defineState` — safe smart constructor (no `as`)
+### `defineState` — typed constructor (no `as`)
 
-Because the no-`as` rule forbids `value as Brand<...>` in consumer code, states are produced by a **checked factory**:
+Because the no-`as` rule forbids `value as Brand<...>` in consumer code, states are produced by a **typed factory**:
 
 \`\`\`ts const draft = defineState<'Draft', Order>(); // a State<'Draft', Order> maker const order = draft.create({ ...orderFields }); // Brand<Order, 'Draft'> — no cast \`\`\`
 
-`draft.is(x)` is a type guard narrowing `unknown`/a base value to the branded state. The maker never asserts on the consumer surface.
+`create(value: T)` intentionally brands an already typed value and returns that exact value unchanged. There is no `State.is`: an erased brand cannot be recognized at runtime.
+
+Unknown external input must first pass the existing generated `is<T>`/`assert<T>` or decoder for its base shape, including any literal discriminant. This establishes the base type, not transition
+history. After the application makes its domain authorization decision, it may deliberately call `create`.
 
 ### `transition` — declared edges only
 
@@ -28,14 +31,14 @@ because there is no function for it.
 ## Invariants
 
 - **Branding is compile-time only**; branded values erase to their base type — 0 runtime bytes/cost. `defineState().create` returns the value unchanged at runtime (identity), just retyped.
-- **No `as`/`any`/`!` on the consumer surface.** Construction goes through the checked factory; the single unavoidable brand attach lives inside the factory as one documented boundary (ARCHITECTURE.md
+- **No `as`/`any`/`!` on the consumer surface.** Construction goes through the typed factory; the single unavoidable brand attach lives inside the factory as one documented boundary (ARCHITECTURE.md
   §2.1), never at a call site.
 - No reflection.
 
 ## Acceptance
 
 - Type-level: a legal transition compiles; an illegal one is \`@ts-expect-error\`. Two brands of the same base are not mutually assignable.
-- Runtime: \`create\`/\`transition\` return the value with fields intact (identity / structural), \`is\` narrows correctly.
+- Runtime: \`create\`/\`transition\` return the value with fields intact (identity / structural), no runtime predicate claims to recognize an erased brand.
 - No consumer-surface \`as\`; suite + typecheck green.
 
 ## Out of scope
