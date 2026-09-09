@@ -131,7 +131,14 @@ function architectureFromModules(resolvedRoot, catalog) {
         const directory = `packages/${entry.name}`;
         const directoryPath = resolveInside(resolvedRoot, directory, `workspace directory ${directory}`);
         const manifestPath = resolveInside(directoryPath, 'package.json', `${directory} manifest`);
-        if (!existsSync(manifestPath)) return [];
+        // `packages/*` is a workspace pattern, so a directory without a manifest is a leftover from a
+        // rename rather than a package to skip. Skipping it silently is what let three of them survive.
+        if (!existsSync(manifestPath)) {
+          throw new TypeError(
+            `${directory} has no package.json. Every directory under packages/ is matched by the ` +
+              `packages/* workspace pattern; remove the directory if it is a leftover from a rename.`,
+          );
+        }
         const manifest = deepFreeze(JSON.parse(readFileSync(manifestPath, 'utf8')));
         if (!isRecord(manifest)) throw new TypeError(`${directory}/package.json must contain an object`);
         return [Object.freeze({ directory, directoryPath, manifestPath, manifest })];

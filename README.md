@@ -2,6 +2,10 @@
 
 > A TypeScript data layer that keeps schemas, types, validation, and SQL in sync. The codebase was written entirely by LLMs.
 
+> **Project status: pre-1.0** (`1.0.0-beta.2`). zmdb is authored and reviewed by LLMs under the oversight of a single maintainer. The public API may change without notice before 1.0.0, there is no
+> release cadence or support commitment yet, and there is no LTS. It requires Node 26+ and TypeScript 7.0+, and it has not been exercised in production. Use it where you can afford to follow a moving
+> API; the [anti-patterns page](https://ambasta.github.io/zmdb/docs/anti-patterns.html) is the fastest way to find out whether its design suits you.
+
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │  Define once. Everything derives. Zero boilerplate.         │
