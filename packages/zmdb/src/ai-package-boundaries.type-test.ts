@@ -15,18 +15,7 @@ import {
   type ToolSpec,
   type ToolSpecFor,
 } from '@zmdb/ai';
-import { type anthropicDriver, type AnthropicDriverOptions, type AnthropicMessagesClient } from '@zmdb/ai-anthropic';
-import {
-  type langchainTool,
-  type LangChainToolFields,
-  type ToolAdapterOptions as LangChainToolAdapterOptions,
-} from '@zmdb/ai-langchain';
-import {
-  type aiSdkTool,
-  type AiSdkToolFields,
-  type AiSdkToolOptions,
-  type ToolAdapterOptions as AiSdkToolAdapterOptions,
-} from '@zmdb/ai-vercel';
+import { type anthropicDriver, type AnthropicDriverOptions, type AnthropicMessagesClient } from '@zmdb/ai/anthropic';
 import {
   type defineTools,
   type ChatDriver,
@@ -56,6 +45,11 @@ import {
   type toolsFromOpenApi,
 } from '@zmdb/ai/http';
 import {
+  type langchainTool,
+  type LangChainToolFields,
+  type ToolAdapterOptions as LangChainToolAdapterOptions,
+} from '@zmdb/ai/langchain';
+import {
   type executeToolAdapter,
   type InvocableTool,
   type invokeTool,
@@ -63,6 +57,12 @@ import {
   type ToolAdapterOptions,
   type ToolInvocation,
 } from '@zmdb/ai/tool-runtime';
+import {
+  type aiSdkTool,
+  type AiSdkToolFields,
+  type AiSdkToolOptions,
+  type ToolAdapterOptions as AiSdkToolAdapterOptions,
+} from '@zmdb/ai/vercel';
 import {
   type createMcpClient,
   type createMcpServer,
@@ -109,9 +109,9 @@ type AiExports = {
 };
 
 type IntegrationExports = {
-  readonly '@zmdb/ai-anthropic': ExportSet<'anthropicDriver', 'AnthropicDriverOptions' | 'AnthropicMessagesClient'>;
-  readonly '@zmdb/ai-langchain': ExportSet<'langchainTool', 'LangChainToolFields' | 'ToolAdapterOptions'>;
-  readonly '@zmdb/ai-vercel': ExportSet<'aiSdkTool', 'AiSdkToolFields' | 'AiSdkToolOptions' | 'ToolAdapterOptions'>;
+  readonly '@zmdb/ai/anthropic': ExportSet<'anthropicDriver', 'AnthropicDriverOptions' | 'AnthropicMessagesClient'>;
+  readonly '@zmdb/ai/langchain': ExportSet<'langchainTool', 'LangChainToolFields' | 'ToolAdapterOptions'>;
+  readonly '@zmdb/ai/vercel': ExportSet<'aiSdkTool', 'AiSdkToolFields' | 'AiSdkToolOptions' | 'ToolAdapterOptions'>;
   readonly '@zmdb/mcp': ExportSet<
     'MCP_PROTOCOL_VERSION' | 'McpProtocolError' | 'createMcpClient' | 'createMcpServer',
     'McpClient' | 'McpClientOptions' | 'McpServer' | 'McpServerOptions' | 'RemoteTool' | 'RemoteToolResult'
@@ -161,9 +161,9 @@ type McpValues = {
 type FinalDependencies = {
   readonly '@zmdb/schema': never;
   readonly '@zmdb/ai': '@zmdb/schema';
-  readonly '@zmdb/ai-anthropic': '@zmdb/ai';
-  readonly '@zmdb/ai-langchain': '@zmdb/ai';
-  readonly '@zmdb/ai-vercel': '@zmdb/ai';
+  readonly '@zmdb/ai/anthropic': '@zmdb/ai';
+  readonly '@zmdb/ai/langchain': '@zmdb/ai';
+  readonly '@zmdb/ai/vercel': '@zmdb/ai';
   readonly '@zmdb/mcp': '@zmdb/ai';
   readonly '@zmdb/validator': '@zmdb/ai' | '@zmdb/schema';
 };
@@ -171,9 +171,9 @@ type FinalDependencies = {
 type FinalPeers = {
   readonly '@zmdb/schema': never;
   readonly '@zmdb/ai': never;
-  readonly '@zmdb/ai-anthropic': '@anthropic-ai/sdk@0.124.0';
-  readonly '@zmdb/ai-langchain': '@langchain/core@^1.2.9';
-  readonly '@zmdb/ai-vercel': 'ai@^7.0.93';
+  readonly '@zmdb/ai/anthropic': '@anthropic-ai/sdk@0.124.0';
+  readonly '@zmdb/ai/langchain': '@langchain/core@^1.2.9';
+  readonly '@zmdb/ai/vercel': 'ai@^7.0.93';
   readonly '@zmdb/mcp': never;
   readonly '@zmdb/validator': never;
 };
@@ -214,7 +214,7 @@ export type _CompilerValuesAreExact = Expect<
   Equal<keyof AiCompilerValues, 'ToolSpecRefusalError' | 'toolSchemaForProvider'>
 >;
 export type _IntegrationPackagesAreExact = Expect<
-  Equal<keyof IntegrationExports, '@zmdb/ai-anthropic' | '@zmdb/ai-langchain' | '@zmdb/ai-vercel' | '@zmdb/mcp'>
+  Equal<keyof IntegrationExports, '@zmdb/ai/anthropic' | '@zmdb/ai/langchain' | '@zmdb/ai/vercel' | '@zmdb/mcp'>
 >;
 export type _AnthropicRootIsExact = Expect<Equal<keyof AnthropicValues, 'anthropicDriver'>>;
 export type _LangChainRootIsExact = Expect<Equal<keyof LangChainValues, 'langchainTool'>>;
@@ -228,9 +228,9 @@ export type _AotDependsOnSchemaAndAi = Expect<Equal<FinalDependencies['@zmdb/val
 export type _OnlyIntegrationPackagesOwnSdkPeers = Expect<
   Equal<
     {
-      readonly anthropic: FinalPeers['@zmdb/ai-anthropic'];
-      readonly langchain: FinalPeers['@zmdb/ai-langchain'];
-      readonly vercel: FinalPeers['@zmdb/ai-vercel'];
+      readonly anthropic: FinalPeers['@zmdb/ai/anthropic'];
+      readonly langchain: FinalPeers['@zmdb/ai/langchain'];
+      readonly vercel: FinalPeers['@zmdb/ai/vercel'];
     },
     {
       readonly anthropic: '@anthropic-ai/sdk@0.124.0';

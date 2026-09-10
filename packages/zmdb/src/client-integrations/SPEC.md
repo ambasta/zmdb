@@ -2,19 +2,20 @@
 
 Issue #688, parent #687. This is the architecture contract for the optional UI and meta-framework packages:
 
-- `@zmdb/react`
-- `@zmdb/angular`
-- `@zmdb/vue`
-- `@zmdb/svelte`
-- `@zmdb/solid`
-- `@zmdb/react-native`
+- `@zmdb/client/react`
+- `@zmdb/client/angular`
+- `@zmdb/client/vue`
+- `@zmdb/client/svelte`
+- `@zmdb/client/solid`
+- `@zmdb/client/react-native`
 - `@zmdb/next`
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-This file originally froze all nine packages before implementation. Issues #691–#699 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`,
-`@zmdb/next`, `@zmdb/nuxt`, and `@zmdb/sveltekit`. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport,
-wire format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issues #691–#699 now ship `@zmdb/client/react`, `@zmdb/client/angular`, `@zmdb/client/vue`, `@zmdb/client/svelte`,
+`@zmdb/client/solid`, `@zmdb/client/react-native`, `@zmdb/next`, `@zmdb/nuxt`, and `@zmdb/sveltekit`. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common
+contract. The generated client, request transport, wire format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another
+client API.
 
 ## 0. Measured starting point
 
@@ -35,13 +36,13 @@ The framework release lines in §4 were measured with `yarn npm info`, not infer
 
 ## 0.1 Current implementation status
 
-`@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/solid` implement all five base-adapter rows in this contract. The Svelte package provides typed context, lazy query stores,
-mutation stores, final-subscriber and `onDestroy` cancellation, stale-result guards, and request-isolated server rendering. The Solid package provides typed context, native resources, owner-disposal
-and source-change cancellation, stale-result guards, and native Suspense/error propagation. Their public APIs and qualification evidence are normative in
-[`packages/svelte/SPEC.md`](../../../svelte/SPEC.md) and [`packages/solid/SPEC.md`](../../../solid/SPEC.md).
+`@zmdb/client/react`, `@zmdb/client/angular`, `@zmdb/client/vue`, `@zmdb/client/svelte`, and `@zmdb/client/solid` implement all five base-adapter rows in this contract. The Svelte package provides
+typed context, lazy query stores, mutation stores, final-subscriber and `onDestroy` cancellation, stale-result guards, and request-isolated server rendering. The Solid package provides typed context,
+native resources, owner-disposal and source-change cancellation, stale-result guards, and native Suspense/error propagation. Their public APIs and qualification evidence are normative in
+[`packages/client/src/svelte/SPEC.md`](../../../svelte/SPEC.md) and [`packages/client/src/solid/SPEC.md`](../../../solid/SPEC.md).
 
-`@zmdb/react-native` reuses React's query and mutation state machines while adding provider-owned AppState subscriptions, background cancellation/foreground-refresh policy, pre-dispatch connectivity
-policy, and exact application-injected credential storage.
+`@zmdb/client/react-native` reuses React's query and mutation state machines while adding provider-owned AppState subscriptions, background cancellation/foreground-refresh policy, pre-dispatch
+connectivity policy, and exact application-injected credential storage.
 
 `@zmdb/next` implements the first meta-framework row through physically separate browser and server exports, React binding reuse, request-scoped credential forwarding, request-local RSC memoization,
 and explicit Next fetch policy.
@@ -156,17 +157,17 @@ Recipes are still supported documentation. They simply do not create another pac
 
 ### 2.3 Why the nine packages qualify
 
-| Package              | Behaviour unavailable from `@zmdb/client` alone                                                      |
-| -------------------- | ---------------------------------------------------------------------------------------------------- |
-| `@zmdb/react`        | Context ownership, effect cleanup, dependency changes and React StrictMode/concurrent rendering.     |
-| `@zmdb/angular`      | Injector hierarchy, signals, `DestroyRef` cleanup and RxJS unsubscription.                           |
-| `@zmdb/vue`          | Application provide/inject, watchers, effect scopes and per-SSR-app isolation.                       |
-| `@zmdb/svelte`       | Typed component context, lazy store subscription and final-subscriber teardown.                      |
-| `@zmdb/solid`        | Owner graph disposal, resources, Suspense and error-boundary propagation.                            |
-| `@zmdb/react-native` | `AppState`, offline refusal, injected credential storage and Metro/device boundary checks.           |
-| `@zmdb/next`         | Server/client module separation, request headers/cookies, RSC request memoization and cache options. |
-| `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
-| `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
+| Package                     | Behaviour unavailable from `@zmdb/client` alone                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `@zmdb/client/react`        | Context ownership, effect cleanup, dependency changes and React StrictMode/concurrent rendering.     |
+| `@zmdb/client/angular`      | Injector hierarchy, signals, `DestroyRef` cleanup and RxJS unsubscription.                           |
+| `@zmdb/client/vue`          | Application provide/inject, watchers, effect scopes and per-SSR-app isolation.                       |
+| `@zmdb/client/svelte`       | Typed component context, lazy store subscription and final-subscriber teardown.                      |
+| `@zmdb/client/solid`        | Owner graph disposal, resources, Suspense and error-boundary propagation.                            |
+| `@zmdb/client/react-native` | `AppState`, offline refusal, injected credential storage and Metro/device boundary checks.           |
+| `@zmdb/next`                | Server/client module separation, request headers/cookies, RSC request memoization and cache options. |
+| `@zmdb/nuxt`                | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
+| `@zmdb/sveltekit`           | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
 This table is a design qualification, not a blanket support claim. All nine packages have earned their rows through native, shared-conformance, packed-consumer, bundle, and cross-adapter qualification
 in #691–#700.
@@ -294,32 +295,32 @@ peer warning.
 
 Every package is ESM-only, has `sideEffects: false`, performs no global registration at import time and follows the repository's source-export/build-repoint convention.
 
-| Package              | Workspace dependencies         | Required framework peers     | Public exports              |
-| -------------------- | ------------------------------ | ---------------------------- | --------------------------- |
-| `@zmdb/react`        | `@zmdb/client`                 | `react`                      | `.`                         |
-| `@zmdb/angular`      | none                           | `@angular/core`, `rxjs`      | `.`                         |
-| `@zmdb/vue`          | `@zmdb/client`                 | `vue`                        | `.`                         |
-| `@zmdb/svelte`       | `@zmdb/client`                 | `svelte`                     | `.`                         |
-| `@zmdb/solid`        | `@zmdb/client`                 | `solid-js`                   | `.`                         |
-| `@zmdb/react-native` | `@zmdb/client`, `@zmdb/react`  | `react`, `react-native`      | `.`                         |
-| `@zmdb/next`         | `@zmdb/client`, `@zmdb/react`  | `next`, `react`, `react-dom` | `./client`, `./server`      |
-| `@zmdb/nuxt`         | `@zmdb/client`, `@zmdb/vue`    | `nuxt`, `vue`                | `.`, `./client`, `./server` |
-| `@zmdb/sveltekit`    | `@zmdb/client`, `@zmdb/svelte` | `@sveltejs/kit`, `svelte`    | `./client`, `./server`      |
+| Package                     | Workspace dependencies                | Required framework peers     | Public exports              |
+| --------------------------- | ------------------------------------- | ---------------------------- | --------------------------- |
+| `@zmdb/client/react`        | `@zmdb/client`                        | `react`                      | `.`                         |
+| `@zmdb/client/angular`      | none                                  | `@angular/core`, `rxjs`      | `.`                         |
+| `@zmdb/client/vue`          | `@zmdb/client`                        | `vue`                        | `.`                         |
+| `@zmdb/client/svelte`       | `@zmdb/client`                        | `svelte`                     | `.`                         |
+| `@zmdb/client/solid`        | `@zmdb/client`                        | `solid-js`                   | `.`                         |
+| `@zmdb/client/react-native` | `@zmdb/client`, `@zmdb/client/react`  | `react`, `react-native`      | `.`                         |
+| `@zmdb/next`                | `@zmdb/client`, `@zmdb/client/react`  | `next`, `react`, `react-dom` | `./client`, `./server`      |
+| `@zmdb/nuxt`                | `@zmdb/client`, `@zmdb/client/vue`    | `nuxt`, `vue`                | `.`, `./client`, `./server` |
+| `@zmdb/sveltekit`           | `@zmdb/client`, `@zmdb/client/svelte` | `@sveltejs/kit`, `svelte`    | `./client`, `./server`      |
 
 The dependency arrows are:
 
 ```text
 @zmdb/client
-├── @zmdb/react
-│   ├── @zmdb/react-native
+├── @zmdb/client/react
+│   ├── @zmdb/client/react-native
 │   └── @zmdb/next
-├── @zmdb/vue
+├── @zmdb/client/vue
 │   └── @zmdb/nuxt
-├── @zmdb/svelte
+├── @zmdb/client/svelte
 │   └── @zmdb/sveltekit
-└── @zmdb/solid
+└── @zmdb/client/solid
 
-@zmdb/angular (structural generated-client binding; no workspace edge)
+@zmdb/client/angular (structural generated-client binding; no workspace edge)
 ```
 
 No arrow points from a base adapter to a meta-framework adapter, from `@zmdb/client` to an adapter, or from any adapter to `@zmdb/web`, the ORM, schema packages, compiler or validator.
@@ -331,11 +332,11 @@ all nine. Cohesion is provided by one generated-client contract and one document
 
 ### 4.3 Environment-separated exports
 
-- `@zmdb/next` has no mixed root barrel. `./client` begins with `'use client'` and reaches `@zmdb/react`; `./server` carries the server-only guard and cannot be resolved into a browser bundle.
+- `@zmdb/next` has no mixed root barrel. `./client` begins with `'use client'` and reaches `@zmdb/client/react`; `./server` carries the server-only guard and cannot be resolved into a browser bundle.
 - `@zmdb/nuxt` root is the Nuxt module entry. `./client` contains the browser plugin/composables and `./server` contains Nitro request integration. The module may register those entries but importing
   it performs no request or global client registration.
-- `@zmdb/sveltekit` has no mixed root barrel. `./client` reaches `@zmdb/svelte`; `./server` accepts a request event and never enters the browser graph.
-- `@zmdb/react-native` has no `./metro` export. The AOT Metro transform remains `@zmdb/compiler/metro`; the client adapter owns device lifecycle only.
+- `@zmdb/sveltekit` has no mixed root barrel. `./client` reaches `@zmdb/client/svelte`; `./server` accepts a request event and never enters the browser graph.
+- `@zmdb/client/react-native` has no `./metro` export. The AOT Metro transform remains `@zmdb/compiler/metro`; the client adapter owns device lifecycle only.
 - Base adapter roots contain no server secret, Node built-in or meta-framework import.
 
 ## 5. SSR, hydration and credential ownership
@@ -371,7 +372,7 @@ A hydration key mismatch or absent payload starts a normal client request. Frame
 ### 6.1 React
 
 The binding factory owns one React context. The provider is isolated per tree. Query effects abort on dependency changes and unmount; mutation controllers abort on unmount. Missing-provider errors
-name the binding and explain that its provider is absent. StrictMode leaves at most one live request after its setup/cleanup replay. Issue #691 implements this contract in `@zmdb/react`.
+name the binding and explain that its provider is absent. StrictMode leaves at most one live request after its setup/cleanup replay. Issue #691 implements this contract in `@zmdb/client/react`.
 
 ### 6.2 Angular
 
@@ -382,43 +383,44 @@ and bind controllers to `DestroyRef`. The RxJS bridge aborts on final unsubscrib
 ### 6.3 Vue
 
 The binding factory owns an `InjectionKey<Client>` and plugin. Queries use refs/watchers and `onScopeDispose`. Each `createSSRApp` installation owns separate client and state. Installing the plugin
-does not activate a query. Issue #693 implements this contract in `@zmdb/vue`.
+does not activate a query. Issue #693 implements this contract in `@zmdb/client/vue`.
 
 ### 6.4 Svelte
 
 The binding factory owns a typed context key. A query store starts on first subscription and aborts when its final subscriber leaves. A later subscription starts a new request. Input-store changes
 abort and generation-guard the previous request. Context-created query and mutation stores register `onDestroy`; direct store constructors remain available to non-component owners and the later
-SvelteKit package. This row is implemented by `@zmdb/svelte`.
+SvelteKit package. This row is implemented by `@zmdb/client/svelte`.
 
 ### 6.5 Solid
 
 The binding factory owns a Solid context. Query resources bind cleanup to the current owner and preserve Solid's native pending promise and thrown error for Suspense and error boundaries. Source
-changes use the latest input and suppress earlier completion. Issue #695 implements this contract in `@zmdb/solid`.
+changes use the latest input and suppress earlier completion. Issue #695 implements this contract in `@zmdb/client/solid`.
 
 ### 6.6 React Native
 
-The package reuses `@zmdb/react` bindings rather than copying hooks. It accepts structural connectivity and credential-store ports supplied by the application. Offline refusal happens before dispatch.
-Foreground refresh is opt-in. Background behaviour is an explicit policy: abort active queries, leave them running, or abort and mark them refreshable; there is no hidden default retry.
+The package reuses `@zmdb/client/react` bindings rather than copying hooks. It accepts structural connectivity and credential-store ports supplied by the application. Offline refusal happens before
+dispatch. Foreground refresh is opt-in. Background behaviour is an explicit policy: abort active queries, leave them running, or abort and mark them refreshable; there is no hidden default retry.
 
 Issue qualification combines a packed native lifecycle consumer with a real Metro bundle. The packed consumer installs built tarballs and executes common generated-client semantics plus AppState,
 foreground-refresh, offline-refusal, and credential-identity cases. The Metro witness proves that no Node built-in, server export or credential implementation reaches the device bundle. Issue #696
-implements this contract in `@zmdb/react-native`; the AOT transform remains `@zmdb/compiler/metro` rather than becoming a second package-owned transform.
+implements this contract in `@zmdb/client/react-native`; the AOT transform remains `@zmdb/compiler/metro` rather than becoming a second package-owned transform.
 
 ### 6.7 Next
 
 The server entry accepts the generated client factory, request-scoped fetch, explicit header/cookie allow-lists and an explicit Next fetch-cache policy. That policy decorates the framework fetch
-supplied at client construction; it does not change the neutral request contract. The client entry reuses `@zmdb/react`. RSC memoization is request-local. No server module, environment read or
+supplied at client construction; it does not change the neutral request contract. The client entry reuses `@zmdb/client/react`. RSC memoization is request-local. No server module, environment read or
 credential literal is reachable from `./client`.
 
 ### 6.8 Nuxt
 
 The module installs request-local server and browser plugins. The server entry combines Nitro local fetch with allow-listed credentials snapshotted from the current request. The client entry reuses
-`@zmdb/vue`. `useAsyncData` integration uses explicit stable keys and native payload hydration rather than a second cache. Issue #698 implements this contract in [`@zmdb/nuxt`](../../../nuxt/SPEC.md).
+`@zmdb/client/vue`. `useAsyncData` integration uses explicit stable keys and native payload hydration rather than a second cache. Issue #698 implements this contract in
+[`@zmdb/nuxt`](../../../nuxt/SPEC.md).
 
 ### 6.9 SvelteKit
 
-The server entry accepts the current `RequestEvent` and uses `event.fetch`. Typed load helpers keep redirects, status errors and aborts as SvelteKit values. The client entry reuses `@zmdb/svelte`;
-abandoned navigation aborts its request.
+The server entry accepts the current `RequestEvent` and uses `event.fetch`. Typed load helpers keep redirects, status errors and aborts as SvelteKit values. The client entry reuses
+`@zmdb/client/svelte`; abandoned navigation aborts its request.
 
 ## 7. Acceptance inherited by implementation issues
 

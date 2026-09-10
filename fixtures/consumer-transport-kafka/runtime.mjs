@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { encodeDelivery } from '@zmdb/app/messaging';
-import { createKafkaStrategy } from '@zmdb/transport-kafka';
+import { createKafkaStrategy } from '@zmdb/transport/kafka';
 import { Kafka, logLevel } from 'kafkajs';
 
 import { applicationJourney } from './application.js';

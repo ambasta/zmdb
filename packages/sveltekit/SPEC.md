@@ -6,7 +6,7 @@
 
 `@zmdb/sveltekit` is an ESM-only integration package with physically separate `./client` and `./server` exports and no root barrel.
 
-- `./client` depends inward on `@zmdb/client` and re-exports the native stores and typed context owned by `@zmdb/svelte`.
+- `./client` depends inward on `@zmdb/client` and re-exports the native stores and typed context owned by `@zmdb/client/svelte`.
 - `./server` depends inward on `@zmdb/client`, accepts the current SvelteKit request event, and never imports a browser navigation module or Svelte store.
 - `@sveltejs/kit@>=2.70.3 <3.0.0` and `svelte@>=5.57.0 <6.0.0` are required peers.
 - Neither entry inspects generated-client operations, builds URLs, parses responses, retries requests, or owns a process-global client, request, credential, load, or hydration registry.
@@ -65,7 +65,7 @@ It does not catch, wrap, stringify, or translate a SvelteKit redirect, status er
 The client entry exports `createSvelteKitBrowserClient`, which constructs a generated client with the current universal `LoadEvent.fetch`. During a client-side navigation that is SvelteKit's browser
 fetch; during hydration it retains SvelteKit's native response reuse and dependency tracking.
 
-It also re-exports these public `@zmdb/svelte` primitives rather than copying their implementation:
+It also re-exports these public `@zmdb/client/svelte` primitives rather than copying their implementation:
 
 - `createZmdbSvelte`;
 - `createQueryStore`;

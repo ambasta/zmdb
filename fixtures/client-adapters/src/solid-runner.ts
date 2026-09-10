@@ -1,6 +1,6 @@
 import { deepStrictEqual, ok, strictEqual } from 'node:assert/strict';
 
-import { createZmdbSolid, type SolidQuery } from '@zmdb/solid';
+import { createZmdbSolid, type SolidQuery } from '@zmdb/client/solid';
 import { createComponent, createRoot, ErrorBoundary, Suspense } from 'solid-js';
 
 import {

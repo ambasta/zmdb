@@ -1,5 +1,5 @@
-> **Install:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/ai-vercel@1.0.0-beta.2 ai@^7.0.93`. Exact `7.0.93` is the supported and packed-consumer-tested floor; `ai` is the adapter's sole optional peer.
-> Applications that do not install `@zmdb/ai-vercel` do not receive the AI SDK. A `LanguageModel` wrapper and persistence adapter for `useChat` remain application code.
+> **Install:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/ai/vercel@1.0.0-beta.2 ai@^7.0.93`. Exact `7.0.93` is the supported and packed-consumer-tested floor; `ai` is the adapter's sole optional peer.
+> Applications that do not install `@zmdb/ai/vercel` do not receive the AI SDK. A `LanguageModel` wrapper and persistence adapter for `useChat` remain application code.
 
 ## Know the boundary
 
@@ -14,7 +14,7 @@
 
 ```ts {"mode":"compile","id":"example-001"}
 import { jsonSchema, tool } from 'ai';
-import { aiSdkTool } from '@zmdb/ai-vercel';
+import { aiSdkTool } from '@zmdb/ai/vercel';
 import { assert } from '@zmdb/validator';
 import { schemaOf, type CreateDTO } from '@zmdb/schema';
 import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';

@@ -1,4 +1,4 @@
-import { createMutationStore, createQueryStore } from '@zmdb/svelte';
+import { createMutationStore, createQueryStore } from '@zmdb/client/svelte';
 import {
   createMutationStore as createSvelteKitMutationStore,
   createQueryStore as createSvelteKitQueryStore,
@@ -52,10 +52,10 @@ async function runSsrQuery<Input, Output>(options: {
 
 export function createSvelteKitAdapterConformanceBinding(): AdapterConformanceBinding<ApiClient> {
   if (!Object.is(createSvelteKitQueryStore, createQueryStore)) {
-    throw new Error('@zmdb/sveltekit/client did not reuse @zmdb/svelte query stores');
+    throw new Error('@zmdb/sveltekit/client did not reuse @zmdb/client/svelte query stores');
   }
   if (!Object.is(createSvelteKitMutationStore, createMutationStore)) {
-    throw new Error('@zmdb/sveltekit/client did not reuse @zmdb/svelte mutation stores');
+    throw new Error('@zmdb/sveltekit/client did not reuse @zmdb/client/svelte mutation stores');
   }
 
   const svelte = createSvelteAdapterConformanceBinding();

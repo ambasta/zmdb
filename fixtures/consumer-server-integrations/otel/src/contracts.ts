@@ -1,5 +1,5 @@
 import { metrics, trace } from '@opentelemetry/api';
-import { fromOpenTelemetry, type OpenTelemetryOptions } from '@zmdb/otel';
+import { fromOpenTelemetry, type OpenTelemetryOptions } from '@zmdb/app/otel';
 
 const options: OpenTelemetryOptions = {
   tracer: trace.getTracer('@zmdb-fixture/server-otel'),

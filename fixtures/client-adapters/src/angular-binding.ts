@@ -1,6 +1,6 @@
 import { Injector, createEnvironmentInjector, runInInjectionContext } from '@angular/core';
 import type { EnvironmentInjector } from '@angular/core';
-import { createZmdbAngular } from '@zmdb/angular';
+import { createZmdbAngular } from '@zmdb/client/angular';
 
 import type {
   AdapterConformanceBinding,
@@ -13,7 +13,7 @@ import type {
 import type { AdapterPackageExpectation } from './package-matrix.js';
 
 function missing(primitive: string): Error {
-  return new Error(`@zmdb/angular ${primitive} conformance driver is not mounted`);
+  return new Error(`@zmdb/client/angular ${primitive} conformance driver is not mounted`);
 }
 
 function parentInjector(name: string): EnvironmentInjector {
@@ -71,8 +71,8 @@ export function createAngularConformanceBinding<Client>(
           };
         },
         async mount(): Promise<void> {
-          if (mounted) throw new Error('@zmdb/angular query conformance driver mounted twice');
-          if (disposed) throw new Error('@zmdb/angular query conformance driver mounted after disposal');
+          if (mounted) throw new Error('@zmdb/client/angular query conformance driver mounted twice');
+          if (disposed) throw new Error('@zmdb/client/angular query conformance driver mounted after disposal');
           parent = parentInjector('adapter-query');
           owner = createEnvironmentInjector(
             [bindings.provideZmdbClient(options.client)],
@@ -127,8 +127,8 @@ export function createAngularConformanceBinding<Client>(
           return { error: mutation.error(), pending: mutation.pending() };
         },
         async mount(): Promise<void> {
-          if (mounted) throw new Error('@zmdb/angular mutation conformance driver mounted twice');
-          if (disposed) throw new Error('@zmdb/angular mutation conformance driver mounted after disposal');
+          if (mounted) throw new Error('@zmdb/client/angular mutation conformance driver mounted twice');
+          if (disposed) throw new Error('@zmdb/client/angular mutation conformance driver mounted after disposal');
           parent = parentInjector('adapter-mutation');
           owner = createEnvironmentInjector(
             [bindings.provideZmdbClient(options.client)],

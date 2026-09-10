@@ -1,14 +1,17 @@
 {
   "name": "@zmdb/ai",
   "version": "1.0.0-beta.2",
-  "description": "Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, and OpenAPI-derived tools for zmdb.",
+  "description": "Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, OpenAPI-derived tools, and optional Anthropic, LangChain, and Vercel AI SDK adapters for zmdb.",
   "keywords": [
     "ai",
+    "anthropic",
     "function-calling",
     "json-schema",
+    "langchain",
     "llm",
     "openapi",
     "typescript",
+    "vercel",
     "zmdb"
   ],
   "homepage": "https://github.com/ambasta/zmdb#readme",
@@ -31,10 +34,13 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./anthropic": "./src/anthropic/index.ts",
     "./chat": "./src/chat/index.ts",
     "./compiler": "./src/compiler.ts",
     "./http": "./src/http/index.ts",
-    "./tool-runtime": "./src/tool-runtime.ts"
+    "./langchain": "./src/langchain/index.ts",
+    "./tool-runtime": "./src/tool-runtime.ts",
+    "./vercel": "./src/vercel/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -45,15 +51,33 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "0.124.0",
+    "@langchain/core": "1.2.9",
     "@zmdb/compiler": "workspace:^",
     "@zmdb/schema": "workspace:^",
     "@zmdb/validator": "workspace:^",
+    "ai": "7.0.93",
     "oxfmt": "0.66.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "zod": "4.5.4"
   },
   "peerDependencies": {
+    "@anthropic-ai/sdk": "0.124.0",
+    "@langchain/core": "^1.2.9",
     "@zmdb/schema": "1.0.0-beta.2",
-    "@zmdb/validator": "1.0.0-beta.2"
+    "@zmdb/validator": "1.0.0-beta.2",
+    "ai": "^7.0.93"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=26"

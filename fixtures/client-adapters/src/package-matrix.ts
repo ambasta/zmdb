@@ -24,17 +24,21 @@ export interface AdapterQualificationEvidence {
   readonly browserBoundary?: AdapterBrowserBoundaryEvidence;
 }
 
+// `name` is the specifier a consumer imports, which for the framework bindings is a
+// subpath of `@zmdb/client`. `directory` is the source directory that implements it,
+// and `dependencies`/`peerDependencies` are what that entry point needs rather than
+// the whole publishing package's manifest.
 export interface AdapterPackageExpectation {
   readonly name:
-    | '@zmdb/angular'
+    | '@zmdb/client/angular'
     | '@zmdb/next'
     | '@zmdb/nuxt'
-    | '@zmdb/react'
-    | '@zmdb/react-native'
-    | '@zmdb/solid'
-    | '@zmdb/svelte'
+    | '@zmdb/client/react'
+    | '@zmdb/client/react-native'
+    | '@zmdb/client/solid'
+    | '@zmdb/client/svelte'
     | '@zmdb/sveltekit'
-    | '@zmdb/vue';
+    | '@zmdb/client/vue';
   readonly directory: string;
   readonly lifecycle: AdapterLifecycle;
   readonly dependencies: Readonly<Record<string, string>>;
@@ -52,23 +56,23 @@ const CORE_BASELINE = 'workspace:1.0.0-beta.2';
 
 export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
   {
-    name: '@zmdb/react',
-    directory: 'react',
+    name: '@zmdb/client/react',
+    directory: 'packages/client/src/react',
     lifecycle: 'react',
-    dependencies: { '@zmdb/client': CORE_BASELINE },
+    dependencies: {},
     peerDependencies: { react: '>=19.2.8 <20.0.0' },
     optionalPeers: [],
     exports: ['.'],
     qualifyingBehaviour: 'React context ownership, effect cleanup, dependency changes and StrictMode replay',
     qualification: {
       kind: 'base',
-      packedTest: 'packages/react/src/packed-consumer.spec.ts',
+      packedTest: 'packages/client/src/react/packed-consumer.spec.ts',
       fixture: 'fixtures/client-adapters/src/packed-react.ts',
       generatedClient: GENERATED_CLIENT,
       commonConformance: 'fixtures/client-adapters/src/packed-react.ts',
       sourceEvidence: [
         {
-          path: 'packages/react/src/index.ts',
+          path: 'packages/client/src/react/index.ts',
           markers: ['createContext', 'useEffect', 'AbortController'],
         },
       ],
@@ -76,8 +80,8 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     },
   },
   {
-    name: '@zmdb/angular',
-    directory: 'angular',
+    name: '@zmdb/client/angular',
+    directory: 'packages/client/src/angular',
     lifecycle: 'angular',
     dependencies: {},
     peerDependencies: {
@@ -89,13 +93,13 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     qualifyingBehaviour: 'Angular injector hierarchy, signals, DestroyRef cleanup and final RxJS unsubscribe',
     qualification: {
       kind: 'base',
-      packedTest: 'packages/angular/src/packed-consumer.spec.ts',
+      packedTest: 'packages/client/src/angular/packed-consumer.spec.ts',
       fixture: 'fixtures/client-adapters/angular',
       generatedClient: GENERATED_CLIENT,
       commonConformance: 'fixtures/client-adapters/angular/conformance-runner.ts',
       sourceEvidence: [
         {
-          path: 'packages/angular/src/index.ts',
+          path: 'packages/client/src/angular/index.ts',
           markers: ['InjectionToken', 'DestroyRef', 'Observable'],
         },
       ],
@@ -103,10 +107,10 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     },
   },
   {
-    name: '@zmdb/vue',
-    directory: 'vue',
+    name: '@zmdb/client/vue',
+    directory: 'packages/client/src/vue',
     lifecycle: 'vue',
-    dependencies: { '@zmdb/client': CORE_BASELINE },
+    dependencies: {},
     peerDependencies: { vue: '>=3.5.42 <4.0.0' },
     optionalPeers: [],
     exports: ['.'],
@@ -114,13 +118,13 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     qualifyingBehaviour: 'Vue provide/inject, watcher scopes and per-createSSRApp isolation',
     qualification: {
       kind: 'base',
-      packedTest: 'packages/vue/src/packed-consumer.spec.ts',
+      packedTest: 'packages/client/src/vue/packed-consumer.spec.ts',
       fixture: 'fixtures/client-adapters/vue',
       generatedClient: GENERATED_CLIENT,
       commonConformance: 'fixtures/client-adapters/src/packed-vue.ts',
       sourceEvidence: [
         {
-          path: 'packages/vue/src/index.ts',
+          path: 'packages/client/src/vue/index.ts',
           markers: ['InjectionKey', 'watch(', 'onScopeDispose'],
         },
       ],
@@ -128,23 +132,23 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     },
   },
   {
-    name: '@zmdb/svelte',
-    directory: 'svelte',
+    name: '@zmdb/client/svelte',
+    directory: 'packages/client/src/svelte',
     lifecycle: 'svelte',
-    dependencies: { '@zmdb/client': CORE_BASELINE },
+    dependencies: {},
     peerDependencies: { svelte: '>=5.57.0 <6.0.0' },
     optionalPeers: [],
     exports: ['.'],
     qualifyingBehaviour: 'Svelte typed context, lazy subscription and final-subscriber teardown',
     qualification: {
       kind: 'base',
-      packedTest: 'packages/svelte/src/packed.spec.ts',
+      packedTest: 'packages/client/src/svelte/packed.spec.ts',
       fixture: 'fixtures/client-adapters/svelte-packed',
       generatedClient: GENERATED_CLIENT,
       commonConformance: 'fixtures/client-adapters/src/packed-svelte.ts',
       sourceEvidence: [
         {
-          path: 'packages/svelte/src/query.ts',
+          path: 'packages/client/src/svelte/query.ts',
           markers: ['subscribers', 'subscribe(run, invalidate)', 'if (subscribers === 0)'],
         },
       ],
@@ -152,23 +156,23 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     },
   },
   {
-    name: '@zmdb/solid',
-    directory: 'solid',
+    name: '@zmdb/client/solid',
+    directory: 'packages/client/src/solid',
     lifecycle: 'solid',
-    dependencies: { '@zmdb/client': CORE_BASELINE },
+    dependencies: {},
     peerDependencies: { 'solid-js': '>=1.9.15 <2.0.0' },
     optionalPeers: [],
     exports: ['.'],
     qualifyingBehaviour: 'Solid owner disposal, resources, Suspense and error-boundary propagation',
     qualification: {
       kind: 'base',
-      packedTest: 'packages/solid/src/packed-consumer.spec.ts',
+      packedTest: 'packages/client/src/solid/packed-consumer.spec.ts',
       fixture: 'fixtures/client-adapters/src/solid-binding.ts',
       generatedClient: GENERATED_CLIENT,
-      commonConformance: 'packages/solid/src/packed-consumer.spec.ts',
+      commonConformance: 'packages/client/src/solid/packed-consumer.spec.ts',
       sourceEvidence: [
         {
-          path: 'packages/solid/src/index.ts',
+          path: 'packages/client/src/solid/index.ts',
           markers: ['createContext', 'createResource', 'onCleanup'],
         },
       ],
@@ -176,13 +180,10 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     },
   },
   {
-    name: '@zmdb/react-native',
-    directory: 'react-native',
+    name: '@zmdb/client/react-native',
+    directory: 'packages/client/src/react-native',
     lifecycle: 'react',
-    dependencies: {
-      '@zmdb/client': CORE_BASELINE,
-      '@zmdb/react': CORE_BASELINE,
-    },
+    dependencies: {},
     peerDependencies: {
       react: '>=19.2.8 <20.0.0',
       'react-native': '>=0.87.1 <0.88.0',
@@ -193,12 +194,12 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     qualifyingBehaviour: 'React Native AppState, connectivity and injected credential-storage ownership',
     qualification: {
       kind: 'native',
-      packedTest: 'packages/react-native/src/packed-consumer.spec.ts',
+      packedTest: 'packages/client/src/react-native/packed-consumer.spec.ts',
       fixture: 'fixtures/client-adapters/src/packed-react-native.ts',
       generatedClient: GENERATED_CLIENT,
       sourceEvidence: [
         {
-          path: 'packages/react-native/src/index.ts',
+          path: 'packages/client/src/react-native/index.ts',
           markers: ['addEventListener', 'backgroundPolicy', 'connectivity'],
         },
       ],
@@ -207,11 +208,10 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
   },
   {
     name: '@zmdb/next',
-    directory: 'next',
+    directory: 'packages/next',
     lifecycle: 'react',
     dependencies: {
       '@zmdb/client': CORE_BASELINE,
-      '@zmdb/react': CORE_BASELINE,
       'server-only': '0.0.1',
     },
     peerDependencies: {
@@ -245,12 +245,9 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
   },
   {
     name: '@zmdb/nuxt',
-    directory: 'nuxt',
+    directory: 'packages/nuxt',
     lifecycle: 'vue',
-    dependencies: {
-      '@zmdb/client': CORE_BASELINE,
-      '@zmdb/vue': CORE_BASELINE,
-    },
+    dependencies: { '@zmdb/client': CORE_BASELINE },
     peerDependencies: {
       nuxt: '>=4.5.2 <5.0.0',
       vue: '>=3.5.42 <4.0.0',
@@ -284,12 +281,9 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
   },
   {
     name: '@zmdb/sveltekit',
-    directory: 'sveltekit',
+    directory: 'packages/sveltekit',
     lifecycle: 'svelte',
-    dependencies: {
-      '@zmdb/client': CORE_BASELINE,
-      '@zmdb/svelte': CORE_BASELINE,
-    },
+    dependencies: { '@zmdb/client': CORE_BASELINE },
     peerDependencies: {
       '@sveltejs/kit': '>=2.70.3 <3.0.0',
       svelte: '>=5.57.0 <6.0.0',

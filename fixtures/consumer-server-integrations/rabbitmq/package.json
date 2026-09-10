@@ -3,13 +3,13 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@zmdb/transport-rabbitmq": "1.0.0-beta.2",
+    "@zmdb/transport": "1.0.0-beta.2",
     "amqplib": "2.0.1"
   },
   "devDependencies": {
     "@types/node": "^26.4.1"
   },
   "zmdbFixture": {
-    "target": "@zmdb/transport-rabbitmq"
+    "target": "@zmdb/transport/rabbitmq"
   }
 }

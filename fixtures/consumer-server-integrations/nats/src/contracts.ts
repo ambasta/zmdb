@@ -1,6 +1,6 @@
 import type { NodeConnectionOptions } from '@nats-io/transport-node';
 import { transportExtension } from '@zmdb/app/messaging';
-import { createNatsStrategy, type NatsStrategyOptions, type NatsSubscription } from '@zmdb/transport-nats';
+import { createNatsStrategy, type NatsStrategyOptions, type NatsSubscription } from '@zmdb/transport/nats';
 
 const subscription: NatsSubscription = { subject: 'orders.*', queue: 'workers' };
 const connection = { servers: ['nats://127.0.0.1:4222'] } satisfies NodeConnectionOptions;

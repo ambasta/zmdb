@@ -3,7 +3,7 @@ import {
   type RabbitMqDeadLetterOptions,
   type RabbitMqRetryOptions,
   type RabbitMqStrategyOptions,
-} from '@zmdb/transport-rabbitmq';
+} from '@zmdb/transport/rabbitmq';
 
 const deadLetter: RabbitMqDeadLetterOptions = { exchange: 'orders.dead', queue: 'orders.dead' };
 const retry: RabbitMqRetryOptions = { exchange: 'orders.retry', queue: 'orders.retry' };

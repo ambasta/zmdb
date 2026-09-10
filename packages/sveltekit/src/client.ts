@@ -8,7 +8,7 @@ import { createFetchTransport } from '@zmdb/client';
 import { SvelteKitAdapterError } from './errors.js';
 import type { GeneratedClientFactory, SvelteKitClientOptions } from './shared.js';
 
-export { createMutationStore, createQueryStore, createZmdbSvelte } from '@zmdb/svelte';
+export { createMutationStore, createQueryStore, createZmdbSvelte } from '@zmdb/client/svelte';
 export type {
   MutationRunner,
   MutationSnapshot,
@@ -17,7 +17,7 @@ export type {
   SvelteMutationStore,
   SvelteQueryStore,
   ZmdbSvelteBindings,
-} from '@zmdb/svelte';
+} from '@zmdb/client/svelte';
 export { SvelteKitAdapterError } from './errors.js';
 export type { GeneratedClientFactory, SvelteKitClientOptions } from './shared.js';
 

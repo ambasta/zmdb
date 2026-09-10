@@ -1,12 +1,12 @@
-const nats = await import('@zmdb/transport-nats');
+const nats = await import('@zmdb/transport/nats');
 
 if (typeof nats.createNatsStrategy !== 'function') {
-  throw new Error('@zmdb/transport-nats omitted createNatsStrategy');
+  throw new Error('@zmdb/transport/nats omitted createNatsStrategy');
 }
 
 const url = process.env.ZMDB_NATS_URL;
 if (url === undefined) {
-  console.warn('[skip] @zmdb/transport-nats packed runtime: set ZMDB_NATS_URL for the required live-service lane');
+  console.warn('[skip] @zmdb/transport/nats packed runtime: set ZMDB_NATS_URL for the required live-service lane');
 } else {
   const prefix = `zmdb.packed.${globalThis.crypto.randomUUID()}`;
   const delivered = [];
@@ -52,12 +52,12 @@ if (url === undefined) {
       reply.kind !== 'result' ||
       reply.payload?.echoed?.id !== 2
     ) {
-      throw new Error(`@zmdb/transport-nats packed delivery failed: ${JSON.stringify({ delivered, reply })}`);
+      throw new Error(`@zmdb/transport/nats packed delivery failed: ${JSON.stringify({ delivered, reply })}`);
     }
     if (errors.length > 0) {
-      throw new AggregateError(errors, '@zmdb/transport-nats reported errors during consumer lifecycle');
+      throw new AggregateError(errors, '@zmdb/transport/nats reported errors during consumer lifecycle');
     }
-    console.log('@zmdb/transport-nats packed consumer: live event and request/reply executed');
+    console.log('@zmdb/transport/nats packed consumer: live event and request/reply executed');
   } finally {
     await strategy.close(1_000);
   }

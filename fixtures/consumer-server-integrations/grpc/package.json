@@ -4,9 +4,9 @@
   "type": "module",
   "dependencies": {
     "@grpc/grpc-js": "1.14.4",
-    "@zmdb/transport-grpc": "1.0.0-beta.2"
+    "@zmdb/transport": "1.0.0-beta.2"
   },
   "zmdbFixture": {
-    "target": "@zmdb/transport-grpc"
+    "target": "@zmdb/transport/grpc"
   }
 }

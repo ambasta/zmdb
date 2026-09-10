@@ -1,5 +1,5 @@
-import { createZmdbReact } from '@zmdb/react';
-import type { MutationState, QueryState, ZmdbReactBindings } from '@zmdb/react';
+import { createZmdbReact } from '@zmdb/client/react';
+import type { MutationState, QueryState, ZmdbReactBindings } from '@zmdb/client/react';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { act, create } from 'react-test-renderer';
@@ -89,17 +89,17 @@ function runAct(action: () => void | Promise<void>): Promise<void> {
 }
 
 function mountedRenderer(renderer: ReactTestRenderer | undefined): ReactTestRenderer {
-  if (renderer === undefined) throw new Error('@zmdb/react conformance renderer is not mounted');
+  if (renderer === undefined) throw new Error('@zmdb/client/react conformance renderer is not mounted');
   return renderer;
 }
 
 function mountedQuery<Output>(state: QueryState<Output> | undefined): QueryState<Output> {
-  if (state === undefined) throw new Error('@zmdb/react conformance query is not mounted');
+  if (state === undefined) throw new Error('@zmdb/client/react conformance query is not mounted');
   return state;
 }
 
 function mountedMutation<Input, Output>(state: MutationState<Input, Output> | undefined): MutationState<Input, Output> {
-  if (state === undefined) throw new Error('@zmdb/react conformance mutation is not mounted');
+  if (state === undefined) throw new Error('@zmdb/client/react conformance mutation is not mounted');
   return state;
 }
 
@@ -160,7 +160,7 @@ function prepareReactQuery<Client extends object, Input, Output>(
         await Promise.resolve();
       });
       return started.then(() => {
-        if (settlement === undefined) throw new Error('@zmdb/react refresh did not start');
+        if (settlement === undefined) throw new Error('@zmdb/client/react refresh did not start');
         return unwrapSettlement(settlement);
       });
     },
@@ -232,7 +232,7 @@ function prepareReactMutation<Client extends object, Input, Output>(
         await Promise.resolve();
       });
       return started.then(() => {
-        if (settlement === undefined) throw new Error('@zmdb/react mutation did not start');
+        if (settlement === undefined) throw new Error('@zmdb/client/react mutation did not start');
         return unwrapSettlement(settlement).then(
           async value => {
             await queueAct(async () => {
@@ -302,5 +302,5 @@ export function createReactFamilyConformanceBinding<Client extends object>(
 }
 
 export function createReactConformanceBinding<Client extends object>(): AdapterConformanceBinding<Client> {
-  return createReactFamilyConformanceBinding('@zmdb/react', bindingName => createZmdbReact<Client>(bindingName));
+  return createReactFamilyConformanceBinding('@zmdb/client/react', bindingName => createZmdbReact<Client>(bindingName));
 }

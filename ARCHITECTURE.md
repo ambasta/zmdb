@@ -118,14 +118,15 @@ Conversely, we **merge** packages that have grown a bidirectional dependency or 
 The current dependency graph is the [generated policy projection](#310-canonical-architecture-and-release-policy-722728-746). Its rows come from the product catalog, architecture policy and admitted
 manifests through the [governance snapshot](./scripts/architecture/governance.mjs). The former extraction diagram is preserved in [ADR 0001](./docs/adr/0001-architecture-and-native-graph-history.md).
 
-`@zmdb/client`, `@zmdb/angular`, and `@zmdb/protobuf` are independent roots. Angular applications install the client runtime for generated code, while `@zmdb/angular` accepts that generated client's
-public method shape without a workspace import and declares Angular/RxJS as its required peers. `@zmdb/react`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/solid` are opt-in leaves over `@zmdb/client` and
-alone declare their required framework peers. `@zmdb/react-native` depends on `@zmdb/client` and `@zmdb/react`, then alone adds the required React Native peer and device-lifecycle policy. `@zmdb/next`
-composes client and React, `@zmdb/nuxt` composes client and Vue, and `@zmdb/sveltekit` composes client and Svelte; each meta-framework alone declares its framework peers and keeps browser and server
-entries physically separate. The opt-in `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` packages depend inward only on `@zmdb/ai`; each integration alone declares its SDK/framework
-peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/otel`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and `@zmdb/transport-redis` each depend only on `@zmdb/app` and declare only their
-selected technology as a required peer; `@zmdb/transport-grpc` depends on `@zmdb/app` and `@zmdb/protobuf`. `@zmdb/jobs-postgres` depends on `@zmdb/jobs` and `@zmdb/postgres` and alone owns the
-required `pg` peer for job storage. None of these optional packages or the provider-neutral AI package is re-exported by the product facade.
+`@zmdb/client`, `@zmdb/client/angular`, and `@zmdb/protobuf` are independent roots. Angular applications install the client runtime for generated code, while `@zmdb/client/angular` accepts that
+generated client's public method shape without a workspace import and declares Angular/RxJS as its required peers. `@zmdb/client/react`, `@zmdb/client/vue`, `@zmdb/client/svelte`, and
+`@zmdb/client/solid` are opt-in leaves over `@zmdb/client` and alone declare their required framework peers. `@zmdb/client/react-native` depends on `@zmdb/client` and `@zmdb/client/react`, then alone
+adds the required React Native peer and device-lifecycle policy. `@zmdb/next` composes client and React, `@zmdb/nuxt` composes client and Vue, and `@zmdb/sveltekit` composes client and Svelte; each
+meta-framework alone declares its framework peers and keeps browser and server entries physically separate. The opt-in `@zmdb/ai/anthropic`, `@zmdb/ai/langchain`, and `@zmdb/ai/vercel` packages depend
+inward only on `@zmdb/ai`; each integration alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/app/otel`, `@zmdb/transport/nats`, `@zmdb/transport/rabbitmq`, and
+`@zmdb/transport/redis` each depend only on `@zmdb/app` and declare only their selected technology as a required peer; `@zmdb/transport/grpc` depends on `@zmdb/app` and `@zmdb/protobuf`.
+`@zmdb/jobs-postgres` depends on `@zmdb/jobs` and `@zmdb/postgres` and alone owns the required `pg` peer for job storage. None of these optional packages or the provider-neutral AI package is
+re-exported by the product facade.
 
 `@zmdb/sqlite` and `@zmdb/mssql` depend on migrations, query-compiler, and repository and own their complete database slices. SQLite additionally owns the embedded runner and structural `node:sqlite`
 adapter; SQL Server owns the structural node-mssql adapter and declares `mssql` as an optional client peer. `@zmdb/jobs` depends on SQLite for the in-memory queue backend. The umbrella exposes each
@@ -149,7 +150,7 @@ catalog adaptation, conservative integrity/routine refusals, child-bound driver,
 - **migrations owns schema lifecycle tooling.** Its declaration entry is the only framework path that requires `oxfmt`; root lifecycle, runner, and embedded entries do not invoke it.
 - **schema-core is the semantic Single Source of Truth.** It reuses lower-level compiler query, quoting, and naming utilities but must not import validator, repository, or web.
 - **AI depends on schema-core, never the reverse.** Its provider-neutral implementations and public names are physically owned by `@zmdb/ai`.
-- **AI integrations depend inward on AI.** `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` own their provider/framework adapters; their optional peers do not reach schema-core or
+- **AI integrations depend inward on AI.** `@zmdb/ai/anthropic`, `@zmdb/ai/langchain`, and `@zmdb/ai/vercel` own their provider/framework adapters; their optional peers do not reach schema-core or
   provider-neutral AI.
 - **Angular binds the generated client structurally.** It owns DI, signals, `DestroyRef`, Observable cancellation, and request-local SSR state without importing client, web, schema, compiler, or ORM
   packages.
@@ -297,16 +298,16 @@ The complete contract is [`packages/web/src/contract/SPEC.md`](./packages/web/sr
 Issue #688 freezes the optional UI and meta-framework package boundary for epic #687. An integration earns a package only when it owns framework-native lifecycle, DI/context, SSR isolation, hydration
 or server/browser export behaviour that cannot be expressed as a short recipe over the generated client. A wrapper that only calls a client factory remains documentation.
 
-The target graph is one-way. Issues #691–#699 have landed `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, `@zmdb/nuxt`, and
-`@zmdb/sveltekit`:
+The target graph is one-way. Issues #691–#699 have landed `@zmdb/client/react`, `@zmdb/client/angular`, `@zmdb/client/vue`, `@zmdb/client/svelte`, `@zmdb/client/solid`, `@zmdb/client/react-native`,
+`@zmdb/next`, `@zmdb/nuxt`, and `@zmdb/sveltekit`:
 
 ```text
 @zmdb/client
-├── @zmdb/react (landed) ── @zmdb/react-native (landed), @zmdb/next (landed)
-├── @zmdb/angular (landed)
-├── @zmdb/vue (landed) ──── @zmdb/nuxt (landed)
-├── @zmdb/svelte (landed) ─ @zmdb/sveltekit (landed)
-└── @zmdb/solid (landed)
+├── @zmdb/client/react (landed) ── @zmdb/client/react-native (landed), @zmdb/next (landed)
+├── @zmdb/client/angular (landed)
+├── @zmdb/client/vue (landed) ──── @zmdb/nuxt (landed)
+├── @zmdb/client/svelte (landed) ─ @zmdb/sveltekit (landed)
+└── @zmdb/client/solid (landed)
 ```
 
 Framework runtimes are required peers of their adapter package. The default `zmdb` package neither depends on nor re-exports these optional packages: one cohesive client contract and documentation
@@ -314,25 +315,25 @@ journey does not justify installing every framework peer. Server/client exports 
 consumer must prove the qualifying framework behaviour before the package ships.
 
 The complete qualification rule, cancellation/state semantics, peer ranges, export map and nine-package matrix are frozen in
-[`packages/zmdb/src/client-integrations/SPEC.md`](./packages/zmdb/src/client-integrations/SPEC.md). The landed package contracts are under `packages/react`, `packages/angular`, `packages/vue`,
-`packages/svelte`, `packages/solid`, `packages/react-native`, `packages/next`, `packages/nuxt`, and `packages/sveltekit`.
+[`packages/zmdb/src/client-integrations/SPEC.md`](./packages/zmdb/src/client-integrations/SPEC.md). The landed package contracts are under `packages/client/src/react`, `packages/client/src/angular`,
+`packages/client/src/vue`, `packages/client/src/svelte`, `packages/client/src/solid`, `packages/client/src/react-native`, `packages/next`, `packages/nuxt`, and `packages/sveltekit`.
 
-Issue #695 implements the Solid row: `@zmdb/solid` supplies typed context, native resources, owner cancellation, native Suspense/error semantics, and packed browser/SSR conformance while remaining
-outside the default facade.
+Issue #695 implements the Solid row: `@zmdb/client/solid` supplies typed context, native resources, owner cancellation, native Suspense/error semantics, and packed browser/SSR conformance while
+remaining outside the default facade.
 
 Issue #698 implements the Nuxt row: `@zmdb/nuxt` supplies request-local Nitro transport, selected credential forwarding, native hydration, and packed SSR/browser qualification while reusing the Vue
 binding rather than duplicating its lifecycle.
 
-Issue #696 implements the React Native row: `@zmdb/react-native` reuses the React binding while adding explicit AppState, offline, connectivity, and credential-store boundaries plus packed native and
-Metro qualification.
+Issue #696 implements the React Native row: `@zmdb/client/react-native` reuses the React binding while adding explicit AppState, offline, connectivity, and credential-store boundaries plus packed
+native and Metro qualification.
 
 Issue #699 implements the SvelteKit row: `@zmdb/sveltekit` supplies request-local server clients, selected credential forwarding, typed server/browser loads, native framework errors, navigation
 cancellation, Svelte-store reuse, and packed SSR/navigation conformance while remaining outside the default facade.
 
 ### 3.7 AI integration ownership migration (Issues #703 and #705–#710)
 
-Issue #705 published the provider-neutral `@zmdb/ai` boundary and moved AOT/generated consumers to it. Issue #706 moved the Anthropic driver and its SDK peer to `@zmdb/ai-anthropic`; issue #707
-published `@zmdb/ai-langchain` and moved its real-package contract tests and peer; issue #708 physically moved the Vercel adapter, tests, and peer to `@zmdb/ai-vercel`; issue #709 moved the MCP
+Issue #705 published the provider-neutral `@zmdb/ai` boundary and moved AOT/generated consumers to it. Issue #706 moved the Anthropic driver and its SDK peer to `@zmdb/ai/anthropic`; issue #707
+published `@zmdb/ai/langchain` and moved its real-package contract tests and peer; issue #708 physically moved the Vercel adapter, tests, and peer to `@zmdb/ai/vercel`; issue #709 moved the MCP
 client/server, protocol tests, and public root into `@zmdb/mcp`; and issue #710 moved the remaining provider-neutral and LangChain implementations, removed the temporary forwarders, and deleted every
 schema-core LLM export and source file.
 
@@ -340,9 +341,9 @@ Provider-neutral schema-derived tool documents, parsing, bounded chat orchestrat
 and Vercel AI SDK framing each live in one opt-in integration package. The pure MCP client/server ships from `@zmdb/mcp`.
 
 ```text
-@zmdb/ai-anthropic ──┐
-@zmdb/ai-langchain ──┼──> @zmdb/ai ──> @zmdb/schema
-@zmdb/ai-vercel ─────┤         ▲
+@zmdb/ai/anthropic ──┐
+@zmdb/ai/langchain ──┼──> @zmdb/ai ──> @zmdb/schema
+@zmdb/ai/vercel ─────┤         ▲
 @zmdb/mcp ───────────┘         │
                                │
 @zmdb/compiler ─────────────────┘
@@ -364,17 +365,17 @@ compatibility subpath or forwarding module: every AI/MCP export resolves to sour
 The user-facing [LLM package and migration guide](./docs-site/content/llm-strategy.md) gives the install and direct replacement for all six removed schema-core LLM subpaths.
 
 The exact 32-file ownership map, public exports, peer matrix, publish order and final-removal checks are frozen in [`packages/ai/SPEC.md`](./packages/ai/SPEC.md). Package-specific boundaries are in
-[`packages/ai-anthropic/SPEC.md`](./packages/ai-anthropic/SPEC.md), [`packages/ai-langchain/SPEC.md`](./packages/ai-langchain/SPEC.md), [`packages/ai-vercel/SPEC.md`](./packages/ai-vercel/SPEC.md) and
-[`packages/mcp/SPEC.md`](./packages/mcp/SPEC.md).
+[`packages/ai/src/anthropic/SPEC.md`](./packages/ai/src/anthropic/SPEC.md), [`packages/ai/src/langchain/SPEC.md`](./packages/ai/src/langchain/SPEC.md),
+[`packages/ai/src/vercel/SPEC.md`](./packages/ai/src/vercel/SPEC.md) and [`packages/mcp/SPEC.md`](./packages/mcp/SPEC.md).
 
 ### 3.8 Frozen optional server-integration target (#654)
 
 This section is the target frozen for epic #653, not a claim about the current tree. The measured starting point has protobuf calls, service artifacts and wire primitives in `@zmdb/validator`; six
 external peers on `@zmdb/web`; and six integration subpaths under web.
 
-Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces; #662 has completed the `@zmdb/otel` row and removed the old web export and peer; #648
-has moved the transport-neutral dispatcher, typed clients, decorators, SPI and adapter kit to `@zmdb/app/messaging`; #657 has moved gRPC to `@zmdb/transport-grpc`; #658 has moved core NATS to
-`@zmdb/transport-nats`; #659 has moved RabbitMQ to `@zmdb/transport-rabbitmq`; #660 has moved Redis Pub/Sub to `@zmdb/transport-redis`; and #661 has moved PostgreSQL job storage to
+Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces; #662 has completed the `@zmdb/app/otel` row and removed the old web export and peer;
+#648 has moved the transport-neutral dispatcher, typed clients, decorators, SPI and adapter kit to `@zmdb/app/messaging`; #657 has moved gRPC to `@zmdb/transport/grpc`; #658 has moved core NATS to
+`@zmdb/transport/nats`; #659 has moved RabbitMQ to `@zmdb/transport/rabbitmq`; #660 has moved Redis Pub/Sub to `@zmdb/transport/redis`; and #661 has moved PostgreSQL job storage to
 `@zmdb/jobs-postgres`. #649 removes the final integration-era web dependency and public benchmark selector. Every named optional-server package in this target now has a manifest, implementation,
 tests, and packed consumer.
 
@@ -383,12 +384,12 @@ The final manifest graph is:
 | Package                    | Direct internal dependencies   | Sole external peer               |
 | -------------------------- | ------------------------------ | -------------------------------- |
 | `@zmdb/protobuf`           | none                           | none                             |
-| `@zmdb/transport-grpc`     | `@zmdb/app`, `@zmdb/protobuf`  | `@grpc/grpc-js@^1.14.0`          |
-| `@zmdb/transport-nats`     | `@zmdb/app`                    | `@nats-io/transport-node@^3.4.0` |
-| `@zmdb/transport-rabbitmq` | `@zmdb/app`                    | `amqplib@^2.0.1`                 |
-| `@zmdb/transport-redis`    | `@zmdb/app`                    | `redis@^6.2.1`                   |
+| `@zmdb/transport/grpc`     | `@zmdb/app`, `@zmdb/protobuf`  | `@grpc/grpc-js@^1.14.0`          |
+| `@zmdb/transport/nats`     | `@zmdb/app`                    | `@nats-io/transport-node@^3.4.0` |
+| `@zmdb/transport/rabbitmq` | `@zmdb/app`                    | `amqplib@^2.0.1`                 |
+| `@zmdb/transport/redis`    | `@zmdb/app`                    | `redis@^6.2.1`                   |
 | `@zmdb/jobs-postgres`      | `@zmdb/jobs`, `@zmdb/postgres` | `pg@^8.23.0`                     |
-| `@zmdb/otel`               | `@zmdb/app`                    | `@opentelemetry/api@^1.9.0`      |
+| `@zmdb/app/otel`           | `@zmdb/app`                    | `@opentelemetry/api@^1.9.0`      |
 
 The peers are required by the package that selects them, not optional peers of a core package. `@zmdb/app`, `@zmdb/web`, `@zmdb/jobs`, `zmdb`, `@zmdb/protobuf` and `@zmdb/validator` declare none of
 them. The default product therefore remains cohesive without installing every broker, database client or telemetry API.
@@ -403,12 +404,12 @@ Ownership moves once, with no compatibility forwarding:
 | --------------------------------------------------- | -------------------------- |
 | protobuf/gRPC artifact exports at `@zmdb/validator` | `@zmdb/protobuf`           |
 | `@zmdb/validator/protobuf/wire`                     | `@zmdb/protobuf/wire`      |
-| `@zmdb/web/microservices/grpc`                      | `@zmdb/transport-grpc`     |
-| `@zmdb/web/microservices/nats`                      | `@zmdb/transport-nats`     |
-| `@zmdb/web/microservices/rabbitmq`                  | `@zmdb/transport-rabbitmq` |
-| `@zmdb/web/microservices/redis`                     | `@zmdb/transport-redis`    |
+| `@zmdb/web/microservices/grpc`                      | `@zmdb/transport/grpc`     |
+| `@zmdb/web/microservices/nats`                      | `@zmdb/transport/nats`     |
+| `@zmdb/web/microservices/rabbitmq`                  | `@zmdb/transport/rabbitmq` |
+| `@zmdb/web/microservices/redis`                     | `@zmdb/transport/redis`    |
 | `@zmdb/web/queues/backends/pg`                      | `@zmdb/jobs-postgres`      |
-| `@zmdb/web/otel`                                    | `@zmdb/otel`               |
+| `@zmdb/web/otel`                                    | `@zmdb/app/otel`           |
 
 Generic messaging and observability ports belong to `@zmdb/app`; queue and worker ports belong to `@zmdb/jobs`. Concrete integrations import those public contracts and never private web/jobs source.
 Core packages never import an optional integration, and `zmdb` does not re-export them.
@@ -424,15 +425,15 @@ Resource ownership is explicit:
 Release publication follows the manifest DAG: publish `@zmdb/protobuf`, `@zmdb/app` and `@zmdb/jobs` before their dependants, publish the compiler version that recognises the new protobuf owner only
 after `@zmdb/protobuf` exists, then publish each integration independently. A release is qualified only when every package packs, installs, imports and typechecks outside the workspace; real gRPC,
 NATS, RabbitMQ, Redis and PostgreSQL evidence runs against the named peer, and strict `utf8mb4` MySQL evidence runs through the packed `@zmdb/mysql` consumer. A missing required service fails rather
-than silently skipping. SingleStore evidence runs through the official Dev Image and the packed `@zmdb/singlestore` consumer. `@zmdb/otel` is proven with real API/SDK objects but owns no collector or
-exporter. The executable gates are `yarn verify:server-integrations`, `yarn verify:mysql-live`, and `yarn verify:singlestore-live`; the server-integration gate's local non-required mode prints an
+than silently skipping. SingleStore evidence runs through the official Dev Image and the packed `@zmdb/singlestore` consumer. `@zmdb/app/otel` is proven with real API/SDK objects but owns no collector
+or exporter. The executable gates are `yarn verify:server-integrations`, `yarn verify:mysql-live`, and `yarn verify:singlestore-live`; the server-integration gate's local non-required mode prints an
 explicit skip for each absent service rather than treating absence as runtime evidence.
 
 The exact public exports, lifecycle, install commands and evidence are frozen in [`packages/protobuf/SPEC.md`](./packages/protobuf/SPEC.md),
-[`packages/transport-grpc/SPEC.md`](./packages/transport-grpc/SPEC.md), [`packages/transport-nats/SPEC.md`](./packages/transport-nats/SPEC.md),
-[`packages/transport-rabbitmq/SPEC.md`](./packages/transport-rabbitmq/SPEC.md), [`packages/transport-redis/SPEC.md`](./packages/transport-redis/SPEC.md),
+[`packages/transport/src/grpc/SPEC.md`](./packages/transport/src/grpc/SPEC.md), [`packages/transport/src/nats/SPEC.md`](./packages/transport/src/nats/SPEC.md),
+[`packages/transport/src/rabbitmq/SPEC.md`](./packages/transport/src/rabbitmq/SPEC.md), [`packages/transport/src/redis/SPEC.md`](./packages/transport/src/redis/SPEC.md),
 [`packages/jobs-postgres/SPEC.md`](./packages/jobs-postgres/SPEC.md), [`packages/mysql/SPEC.md`](./packages/mysql/SPEC.md), [`packages/singlestore/SPEC.md`](./packages/singlestore/SPEC.md), and
-[`packages/otel/SPEC.md`](./packages/otel/SPEC.md).
+[`packages/app/src/otel/SPEC.md`](./packages/app/src/otel/SPEC.md).
 
 ### 3.9 Frozen one-product facade and catalog target (#618)
 

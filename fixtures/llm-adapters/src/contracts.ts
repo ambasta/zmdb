@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { langchainTool } from '@zmdb/ai-langchain';
-import { aiSdkTool } from '@zmdb/ai-vercel';
+import { langchainTool } from '@zmdb/ai/langchain';
+import { aiSdkTool } from '@zmdb/ai/vercel';
 import { type CoreSchema } from '@zmdb/schema';
 import { jsonSchema, tool } from 'ai';
 

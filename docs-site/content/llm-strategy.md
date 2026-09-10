@@ -5,13 +5,13 @@
 
 Provider schema dialects live in `@zmdb/ai`. Provider clients and framework adapters live only in the selected integration package:
 
-| Capability                                            | Install                                                              | Public import                                                                              | External peer cost                   |
-| ----------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------ |
-| Provider-neutral tools, chat, HTTP, shared invocation | `yarn add @zmdb/ai@1.0.0-beta.2`                                     | `@zmdb/ai`, `@zmdb/ai/chat`, `@zmdb/ai/http`, `@zmdb/ai/compiler`, `@zmdb/ai/tool-runtime` | none                                 |
-| Anthropic Messages API chat driver                    | `yarn add @zmdb/ai-anthropic@1.0.0-beta.2 @anthropic-ai/sdk@0.124.0` | `@zmdb/ai-anthropic`                                                                       | optional `@anthropic-ai/sdk@0.124.0` |
-| LangChain structured-tool adapter                     | `yarn add @zmdb/ai-langchain@1.0.0-beta.2 @langchain/core@^1.2.9`    | `@zmdb/ai-langchain`                                                                       | optional `@langchain/core@^1.2.9`    |
-| Vercel AI SDK tool adapter                            | `yarn add @zmdb/ai-vercel@1.0.0-beta.2 ai@^7.0.93`                   | `@zmdb/ai-vercel`                                                                          | optional `ai@^7.0.93`                |
-| Transport-neutral MCP client/server cores             | `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/mcp@1.0.0-beta.2`              | `@zmdb/mcp`                                                                                | none; no MCP SDK                     |
+| Capability                                            | Install                                                    | Public import                                                                              | External peer cost                   |
+| ----------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Provider-neutral tools, chat, HTTP, shared invocation | `yarn add @zmdb/ai@1.0.0-beta.2`                           | `@zmdb/ai`, `@zmdb/ai/chat`, `@zmdb/ai/http`, `@zmdb/ai/compiler`, `@zmdb/ai/tool-runtime` | none                                 |
+| Anthropic Messages API chat driver                    | `yarn add @zmdb/ai@1.0.0-beta.2 @anthropic-ai/sdk@0.124.0` | `@zmdb/ai/anthropic`                                                                       | optional `@anthropic-ai/sdk@0.124.0` |
+| LangChain structured-tool adapter                     | `yarn add @zmdb/ai@1.0.0-beta.2 @langchain/core@^1.2.9`    | `@zmdb/ai/langchain`                                                                       | optional `@langchain/core@^1.2.9`    |
+| Vercel AI SDK tool adapter                            | `yarn add @zmdb/ai@1.0.0-beta.2 ai@^7.0.93`                | `@zmdb/ai/vercel`                                                                          | optional `ai@^7.0.93`                |
+| Transport-neutral MCP client/server cores             | `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/mcp@1.0.0-beta.2`    | `@zmdb/mcp`                                                                                | none; no MCP SDK                     |
 
 `@zmdb/ai` itself depends only on `@zmdb/schema` and has no external peer. Each integration depends inward on `@zmdb/ai`; installing the provider-neutral package or MCP does not install Anthropic,
 LangChain, Vercel AI, or an MCP SDK.
@@ -23,10 +23,10 @@ The old `@zmdb/schema` exports are removed, not deprecated aliases. Replace all 
 | Removed schema-core subpath | Final import                                                                                                                                    |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/llm`                      | `@zmdb/ai` for tool APIs; `@zmdb/schema/openapi` for `toJsonSchema`; use the explicit chat, HTTP, and MCP entries below for former star exports |
-| `/llm/chat`                 | `@zmdb/ai/chat`; move `anthropicDriver` and its types to `@zmdb/ai-anthropic`                                                                   |
+| `/llm/chat`                 | `@zmdb/ai/chat`; move `anthropicDriver` and its types to `@zmdb/ai/anthropic`                                                                   |
 | `/llm/http`                 | `@zmdb/ai/http`                                                                                                                                 |
-| `/llm/langchain`            | `@zmdb/ai-langchain`                                                                                                                            |
-| `/llm/ai-sdk`               | `@zmdb/ai-vercel`                                                                                                                               |
+| `/llm/langchain`            | `@zmdb/ai/langchain`                                                                                                                            |
+| `/llm/ai-sdk`               | `@zmdb/ai/vercel`                                                                                                                               |
 | `/llm/mcp`                  | `@zmdb/mcp`                                                                                                                                     |
 
 There is deliberately no schema-core forwarder: `@zmdb/ai` already depends on schema-core, so forwarding in the opposite direction would create a package cycle.
@@ -93,7 +93,7 @@ The library gives you the things that are reusable without choosing application 
 - **`lenientParse<T>(text)`** — recovery from the specific ways model output deviates from strict JSON
 - **`defineTools(registry)`** — a registry that requires a validator and links each handler to that validator's output
 - **`run(driver, messages, tools, opts)`** — a provider-independent loop with explicit turn and per-turn tool-call bounds
-- **`anthropicDriver(opts)` from `@zmdb/ai-anthropic`** — a thin adapter over an injected optional Anthropic SDK client
+- **`anthropicDriver(opts)` from `@zmdb/ai/anthropic`** — a thin adapter over an injected optional Anthropic SDK client
 
 Plus the validators, which are the part that actually matters: `assert<CreateDTO<Order>>(toolInput)` before any write.
 

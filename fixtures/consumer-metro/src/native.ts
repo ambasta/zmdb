@@ -1,4 +1,4 @@
-import { createZmdbReactNative } from '@zmdb/react-native';
+import { createZmdbReactNative } from '@zmdb/client/react-native';
 import { AppState } from 'react-native';
 
 export const nativeBindings = createZmdbReactNative<object, string>({

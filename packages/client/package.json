@@ -1,12 +1,18 @@
 {
   "name": "@zmdb/client",
   "version": "1.0.0-beta.2",
-  "description": "Dependency-free HTTP client runtime for generated and manually declared zmdb operations.",
+  "description": "HTTP client runtime for generated and manually declared zmdb operations, with optional Angular, React, React Native, Solid, Svelte, and Vue bindings.",
   "keywords": [
+    "angular",
     "client",
     "fetch",
     "http",
+    "react",
+    "react-native",
+    "solid",
+    "svelte",
     "typescript",
+    "vue",
     "zmdb"
   ],
   "homepage": "https://github.com/ambasta/zmdb#readme",
@@ -29,12 +35,18 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./angular": "./src/angular/index.ts",
     "./body": "./src/body/index.ts",
     "./errors": "./src/errors/index.ts",
     "./headers": "./src/headers/index.ts",
+    "./react": "./src/react/index.ts",
+    "./react-native": "./src/react-native/index.ts",
+    "./solid": "./src/solid/index.ts",
+    "./svelte": "./src/svelte/index.ts",
     "./testing": "./src/testing/index.ts",
     "./transport": "./src/transport/index.ts",
-    "./url": "./src/url/index.ts"
+    "./url": "./src/url/index.ts",
+    "./vue": "./src/vue/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -45,7 +57,52 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "7.0.2"
+    "@angular/core": "22.1.5",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@types/react-test-renderer": "19.1.0",
+    "metro": "0.87.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-native": "0.87.1",
+    "react-test-renderer": "19.2.8",
+    "rxjs": "7.8.2",
+    "solid-js": "1.9.15",
+    "svelte": "5.57.0",
+    "typescript": "7.0.2",
+    "vue": "3.5.42"
+  },
+  "peerDependencies": {
+    "@angular/core": ">=22.1.5 <23.0.0",
+    "react": ">=19.2.8 <20.0.0",
+    "react-native": ">=0.87.1 <0.88.0",
+    "rxjs": ">=7.8.2 <8.0.0",
+    "solid-js": ">=1.9.15 <2.0.0",
+    "svelte": ">=5.57.0 <6.0.0",
+    "vue": ">=3.5.42 <4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@angular/core": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "rxjs": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=26"

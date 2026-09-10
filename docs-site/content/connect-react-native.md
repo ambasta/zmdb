@@ -1,20 +1,20 @@
-> [!NOTE] React Native and Expo use `@zmdb/react-native` for generated HTTP-client lifecycle, the existing Metro transform for ahead-of-time validation, and an application-selected structural SQLite
-> adapter for local storage. `node:sqlite` does not exist on device, and zmdb deliberately does not select NetInfo, credential storage, `expo-sqlite`, or `op-sqlite` for the application.
+> [!NOTE] React Native and Expo use `@zmdb/client/react-native` for generated HTTP-client lifecycle, the existing Metro transform for ahead-of-time validation, and an application-selected structural
+> SQLite adapter for local storage. `node:sqlite` does not exist on device, and zmdb deliberately does not select NetInfo, credential storage, `expo-sqlite`, or `op-sqlite` for the application.
 
 The [React Native Client](./client-react-native.html) guide is the concise generated-client path; this page owns the Metro and embedded-SQLite details.
 
 ## Generated-client lifecycle
 
-Install the native adapter with its required React and React Native peers:
+Install the package that publishes the native adapter, plus the React and React Native peers that `@zmdb/client/react-native` needs:
 
 ```bash
-yarn add @zmdb/react-native@1.0.0-beta.2 react@19 react-native@0.87
+yarn add @zmdb/client@1.0.0-beta.2 react@19 react-native@0.87
 ```
 
 React Native's `AppState` satisfies the lifecycle port directly. Connectivity and credential storage stay application choices:
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./generated/http-client.generated.js, ./native-connectivity.js, ./native-credentials.js; this fence is an excerpt of that project."}
-import { createZmdbReactNative } from '@zmdb/react-native';
+import { createZmdbReactNative } from '@zmdb/client/react-native';
 import { AppState } from 'react-native';
 
 import type { ApiClient } from './generated/http-client.generated.js';
@@ -30,9 +30,9 @@ export const apiNative = createZmdbReactNative<ApiClient, string>({
 });
 ```
 
-The returned provider and hooks reuse `@zmdb/react`. Background policy can continue, abort, or abort and refresh mounted queries when the app next becomes active; mutations are never replayed. Offline
-policy either refuses before the generated client dispatches or waits for the injected connectivity port to report online. `useCredentialStore()` returns the exact injected store; the package bundles
-no NetInfo, AsyncStorage, keychain, vault, retry engine, or cache.
+The returned provider and hooks reuse `@zmdb/client/react`. Background policy can continue, abort, or abort and refresh mounted queries when the app next becomes active; mutations are never replayed.
+Offline policy either refuses before the generated client dispatches or waits for the injected connectivity port to report online. `useCredentialStore()` returns the exact injected store; the package
+bundles no NetInfo, AsyncStorage, keychain, vault, retry engine, or cache.
 
 ## What runs on device unchanged
 

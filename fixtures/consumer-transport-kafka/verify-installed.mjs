@@ -127,8 +127,8 @@ try {
     }
     selected.set(name, entry);
   }
-  select('@zmdb/transport-kafka');
-  assert(selected.has('@zmdb/transport-kafka'), 'Kafka publication manifest is missing');
+  select('@zmdb/transport/kafka');
+  assert(selected.has('@zmdb/transport/kafka'), 'Kafka publication manifest is missing');
   const records = new Map();
   const archives = join(directory, 'archives');
   await mkdir(archives);
@@ -193,7 +193,7 @@ try {
   registry = await startRegistry(records);
   const consumer = join(directory, 'installed');
   await mkdir(consumer);
-  const roots = ['@zmdb/app', '@zmdb/transport-kafka', 'kafkajs'];
+  const roots = ['@zmdb/app', '@zmdb/transport/kafka', 'kafkajs'];
   const dependencies = Object.fromEntries(
     roots.map(name => [name, name === 'kafkajs' ? '2.2.4' : records.get(name).manifest.version]),
   );
@@ -248,9 +248,9 @@ try {
       '--eval',
       `
     import assert from 'node:assert/strict';
-    const resolved = import.meta.resolve('@zmdb/transport-kafka');
-    assert(resolved.includes('/node_modules/@zmdb/transport-kafka/dist/index.js'));
-    for (const entry of ['@zmdb/transport-kafka/src/index.js', '@zmdb/web/transports/kafka']) {
+    const resolved = import.meta.resolve('@zmdb/transport/kafka');
+    assert(resolved.includes('/node_modules/@zmdb/transport/kafka/dist/index.js'));
+    for (const entry of ['@zmdb/transport/kafka/src/index.js', '@zmdb/web/transports/kafka']) {
       await assert.rejects(import(entry), error => ['ERR_PACKAGE_PATH_NOT_EXPORTED','ERR_MODULE_NOT_FOUND'].includes(error.code));
     }
   `,

@@ -1,5 +1,5 @@
-> **Install:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/ai-langchain@1.0.0-beta.2 @langchain/core@^1.2.9`. The integration package is tested against `1.2.9` and declares that range as its sole optional
-> peer. Applications that do not install `@zmdb/ai-langchain` do not receive LangChain. Retrievers, vector stores and chat-memory backends remain application code.
+> **Install:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/ai/langchain@1.0.0-beta.2 @langchain/core@^1.2.9`. The integration package is tested against `1.2.9` and declares that range as its sole optional
+> peer. Applications that do not install `@zmdb/ai/langchain` do not receive LangChain. Retrievers, vector stores and chat-memory backends remain application code.
 
 ## Know the boundary
 
@@ -15,7 +15,7 @@
 
 ```ts {"mode":"compile","id":"example-001"}
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { langchainTool } from '@zmdb/ai-langchain';
+import { langchainTool } from '@zmdb/ai/langchain';
 import { assert } from '@zmdb/validator';
 import { schemaOf, type CreateDTO } from '@zmdb/schema';
 import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';

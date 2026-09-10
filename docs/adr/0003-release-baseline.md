@@ -66,8 +66,8 @@ The release groups below are a policy decision over that measured inventory. Exi
 Original source: `scripts/release/SPEC.md` at `271a731e32be377343fe279070050d7ee6bd55a2`. SHA-256: `27b6ba68c6498223bc78a2780acbf6aac24d0854d67e6bff74557ddbbc38845a`.
 
 ```text
-For the disputed Vercel floor, the #746 probe packed `@zmdb/sql`, `@zmdb/schema`, `@zmdb/ai`, and `@zmdb/ai-vercel`, installed those four tarballs with exact `ai@7.0.93`, `zod@4.5.4`,
-`typescript@7.0.2`, and `@types/node@26.4.1` through npm 12.0.2 on Node 26.8.1. It resolved both `ai` and `@zmdb/ai-vercel` from the temporary consumer's `node_modules`. Strict usage with
+For the disputed Vercel floor, the #746 probe packed `@zmdb/sql`, `@zmdb/schema`, `@zmdb/ai`, and `@zmdb/ai/vercel`, installed those four tarballs with exact `ai@7.0.93`, `zod@4.5.4`,
+`typescript@7.0.2`, and `@types/node@26.4.1` through npm 12.0.2 on Node 26.8.1. It resolved both `ai` and `@zmdb/ai/vercel` from the temporary consumer's `node_modules`. Strict usage with
 `exactOptionalPropertyTypes: true` and the documented `skipLibCheck: true` typechecked; runtime reported adapter version `1.0.0-alpha.4`, AI SDK version `7.0.93`, keys `description`, `execute`, and
 `inputSchema`, and result `packed-7.0.93`.
 

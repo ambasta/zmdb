@@ -1,5 +1,5 @@
 import { transportExtension, type TransportStrategy } from '@zmdb/app/messaging';
-import { createRedisStrategy, type RedisStrategyOptions } from '@zmdb/transport-redis';
+import { createRedisStrategy, type RedisStrategyOptions } from '@zmdb/transport/redis';
 
 const options: RedisStrategyOptions = {
   channels: ['orders.created'],

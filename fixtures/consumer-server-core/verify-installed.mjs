@@ -27,12 +27,12 @@ const JOBS_ROOTS = ['@zmdb/jobs', '@zmdb/jobs-sqlite'];
 const TARGET_ROOTS = ['@zmdb/app', '@zmdb/web', '@zmdb/core'];
 const OPTIONAL_SERVER_PACKAGES = [
   '@zmdb/jobs-postgres',
-  '@zmdb/otel',
+  '@zmdb/app/otel',
   '@zmdb/protobuf',
-  '@zmdb/transport-grpc',
-  '@zmdb/transport-nats',
-  '@zmdb/transport-rabbitmq',
-  '@zmdb/transport-redis',
+  '@zmdb/transport/grpc',
+  '@zmdb/transport/nats',
+  '@zmdb/transport/rabbitmq',
+  '@zmdb/transport/redis',
 ];
 const SERVER_PEERS = ['@grpc/grpc-js', '@nats-io/transport-node', '@opentelemetry/api', 'amqplib', 'pg', 'redis'];
 

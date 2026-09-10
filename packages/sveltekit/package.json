@@ -41,8 +41,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:1.0.0-beta.2",
-    "@zmdb/svelte": "workspace:1.0.0-beta.2"
+    "@zmdb/client": "workspace:1.0.0-beta.2"
   },
   "devDependencies": {
     "@sveltejs/kit": "2.70.3",

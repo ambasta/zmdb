@@ -439,8 +439,8 @@ RedisStrategyOptions
 <!-- #645-ownership:end -->
 
 The six generated-service names (`grpcDescriptor`, `loadGrpcService`, `GrpcLoadedMethod`, `GrpcLoadedService`, `GrpcMethodDef`, `GrpcServiceDef`) target `@zmdb/protobuf`. The remaining gRPC names
-target `@zmdb/transport-grpc`; NATS now ships from `@zmdb/transport-nats`, while RabbitMQ, Redis and PostgreSQL jobs retain their frozen package targets. OpenTelemetry ships from `@zmdb/otel`. Exact
-adapter peer contracts remain owned by #654.
+target `@zmdb/transport/grpc`; NATS now ships from `@zmdb/transport/nats`, while RabbitMQ, Redis and PostgreSQL jobs retain their frozen package targets. OpenTelemetry ships from `@zmdb/app/otel`.
+Exact adapter peer contracts remain owned by #654.
 
 #### Private benchmark helpers — 11
 
@@ -470,7 +470,7 @@ The current source layout does not define ownership. These mixed files must be s
 
 - `data`: `repositoryToken` moves to app; validation and wire conversion remain web.
 - `health`: check contracts, detailed check results and database readiness move to app; `WebResponse` shapes and route factories remain web.
-- `observability`: ports, propagation, message spans and driver instrumentation move to app; `createTracedRouter` remains web; the OpenTelemetry adapter becomes `@zmdb/otel`.
+- `observability`: ports, propagation, message spans and driver instrumentation move to app; `createTracedRouter` remains web; the OpenTelemetry adapter becomes `@zmdb/app/otel`.
 - `app`: protocol-neutral lifecycle becomes `createApplication`; HTTP router composition remains `createApp`; gRPC/broker startup becomes application extensions.
 - `devtools`: remains web because its route nodes and shadowing findings are HTTP-aware, but consumes app's public module/DI readers and creates no reverse dependency.
 

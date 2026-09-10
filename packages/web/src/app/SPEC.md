@@ -16,7 +16,7 @@
   - **`[Symbol.asyncDispose](): Promise<void>`** — delegate to the app-owned bounded extension shutdown and reverse construction-order hooks.
 
 `WebApplicationOptions` extends `ApplicationOptions` only with the router's guard registry and versioning strategy. Message transports attach with `transportExtension(...)` from `@zmdb/app/messaging`;
-gRPC attaches with `grpcExtension(...)` from `@zmdb/transport-grpc`. Web options contain no protocol-specific transport fields.
+gRPC attaches with `grpcExtension(...)` from `@zmdb/transport/grpc`. Web options contain no protocol-specific transport fields.
 
 ### Lifecycle hook interfaces
 

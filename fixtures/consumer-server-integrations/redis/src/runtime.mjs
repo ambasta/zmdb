@@ -6,15 +6,15 @@ import {
   MessagePattern,
   transportExtension,
 } from '@zmdb/app/messaging';
-import { createRedisStrategy } from '@zmdb/transport-redis';
+import { createRedisStrategy } from '@zmdb/transport/redis';
 
 if (typeof createRedisStrategy !== 'function') {
-  throw new Error('@zmdb/transport-redis omitted createRedisStrategy');
+  throw new Error('@zmdb/transport/redis omitted createRedisStrategy');
 }
 
 const url = process.env.ZMDB_REDIS_URL;
 if (url === undefined) {
-  console.warn('[skip] @zmdb/transport-redis packed runtime: set ZMDB_REDIS_URL for the required live-service lane');
+  console.warn('[skip] @zmdb/transport/redis packed runtime: set ZMDB_REDIS_URL for the required live-service lane');
 } else {
   const prefix = `zmdb.packed.${globalThis.crypto.randomUUID()}`;
   const eventPattern = `${prefix}.event`;
@@ -81,15 +81,15 @@ if (url === undefined) {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
     if (events.length !== 1 || events[0]?.id !== 1) {
-      throw new Error('@zmdb/transport-redis packed event did not round-trip');
+      throw new Error('@zmdb/transport/redis packed event did not round-trip');
     }
     if (reply.echoed?.id !== 2) {
-      throw new Error('@zmdb/transport-redis packed request did not round-trip');
+      throw new Error('@zmdb/transport/redis packed request did not round-trip');
     }
     if (errors.length > 0) {
-      throw new AggregateError(errors, '@zmdb/transport-redis packed consumer observed transport errors');
+      throw new AggregateError(errors, '@zmdb/transport/redis packed consumer observed transport errors');
     }
-    console.log('@zmdb/transport-redis packed consumer: live event and request/reply executed');
+    console.log('@zmdb/transport/redis packed consumer: live event and request/reply executed');
   } finally {
     await extension.stop({ graceMs: 2_000 });
   }

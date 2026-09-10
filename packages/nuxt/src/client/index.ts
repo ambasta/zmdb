@@ -5,8 +5,8 @@
 import { createFetchTransport } from '@zmdb/client';
 import type { ClientOptions } from '@zmdb/client';
 import type { FetchLike } from '@zmdb/client/transport';
-import { createZmdbVue } from '@zmdb/vue';
-import type { QueryLoader, ZmdbVueBindings } from '@zmdb/vue';
+import { createZmdbVue } from '@zmdb/client/vue';
+import type { QueryLoader, ZmdbVueBindings } from '@zmdb/client/vue';
 import type { AsyncData, NuxtError, useAsyncData as useNuxtAsyncData } from 'nuxt/app';
 import { computed, toValue } from 'vue';
 import type { App, MaybeRefOrGetter } from 'vue';

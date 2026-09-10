@@ -34,7 +34,7 @@ Choose a database, client framework, job provider or transport when the applicat
 installation commands, peer requirements and support evidence. The [integration guide](./docs-site/content/framework-integrations.md) connects the generated HTTP client to the selected framework.
 Advanced dependency boundaries are explained in the [runtime foundation](./docs-site/content/runtime-foundation.md) and [tooling](./docs-site/content/tooling-boundaries.md) guides.
 
-> The workspace publishes **42 packages** across **182 export-map entry points**. Vitest discovers runtime tests from the workspace. The compatibility inventory covers 504 of 742 upstream API suites
+> The workspace publishes **27 packages** across **182 export-map entry points**. Vitest discovers runtime tests from the workspace. The compatibility inventory covers 504 of 742 upstream API suites
 > and explains why the other 238 are out of scope. Documentation contains **289 pages** and **1,289 classified TypeScript/TSX fences**; the
 > [documentation inventory](./docs-site/SPEC.md#21-current-documentation-inventory) records their statuses, compilation modes and GraphQL exclusions.
 

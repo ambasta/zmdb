@@ -88,12 +88,12 @@ they never ask the runtime what type a parameter has, because at runtime that in
 
 ## Provider-neutral dependency boundary
 
-`@zmdb/ai` has one runtime workspace dependency, `@zmdb/schema`, and no external dependency or peer. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` are separate opt-in packages with
+`@zmdb/ai` has one runtime workspace dependency, `@zmdb/schema`, and no external dependency or peer. `@zmdb/ai/anthropic`, `@zmdb/ai/langchain`, and `@zmdb/ai/vercel` are separate opt-in packages with
 one optional SDK/framework peer each. Importing the provider-neutral root, chat, HTTP, compiler, or tool-runtime entry does not install or resolve any of those peers.
 
 `@langchain/core` is absent from both schema-core and the provider-neutral AI manifest.
 
-The Vercel adapter's supported and tested floor is AI SDK `7.0.93`. Its package-owned test builds and packs `@zmdb/sql`, `@zmdb/schema`, `@zmdb/ai`, and `@zmdb/ai-vercel`, installs those tarballs with
+The Vercel adapter's supported and tested floor is AI SDK `7.0.93`. Its package-owned test builds and packs `@zmdb/sql`, `@zmdb/schema`, `@zmdb/ai`, and `@zmdb/ai/vercel`, installs those tarballs with
 exact `ai@7.0.93` outside the repository, typechecks representative tool and `streamText` usage with the documented `skipLibCheck: true`, resolves every zmdb package from the temporary consumer's
 `node_modules`, and executes the real `description`, `execute`, and `inputSchema` fields.
 

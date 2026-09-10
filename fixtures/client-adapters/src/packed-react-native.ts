@@ -1,4 +1,4 @@
-import type { MutationState, QueryState } from '@zmdb/react';
+import type { MutationState, QueryState } from '@zmdb/client/react';
 import {
   NativeBackgroundError,
   NativeOfflineError,
@@ -8,7 +8,7 @@ import {
   type NativeConnectivity,
   type NativeConnectivityState,
   type NativeCredentialStore,
-} from '@zmdb/react-native';
+} from '@zmdb/client/react-native';
 import { createElement } from 'react';
 import { act, create } from 'react-test-renderer';
 import type { ReactTestRenderer } from 'react-test-renderer';

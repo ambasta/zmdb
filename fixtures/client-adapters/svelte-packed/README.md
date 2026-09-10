@@ -1,6 +1,7 @@
 # Packed Svelte adapter fixture
 
-This fixture is copied into a clean application by `packages/svelte/src/packed.spec.ts`. The test packs publish-ready `@zmdb/client` and `@zmdb/svelte` tarballs, installs Svelte 5.57.0, then:
+This fixture is copied into a clean application by `packages/client/src/svelte/packed.spec.ts`. The test packs publish-ready `@zmdb/client` and `@zmdb/client/svelte` tarballs, installs Svelte 5.57.0,
+then:
 
 - typechecks generated-client inference against the installed declarations;
 - compiles the same component sources for Svelte browser and server targets;

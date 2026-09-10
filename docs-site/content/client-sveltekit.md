@@ -4,7 +4,7 @@ cancellation. The generated module and `@zmdb/client` own URL construction, auth
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.2 @zmdb/svelte@1.0.0-beta.2 @zmdb/sveltekit@1.0.0-beta.2 @sveltejs/kit@^2.70 svelte@^5
+yarn add @zmdb/client@1.0.0-beta.2 @zmdb/client/svelte@1.0.0-beta.2 @zmdb/sveltekit@1.0.0-beta.2 @sveltejs/kit@^2.70 svelte@^5
 ```
 
 ## Provide

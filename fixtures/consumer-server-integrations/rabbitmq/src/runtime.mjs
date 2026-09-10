@@ -1,15 +1,15 @@
 import { connect as connectRabbit } from 'amqplib';
 
-const rabbitmq = await import('@zmdb/transport-rabbitmq');
+const rabbitmq = await import('@zmdb/transport/rabbitmq');
 
 if (typeof rabbitmq.createRabbitMqStrategy !== 'function') {
-  throw new Error('@zmdb/transport-rabbitmq omitted createRabbitMqStrategy');
+  throw new Error('@zmdb/transport/rabbitmq omitted createRabbitMqStrategy');
 }
 
 const connection = process.env.ZMDB_RABBITMQ_URL;
 if (connection === undefined) {
   console.warn(
-    '[skip] @zmdb/transport-rabbitmq packed runtime: set ZMDB_RABBITMQ_URL for the required live-service lane',
+    '[skip] @zmdb/transport/rabbitmq packed runtime: set ZMDB_RABBITMQ_URL for the required live-service lane',
   );
 } else {
   const suffix = globalThis.crypto.randomUUID();
@@ -66,12 +66,12 @@ if (connection === undefined) {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
     if (delivered.length !== 2 || reply.kind !== 'result' || reply.payload?.echoed?.id !== 2) {
-      throw new Error(`@zmdb/transport-rabbitmq packed delivery failed: ${JSON.stringify({ delivered, reply })}`);
+      throw new Error(`@zmdb/transport/rabbitmq packed delivery failed: ${JSON.stringify({ delivered, reply })}`);
     }
     if (errors.length > 0) {
-      throw new AggregateError(errors, '@zmdb/transport-rabbitmq reported errors during consumer lifecycle');
+      throw new AggregateError(errors, '@zmdb/transport/rabbitmq reported errors during consumer lifecycle');
     }
-    console.log('@zmdb/transport-rabbitmq packed consumer: live event and request/reply executed');
+    console.log('@zmdb/transport/rabbitmq packed consumer: live event and request/reply executed');
   } finally {
     await strategy.close(1_000);
     await admin.deleteQueue(queue).catch(() => undefined);

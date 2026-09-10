@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createApplication } from '@zmdb/app';
 import { EventPattern, transportExtension, type MessageContext } from '@zmdb/app/messaging';
 import { Module } from '@zmdb/app/modules';
-import { createKafkaStrategy } from '@zmdb/transport-kafka';
+import { createKafkaStrategy } from '@zmdb/transport/kafka';
 import type { Kafka } from 'kafkajs';
 
 export async function applicationJourney(client: Kafka, topic: string, deadLetterTopic: string): Promise<void> {

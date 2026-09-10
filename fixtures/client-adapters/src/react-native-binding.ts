@@ -1,10 +1,10 @@
-import { createZmdbReactNative } from '@zmdb/react-native';
+import { createZmdbReactNative } from '@zmdb/client/react-native';
 
 import type { AdapterConformanceBinding } from './conformance.js';
 import { createReactFamilyConformanceBinding } from './react-binding.js';
 
 export function createReactNativeConformanceBinding<Client extends object>(): AdapterConformanceBinding<Client> {
-  return createReactFamilyConformanceBinding('@zmdb/react-native', bindingName =>
+  return createReactFamilyConformanceBinding('@zmdb/client/react-native', bindingName =>
     createZmdbReactNative<Client, string>({
       appState: {
         currentState: 'active',

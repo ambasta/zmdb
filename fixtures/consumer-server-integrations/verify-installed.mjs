@@ -3,10 +3,11 @@
 //
 // `--core` packs the current publishable workspace, installs the local tarballs
 // into a clean npm project and proves that neither an optional server package nor
-// one of its peers appears anywhere in that dependency tree.
+// a third-party client peer appears anywhere in that dependency tree.
 //
-// `--integration <package>` packs one implemented target into its clean fixture,
-// while `--integrations` checks the complete target set.
+// `--integration <entry>` packs one implemented target into its clean fixture,
+// while `--integrations` checks the complete target set. A target names an import
+// entry point, which may be a subpath of a package that carries several of them.
 
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -20,25 +21,28 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-server-integrations');
 const PACKAGES_DIR = join(ROOT, 'packages');
-// Packages and third-party clients exercised by these fixture projects.
+// Import entries and third-party clients exercised by these fixture projects. `name`
+// is the specifier a consumer imports and `package` is the workspace package that
+// publishes it; the two differ where one package publishes several adapters.
 const SERVER_TARGETS = [
-  { name: '@zmdb/protobuf' },
-  { name: '@zmdb/transport-grpc', peer: { name: '@grpc/grpc-js' } },
-  { name: '@zmdb/transport-nats', peer: { name: '@nats-io/transport-node' } },
-  { name: '@zmdb/transport-rabbitmq', peer: { name: 'amqplib' } },
-  { name: '@zmdb/transport-redis', peer: { name: 'redis' } },
-  { name: '@zmdb/jobs-sqlite' },
-  { name: '@zmdb/jobs-postgres', peer: { name: 'pg' } },
-  { name: '@zmdb/otel', peer: { name: '@opentelemetry/api' } },
+  { name: '@zmdb/protobuf', package: '@zmdb/protobuf' },
+  { name: '@zmdb/transport/grpc', package: '@zmdb/transport', peer: { name: '@grpc/grpc-js' } },
+  { name: '@zmdb/transport/nats', package: '@zmdb/transport', peer: { name: '@nats-io/transport-node' } },
+  { name: '@zmdb/transport/rabbitmq', package: '@zmdb/transport', peer: { name: 'amqplib' } },
+  { name: '@zmdb/transport/redis', package: '@zmdb/transport', peer: { name: 'redis' } },
+  { name: '@zmdb/jobs-sqlite', package: '@zmdb/jobs-sqlite' },
+  { name: '@zmdb/jobs-postgres', package: '@zmdb/jobs-postgres', peer: { name: 'pg' } },
+  { name: '@zmdb/app/otel', package: '@zmdb/app', peer: { name: '@opentelemetry/api' } },
 ];
-const SERVER_PACKAGES = SERVER_TARGETS.map(target => target.name);
+const SERVER_ENTRIES = SERVER_TARGETS.map(target => target.name);
+const SERVER_PACKAGES = [...new Set(SERVER_TARGETS.map(target => target.package))];
 const SERVER_PEERS = SERVER_TARGETS.flatMap(target => (target.peer === undefined ? [] : [target.peer.name]));
 const PUBLISH_PACKAGE_NAMES = PUBLISH_PACKAGES.map(packageRecord => packageRecord.npmName);
 const REQUIRED_SERVICE_ENV = new Map([
   ['@zmdb/jobs-postgres', 'ZMDB_PG'],
-  ['@zmdb/transport-nats', 'ZMDB_NATS_URL'],
-  ['@zmdb/transport-rabbitmq', 'ZMDB_RABBITMQ_URL'],
-  ['@zmdb/transport-redis', 'ZMDB_REDIS_URL'],
+  ['@zmdb/transport/nats', 'ZMDB_NATS_URL'],
+  ['@zmdb/transport/rabbitmq', 'ZMDB_RABBITMQ_URL'],
+  ['@zmdb/transport/redis', 'ZMDB_REDIS_URL'],
 ]);
 
 function run(command, args, options = {}) {
@@ -205,12 +209,19 @@ function verifyCoreInstall(packages, scratch) {
   if (installed.status !== 0) throw new Error(`core consumer install failed: ${message(installed)}`);
 
   const namesInTree = installedPackageNames(join(app, 'node_modules'));
-  const forbidden = [...SERVER_PACKAGES, ...SERVER_PEERS].filter(name => namesInTree.has(name));
+  // A core install legitimately contains a core package that also publishes an
+  // optional adapter subpath, so only packages outside the core closure are
+  // forbidden. Every third-party client peer stays forbidden either way, which is
+  // what makes an unused adapter subpath cost nothing.
+  const coreClosure = new Set(names);
+  const optionalPackages = SERVER_PACKAGES.filter(name => !coreClosure.has(name));
+  const forbidden = [...optionalPackages, ...SERVER_PEERS].filter(name => namesInTree.has(name));
   if (forbidden.length > 0) {
     throw new Error(`core install contains optional server packages or peers: ${forbidden.join(', ')}`);
   }
   console.log(
-    `core install: ${String(names.length)} workspace tarballs, ${String(namesInTree.size)} installed packages, 0 optional server packages or peers`,
+    `core install: ${String(names.length)} workspace tarballs, ${String(namesInTree.size)} installed packages, ` +
+      `0 of ${String(optionalPackages.length)} optional server packages, 0 of ${String(SERVER_PEERS.length)} client peers`,
   );
 }
 
@@ -232,12 +243,12 @@ function fixtureProjects() {
   for (const fixture of fixtures) {
     targetCounts.set(fixture.target, (targetCounts.get(fixture.target) ?? 0) + 1);
   }
-  const missing = SERVER_PACKAGES.filter(name => !targetCounts.has(name));
+  const missing = SERVER_ENTRIES.filter(name => !targetCounts.has(name));
   const repeated = [...targetCounts].filter(([, count]) => count !== 1).map(([name]) => name);
-  const unexpected = [...targetCounts.keys()].filter(name => !SERVER_PACKAGES.includes(name));
+  const unexpected = [...targetCounts.keys()].filter(name => !SERVER_ENTRIES.includes(name));
   if (missing.length > 0 || repeated.length > 0 || unexpected.length > 0) {
     throw new Error(
-      `optional-server fixtures must cover each package once; missing=[${missing.join(', ')}], ` +
+      `optional-server fixtures must cover each entry once; missing=[${missing.join(', ')}], ` +
         `repeated=[${repeated.join(', ')}], unexpected=[${unexpected.join(', ')}]`,
     );
   }
@@ -304,10 +315,14 @@ function targetContract(name) {
   return target;
 }
 
+function targetPackage(name) {
+  return targetContract(name).package;
+}
+
 function verifyInstalledIntegration(packages, fixture, closure, app) {
   const target = targetContract(fixture.target);
-  const sourcePackage = packages.get(fixture.target);
-  if (sourcePackage === undefined) throw new Error(`workspace package ${fixture.target} disappeared`);
+  const sourcePackage = packages.get(target.package);
+  if (sourcePackage === undefined) throw new Error(`workspace package ${target.package} disappeared`);
   const nodeModules = join(app, 'node_modules');
   const namesInTree = installedPackageNames(nodeModules);
   const allowedPackages = new Set(closure);
@@ -325,7 +340,7 @@ function verifyInstalledIntegration(packages, fixture, closure, app) {
   }
 
   const installedManifest = JSON.parse(
-    readFileSync(join(packagePath(nodeModules, fixture.target), 'package.json'), 'utf8'),
+    readFileSync(join(packagePath(nodeModules, target.package), 'package.json'), 'utf8'),
   );
   const actualPeers = Object.entries(installedManifest.peerDependencies ?? {}).toSorted(([left], [right]) =>
     left.localeCompare(right),
@@ -338,17 +353,26 @@ function verifyInstalledIntegration(packages, fixture, closure, app) {
       `${fixture.target} packed peers ${JSON.stringify(actualPeers)}, expected ${JSON.stringify(expectedPeers)}`,
     );
   }
+  const optionalPeers = new Set(
+    Object.entries(publishManifest(sourcePackage.manifest).peerDependenciesMeta ?? {})
+      .filter(([, meta]) => meta?.optional === true)
+      .map(([name]) => name),
+  );
   for (const [peer] of expectedPeers) {
-    if (!namesInTree.has(peer)) {
-      throw new Error(`${fixture.target} consumer did not install required peer ${peer}`);
-    }
+    if (optionalPeers.has(peer) || namesInTree.has(peer)) continue;
+    throw new Error(`${fixture.target} consumer did not install required peer ${peer}`);
   }
-  if (expectedPeer !== undefined && installedManifest.peerDependenciesMeta?.[expectedPeer]?.optional === true) {
-    throw new Error(`${fixture.target} packed required peer ${expectedPeer} is marked optional`);
+  // A client one adapter needs must be an optional peer when the package publishes
+  // several adapters, so that selecting one never obliges the others' clients.
+  const peerIsPerEntry = target.name !== target.package;
+  if (expectedPeer !== undefined && optionalPeers.has(expectedPeer) !== peerIsPerEntry) {
+    throw new Error(
+      `${fixture.target} packed peer ${expectedPeer} must be ${peerIsPerEntry ? 'optional' : 'required'}`,
+    );
   }
 
   console.log(
-    `installed boundary: ${fixture.target}, ${String(closure.length)} workspace tarball(s), ` +
+    `installed boundary: ${fixture.target} from ${target.package}, ${String(closure.length)} workspace tarball(s), ` +
       `${expectedPeer === undefined ? 'no peer' : `peer ${expectedPeer}`}, 0 unrelated optional peers`,
   );
 }
@@ -377,7 +401,9 @@ function verifyIntegrationConsumers(packages, scratch, target, requireServices) 
   const fixtures =
     target === undefined ? fixtureProjects() : fixtureProjects().filter(fixture => fixture.target === target);
   if (fixtures.length === 0) throw new Error(`no optional-server fixture targets ${String(target)}`);
-  const missing = fixtures.filter(fixture => !packages.has(fixture.target)).map(fixture => fixture.target);
+  const missing = fixtures
+    .filter(fixture => !packages.has(targetPackage(fixture.target)))
+    .map(fixture => fixture.target);
   if (missing.length > 0) {
     throw new Error(`optional server packages are not implemented: ${missing.join(', ')}`);
   }
@@ -388,7 +414,7 @@ function verifyIntegrationConsumers(packages, scratch, target, requireServices) 
 
   const allNames = workspaceClosure(
     packages,
-    fixtures.map(fixture => fixture.target),
+    fixtures.map(fixture => targetPackage(fixture.target)),
   );
   const tarballs = packWorkspace(packages, allNames, scratch);
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc');
@@ -398,7 +424,7 @@ function verifyIntegrationConsumers(packages, scratch, target, requireServices) 
   for (const fixture of fixtures) {
     const app = join(scratch, `consumer-${fixture.name}`);
     copyForPack(fixture.dir, app);
-    const closure = workspaceClosure(packages, [fixture.target]);
+    const closure = workspaceClosure(packages, [targetPackage(fixture.target)]);
     writeConsumerManifest(packages, fixture, closure, tarballs, app);
     installConsumer(app, fixture.target);
     verifyInstalledIntegration(packages, fixture, closure, app);
@@ -436,9 +462,9 @@ function main() {
     );
   }
   if (mode === '--integration' && target === undefined) {
-    throw new Error('--integration requires an exact package name');
+    throw new Error('--integration requires an exact entry specifier');
   }
-  if (mode !== '--integration' && target !== undefined) throw new Error(`${mode} accepts no package argument`);
+  if (mode !== '--integration' && target !== undefined) throw new Error(`${mode} accepts no entry argument`);
   if (mode === '--core' && requireServices) throw new Error('--core does not accept --require-services');
 
   const scratch = mkdtempSync(join(tmpdir(), 'zmdb-server-consumer-'));

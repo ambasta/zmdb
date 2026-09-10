@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { trace } from '@opentelemetry/api';
 import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 
-import { fromOpenTelemetry } from '../../packages/otel/src/index.js';
+import { fromOpenTelemetry } from '../../packages/app/src/otel/index.js';
 import { benchmarkObservability } from '../../packages/web/src/bench/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -52,8 +52,8 @@ const BENCHMARK_INPUTS = [
   'packages/app/src/observability/propagation.ts',
   'packages/app/src/observability/types.ts',
   'packages/app/src/polyfill.ts',
-  'packages/otel/package.json',
-  'packages/otel/src/index.ts',
+  'packages/app/src/otel/package.json',
+  'packages/app/src/otel/index.ts',
   'packages/web/package.json',
   'packages/web/src/app/bridge.ts',
   'packages/web/src/app/index.ts',

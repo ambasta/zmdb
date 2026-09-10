@@ -41,7 +41,6 @@
   },
   "dependencies": {
     "@zmdb/client": "workspace:1.0.0-beta.2",
-    "@zmdb/react": "workspace:1.0.0-beta.2",
     "server-only": "0.0.1"
   },
   "devDependencies": {

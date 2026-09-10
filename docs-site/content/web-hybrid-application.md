@@ -10,7 +10,7 @@ Attach message transports through the public app extension:
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule, audit, createApp, ordersTransport; this excerpt does not repeat those declarations."}
 import { transportExtension } from '@zmdb/app/messaging';
-import { grpcExtension } from '@zmdb/transport-grpc';
+import { grpcExtension } from '@zmdb/transport/grpc';
 
 await using app = createApp(AppModule, {
   extensions: [

@@ -1,14 +1,14 @@
-`@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. Core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, Redis
-Pub/Sub ships from `@zmdb/transport-redis`, and typed gRPC ships from `@zmdb/transport-grpc`. Applications own those transports through the same module graph and bounded lifecycle as HTTP.
+`@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. Core NATS ships from `@zmdb/transport/nats`, RabbitMQ ships from `@zmdb/transport/rabbitmq`, Redis
+Pub/Sub ships from `@zmdb/transport/redis`, and typed gRPC ships from `@zmdb/transport/grpc`. Applications own those transports through the same module graph and bounded lifecycle as HTTP.
 
 None of those four adapters or their peers is installed by `yarn add @zmdb/core@1.0.0-beta.2`. The exact optional edges are:
 
 | Adapter                    | Required peer                    | Lifecycle owner                                                          |
 | -------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| `@zmdb/transport-grpc`     | `@grpc/grpc-js@^1.14.4`          | application owns server extension; caller closes each created client     |
-| `@zmdb/transport-nats`     | `@nats-io/transport-node@^3.4.0` | application starts, drains, and closes the strategy connection           |
-| `@zmdb/transport-rabbitmq` | `amqplib@^2.0.1`                 | application owns connection, channels, retry, and dead-letter topology   |
-| `@zmdb/transport-redis`    | `redis@^6.2.1`                   | application owns publisher/subscriber clients and their bounded shutdown |
+| `@zmdb/transport/grpc`     | `@grpc/grpc-js@^1.14.4`          | application owns server extension; caller closes each created client     |
+| `@zmdb/transport/nats`     | `@nats-io/transport-node@^3.4.0` | application starts, drains, and closes the strategy connection           |
+| `@zmdb/transport/rabbitmq` | `amqplib@^2.0.1`                 | application owns connection, channels, retry, and dead-letter topology   |
+| `@zmdb/transport/redis`    | `redis@^6.2.1`                   | application owns publisher/subscriber clients and their bounded shutdown |
 
 ## The public seam
 
@@ -144,17 +144,17 @@ refusing strategy and every earlier strategy in reverse order. Disposal closes t
 Install only the client used by the selected strategy:
 
 ```bash
-yarn add @zmdb/transport-redis@1.0.0-beta.2 redis@^6.2.1
-yarn add @zmdb/transport-nats@1.0.0-beta.2 @nats-io/transport-node@^3.4.0
-yarn add @zmdb/transport-rabbitmq@1.0.0-beta.2 amqplib@^2.0.1
+yarn add @zmdb/transport@1.0.0-beta.2 redis@^6.2.1
+yarn add @zmdb/transport@1.0.0-beta.2 @nats-io/transport-node@^3.4.0
+yarn add @zmdb/transport@1.0.0-beta.2 amqplib@^2.0.1
 ```
 
-Import each adapter from its dedicated package:
+One package publishes every strategy and declares each broker client an optional peer, so the install differs only in the peer. Import each adapter from its own entry point:
 
 ```ts {"mode":"compile","id":"example-006"}
-import { createNatsStrategy } from '@zmdb/transport-nats';
-import { createRabbitMqStrategy } from '@zmdb/transport-rabbitmq';
-import { createRedisStrategy } from '@zmdb/transport-redis';
+import { createNatsStrategy } from '@zmdb/transport/nats';
+import { createRabbitMqStrategy } from '@zmdb/transport/rabbitmq';
+import { createRedisStrategy } from '@zmdb/transport/redis';
 ```
 
 | Strategy      | Redelivery | Dead letter | Request/reply | Delivery warning                                      |

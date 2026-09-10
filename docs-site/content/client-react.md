@@ -1,10 +1,10 @@
 Start with the [generated HTTP client](./generated-client.html), then add React only for context, effect ownership, and component-lifecycle cancellation. The generated module and `@zmdb/client` own
-URL construction, authentication patches, transport, response validation, and stable errors; `@zmdb/react` does not duplicate them.
+URL construction, authentication patches, transport, response validation, and stable errors; `@zmdb/client/react` does not duplicate them.
 
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.2 @zmdb/react@1.0.0-beta.2 react@19
+yarn add @zmdb/client@1.0.0-beta.2 @zmdb/client/react@1.0.0-beta.2 react@19
 ```
 
 ## Provide
@@ -13,7 +13,7 @@ Create one typed binding namespace and provide `client` at the application or re
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/react.ts
-import { createZmdbReact } from '@zmdb/react';
+import { createZmdbReact } from '@zmdb/client/react';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

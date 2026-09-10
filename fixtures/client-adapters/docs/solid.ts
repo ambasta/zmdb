@@ -1,4 +1,4 @@
-import { createZmdbSolid } from '@zmdb/solid';
+import { createZmdbSolid } from '@zmdb/client/solid';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

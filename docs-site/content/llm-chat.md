@@ -1,7 +1,7 @@
-> **Install the shown Anthropic loop:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/ai-anthropic@1.0.0-beta.2 @anthropic-ai/sdk@0.124.0 @zmdb/aot-validator@1.0.0-beta.2`.
+> **Install the shown Anthropic loop:** `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/ai/anthropic@1.0.0-beta.2 @anthropic-ai/sdk@0.124.0 @zmdb/aot-validator@1.0.0-beta.2`.
 >
 > **Supported core, application-owned storage.** `@zmdb/ai/chat` provides typed chat messages, a validator-linked tool registry, and a bounded loop with effect approval. The optional Anthropic SDK
-> driver ships from `@zmdb/ai-anthropic`, whose sole external peer is the SDK in the command above. Neither package persists conversations or streams tokens.
+> driver ships from `@zmdb/ai/anthropic`, whose sole external peer is the SDK in the command above. Neither package persists conversations or streams tokens.
 
 ## Safety model
 
@@ -18,7 +18,7 @@ Those are construction rules, not recommendations around an otherwise unbounded 
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies requireEnv, searchDocs, users; this excerpt does not repeat those declarations."}
 import Anthropic from '@anthropic-ai/sdk';
-import { anthropicDriver } from '@zmdb/ai-anthropic';
+import { anthropicDriver } from '@zmdb/ai/anthropic';
 import { defineTools, run } from '@zmdb/ai/chat';
 import { assert } from '@zmdb/validator';
 

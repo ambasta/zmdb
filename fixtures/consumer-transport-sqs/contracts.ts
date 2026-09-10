@@ -1,7 +1,7 @@
 import { SQSClient } from '@aws-sdk/client-sqs';
 import type { TransportErrorSink, TransportStrategy } from '@zmdb/app/messaging';
-import { createSqsStrategy } from '@zmdb/transport-sqs';
-import type { SqsStrategyOptions } from '@zmdb/transport-sqs';
+import { createSqsStrategy } from '@zmdb/transport/sqs';
+import type { SqsStrategyOptions } from '@zmdb/transport/sqs';
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;

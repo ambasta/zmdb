@@ -4,13 +4,13 @@
   "type": "module",
   "dependencies": {
     "@zmdb/app": "1.0.0-beta.2",
-    "@zmdb/transport-redis": "1.0.0-beta.2",
+    "@zmdb/transport": "1.0.0-beta.2",
     "redis": "6.2.1"
   },
   "devDependencies": {
     "@types/node": "^26.4.1"
   },
   "zmdbFixture": {
-    "target": "@zmdb/transport-redis"
+    "target": "@zmdb/transport/redis"
   }
 }

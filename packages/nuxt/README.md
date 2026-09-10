@@ -1,12 +1,12 @@
 # @zmdb/nuxt
 
 `@zmdb/nuxt` binds an application-generated zmdb client to Nuxt 4. It installs separate server and browser plugins, uses a request-local Nitro transport with explicit credential allow-lists, reuses
-`@zmdb/vue`, and delegates SSR payload hydration to native `useAsyncData`.
+`@zmdb/client/vue`, and delegates SSR payload hydration to native `useAsyncData`.
 
 ## Install
 
 ```bash
-yarn add @zmdb/nuxt@1.0.0-beta.2 @zmdb/vue@1.0.0-beta.2 nuxt@^4.5 vue@^3.5
+yarn add @zmdb/nuxt@1.0.0-beta.2 @zmdb/client/vue@1.0.0-beta.2 nuxt@^4.5 vue@^3.5
 ```
 
 > **Prerelease** (`1.0.0-beta.2`). Requires **Node.js 26+**, is **ESM-only**, and declares Nuxt and Vue as required peers.
@@ -64,8 +64,8 @@ const widget = await zmdb.useZmdbAsyncData(
 The adapter derives a deterministic key from the operation key and canonical JSON input. A matching Nuxt payload result is reused during hydration, while a new navigation input selects a new key and
 uses the browser client. Non-finite numbers, cycles, class instances, functions, symbols, bigints, sparse arrays, arrays with named properties, and `undefined` values are rejected before dispatch.
 
-The inherited `useZmdbClient`, `useZmdbQuery`, and `useZmdbMutation` methods are the real `@zmdb/vue` bindings. Vue effect-scope cancellation, stale-result suppression, and mutation semantics are not
-copied into this package.
+The inherited `useZmdbClient`, `useZmdbQuery`, and `useZmdbMutation` methods are the real `@zmdb/client/vue` bindings. Vue effect-scope cancellation, stale-result suppression, and mutation semantics
+are not copied into this package.
 
 ## Entry points
 

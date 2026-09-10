@@ -64,7 +64,6 @@ describe('@zmdb/nuxt packed consumers', () => {
     () => {
       result = withPackedBuildLock(ROOT, () => {
         build('@zmdb/client');
-        build('@zmdb/vue');
         build('@zmdb/nuxt');
 
         return runPackedProject({
@@ -73,10 +72,6 @@ describe('@zmdb/nuxt packed consumers', () => {
             {
               directory: join(ROOT, 'packages', 'client'),
               manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
-            },
-            {
-              directory: join(ROOT, 'packages', 'vue'),
-              manifest: publishManifest(readManifest('vue', PUBLISH_PACKAGES)),
             },
             {
               directory: join(ROOT, 'packages', 'nuxt'),
@@ -118,7 +113,7 @@ describe('@zmdb/nuxt packed consumers', () => {
         });
       });
 
-      expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/nuxt', '@zmdb/vue']);
+      expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/nuxt']);
       expect(result.commands.map(command => [command.label, command.status])).toEqual([
         ['packed Nuxt build', 0],
         ['packed Nuxt SSR', 0],

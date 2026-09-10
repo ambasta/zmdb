@@ -18,7 +18,7 @@ edges. The ownership rules below remain the contract.
 The graph has these hard rules:
 
 1. `@zmdb/ai` is the only owner of provider-neutral tool documents, provider dialect data, parsing, bounded chat orchestration, shared tool invocation and OpenAPI-derived tools.
-2. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain` and `@zmdb/ai-vercel` each depend on `@zmdb/ai` and own one external integration. They do not depend directly on `@zmdb/schema`.
+2. `@zmdb/ai/anthropic`, `@zmdb/ai/langchain` and `@zmdb/ai/vercel` each depend on `@zmdb/ai` and own one external integration. They do not depend directly on `@zmdb/schema`.
 3. `@zmdb/mcp` depends on `@zmdb/ai` plus platform APIs. It has no dependency on an MCP SDK, a provider SDK or `@zmdb/schema`.
 4. `@zmdb/compiler` depends directly on `@zmdb/ai`, `@zmdb/validator`, `@zmdb/sql`, and `@zmdb/schema`: reflection consumes schema IR, generated validators target the runtime ABI, and `toolFor`
    compilation consumes provider-neutral AI documents. `@zmdb/validator` depends only on `@zmdb/schema`.
@@ -87,14 +87,14 @@ export type { ToolSpecRefusal } from '@zmdb/ai/compiler';
 The exact integration exports are:
 
 ```ts
-export { anthropicDriver } from '@zmdb/ai-anthropic';
-export type { AnthropicDriverOptions, AnthropicMessagesClient } from '@zmdb/ai-anthropic';
+export { anthropicDriver } from '@zmdb/ai/anthropic';
+export type { AnthropicDriverOptions, AnthropicMessagesClient } from '@zmdb/ai/anthropic';
 
-export { langchainTool } from '@zmdb/ai-langchain';
-export type { LangChainToolFields, ToolAdapterOptions } from '@zmdb/ai-langchain';
+export { langchainTool } from '@zmdb/ai/langchain';
+export type { LangChainToolFields, ToolAdapterOptions } from '@zmdb/ai/langchain';
 
-export { aiSdkTool } from '@zmdb/ai-vercel';
-export type { AiSdkToolFields, AiSdkToolOptions, ToolAdapterOptions } from '@zmdb/ai-vercel';
+export { aiSdkTool } from '@zmdb/ai/vercel';
+export type { AiSdkToolFields, AiSdkToolOptions, ToolAdapterOptions } from '@zmdb/ai/vercel';
 
 export { MCP_PROTOCOL_VERSION, McpProtocolError, createMcpClient, createMcpServer } from '@zmdb/mcp';
 export type { McpClient, McpClientOptions, McpServer, McpServerOptions, RemoteTool, RemoteToolResult } from '@zmdb/mcp';
@@ -111,16 +111,16 @@ incorporated; it does not permit the old path to survive.
 | -------------------------------- | -------------------- | --------------------------------------------------------------------------- |
 | `SPEC.md`                        | `@zmdb/ai`           | move to `packages/ai/src/SPEC.md`                                           |
 | `adapters/SPEC.md`               | `@zmdb/ai`           | merge shared invocation clauses into `packages/ai/src/tool-runtime/SPEC.md` |
-| `adapters/ai-sdk.spec.ts`        | `@zmdb/ai-vercel`    | move to `packages/ai-vercel/src/index.spec.ts`                              |
-| `adapters/ai-sdk.ts`             | `@zmdb/ai-vercel`    | move to `packages/ai-vercel/src/index.ts`                                   |
-| `adapters/langchain.spec.ts`     | `@zmdb/ai-langchain` | move to `packages/ai-langchain/src/index.spec.ts`                           |
-| `adapters/langchain.ts`          | `@zmdb/ai-langchain` | move to `packages/ai-langchain/src/index.ts`                                |
+| `adapters/ai-sdk.spec.ts`        | `@zmdb/ai/vercel`    | move to `packages/ai/src/vercel/index.spec.ts`                              |
+| `adapters/ai-sdk.ts`             | `@zmdb/ai/vercel`    | move to `packages/ai/src/vercel/index.ts`                                   |
+| `adapters/langchain.spec.ts`     | `@zmdb/ai/langchain` | move to `packages/ai/src/langchain/index.spec.ts`                           |
+| `adapters/langchain.ts`          | `@zmdb/ai/langchain` | move to `packages/ai/src/langchain/index.ts`                                |
 | `adapters/runtime.ts`            | `@zmdb/ai`           | merge into `packages/ai/src/tool-runtime.ts`                                |
 | `chat/SPEC.md`                   | `@zmdb/ai`           | move to `packages/ai/src/chat/SPEC.md`                                      |
 | `chat/chat.spec.ts`              | `@zmdb/ai`           | move to `packages/ai/src/chat/chat.spec.ts`                                 |
 | `chat/chat.type-test.ts`         | `@zmdb/ai`           | move to `packages/ai/src/chat/chat.type-test.ts`                            |
-| `chat/drivers/anthropic.spec.ts` | `@zmdb/ai-anthropic` | move to `packages/ai-anthropic/src/index.spec.ts`                           |
-| `chat/drivers/anthropic.ts`      | `@zmdb/ai-anthropic` | move to `packages/ai-anthropic/src/index.ts`                                |
+| `chat/drivers/anthropic.spec.ts` | `@zmdb/ai/anthropic` | move to `packages/ai/src/anthropic/index.spec.ts`                           |
+| `chat/drivers/anthropic.ts`      | `@zmdb/ai/anthropic` | move to `packages/ai/src/anthropic/index.ts`                                |
 | `chat/index.ts`                  | `@zmdb/ai`           | move to `packages/ai/src/chat/index.ts`; remove Anthropic re-exports        |
 | `http/SPEC.md`                   | `@zmdb/ai`           | move to `packages/ai/src/http/SPEC.md`                                      |
 | `http/caller.ts`                 | `@zmdb/ai`           | move to `packages/ai/src/http/caller.ts`                                    |
@@ -142,8 +142,8 @@ incorporated; it does not permit the old path to survive.
 | `providers.ts`                   | `@zmdb/ai`           | move to `packages/ai/src/providers.ts`                                      |
 | `tool-runtime.ts`                | `@zmdb/ai`           | merge into `packages/ai/src/tool-runtime.ts`                                |
 
-The framework-specific clauses in the old `adapters/SPEC.md` are restated in `packages/ai-langchain/SPEC.md` and `packages/ai-vercel/SPEC.md`; that copying does not create a second owner for the old
-file. The `@zmdb/ai` implementation issue owns deleting it.
+The framework-specific clauses in the old `adapters/SPEC.md` are restated in `packages/ai/src/langchain/SPEC.md` and `packages/ai/src/vercel/SPEC.md`; that copying does not create a second owner for
+the old file. The `@zmdb/ai` implementation issue owns deleting it.
 
 ## 5. Manifest and peer policy
 
@@ -155,9 +155,9 @@ The external peer table is final:
 
 | Package              | Sole external peer  | Final peer range | Optional | Versions the consumer tests must install                         |
 | -------------------- | ------------------- | ---------------- | -------- | ---------------------------------------------------------------- |
-| `@zmdb/ai-anthropic` | `@anthropic-ai/sdk` | `0.124.0`        | yes      | `0.124.0`                                                        |
-| `@zmdb/ai-langchain` | `@langchain/core`   | `^1.2.9`         | yes      | lower bound and current measured version, both presently `1.2.9` |
-| `@zmdb/ai-vercel`    | `ai`                | `^7.0.93`        | yes      | supported and tested floor `7.0.93`                              |
+| `@zmdb/ai/anthropic` | `@anthropic-ai/sdk` | `0.124.0`        | yes      | `0.124.0`                                                        |
+| `@zmdb/ai/langchain` | `@langchain/core`   | `^1.2.9`         | yes      | lower bound and current measured version, both presently `1.2.9` |
+| `@zmdb/ai/vercel`    | `ai`                | `^7.0.93`        | yes      | supported and tested floor `7.0.93`                              |
 
 Issue #706 makes the Anthropic peer optional because the shipped implementation imports only SDK types and accepts a structural client; real-SDK conformance is compiled through the matching
 development dependency. Issue #707 likewise makes the LangChain peer optional because the structural adapter imports no LangChain runtime; the real-package fixture proves compatibility at `1.2.9`. The
@@ -221,9 +221,9 @@ The release graph publishes dependencies before consumers:
   -> @zmdb/schema
     -> @zmdb/ai
       -> @zmdb/validator
-      -> @zmdb/ai-anthropic
-      -> @zmdb/ai-langchain
-      -> @zmdb/ai-vercel
+      -> @zmdb/ai/anthropic
+      -> @zmdb/ai/langchain
+      -> @zmdb/ai/vercel
       -> @zmdb/mcp
 ```
 

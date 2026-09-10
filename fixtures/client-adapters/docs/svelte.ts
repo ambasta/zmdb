@@ -1,4 +1,4 @@
-import { createZmdbSvelte } from '@zmdb/svelte';
+import { createZmdbSvelte } from '@zmdb/client/svelte';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

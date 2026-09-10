@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { Injector, createEnvironmentInjector, runInInjectionContext } from '@angular/core';
-import { createZmdbAngular } from '@zmdb/angular';
+import { createZmdbAngular } from '@zmdb/client/angular';
 
 const bindings = createZmdbAngular('packed SSR client');
 

@@ -4,8 +4,8 @@ This is the application-owned, transport-neutral broker layer of epic #556, impl
 deadlines, tracing propagation and the public transport strategy SPI. A strategy owns broker framing, subscriptions, replies and applying settlements. Typed gRPC remains a separate contract because it
 is not a `TransportStrategy`.
 
-The old `@zmdb/web/microservices` entry is removed rather than forwarded. Core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, and Redis Pub/Sub ships from
-`@zmdb/transport-redis`. Every adapter imports only this public app contract and its broker-free transport kit.
+The old `@zmdb/web/microservices` entry is removed rather than forwarded. Core NATS ships from `@zmdb/transport/nats`, RabbitMQ ships from `@zmdb/transport/rabbitmq`, and Redis Pub/Sub ships from
+`@zmdb/transport/redis`. Every adapter imports only this public app contract and its broker-free transport kit.
 
 ## 1. A message is not an HTTP request
 
@@ -297,11 +297,11 @@ connection closing remain in the adapter.
 
 The selected broker clients implement the same strategy contract from dedicated packages:
 
-- `@zmdb/transport-kafka` uses ordered Kafka consumer-group offsets;
-- `@zmdb/transport-redis` uses Redis Pub/Sub;
-- `@zmdb/transport-nats` uses core NATS;
-- `@zmdb/transport-rabbitmq` uses a RabbitMQ topic exchange;
-- `@zmdb/transport-sqs` uses explicitly supplied SQS standard queues.
+- `@zmdb/transport/kafka` uses ordered Kafka consumer-group offsets;
+- `@zmdb/transport/redis` uses Redis Pub/Sub;
+- `@zmdb/transport/nats` uses core NATS;
+- `@zmdb/transport/rabbitmq` uses a RabbitMQ topic exchange;
+- `@zmdb/transport/sqs` uses explicitly supplied SQS standard queues.
 
 Importing `@zmdb/app` or `@zmdb/app/messaging` reaches none of those clients. The old neutral web entry no longer exists. A plain app install therefore contains no broker client.
 
@@ -335,11 +335,11 @@ delivery is acknowledged. Immediate `nack(requeue: true)` remains deliberately a
 SQS uses a caller-owned AWS SDK client and explicit source and dead-letter queue URLs. A successful dispatch deletes the current receipt; retry changes that receipt's visibility with upward rounding
 to whole seconds; a dead settlement confirms the destination send before deleting the source. Intake and in-flight work are bounded, shutdown aborts pending polls, and the adapter never destroys the
 caller client. Its capabilities are `true / true / false`. Standard-queue redelivery remains possible; FIFO and request/response are refused. The complete options and wire fields are owned by
-`packages/transport-sqs/SPEC.md`.
+`packages/transport/src/sqs/SPEC.md`.
 
 Kafka is event-only. `createKafkaStrategy` commits each partition's next offset only after ordered handler success or a confirmed dead-letter record. A retry pauses and seeks that partition while
 other partitions may progress. Attempts are local to the current process and assignment; reassignment fences stale settlement. The caller supplies the Kafka SDK factory and topic/group configuration;
-the strategy owns its created producer and consumer, with bounded intake and drain. The complete contract lives in `packages/transport-kafka/SPEC.md`.
+the strategy owns its created producer and consumer, with bounded intake and drain. The complete contract lives in `packages/transport/src/kafka/SPEC.md`.
 
 ### 9.2 Deferred transports
 
@@ -371,7 +371,7 @@ The implementation tests prove:
 - no module-scope connection or registry;
 - no GraphQL integration;
 - no broker client reachable from the app root or transport-neutral messaging entry point;
-- no grpc-js import from the core app root or transport-neutral messaging entry point; the target reaches its required peer only through the selected `@zmdb/transport-grpc` package.
+- no grpc-js import from the core app root or transport-neutral messaging entry point; the target reaches its required peer only through the selected `@zmdb/transport/grpc` package.
 
 ## Package ownership state after #648, #657, #658, #659, and #660
 
@@ -385,10 +385,10 @@ The ownership sequence is:
 | Removed or temporary entry         | Owner                                     | Issue |
 | ---------------------------------- | ----------------------------------------- | ----- |
 | `@zmdb/web/microservices`          | `@zmdb/app/messaging`                     | #648  |
-| `@zmdb/web/microservices/grpc`     | `@zmdb/transport-grpc` + `@zmdb/protobuf` | #657  |
-| `@zmdb/web/microservices/nats`     | `@zmdb/transport-nats`                    | #658  |
-| `@zmdb/web/microservices/rabbitmq` | `@zmdb/transport-rabbitmq`                | #659  |
-| `@zmdb/web/microservices/redis`    | `@zmdb/transport-redis`                   | #660  |
+| `@zmdb/web/microservices/grpc`     | `@zmdb/transport/grpc` + `@zmdb/protobuf` | #657  |
+| `@zmdb/web/microservices/nats`     | `@zmdb/transport/nats`                    | #658  |
+| `@zmdb/web/microservices/rabbitmq` | `@zmdb/transport/rabbitmq`                | #659  |
+| `@zmdb/web/microservices/redis`    | `@zmdb/transport/redis`                   | #660  |
 
 The neutral web entry was deleted without a forwarder in #648; #657 removed the old gRPC subpath, #658 removed the old NATS subpath, #659 removed the old RabbitMQ subpath, and #660 removed the old
 Redis subpath after moving each adapter to its dedicated package. The app-owned SPI and kit here are the only inward messaging dependency the broker strategies share.

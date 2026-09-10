@@ -10,8 +10,8 @@
 - `./client` as the Vue/client binding and browser-plugin entry; and
 - `./server` as the Nitro request-transport and server-plugin entry.
 
-Its only production workspace dependencies are `@zmdb/client` and `@zmdb/vue`. Nuxt `>=4.5.2 <5.0.0` and Vue `>=3.5.42 <4.0.0` are required peers. The package has no dependency on web, ORM, schema,
-validator, database, Node built-in, cache, state-management, or competing HTTP packages.
+Its only production workspace dependencies are `@zmdb/client` and `@zmdb/client/vue`. Nuxt `>=4.5.2 <5.0.0` and Vue `>=3.5.42 <4.0.0` are required peers. The package has no dependency on web, ORM,
+schema, validator, database, Node built-in, cache, state-management, or competing HTTP packages.
 
 Importing any entry performs no request, creates no client, reads no request or environment state, and registers no process-global value. The root module generates framework-only plugin templates when
 Nuxt invokes module setup; the public client and server entries remain importable outside a Nuxt build.
@@ -48,7 +48,7 @@ imports an application's generated source.
 export function createZmdbNuxt<Client extends object>(options: ZmdbNuxtBindingOptions): ZmdbNuxtBindings<Client>;
 ```
 
-`createZmdbNuxt` creates exactly one `@zmdb/vue` binding namespace and returns all four real Vue members unchanged:
+`createZmdbNuxt` creates exactly one `@zmdb/client/vue` binding namespace and returns all four real Vue members unchanged:
 
 - `createZmdbPlugin`;
 - `useZmdbClient`;
@@ -116,7 +116,7 @@ load. The adapter forwards that exact signal and never replaces its reason.
 The generated client remains responsible for transport and response errors. The adapter does not catch, retry, normalize, or serialize them. Nuxt's documented `useAsyncData` error projection remains
 the native public behavior.
 
-The inherited Vue composables retain their existing `@zmdb/vue` cancellation, stale-completion, mutation-concurrency, and error-identity semantics.
+The inherited Vue composables retain their existing `@zmdb/client/vue` cancellation, stale-completion, mutation-concurrency, and error-identity semantics.
 
 ## 7. Qualification evidence
 

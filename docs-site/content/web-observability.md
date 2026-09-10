@@ -5,8 +5,9 @@
 > ownership amendment assigns the generic ports and database instrumentation to `@zmdb/app/observability`; HTTP spans remain web-owned. The registry below remains a dependency-free alternative; values
 > exported through the framework `Meter` use the conventional names and seconds units documented below.
 
-`@zmdb/app/observability` and the HTTP instrumentation have no OpenTelemetry dependency. To adapt application-owned OpenTelemetry objects, install `@zmdb/otel@1.0.0-beta.2 @opentelemetry/api@^1.9.1`.
-Neither is part of the `@zmdb/core` default install. The adapter owns no provider, processor, exporter, collector client, global registration, or shutdown hook.
+`@zmdb/app/observability` and the HTTP instrumentation have no OpenTelemetry dependency. To adapt application-owned OpenTelemetry objects, install `@zmdb/app@1.0.0-beta.2 @opentelemetry/api@^1.9.1`
+and import `@zmdb/app/otel`. Neither the adapter nor its peer is part of the `@zmdb/core` default install. The adapter owns no provider, processor, exporter, collector client, global registration, or
+shutdown hook.
 
 ## The four things worth measuring
 
@@ -87,7 +88,7 @@ twice.
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
 import { metrics, trace } from '@opentelemetry/api';
 import { tracedDriver } from '@zmdb/app/observability';
-import { fromOpenTelemetry } from '@zmdb/otel';
+import { fromOpenTelemetry } from '@zmdb/app/otel';
 import { createApp } from '@zmdb/web';
 
 const observability = fromOpenTelemetry({
@@ -98,7 +99,7 @@ const observability = fromOpenTelemetry({
 await using app = createApp(AppModule, { observability });
 ```
 
-`@opentelemetry/api` is the sole required peer of the separately installed `@zmdb/otel` package. Neither the app kernel nor the HTTP core declares it or chooses an exporter or metrics backend.
+`@opentelemetry/api` is the sole required peer of the separately installed `@zmdb/app/otel` package. Neither the app kernel nor the HTTP core declares it or chooses an exporter or metrics backend.
 
 Queries use `tracedDriver`. Passing `ctx.span` is what parents a query span to the handler; metrics work without a tracer:
 
@@ -186,7 +187,7 @@ error label; derive database failures from spans or an application-owned counter
 
 ## Framework boundaries
 
-The framework supplies a `Meter` port and the low-cardinality route information only the router knows. The separately installed `@zmdb/otel` package adapts caller-owned OpenTelemetry objects.
+The framework supplies a `Meter` port and the low-cardinality route information only the router knows. The separately installed `@zmdb/app/otel` package adapts caller-owned OpenTelemetry objects.
 
 Exactly two histograms are emitted, and only when a meter exists: `http.server.request.duration` and `db.client.operation.duration`. HTTP error rate is derivable from the first histogram's optional
 `error.type`; database error and pool metrics remain the application or driver's responsibility.

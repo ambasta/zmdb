@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **product:** Fold sixteen single-purpose packages into entry points of four, taking the published set from 42 packages to 27.
+- **client:** Publish the Angular, React, React Native, Solid, Svelte and Vue bindings as `@zmdb/client` subpaths, each framework library an optional peer.
+- **transport:** Add `@zmdb/transport`, one package with a subpath per gRPC and broker transport, no root export and every client library an optional peer.
+- **ai:** Publish the Anthropic, LangChain and Vercel AI SDK adapters as `@zmdb/ai` subpaths with optional provider peers.
+- **app:** Publish the OpenTelemetry adapter as `@zmdb/app/otel` with `@opentelemetry/api` as an optional peer.
+
+### Removed
+
+- **product:** Retire the sixteen replaced npm packages without a deprecation stub. The installation page maps every old name to its replacement.
+
 ## [ai@1.0.0-beta.2] - 2026-09-09
 
 ### Changed

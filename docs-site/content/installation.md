@@ -30,23 +30,27 @@ Applications that publish an HTTP API add the independently installable `@zmdb/c
 contract feeding runtime routing, OpenAPI, and browser/Node client output.
 
 Applications then add only the framework adapter that owns their UI lifecycle or request boundary. The [Client Applications](./framework-integrations.html) guide starts from that one generated client,
-compares all nine official packages, and links to their framework-native lifecycle, SSR, hydration, cancellation, and testing recipes.
+compares all nine supported frameworks, and links to their framework-native lifecycle, SSR, hydration, cancellation, and testing recipes. Six of the nine ship as entry points of `@zmdb/client`;
+Next.js, Nuxt and SvelteKit own their own packages because each integrates with a server framework rather than only a UI runtime.
 
 ## Optional server integrations
 
 `yarn add @zmdb/core@1.0.0-beta.2` installs none of the packages or peers below. Add only the integration selected by the application:
 
-| Capability         | Install                                                                                        | Lifecycle and ownership                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Protobuf artifacts | `yarn add @zmdb/protobuf@1.0.0-beta.2 && yarn add --dev @zmdb/compiler@1.0.0-beta.2`           | no runtime peer or external resource; compiler emits the artifacts               |
-| Typed gRPC         | `yarn add @zmdb/protobuf@1.0.0-beta.2 @zmdb/transport-grpc@1.0.0-beta.2 @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                                 |
-| Core NATS          | `yarn add @zmdb/transport-nats@1.0.0-beta.2 @nats-io/transport-node@^3.4.0`                    | app starts, drains, and closes the strategy connection                           |
-| RabbitMQ           | `yarn add @zmdb/transport-rabbitmq@1.0.0-beta.2 amqplib@^2.0.1`                                | app owns connection, channels, retry, and dead-letter topology                   |
-| Redis Pub/Sub      | `yarn add @zmdb/transport-redis@1.0.0-beta.2 redis@^6.2.1`                                     | app owns publisher/subscriber clients and bounded drain                          |
-| Background jobs    | `yarn add @zmdb/jobs@1.0.0-beta.2`                                                             | app starts and drains explicit workers/schedulers through `jobsExtension`        |
-| SQLite jobs        | `yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-sqlite@1.0.0-beta.2`                              | explicit persistent stores borrow a database; memory stores own and close theirs |
-| PostgreSQL jobs    | `yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-postgres@1.0.0-beta.2 pg@^8.23.0`                 | caller owns and closes/releases the pool or client                               |
-| OpenTelemetry      | `yarn add @zmdb/otel@1.0.0-beta.2 @opentelemetry/api@^1.9.0`                                   | caller owns providers, exporters, tracers, meters, and shutdown                  |
+| Capability         | Import entry               | Install                                                                                   | Lifecycle and ownership                                                          |
+| ------------------ | -------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Protobuf artifacts | `@zmdb/protobuf`           | `yarn add @zmdb/protobuf@1.0.0-beta.2 && yarn add --dev @zmdb/compiler@1.0.0-beta.2`      | no runtime peer or external resource; compiler emits the artifacts               |
+| Typed gRPC         | `@zmdb/transport/grpc`     | `yarn add @zmdb/protobuf@1.0.0-beta.2 @zmdb/transport@1.0.0-beta.2 @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                                 |
+| Core NATS          | `@zmdb/transport/nats`     | `yarn add @zmdb/transport@1.0.0-beta.2 @nats-io/transport-node@^3.4.0`                    | app starts, drains, and closes the strategy connection                           |
+| RabbitMQ           | `@zmdb/transport/rabbitmq` | `yarn add @zmdb/transport@1.0.0-beta.2 amqplib@^2.0.1`                                    | app owns connection, channels, retry, and dead-letter topology                   |
+| Redis Pub/Sub      | `@zmdb/transport/redis`    | `yarn add @zmdb/transport@1.0.0-beta.2 redis@^6.2.1`                                      | app owns publisher/subscriber clients and bounded drain                          |
+| Background jobs    | `@zmdb/jobs`               | `yarn add @zmdb/jobs@1.0.0-beta.2`                                                        | app starts and drains explicit workers/schedulers through `jobsExtension`        |
+| SQLite jobs        | `@zmdb/jobs-sqlite`        | `yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-sqlite@1.0.0-beta.2`                         | explicit persistent stores borrow a database; memory stores own and close theirs |
+| PostgreSQL jobs    | `@zmdb/jobs-postgres`      | `yarn add @zmdb/jobs@1.0.0-beta.2 @zmdb/jobs-postgres@1.0.0-beta.2 pg@^8.23.0`            | caller owns and closes/releases the pool or client                               |
+| OpenTelemetry      | `@zmdb/app/otel`           | `yarn add @zmdb/app@1.0.0-beta.2 @opentelemetry/api@^1.9.0`                               | caller owns providers, exporters, tracers, meters, and shutdown                  |
+
+Install the package; import the entry. A subpath is never an install target, so `@zmdb/transport` carries every broker and gRPC adapter and `@zmdb/app/otel` ships inside the application kernel. Each
+adapter's external client is an optional peer of its package, so installing the package installs no broker, gRPC or OpenTelemetry client — add only the peer named beside the entry you import.
 
 The package owns the adapter; the peer owns the external protocol client. `@zmdb/app` owns transport-neutral messaging and observability ports, while `@zmdb/jobs` owns queue and worker behavior.
 `@zmdb/compiler` owns TypeScript reflection and emission; `@zmdb/protobuf` owns the calls, service-artifact types, and generated wire runtime that emitted code imports.
@@ -137,20 +141,20 @@ yarn add @zmdb/jobs @zmdb/jobs-postgres pg@^8.23.0
 # Dependency-free generated-client runtime
 yarn add @zmdb/client
 
-# React generated-client lifecycle bindings
-yarn add @zmdb/react react@19
+# React generated-client lifecycle bindings, imported from @zmdb/client/react
+yarn add @zmdb/client react@19
 
-# React Native AppState, connectivity, and credential-store lifecycle
-yarn add @zmdb/react-native react@19 react-native@0.87
+# React Native AppState, connectivity, and credential-store lifecycle, from @zmdb/client/react-native
+yarn add @zmdb/client react@19 react-native@0.87
 
-# Angular dependency injection, signals, and Observable cancellation
-yarn add @zmdb/angular @angular/core@22 rxjs@7
+# Angular dependency injection, signals, and Observable cancellation, from @zmdb/client/angular
+yarn add @zmdb/client @angular/core@22 rxjs@7
 
-# Vue plugin and lifecycle composables
-yarn add @zmdb/vue vue@^3.5
+# Vue plugin and lifecycle composables, from @zmdb/client/vue
+yarn add @zmdb/client vue@^3.5
 
-# Svelte context and lifecycle-aware stores
-yarn add @zmdb/svelte svelte@^5.57
+# Svelte context and lifecycle-aware stores, from @zmdb/client/svelte
+yarn add @zmdb/client svelte@^5.57
 
 # SvelteKit request-local server/client loads and navigation cancellation
 yarn add @zmdb/sveltekit @sveltejs/kit@^2.70 svelte@^5.57
@@ -158,8 +162,8 @@ yarn add @zmdb/sveltekit @sveltejs/kit@^2.70 svelte@^5.57
 # Next App Router request scopes and browser bindings
 yarn add @zmdb/next next@16 react@19 react-dom@19
 
-# Solid context, resources, and owner-lifetime cancellation
-yarn add @zmdb/solid solid-js@1
+# Solid context, resources, and owner-lifetime cancellation, from @zmdb/client/solid
+yarn add @zmdb/client solid-js@1
 
 # Nuxt module, request-scoped Nitro transport, and Vue hydration
 yarn add @zmdb/nuxt nuxt@^4.5 vue@^3.5
@@ -167,38 +171,40 @@ yarn add @zmdb/nuxt nuxt@^4.5 vue@^3.5
 # Dependency-free protobuf and typed gRPC artifacts
 yarn add @zmdb/protobuf
 
-# Typed gRPC server and client adapter
-yarn add @zmdb/protobuf @zmdb/transport-grpc @grpc/grpc-js@^1.14.0
+# Typed gRPC server and client adapter, imported from @zmdb/transport/grpc
+yarn add @zmdb/protobuf @zmdb/transport @grpc/grpc-js@^1.14.0
 
-# Core NATS transport strategy
-yarn add @zmdb/transport-nats @nats-io/transport-node@^3.4.0
+# Core NATS transport strategy, from @zmdb/transport/nats
+yarn add @zmdb/transport @nats-io/transport-node@^3.4.0
 
-# RabbitMQ transport strategy
-yarn add @zmdb/transport-rabbitmq amqplib@^2.0.1
+# RabbitMQ transport strategy, from @zmdb/transport/rabbitmq
+yarn add @zmdb/transport amqplib@^2.0.1
 
-# Redis Pub/Sub transport strategy
-yarn add @zmdb/transport-redis redis@^6.2.1
+# Redis Pub/Sub transport strategy, from @zmdb/transport/redis
+yarn add @zmdb/transport redis@^6.2.1
 
 # Provider-neutral AI tools + bounded chat
 yarn add @zmdb/ai
 
-# Optional Anthropic chat driver
-yarn add @zmdb/ai-anthropic @anthropic-ai/sdk@0.124.0
+# Optional Anthropic chat driver, from @zmdb/ai/anthropic
+yarn add @zmdb/ai @anthropic-ai/sdk@0.124.0
 
-# LangChain structured-tool integration
-yarn add @zmdb/ai @zmdb/ai-langchain @langchain/core@^1.2.9
+# LangChain structured-tool integration, from @zmdb/ai/langchain
+yarn add @zmdb/ai @langchain/core@^1.2.9
 
-# Vercel AI SDK tool adapter
-yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.93
+# Vercel AI SDK tool adapter, from @zmdb/ai/vercel
+yarn add @zmdb/ai ai@^7.0.93
 
 # Transport-neutral MCP client/server core
 yarn add @zmdb/ai @zmdb/mcp
 
-# OpenTelemetry API adapter
-yarn add @zmdb/otel @opentelemetry/api@^1.9.0
+# OpenTelemetry API adapter, from @zmdb/app/otel
+yarn add @zmdb/app @opentelemetry/api@^1.9.0
 ```
 
-> [!NOTE] Workspace packages declare their direct `@zmdb/*` runtime dependencies. Provider, framework, broker, database-client, and telemetry peers remain opt-in at their integration boundaries.
+> [!NOTE] Workspace packages declare their direct `@zmdb/*` runtime dependencies. Provider, framework, broker, database-client, and telemetry peers remain opt-in at their integration boundaries. Where
+> one package publishes several adapters, the peer belongs to a single entry point and is declared optional, so installing the package never installs a framework, broker or provider SDK you do not
+> import.
 
 ## TypeScript Configuration
 
@@ -270,7 +276,9 @@ If that throws instead of printing, the plugin is not running over this file.
 
 ## Package Overview
 
-| Package                    | Purpose                                                                                        |
+Each row is a specifier you import. Where it is a subpath, install the package before the first slash.
+
+| Import entry               | Purpose                                                                                        |
 | -------------------------- | ---------------------------------------------------------------------------------------------- |
 | `@zmdb/schema`             | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI   |
 | `@zmdb/sql`                | SELECT/INSERT/UPDATE/DELETE, dialect protocols, JOINs, aggregations, FTS, schema-object DDL    |
@@ -289,24 +297,51 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/jobs-sqlite`        | SQLite persistence and owned memory stores for portable jobs                                   |
 | `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adapter for caller-owned pools and clients                               |
 | `@zmdb/client`             | Dependency-free HTTP transport, cancellation, authentication, and typed errors                 |
-| `@zmdb/react`              | React context, query, mutation, and component-lifecycle cancellation                           |
-| `@zmdb/angular`            | Angular DI, signals, `DestroyRef`, and Observable cancellation                                 |
-| `@zmdb/vue`                | Vue plugin, reactive query/mutation state, and effect-scope cancellation                       |
-| `@zmdb/svelte`             | Svelte context plus subscription-aware query and mutation stores                               |
+| `@zmdb/client/react`       | React context, query, mutation, and component-lifecycle cancellation                           |
+| `@zmdb/client/angular`     | Angular DI, signals, `DestroyRef`, and Observable cancellation                                 |
+| `@zmdb/client/vue`         | Vue plugin, reactive query/mutation state, and effect-scope cancellation                       |
+| `@zmdb/client/svelte`      | Svelte context plus subscription-aware query and mutation stores                               |
 | `@zmdb/sveltekit`          | Request-local server/client loads, explicit credential forwarding, and navigation cancellation |
 | `@zmdb/next`               | Next.js App Router request clients and React browser bindings                                  |
-| `@zmdb/solid`              | Solid context, native resources, owner cancellation, and Suspense/error propagation            |
+| `@zmdb/client/solid`       | Solid context, native resources, owner cancellation, and Suspense/error propagation            |
 | `@zmdb/protobuf`           | Dependency-free protobuf calls, generated-code wire ABI, and typed gRPC artifacts              |
-| `@zmdb/transport-grpc`     | Typed gRPC servers, clients, streaming, deadlines, metadata, and bounded lifecycle             |
-| `@zmdb/transport-nats`     | Core NATS wildcard, queue-group, event, and request/reply transport strategy                   |
-| `@zmdb/transport-rabbitmq` | RabbitMQ prefetch, confirmed retries, request/reply, and owned dead-letter topology            |
-| `@zmdb/transport-redis`    | Redis Pub/Sub subscriptions, correlated request/reply, cancellation, and bounded shutdown      |
+| `@zmdb/transport/grpc`     | Typed gRPC servers, clients, streaming, deadlines, metadata, and bounded lifecycle             |
+| `@zmdb/transport/nats`     | Core NATS wildcard, queue-group, event, and request/reply transport strategy                   |
+| `@zmdb/transport/rabbitmq` | RabbitMQ prefetch, confirmed retries, request/reply, and owned dead-letter topology            |
+| `@zmdb/transport/redis`    | Redis Pub/Sub subscriptions, correlated request/reply, cancellation, and bounded shutdown      |
 | `@zmdb/ai`                 | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools    |
-| `@zmdb/ai-anthropic`       | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                    |
-| `@zmdb/ai-langchain`       | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer               |
-| `@zmdb/ai-vercel`          | Optional Vercel AI SDK tool adapter with caller-owned schema branding                          |
+| `@zmdb/ai/anthropic`       | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                    |
+| `@zmdb/ai/langchain`       | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer               |
+| `@zmdb/ai/vercel`          | Optional Vercel AI SDK tool adapter with caller-owned schema branding                          |
 | `@zmdb/mcp`                | Pure MCP client/server protocol core, authenticated identity, validation, and call budgets     |
-| `@zmdb/otel`               | OpenTelemetry API adaptation for caller-owned tracers and meters                               |
+| `@zmdb/app/otel`           | OpenTelemetry API adaptation for caller-owned tracers and meters                               |
+
+## Renamed in 1.0.0-beta.3
+
+Sixteen single-purpose packages became entry points of four, taking the published set from 42 packages to 27. Each old package installed one small adapter and dragged its own version, changelog entry
+and peer block behind it; folding them removes that overhead without changing any exported API. The names below were unpublished rather than deprecated in place, so there is no compatibility stub to
+install and no warning to silence: replace the dependency with the package on the right and the import with the entry point on the right.
+
+| Removed package            | Install instead   | Import instead              |
+| -------------------------- | ----------------- | --------------------------- |
+| `@zmdb/angular`            | `@zmdb/client`    | `@zmdb/client/angular`      |
+| `@zmdb/react`              | `@zmdb/client`    | `@zmdb/client/react`        |
+| `@zmdb/react-native`       | `@zmdb/client`    | `@zmdb/client/react-native` |
+| `@zmdb/solid`              | `@zmdb/client`    | `@zmdb/client/solid`        |
+| `@zmdb/svelte`             | `@zmdb/client`    | `@zmdb/client/svelte`       |
+| `@zmdb/vue`                | `@zmdb/client`    | `@zmdb/client/vue`          |
+| `@zmdb/transport-grpc`     | `@zmdb/transport` | `@zmdb/transport/grpc`      |
+| `@zmdb/transport-kafka`    | `@zmdb/transport` | `@zmdb/transport/kafka`     |
+| `@zmdb/transport-nats`     | `@zmdb/transport` | `@zmdb/transport/nats`      |
+| `@zmdb/transport-rabbitmq` | `@zmdb/transport` | `@zmdb/transport/rabbitmq`  |
+| `@zmdb/transport-redis`    | `@zmdb/transport` | `@zmdb/transport/redis`     |
+| `@zmdb/transport-sqs`      | `@zmdb/transport` | `@zmdb/transport/sqs`       |
+| `@zmdb/ai-anthropic`       | `@zmdb/ai`        | `@zmdb/ai/anthropic`        |
+| `@zmdb/ai-langchain`       | `@zmdb/ai`        | `@zmdb/ai/langchain`        |
+| `@zmdb/ai-vercel`          | `@zmdb/ai`        | `@zmdb/ai/vercel`           |
+| `@zmdb/otel`               | `@zmdb/app`       | `@zmdb/app/otel`            |
+
+`@zmdb/next`, `@zmdb/nuxt` and `@zmdb/sveltekit` keep their own names. `@zmdb/transport` has no root export: import a transport subpath directly.
 
 ## Next Steps
 

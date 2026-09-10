@@ -1,4 +1,4 @@
-import { createMutationStore, createQueryStore, createZmdbSvelte, type QuerySnapshot } from '@zmdb/svelte';
+import { createMutationStore, createQueryStore, createZmdbSvelte, type QuerySnapshot } from '@zmdb/client/svelte';
 import type { Readable } from 'svelte/store';
 import { writable } from 'svelte/store';
 

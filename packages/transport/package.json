@@ -1,0 +1,99 @@
+{
+  "name": "@zmdb/transport",
+  "version": "1.0.0-beta.2",
+  "description": "gRPC, Kafka, NATS, RabbitMQ, Redis, and SQS transport adapters for the protocol-neutral zmdb application messaging contract.",
+  "keywords": [
+    "amqp",
+    "grpc",
+    "kafka",
+    "messaging",
+    "nats",
+    "rabbitmq",
+    "redis",
+    "sqs",
+    "transport",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "MPL-2.0",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/transport"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./grpc": "./src/grpc/index.ts",
+    "./kafka": "./src/kafka/index.ts",
+    "./nats": "./src/nats/index.ts",
+    "./rabbitmq": "./src/rabbitmq/index.ts",
+    "./redis": "./src/redis/index.ts",
+    "./sqs": "./src/sqs/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/protobuf": "workspace:1.0.0-beta.2"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-sqs": "3.1127.0",
+    "@grpc/grpc-js": "1.14.4",
+    "@nats-io/transport-node": "3.4.0",
+    "@zmdb/app": "workspace:^",
+    "@zmdb/schema": "workspace:^",
+    "@zmdb/validator": "workspace:^",
+    "amqplib": "2.0.1",
+    "kafkajs": "2.2.4",
+    "redis": "6.2.1",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-sqs": ">=3.1127.0 <4.0.0",
+    "@grpc/grpc-js": "^1.14.4",
+    "@nats-io/transport-node": "^3.4.0",
+    "@zmdb/app": "1.0.0-beta.2",
+    "amqplib": "^2.0.1",
+    "kafkajs": ">=2.2.4 <3.0.0",
+    "redis": "^6.2.1"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-sqs": {
+      "optional": true
+    },
+    "@grpc/grpc-js": {
+      "optional": true
+    },
+    "@nats-io/transport-node": {
+      "optional": true
+    },
+    "amqplib": {
+      "optional": true
+    },
+    "kafkajs": {
+      "optional": true
+    },
+    "redis": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

@@ -11,7 +11,7 @@ import {
   type GrpcServerOptions,
   type GrpcServiceSpec,
   type GrpcStatus,
-} from '@zmdb/transport-grpc';
+} from '@zmdb/transport/grpc';
 
 type Orders = {
   readonly get: {

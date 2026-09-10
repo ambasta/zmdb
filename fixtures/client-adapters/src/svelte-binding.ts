@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { createMutationStore, createQueryStore } from '@zmdb/svelte';
+import { createMutationStore, createQueryStore } from '@zmdb/client/svelte';
 import type { Component } from 'svelte';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
@@ -34,15 +34,15 @@ function projectRoot(): string {
     if (existsSync(join(current, 'node_modules', '@zmdb', 'svelte'))) return current;
     const parent = dirname(current);
     if (parent === current) {
-      throw new Error('Svelte conformance could not locate the installed @zmdb/svelte package');
+      throw new Error('Svelte conformance could not locate the installed @zmdb/client/svelte package');
     }
     current = parent;
   }
 }
 
 function svelteExpectation() {
-  const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/svelte');
-  if (expectation === undefined) throw new Error('adapter matrix omitted @zmdb/svelte');
+  const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/client/svelte');
+  if (expectation === undefined) throw new Error('adapter matrix omitted @zmdb/client/svelte');
   return expectation;
 }
 
@@ -86,7 +86,7 @@ function prepareQuery<Input, Output>(options: {
       return snapshot;
     },
     async mount() {
-      if (unsubscribe !== undefined) throw new Error('@zmdb/svelte query conformance store mounted twice');
+      if (unsubscribe !== undefined) throw new Error('@zmdb/client/svelte query conformance store mounted twice');
       unsubscribe = store.subscribe(next => {
         snapshot = next;
         observation.observe(next);
@@ -121,7 +121,7 @@ function prepareMutation<Input, Output>(options: {
       return snapshot;
     },
     async mount() {
-      if (unsubscribe !== undefined) throw new Error('@zmdb/svelte mutation conformance store mounted twice');
+      if (unsubscribe !== undefined) throw new Error('@zmdb/client/svelte mutation conformance store mounted twice');
       unsubscribe = store.subscribe(next => {
         snapshot = next;
       });
@@ -141,7 +141,7 @@ async function compileSsrProbe(): Promise<SsrProbe> {
   try {
     writeFileSync(
       join(directory, 'bindings.mjs'),
-      "import { createZmdbSvelte } from '@zmdb/svelte';\nexport const zmdb = createZmdbSvelte();\n",
+      "import { createZmdbSvelte } from '@zmdb/client/svelte';\nexport const zmdb = createZmdbSvelte();\n",
     );
     const generated = compile(
       `
@@ -195,7 +195,8 @@ async function runSsrQuery<Input, Output>(options: {
       },
     },
   }).body;
-  if (selectedClient === undefined) throw new Error('@zmdb/svelte SSR context did not expose its request client');
+  if (selectedClient === undefined)
+    throw new Error('@zmdb/client/svelte SSR context did not expose its request client');
   const controller = new AbortController();
   return Promise.resolve(options.load(selectedClient, options.input, controller.signal));
 }

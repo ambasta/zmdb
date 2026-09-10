@@ -1,4 +1,4 @@
-import { createZmdbVue } from '@zmdb/vue';
+import { createZmdbVue } from '@zmdb/client/vue';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

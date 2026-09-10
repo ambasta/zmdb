@@ -44,7 +44,7 @@ const run = async (executable, args, cwd, env = {}) => {
 try {
   const catalog = await publishCatalog(ROOT);
   const byName = new Map(catalog.map(record => [record.npmName, record]));
-  assert(byName.has('@zmdb/transport-sqs'), 'required public @zmdb/transport-sqs package has not been implemented');
+  assert(byName.has('@zmdb/transport/sqs'), 'required public @zmdb/transport/sqs package has not been implemented');
   const needed = new Set();
   const include = name => {
     if (needed.has(name)) return;
@@ -56,7 +56,7 @@ try {
       if (entry.manifest.peerDependenciesMeta?.[dependency]?.optional !== true) include(dependency);
     }
   };
-  include('@zmdb/transport-sqs');
+  include('@zmdb/transport/sqs');
   include('@zmdb/app');
   const records = new Map();
   const lock = join(tmpdir(), `zmdb-adapter-packed-build-${encodeURIComponent(await realpath(ROOT))}.lock`);
@@ -108,7 +108,7 @@ try {
   const consumer = join(directory, 'consumer');
   await mkdir(consumer);
   const dependencies = {
-    '@zmdb/transport-sqs': byName.get('@zmdb/transport-sqs').manifest.version,
+    '@zmdb/transport/sqs': byName.get('@zmdb/transport/sqs').manifest.version,
     '@zmdb/app': byName.get('@zmdb/app').manifest.version,
     '@aws-sdk/client-sqs': '3.1127.0',
     typescript: '7.0.2',

@@ -1,5 +1,5 @@
-import { createZmdbVue } from '@zmdb/vue';
-import type { VueMutationState, VueQueryState, ZmdbVueBindings } from '@zmdb/vue';
+import { createZmdbVue } from '@zmdb/client/vue';
+import type { VueMutationState, VueQueryState, ZmdbVueBindings } from '@zmdb/client/vue';
 import { createSSRApp, effectScope, shallowRef } from 'vue';
 import type { EffectScope } from 'vue';
 
@@ -15,14 +15,14 @@ import type {
 import { ADAPTER_PACKAGES } from './package-matrix.js';
 import type { AdapterPackageExpectation } from './package-matrix.js';
 
-function vueExpectation(name: '@zmdb/nuxt' | '@zmdb/vue'): AdapterPackageExpectation {
+function vueExpectation(name: '@zmdb/nuxt' | '@zmdb/client/vue'): AdapterPackageExpectation {
   const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === name);
   if (expectation === undefined) throw new Error(`the adapter matrix omitted ${name}`);
   return expectation;
 }
 
 function scopeValue<Value>(value: Value | undefined, primitive: string): Value {
-  if (value === undefined) throw new Error(`@zmdb/vue ${primitive} did not activate inside its effect scope`);
+  if (value === undefined) throw new Error(`@zmdb/client/vue ${primitive} did not activate inside its effect scope`);
   return value;
 }
 
@@ -62,7 +62,7 @@ function prepareVueQuery<Client extends object, Input, Output>(
       return querySnapshot(state);
     },
     async mount() {
-      if (scope !== undefined) throw new Error('@zmdb/vue conformance query mounted twice');
+      if (scope !== undefined) throw new Error('@zmdb/client/vue conformance query mounted twice');
       const selectedScope = effectScope();
       scope = selectedScope;
       state = app.runWithContext(() =>
@@ -80,7 +80,7 @@ function prepareVueQuery<Client extends object, Input, Output>(
       scopeValue(state, 'query');
     },
     async update(nextInput) {
-      if (scope === undefined || disposed) throw new Error('@zmdb/vue conformance query is not mounted');
+      if (scope === undefined || disposed) throw new Error('@zmdb/client/vue conformance query is not mounted');
       input.value = nextInput;
     },
     refresh() {
@@ -115,7 +115,7 @@ function prepareVueMutation<Client extends object, Input, Output>(
       return mutationSnapshot(state);
     },
     async mount() {
-      if (scope !== undefined) throw new Error('@zmdb/vue conformance mutation mounted twice');
+      if (scope !== undefined) throw new Error('@zmdb/client/vue conformance mutation mounted twice');
       const selectedScope = effectScope();
       scope = selectedScope;
       state = app.runWithContext(() => selectedScope.run(() => bindings.useZmdbMutation(run)));
@@ -133,7 +133,7 @@ function prepareVueMutation<Client extends object, Input, Output>(
 }
 
 export function createVueFamilyConformanceBinding<Client extends object>(
-  packageName: '@zmdb/nuxt' | '@zmdb/vue',
+  packageName: '@zmdb/nuxt' | '@zmdb/client/vue',
   createBindings: () => ZmdbVueBindings<Client>,
 ): AdapterConformanceBinding<Client> {
   return {
@@ -156,5 +156,7 @@ export function createVueFamilyConformanceBinding<Client extends object>(
 }
 
 export function createVueConformanceBinding<Client extends object>(): AdapterConformanceBinding<Client> {
-  return createVueFamilyConformanceBinding('@zmdb/vue', () => createZmdbVue<Client>('@zmdb/vue conformance'));
+  return createVueFamilyConformanceBinding('@zmdb/client/vue', () =>
+    createZmdbVue<Client>('@zmdb/client/vue conformance'),
+  );
 }

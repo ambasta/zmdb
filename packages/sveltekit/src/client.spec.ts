@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import { createQueryStore as createBaseQueryStore } from '@zmdb/svelte';
+import { createQueryStore as createBaseQueryStore } from '@zmdb/client/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { createApiClient, type Widget } from '../../../fixtures/client-adapters/src/index.js';
@@ -104,7 +104,7 @@ describe('@zmdb/sveltekit browser loads', () => {
     expect(navigation.signal).toBeUndefined();
   });
 
-  it('reuses @zmdb/svelte stores rather than copying them', () => {
+  it('reuses @zmdb/client/svelte stores rather than copying them', () => {
     expect(createQueryStore).toBe(createBaseQueryStore);
   });
 

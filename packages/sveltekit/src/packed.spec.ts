@@ -37,7 +37,7 @@ const FIXTURE_FILES = [
   'vite.config.js',
 ] as const;
 
-function buildPackage(name: '@zmdb/client' | '@zmdb/svelte' | '@zmdb/sveltekit'): void {
+function buildPackage(name: '@zmdb/client' | '@zmdb/sveltekit'): void {
   const result = spawnSync('yarn', ['workspace', name, 'build'], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -56,17 +56,12 @@ describe('@zmdb/sveltekit packed consumers', () => {
         buildLockRoot: ROOT,
         preparePackages() {
           buildPackage('@zmdb/client');
-          buildPackage('@zmdb/svelte');
           buildPackage('@zmdb/sveltekit');
         },
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
             manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
-          },
-          {
-            directory: join(ROOT, 'packages', 'svelte'),
-            manifest: publishManifest(readManifest('svelte', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'sveltekit'),
@@ -122,7 +117,7 @@ describe('@zmdb/sveltekit packed consumers', () => {
       });
 
       try {
-        expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/svelte', '@zmdb/sveltekit']);
+        expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/sveltekit']);
         expect(result.commands.map(command => command.status)).toEqual([0, 0, 0, 0, 0]);
         const boundary: unknown = JSON.parse(result.commands[3]?.stdout.trim() ?? '');
         expect(boundary).toMatchObject({

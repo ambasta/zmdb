@@ -4,14 +4,14 @@ Start with the [generated HTTP client](./generated-client.html), then add Solid 
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.2 @zmdb/solid@1.0.0-beta.2 solid-js@^1.9
+yarn add @zmdb/client@1.0.0-beta.2 @zmdb/client/solid@1.0.0-beta.2 solid-js@^1.9
 ```
 
 ## Provide
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/solid.ts
-import { createZmdbSolid } from '@zmdb/solid';
+import { createZmdbSolid } from '@zmdb/client/solid';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

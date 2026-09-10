@@ -5,8 +5,8 @@
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
+import { createZmdbReact } from '@zmdb/client/react';
 import { createZmdbNextClient } from '@zmdb/next/client';
-import { createZmdbReact } from '@zmdb/react';
 import { build } from 'esbuild';
 import { describe, expect, it } from 'vitest';
 

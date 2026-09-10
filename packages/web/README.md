@@ -25,13 +25,13 @@ The package root contains the common HTTP APIs. Its complete feature entry set i
 client modules whose runtime imports are limited to `@zmdb/client`. `zmdb client generate` projects the same compiled IR into sibling OpenAPI and client artifacts; it does not derive one from the
 other.
 
-Typed gRPC servers and clients ship from `@zmdb/transport-grpc`, core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, and Redis Pub/Sub ships from
-`@zmdb/transport-redis`; none of their old web subpaths forwards. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`. Queues, workers, scheduling,
+Typed gRPC servers and clients ship from `@zmdb/transport/grpc`, core NATS ships from `@zmdb/transport/nats`, RabbitMQ ships from `@zmdb/transport/rabbitmq`, and Redis Pub/Sub ships from
+`@zmdb/transport/redis`; none of their old web subpaths forwards. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`. Queues, workers, scheduling,
 and leases live in `@zmdb/jobs`; SQLite durable and memory storage lives in the separately selected `@zmdb/jobs-sqlite`. The removed web paths do not forward. Install
 `@zmdb/jobs-postgres@1.0.0-beta.2` with `pg@^8.23.0` when those jobs use a caller-owned PostgreSQL pool or client.
 
 Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install
-`@zmdb/otel@1.0.0-beta.2` with `@opentelemetry/api@^1.9.1` to adapt caller-owned tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
+`@zmdb/app/otel`, published by `@zmdb/app@1.0.0-beta.2`, with `@opentelemetry/api@^1.9.1` to adapt caller-owned tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
 
 `@zmdb/web/versioning` provides version decorators and the path, header, and media-type strategies used by the router and OpenAPI generator.
 

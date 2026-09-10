@@ -4,14 +4,14 @@ construction, authentication patches, transport, response validation, and stable
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.2 @zmdb/svelte@1.0.0-beta.2 svelte@^5
+yarn add @zmdb/client@1.0.0-beta.2 @zmdb/client/svelte@1.0.0-beta.2 svelte@^5
 ```
 
 ## Provide
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/svelte.ts
-import { createZmdbSvelte } from '@zmdb/svelte';
+import { createZmdbSvelte } from '@zmdb/client/svelte';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

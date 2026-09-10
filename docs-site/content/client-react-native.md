@@ -4,15 +4,15 @@ own URL construction, authentication patches, transport, response validation, an
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.2 @zmdb/react@1.0.0-beta.2 @zmdb/react-native@1.0.0-beta.2 react@19 react-native@">=0.87 <0.88"
+yarn add @zmdb/client@1.0.0-beta.2 @zmdb/client/react@1.0.0-beta.2 @zmdb/client/react-native@1.0.0-beta.2 react@19 react-native@">=0.87 <0.88"
 ```
 
 ## Provide
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/react-native.ts
-import { createZmdbReactNative } from '@zmdb/react-native';
-import type { NativeAppState, NativeConnectivity, NativeCredentialStore } from '@zmdb/react-native';
+import { createZmdbReactNative } from '@zmdb/client/react-native';
+import type { NativeAppState, NativeConnectivity, NativeCredentialStore } from '@zmdb/client/react-native';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

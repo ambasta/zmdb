@@ -1,13 +1,14 @@
 {
   "name": "@zmdb/app",
   "version": "1.0.0-beta.2",
-  "description": "Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.",
+  "description": "Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, observability, and an optional OpenTelemetry adapter.",
   "keywords": [
     "application-framework",
     "cqrs",
     "dependency-injection",
     "events",
     "messaging",
+    "opentelemetry",
     "stage-3",
     "typescript",
     "zmdb"
@@ -44,6 +45,7 @@
     "./messaging": "./src/messaging/index.ts",
     "./modules": "./src/modules/index.ts",
     "./observability": "./src/observability/index.ts",
+    "./otel": "./src/otel/index.ts",
     "./state": "./src/state/index.ts"
   },
   "publishConfig": {
@@ -61,8 +63,18 @@
     "@zmdb/validator": "workspace:^"
   },
   "devDependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/sdk-trace-base": "2.11.0",
     "@zmdb/postgres": "workspace:^",
     "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.9.1"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=26"

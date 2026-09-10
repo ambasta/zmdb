@@ -4,7 +4,7 @@
 
 'use client';
 
-export { createZmdbReact as createZmdbNextClient } from '@zmdb/react';
+export { createZmdbReact as createZmdbNextClient } from '@zmdb/client/react';
 export type {
   MutationRunner,
   MutationState,
@@ -12,4 +12,4 @@ export type {
   QueryState,
   ZmdbClientProviderProps,
   ZmdbReactBindings,
-} from '@zmdb/react';
+} from '@zmdb/client/react';

@@ -1,17 +1,17 @@
 Start with the [generated HTTP client](./generated-client.html), then add Angular for injector ownership, signals, `DestroyRef`, and RxJS cancellation. The generated module and `@zmdb/client` own URL
-construction, authentication patches, transport, response validation, and stable errors; `@zmdb/angular` owns only Angular lifecycle integration.
+construction, authentication patches, transport, response validation, and stable errors; `@zmdb/client/angular` owns only Angular lifecycle integration.
 
 ## Install
 
 ```bash
-yarn add @zmdb/client@1.0.0-beta.2 @zmdb/angular@1.0.0-beta.2 @angular/core@">=22.1.5 <23.0.0" rxjs@">=7.8.2 <8.0.0"
+yarn add @zmdb/client@1.0.0-beta.2 @zmdb/client/angular@1.0.0-beta.2 @angular/core@">=22.1.5 <23.0.0" rxjs@">=7.8.2 <8.0.0"
 ```
 
 ## Provide
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/angular.ts
-import { createZmdbAngular } from '@zmdb/angular';
+import { createZmdbAngular } from '@zmdb/client/angular';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

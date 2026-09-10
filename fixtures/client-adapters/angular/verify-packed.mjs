@@ -14,9 +14,7 @@ function run(command, arguments_, cwd = ROOT) {
   }
 }
 
-for (const workspace of ['@zmdb/client', '@zmdb/angular']) {
-  run('yarn', ['workspace', workspace, 'build']);
-}
+run('yarn', ['workspace', '@zmdb/client', 'build']);
 
 const fixture = path => readFileSync(join(ROOT, 'fixtures/client-adapters/angular', path), 'utf8');
 const conformance = path => readFileSync(join(ROOT, 'fixtures/client-adapters/src', path), 'utf8');
@@ -26,10 +24,6 @@ const result = runPackedProject({
     {
       directory: join(ROOT, 'packages/client'),
       manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
-    },
-    {
-      directory: join(ROOT, 'packages/angular'),
-      manifest: publishManifest(readManifest('angular', PUBLISH_PACKAGES)),
     },
   ],
   dependencies: {

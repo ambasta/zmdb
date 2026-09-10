@@ -1,4 +1,4 @@
-import { createZmdbAngular } from '@zmdb/angular';
+import { createZmdbAngular } from '@zmdb/client/angular';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

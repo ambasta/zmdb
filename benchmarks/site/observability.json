@@ -96,11 +96,11 @@
         "sha256": "39911c2ad1b6d774994a4b0356c1013214547c6da10a54ab6a8f3d249b88ac17"
       },
       {
-        "path": "packages/otel/package.json",
+        "path": "packages/app/src/otel/package.json",
         "sha256": "1d600447e6638614e62968a59536434b3fdf02ee3a23c6bd415e138a7432590f"
       },
       {
-        "path": "packages/otel/src/index.ts",
+        "path": "packages/app/src/otel/index.ts",
         "sha256": "670357fcfc980945e3f618b5959043966a131db7d73e0972a1540e41989f66cb"
       },
       {

@@ -48,15 +48,15 @@ Original source: `packages/ai/SPEC.md` at `bfce8e3f4745bf10ddf06d2cfbe1abfce8684
 
 - `@zmdb/ai`, `/chat`, `/compiler`, `/http`, and `/tool-runtime` are explicit package exports.
 - The package has one runtime dependency, `@zmdb/schema`, and no external dependency or peer.
-- `@zmdb/ai-anthropic` owns the Anthropic driver, depends only on `@zmdb/ai`, and declares the SDK as its sole optional peer.
+- `@zmdb/ai/anthropic` owns the Anthropic driver, depends only on `@zmdb/ai`, and declares the SDK as its sole optional peer.
 - Provider-neutral runtime and type tests execute from `packages/ai/src`.
 - AOT `toolFor` imports and generated OpenAPI modules name the new package.
-- `@zmdb/ai-vercel` physically owns the AI SDK adapter, tests and peer.
-- `@zmdb/ai-langchain` physically owns its adapter, publishes one root, depends at runtime only on `@zmdb/ai`, owns the optional `@langchain/core@^1.2.9` peer, and is exercised by the real-package
+- `@zmdb/ai/vercel` physically owns the AI SDK adapter, tests and peer.
+- `@zmdb/ai/langchain` physically owns its adapter, publishes one root, depends at runtime only on `@zmdb/ai`, owns the optional `@langchain/core@^1.2.9` peer, and is exercised by the real-package
   fixture.
 - `@zmdb/mcp` owns its client, server, protocol specification, runtime tests, and type tests; its sole runtime dependency is `@zmdb/ai`.
 - Schema-core has no `src/llm` files, `./llm*` exports, provider/framework peer, or dependency on AI.
-- Measured after #710, `packages/ai/src` contains 21 files, `packages/mcp/src` contains six, `packages/ai-langchain/src` contains three, and `packages/schema/src/llm` contains zero.
+- Measured after #710, `packages/ai/src` contains 21 files, `packages/mcp/src` contains six, `packages/ai/src/langchain` contains three, and `packages/schema/src/llm` contains zero.
 
 ## 1. Measured starting point
 
@@ -83,9 +83,9 @@ Original source: `packages/ai/SPEC.md` at `bfce8e3f4745bf10ddf06d2cfbe1abfce8684
 In this diagram `A --> B` means “A has a direct runtime dependency on B”:
 
 ```text
-@zmdb/ai-anthropic ──┐
-@zmdb/ai-langchain ──┼──> @zmdb/ai ──> @zmdb/schema ──> @zmdb/sql
-@zmdb/ai-vercel ─────┤         ▲
+@zmdb/ai/anthropic ──┐
+@zmdb/ai/langchain ──┼──> @zmdb/ai ──> @zmdb/schema ──> @zmdb/sql
+@zmdb/ai/vercel ─────┤         ▲
 @zmdb/mcp ───────────┘         │
                                │
 @zmdb/compiler ────────────────┘
@@ -267,30 +267,30 @@ Original source: `scripts/product/SPEC.md` at `bfce8e3f4745bf10ddf06d2cfbe1abfce
 
 At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #672, #691, #692, #693,
 #694, #657, #658, #659, #660, #661, #695, #696, #697, #698, #699, #628, and #629 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected
-`@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`,
-`@zmdb/svelte`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`,
+`@zmdb/ai/anthropic`, `@zmdb/ai/langchain`, `@zmdb/ai/vercel`, `@zmdb/mcp`, `@zmdb/app/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/client/react`, `@zmdb/client/angular`, `@zmdb/client/vue`,
+`@zmdb/client/svelte`, `@zmdb/transport/grpc`, `@zmdb/transport/nats`, `@zmdb/transport/rabbitmq`, `@zmdb/transport/redis`, `@zmdb/jobs-postgres`, `@zmdb/client/solid`, `@zmdb/client/react-native`, `@zmdb/next`,
 `@zmdb/nuxt`, `@zmdb/sveltekit`, `@zmdb/compiler`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, and issue #674 adds `@zmdb/singlestore`. The catalog now accounts for every
 manifest-backed package exactly once. Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather than release order:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                                   |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------------------- |
 | `packages/client`             | `@zmdb/client`             | `client`            | None; generated clients import it directly                                 |
-| `packages/angular`            | `@zmdb/angular`            | `angular`           | None; selected Angular generated-client lifecycle integration              |
+| `packages/client/src/angular`            | `@zmdb/client/angular`            | `angular`           | None; selected Angular generated-client lifecycle integration              |
 | `packages/schema`             | `@zmdb/schema`             | `schema`            | Root schema defaults; `schema`, `tags`, `derive`, `dto`, `relations`, `ir` |
 | `packages/sql`                | `@zmdb/sql`                | `sql`               | Root SQL defaults and `zmdb/sql`                                           |
 | `packages/migrations`         | `@zmdb/migrations`         | `migrations`        | `zmdb/migrations`                                                          |
-| `packages/react`              | `@zmdb/react`              | `react`             | None; selected React generated-client lifecycle integration                |
-| `packages/react-native`       | `@zmdb/react-native`       | `react-native`      | None; selected native generated-client lifecycle integration               |
-| `packages/vue`                | `@zmdb/vue`                | `vue`               | None; selected Vue generated-client lifecycle integration                  |
-| `packages/svelte`             | `@zmdb/svelte`             | `svelte`            | None; selected Svelte generated-client lifecycle integration               |
+| `packages/client/src/react`              | `@zmdb/client/react`              | `react`             | None; selected React generated-client lifecycle integration                |
+| `packages/client/src/react-native`       | `@zmdb/client/react-native`       | `react-native`      | None; selected native generated-client lifecycle integration               |
+| `packages/client/src/vue`                | `@zmdb/client/vue`                | `vue`               | None; selected Vue generated-client lifecycle integration                  |
+| `packages/client/src/svelte`             | `@zmdb/client/svelte`             | `svelte`            | None; selected Svelte generated-client lifecycle integration               |
 | `packages/next`               | `@zmdb/next`               | `next`              | None; selected Next.js generated-client integration                        |
 | `packages/nuxt`               | `@zmdb/nuxt`               | `nuxt`              | None; selected Nuxt generated-client SSR/hydration integration             |
 | `packages/sveltekit`          | `@zmdb/sveltekit`          | `sveltekit`         | None; selected SvelteKit generated-client load integration                 |
-| `packages/solid`              | `@zmdb/solid`              | `solid`             | None; selected Solid generated-client lifecycle integration                |
+| `packages/client/src/solid`              | `@zmdb/client/solid`              | `solid`             | None; selected Solid generated-client lifecycle integration                |
 | `packages/ai`                 | `@zmdb/ai`                 | `ai`                | None; installed and imported independently                                 |
-| `packages/ai-anthropic`       | `@zmdb/ai-anthropic`       | `anthropic`         | None; selected integration with no facade export                           |
-| `packages/ai-langchain`       | `@zmdb/ai-langchain`       | `langchain`         | None; selected integration with no facade export                           |
-| `packages/ai-vercel`          | `@zmdb/ai-vercel`          | `vercel-ai`         | None; selected integration with no facade export                           |
+| `packages/ai/src/anthropic`       | `@zmdb/ai/anthropic`       | `anthropic`         | None; selected integration with no facade export                           |
+| `packages/ai/src/langchain`       | `@zmdb/ai/langchain`       | `langchain`         | None; selected integration with no facade export                           |
+| `packages/ai/src/vercel`          | `@zmdb/ai/vercel`          | `vercel-ai`         | None; selected integration with no facade export                           |
 | `packages/mcp`                | `@zmdb/mcp`                | `mcp`               | None; selected protocol integration with no facade export                  |
 | `packages/protobuf`           | `@zmdb/protobuf`           | `protobuf`          | None; installed and imported independently                                 |
 | `packages/validator`          | `@zmdb/validator`          | `validator`         | Root validator defaults and `zmdb/validator`                               |
@@ -306,11 +306,11 @@ manifest-backed package exactly once. Publication derives its dependency-first s
 | `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None; selected first-party capability with no facade export                |
 | `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL job adapter with no facade export                |
 | `packages/jobs-sqlite`        | `@zmdb/jobs-sqlite`        | `jobs-sqlite`       | None; selected SQLite jobs provider with no facade export                  |
-| `packages/otel`               | `@zmdb/otel`               | `otel`              | None; selected OpenTelemetry integration with no facade export             |
-| `packages/transport-grpc`     | `@zmdb/transport-grpc`     | `grpc`              | None; selected gRPC integration with no facade export                      |
-| `packages/transport-nats`     | `@zmdb/transport-nats`     | `transport-nats`    | None; selected core NATS integration with no facade export                 |
-| `packages/transport-rabbitmq` | `@zmdb/transport-rabbitmq` | `rabbitmq`          | None; selected RabbitMQ integration with no facade export                  |
-| `packages/transport-redis`    | `@zmdb/transport-redis`    | `transport-redis`   | None; selected Redis Pub/Sub transport with no facade export               |
+| `packages/app/src/otel`               | `@zmdb/app/otel`               | `otel`              | None; selected OpenTelemetry integration with no facade export             |
+| `packages/transport/src/grpc`     | `@zmdb/transport/grpc`     | `grpc`              | None; selected gRPC integration with no facade export                      |
+| `packages/transport/src/nats`     | `@zmdb/transport/nats`     | `transport-nats`    | None; selected core NATS integration with no facade export                 |
+| `packages/transport/src/rabbitmq` | `@zmdb/transport/rabbitmq` | `rabbitmq`          | None; selected RabbitMQ integration with no facade export                  |
+| `packages/transport/src/redis`    | `@zmdb/transport/redis`    | `transport-redis`   | None; selected Redis Pub/Sub transport with no facade export               |
 | `packages/web`                | `@zmdb/web`                | `web`               | Root HTTP names and `zmdb/web/*`                                           |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, concern facades, `config`, `cli`, and executable         |
 

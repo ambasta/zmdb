@@ -35,8 +35,8 @@ const request = await createNextServerClient({
 Create that scope inside the server component, route handler, or server action that owns the request. `request.memoize(load, key)` shares duplicate work only inside that scope; it never shares a
 client, credential, or result map across requests. `cache: 'no-store'`, `cache: 'force-cache'`, and `next: { revalidate, tags }` pass through to the supplied Next fetch unchanged.
 
-Client components import only `@zmdb/next/client`. It reuses the `@zmdb/react` provider and hooks; the package has no mixed root barrel, and the guarded server entry cannot enter a client component.
-See [Next.js Client](./client-next.html) for the complete client binding, cancellation, error, SSR, and testing path.
+Client components import only `@zmdb/next/client`. It reuses the `@zmdb/client/react` provider and hooks; the package has no mixed root barrel, and the guarded server entry cannot enter a client
+component. See [Next.js Client](./client-next.html) for the complete client binding, cancellation, error, SSR, and testing path.
 
 ## Direct database access
 

@@ -1,6 +1,6 @@
 # Packed SvelteKit adapter fixture
 
-`packages/sveltekit/src/packed.spec.ts` copies this application outside the workspace and installs publish-ready tarballs for `@zmdb/client`, `@zmdb/svelte`, and `@zmdb/sveltekit`.
+`packages/sveltekit/src/packed.spec.ts` copies this application outside the workspace and installs publish-ready tarballs for `@zmdb/client`, `@zmdb/client/svelte`, and `@zmdb/sveltekit`.
 
 The fixture:
 

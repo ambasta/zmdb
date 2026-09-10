@@ -44,24 +44,24 @@ Capability order is `redelivery / deadLetter / requestResponse`. Redis and core 
 The neutral `@zmdb/app/messaging` entry imports no broker client. Install the optional peer alongside the adapter you use:
 
 ```bash
-yarn add @zmdb/transport-redis@1.0.0-beta.2 redis@^6.2.1
-yarn add @zmdb/transport-nats@1.0.0-beta.2 @nats-io/transport-node@^3.4.0
-yarn add @zmdb/transport-rabbitmq@1.0.0-beta.2 amqplib@^2.0.1
+yarn add @zmdb/transport@1.0.0-beta.2 redis@^6.2.1
+yarn add @zmdb/transport@1.0.0-beta.2 @nats-io/transport-node@^3.4.0
+yarn add @zmdb/transport@1.0.0-beta.2 amqplib@^2.0.1
 ```
 
 ```ts {"mode":"compile","id":"example-002"}
-import { createNatsStrategy } from '@zmdb/transport-nats';
-import { createRabbitMqStrategy } from '@zmdb/transport-rabbitmq';
-import { createRedisStrategy } from '@zmdb/transport-redis';
+import { createNatsStrategy } from '@zmdb/transport/nats';
+import { createRabbitMqStrategy } from '@zmdb/transport/rabbitmq';
+import { createRedisStrategy } from '@zmdb/transport/redis';
 ```
 
 ## Kafka events
 
-Install `@zmdb/transport-kafka` with `kafkajs@>=2.2.4 <3.0.0` and attach `createKafkaStrategy(...)` through `transportExtension`. Supply a configured Kafka client, consumer group, input topics,
+Install `@zmdb/transport/kafka` with `kafkajs@>=2.2.4 <3.0.0` and attach `createKafkaStrategy(...)` through `transportExtension`. Supply a configured Kafka client, consumer group, input topics,
 dead-letter topic, partition concurrency and error sink. The adapter owns only the producer and consumer it creates.
 
 Kafka is event-only. Successful handling and confirmed dead-letter publication advance ordered offsets; retry pauses and rewinds only the affected partition. Attempt counts reset after restart or
-reassignment. A bounded close fences late settlement. The [Kafka contract](https://github.com/ambasta/zmdb/blob/main/packages/transport-kafka/SPEC.md) defines every option and lifecycle boundary.
+reassignment. A bounded close fences late settlement. The [Kafka contract](https://github.com/ambasta/zmdb/blob/main/packages/transport/src/kafka/SPEC.md) defines every option and lifecycle boundary.
 
 ## Redis Pub/Sub
 
@@ -146,8 +146,8 @@ See also: [Microservices](./web-microservices.html) · [Custom Transports](./web
 
 ## SQS standard queues
 
-Install `@zmdb/transport-sqs@1.0.0-beta.2`, `@zmdb/app@1.0.0-beta.2` and `@aws-sdk/client-sqs@3.1127.0`. Supply a caller-owned `SQSClient`, distinct source and dead-letter queue URLs, and the explicit
-polling, visibility, concurrency and timeout options documented in the package SPEC. Attach `createSqsStrategy(options)` with `transportExtension`.
+Install `@zmdb/transport@1.0.0-beta.2`, `@zmdb/app@1.0.0-beta.2` and `@aws-sdk/client-sqs@3.1127.0`, then import `@zmdb/transport/sqs`. Supply a caller-owned `SQSClient`, distinct source and
+dead-letter queue URLs, and the explicit polling, visibility, concurrency and timeout options documented in the package SPEC. Attach `createSqsStrategy(options)` with `transportExtension`.
 
 Successful dispatch deletes the current receipt. Retry changes visibility; dead-letter handling waits for the destination send before deleting the source. Closing stops polling and drains accepted
 work within its grace period; the caller destroys the client after app shutdown. This event transport advertises `true / true / false` capabilities and refuses FIFO and request/response. Standard

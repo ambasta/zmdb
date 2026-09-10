@@ -6,10 +6,10 @@
 
 `@zmdb/next` is ESM-only and has no mixed root export:
 
-- `@zmdb/next/client` begins with `'use client'` and re-exports the `@zmdb/react` binding factory as `createZmdbNextClient`;
+- `@zmdb/next/client` begins with `'use client'` and re-exports the `@zmdb/client/react` binding factory as `createZmdbNextClient`;
 - `@zmdb/next/server` begins with `import 'server-only'` and owns every request, credential and cache concern.
 
-The package depends inward on `@zmdb/client` and `@zmdb/react`. `server-only@0.0.1` is the executable Next boundary marker. Next 16.3, React 19.2 and React DOM 19.2 are required peers; React
+The package depends inward on `@zmdb/client` and `@zmdb/client/react`. `server-only@0.0.1` is the executable Next boundary marker. Next 16.3, React 19.2 and React DOM 19.2 are required peers; React
 declaration packages are fixture/dev dependencies rather than production peers. The package is not re-exported by `@zmdb/core`.
 
 ## 2. Server request scope
@@ -65,14 +65,14 @@ request.
 ## 5. Browser lifecycle
 
 `createZmdbNextClient` is the same function object as `createZmdbReact`. The package adds no second provider or hook implementation. Provider isolation, effect activation, abort, stale-result
-suppression, exact error identity, no implicit retry and server-render behavior therefore remain the `@zmdb/react` contract.
+suppression, exact error identity, no implicit retry and server-render behavior therefore remain the `@zmdb/client/react` contract.
 
 The client entry cannot reach the server entry, `server-only`, Next request APIs, environment values or credentials. A real Next client-component build rejects an attempted server import, and the
 packed fixture scans emitted browser chunks for the server credential canary and server modules.
 
 ## 6. Packed App Router qualification
 
-The packed fixture installs built tarballs for `@zmdb/client`, `@zmdb/react` and `@zmdb/next` with Next 16.3.4, React 19.2.8 and React DOM 19.2.8. It:
+The packed fixture installs built tarballs for `@zmdb/client`, `@zmdb/client/react` and `@zmdb/next` with Next 16.3.4, React 19.2.8 and React DOM 19.2.8. It:
 
 1. proves a client component importing `@zmdb/next/server` fails the real Next build through the `server-only` marker;
 2. builds a valid App Router application with a server component, route handler and client component;

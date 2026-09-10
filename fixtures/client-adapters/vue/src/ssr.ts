@@ -1,11 +1,11 @@
-import { createZmdbVue } from '@zmdb/vue';
+import { createZmdbVue } from '@zmdb/client/vue';
 import { createSSRApp } from 'vue';
 
 interface SsrClient {
   readonly credential: string;
 }
 
-const zmdb = createZmdbVue<SsrClient>('@zmdb/vue packed SSR');
+const zmdb = createZmdbVue<SsrClient>('@zmdb/client/vue packed SSR');
 
 function requestClient(credential: string): SsrClient {
   const client = Object.freeze({ credential });

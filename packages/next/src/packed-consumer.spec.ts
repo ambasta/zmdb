@@ -64,17 +64,12 @@ describe('@zmdb/next packed App Router consumer', () => {
         buildLockRoot: ROOT,
         preparePackages() {
           build('@zmdb/client');
-          build('@zmdb/react');
           build('@zmdb/next');
         },
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
             manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
-          },
-          {
-            directory: join(ROOT, 'packages', 'react'),
-            manifest: publishManifest(readManifest('react', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'next'),
@@ -115,7 +110,7 @@ describe('@zmdb/next packed App Router consumer', () => {
         ],
       });
 
-      expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/next', '@zmdb/react']);
+      expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/next']);
       expect(result.commands.map(command => [command.label, command.status])).toEqual([
         ['packed Next server-only boundary', 0],
         ['packed Next build', 0],

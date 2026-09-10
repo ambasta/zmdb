@@ -1,14 +1,14 @@
-Typed gRPC services, exhaustive bindings and clients ship through `@zmdb/transport-grpc`. The declaration selects unary, client-streaming, server-streaming or bidirectional calls without loading a
+Typed gRPC services, exhaustive bindings and clients ship through `@zmdb/transport/grpc`. The declaration selects unary, client-streaming, server-streaming or bidirectional calls without loading a
 `.proto` at runtime.
 
 ```bash
-yarn add @zmdb/protobuf@1.0.0-beta.2 @zmdb/transport-grpc@1.0.0-beta.2 @grpc/grpc-js@^1.14.4
+yarn add @zmdb/protobuf@1.0.0-beta.2 @zmdb/transport/grpc@1.0.0-beta.2 @grpc/grpc-js@^1.14.4
 yarn add @zmdb/aot-validator@1.0.0-beta.2
 yarn add --dev @zmdb/compiler@1.0.0-beta.2
 ```
 
 None of these optional packages or grpc-js is installed by `yarn add @zmdb/core@1.0.0-beta.2`. `@zmdb/protobuf` owns the service calls and generated artifact types; `@zmdb/compiler` owns reflection
-and emission; `@zmdb/validator` owns the generated validation-helper ABI; and `@zmdb/transport-grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by
+and emission; `@zmdb/validator` owns the generated validation-helper ABI; and `@zmdb/transport/grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by
 `createGrpcClient` is caller-owned and must be closed.
 
 ## One TypeScript contract, including the wire format
@@ -72,7 +72,7 @@ Use `grpcDescriptor<Orders>('Orders', 'orders')` when another language needs the
 Import the runtime surface from its dedicated package:
 
 ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies errors, orders, ordersService; this excerpt does not repeat those declarations."}
-import { bindGrpcService, type GrpcMetadata } from '@zmdb/transport-grpc';
+import { bindGrpcService, type GrpcMetadata } from '@zmdb/transport/grpc';
 
 function validateMetadata(metadata: GrpcMetadata): GrpcMetadata {
   if (metadata.headers.authorization === undefined) {
@@ -133,7 +133,7 @@ Attach the gRPC server as an explicit application extension. Extensions start in
 closes gRPC before earlier transport extensions and application shutdown hooks:
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createApp, ordersBinding; this excerpt does not repeat those declarations."}
-import { grpcExtension } from '@zmdb/transport-grpc';
+import { grpcExtension } from '@zmdb/transport/grpc';
 
 await using app = createApp(AppModule, {
   extensions: [
@@ -158,7 +158,7 @@ Graceful shutdown calls grpc-js `tryShutdown`; when `graceMs` expires it calls `
 The client uses the same generated artifact and therefore the same request, response and streaming declarations:
 
 ```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies consume, ordersService, token, validateMetadata; this excerpt does not repeat those declarations."}
-import { createGrpcClient } from '@zmdb/transport-grpc';
+import { createGrpcClient } from '@zmdb/transport/grpc';
 
 using client = createGrpcClient({
   definition: ordersService,

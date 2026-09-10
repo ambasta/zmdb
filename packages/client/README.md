@@ -21,6 +21,39 @@ yarn add @zmdb/client@1.0.0-beta.2
 - `@zmdb/client/url` — RFC 3986 component, path, query, and base-URL helpers.
 - `@zmdb/client/testing` — deterministic held-request transport.
 
+The framework bindings below are entry points of this same package.
+
+## Framework bindings
+
+One generated client, one binding per UI runtime. Each binding owns only context and lifetime: it makes a request follow the framework's own mount, effect, scope or owner lifetime, and cancels the
+request when that lifetime ends. None of them adds a cache, retry, polling, request encoding, or response handling; those stay application policy and `@zmdb/client` responsibilities.
+
+| Entry point                 | Factory                 | Peers                   | Lifetime it follows                                            | Guide                                                                        |
+| --------------------------- | ----------------------- | ----------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `@zmdb/client/react`        | `createZmdbReact`       | `react`                 | effect and unmount                                             | [React](https://ambasta.github.io/zmdb/docs/client-react.html)               |
+| `@zmdb/client/react-native` | `createZmdbReactNative` | `react`, `react-native` | `AppState`, plus application-supplied connectivity/credentials | [React Native](https://ambasta.github.io/zmdb/docs/client-react-native.html) |
+| `@zmdb/client/angular`      | `createZmdbAngular`     | `@angular/core`, `rxjs` | dependency injection, signals, and `DestroyRef`                | [Angular](https://ambasta.github.io/zmdb/docs/client-angular.html)           |
+| `@zmdb/client/vue`          | `createZmdbVue`         | `vue`                   | plugin install and effect scope                                | [Vue](https://ambasta.github.io/zmdb/docs/client-vue.html)                   |
+| `@zmdb/client/svelte`       | `createZmdbSvelte`      | `svelte`                | context plus store subscription                                | [Svelte](https://ambasta.github.io/zmdb/docs/client-svelte.html)             |
+| `@zmdb/client/solid`        | `createZmdbSolid`       | `solid-js`              | owner graph and resources                                      | [Solid](https://ambasta.github.io/zmdb/docs/client-solid.html)               |
+
+Every framework library above is an **optional** peer of this package, because only one entry point needs it. Installing `@zmdb/client` therefore installs no framework; add the peers for the binding
+you import:
+
+```bash
+yarn add @zmdb/client@1.0.0-beta.2 react@19
+```
+
+```ts
+import { createZmdbReact } from '@zmdb/client/react';
+
+import type { ApiClient } from './generated/http-client.generated.js';
+
+export const apiReact = createZmdbReact<ApiClient>('AccountApi');
+```
+
+Next.js, Nuxt and SvelteKit integrate with a server framework as well as a UI runtime, so they keep their own packages: `@zmdb/next`, `@zmdb/nuxt` and `@zmdb/sveltekit`.
+
 ## Generated clients
 
 `zmdb client generate` loads configured `@zmdb/web` contract exports once and writes both OpenAPI JSON and a typed TypeScript client. Commit both outputs and use `zmdb client generate --check` in CI

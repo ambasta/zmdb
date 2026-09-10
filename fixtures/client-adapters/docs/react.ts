@@ -1,4 +1,4 @@
-import { createZmdbReact } from '@zmdb/react';
+import { createZmdbReact } from '@zmdb/client/react';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

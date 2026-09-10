@@ -1,5 +1,5 @@
-import { createZmdbReactNative } from '@zmdb/react-native';
-import type { NativeAppState, NativeConnectivity, NativeCredentialStore } from '@zmdb/react-native';
+import { createZmdbReactNative } from '@zmdb/client/react-native';
+import type { NativeAppState, NativeConnectivity, NativeCredentialStore } from '@zmdb/client/react-native';
 
 import { createApiClient, type ApiClient } from './api.generated.js';
 

@@ -5,17 +5,17 @@
 > amendment assigns the generic ports, propagation and database instrumentation to `@zmdb/app/observability`; HTTP spans remain web-owned. zmdb ships ports and a separately installed OpenTelemetry
 > adapter, not an SDK, exporter, collector configuration or global auto-instrumentation.
 
-Install the adapter and its sole external peer with `yarn add @zmdb/otel@1.0.0-beta.2 @opentelemetry/api@^1.9.1`. Neither is part of the `@zmdb/core` default install. The application selects and owns
-any SDK, provider, processor, exporter, sampler, collector connection, global registration, flush, and shutdown.
+Install the adapter's package and its sole external peer with `yarn add @zmdb/app@1.0.0-beta.2 @opentelemetry/api@^1.9.1`, then import `@zmdb/app/otel`. Neither is part of the `@zmdb/core` default
+install. The application selects and owns any SDK, provider, processor, exporter, sampler, collector connection, global registration, flush, and shutdown.
 
 ## Configure the framework
 
-The app observability entry point declares narrow `Tracer`, `Span` and `Meter` ports and has no third-party runtime dependency. The separately installed `@zmdb/otel` package is the only current
+The app observability entry point declares narrow `Tracer`, `Span` and `Meter` ports and has no third-party runtime dependency. The separately installed `@zmdb/app/otel` package is the only current
 surface that imports `@opentelemetry/api`, its sole required peer:
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
 import { metrics, trace } from '@opentelemetry/api';
-import { fromOpenTelemetry } from '@zmdb/otel';
+import { fromOpenTelemetry } from '@zmdb/app/otel';
 import { createApp } from '@zmdb/web';
 
 const observability = fromOpenTelemetry({
@@ -151,11 +151,11 @@ new NodeSDK({ sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampl
 
 ## Deliberate boundaries
 
-OpenTelemetry is not a dependency of the app or HTTP core. `@zmdb/app/observability` declares the narrow port, and the separately installed `@zmdb/otel` package adapts its sole required peer,
+OpenTelemetry is not a dependency of the app or HTTP core. `@zmdb/app/observability` declares the narrow port, and the separately installed `@zmdb/app/otel` package adapts its sole required peer,
 `@opentelemetry/api`.
 
 The port is a port rather than a claim of structural compatibility, which is a deliberately modest position. `@opentelemetry/api`'s `Tracer.startActiveSpan` has four overloads and its `Span` has
-around ten methods, and the dependency-free core entry points cannot compile an assertion against that API. A claim that cannot be checked rots in silence. `@zmdb/otel` carries the API as both its
+around ten methods, and the dependency-free core entry points cannot compile an assertion against that API. A claim that cannot be checked rots in silence. `@zmdb/app/otel` carries the API as both its
 required peer and development evidence, so the compatibility claim is typechecked at the integration boundary.
 
 - **No configured tracer or meter:** the original router path runs after one branch; no no-op span is installed.

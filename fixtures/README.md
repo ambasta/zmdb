@@ -20,7 +20,7 @@ without one.
 `consumer-metro/` builds an app through the Metro transformer, checks the generated schema and validator, and preserves a configured Babel transformer. Its bundle test runs in the integration suite.
 
 `llm-adapters/` is compile-only and independent of that pair. It pins the real `@langchain/core` and `ai` packages, then checks the frozen plain-object adapter shapes against their constructors. The
-framework dependencies belong to that private consumer fixture. LangChain is an optional peer only of `@zmdb/ai-langchain`; neither framework reaches the provider-neutral `@zmdb/ai` manifest.
+framework dependencies belong to that private consumer fixture. LangChain is an optional peer only of `@zmdb/ai/langchain`; neither framework reaches the provider-neutral `@zmdb/ai` manifest.
 
 `consumer-compiler/` and `consumer-migrations/` freeze the standalone package contracts selected by #626. Their manifests use versioned dependencies, their configs have no `paths` map or
 `skipLibCheck`, and #627 typechecks them against tarballs under the target package names. The compiler fixture compiles one real `is<T>()` call from the packed package, materialises its four changed

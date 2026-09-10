@@ -1,4 +1,4 @@
-import { createZmdbSolid, type SolidMutation, type SolidQuery } from '@zmdb/solid';
+import { createZmdbSolid, type SolidMutation, type SolidQuery } from '@zmdb/client/solid';
 import { createComponent, createRoot, createSignal, Suspense } from 'solid-js';
 import { renderToStringAsync } from 'solid-js/web';
 
@@ -14,8 +14,8 @@ import type {
 import { ADAPTER_PACKAGES } from './package-matrix.js';
 
 function solidPackageExpectation() {
-  const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/solid');
-  if (expectation === undefined) throw new Error('missing @zmdb/solid package expectation');
+  const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/client/solid');
+  if (expectation === undefined) throw new Error('missing @zmdb/client/solid package expectation');
   return expectation;
 }
 

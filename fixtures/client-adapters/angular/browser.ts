@@ -1,6 +1,6 @@
 import { Injector, createEnvironmentInjector, runInInjectionContext } from '@angular/core';
 import type { EnvironmentInjector } from '@angular/core';
-import { createZmdbAngular } from '@zmdb/angular';
+import { createZmdbAngular } from '@zmdb/client/angular';
 
 interface Widget {
   readonly id: string;

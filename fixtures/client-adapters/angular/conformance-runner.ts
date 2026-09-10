@@ -15,8 +15,8 @@ import type { ApiClient } from './conformance/generated/api.generated.js';
 import { ADAPTER_PACKAGES } from './conformance/package-matrix.js';
 import { assertSsrCredentialIsolation } from './conformance/ssr.js';
 
-const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/angular');
-if (expectation === undefined) throw new Error('packed fixture has no @zmdb/angular expectation');
+const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/client/angular');
+if (expectation === undefined) throw new Error('packed fixture has no @zmdb/client/angular expectation');
 const binding = createAngularConformanceBinding<ApiClient>(expectation);
 
 await assertNoRequestBeforeMount(binding);

@@ -1,7 +1,7 @@
 import { createServer } from 'node:net';
 
 import { createApplication, Module } from '@zmdb/app';
-import { bindGrpcService, createGrpcClient, grpcExtension } from '@zmdb/transport-grpc';
+import { bindGrpcService, createGrpcClient, grpcExtension } from '@zmdb/transport/grpc';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -121,7 +121,7 @@ try {
     },
   );
   if (result.id !== 'order-1:packed') throw new Error(`unexpected gRPC result: ${JSON.stringify(result)}`);
-  console.log('@zmdb/transport-grpc packed consumer: lifecycle and typed unary call OK');
+  console.log('@zmdb/transport/grpc packed consumer: lifecycle and typed unary call OK');
 } finally {
   client?.close();
   await app[Symbol.asyncDispose]();

@@ -1,4 +1,4 @@
-import { createZmdbVue } from '@zmdb/vue';
+import { createZmdbVue } from '@zmdb/client/vue';
 import { createApp, effectScope, shallowRef } from 'vue';
 
 interface BrowserClient {
@@ -14,7 +14,7 @@ const client: BrowserClient = {
   },
 };
 
-const zmdb = createZmdbVue<BrowserClient>('@zmdb/vue packed browser');
+const zmdb = createZmdbVue<BrowserClient>('@zmdb/client/vue packed browser');
 const app = createApp({ render: () => null });
 app.use(zmdb.createZmdbPlugin(client));
 const scope = effectScope();

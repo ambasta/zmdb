@@ -1,7 +1,7 @@
 # @zmdb/next
 
 `@zmdb/next` keeps generated zmdb clients on the correct side of the Next.js App Router boundary. Its server entry creates one request-owned client from Next headers, cookies, fetch and cache policy;
-its browser entry is the existing `@zmdb/react` provider and hooks under a Next-specific factory name.
+its browser entry is the existing `@zmdb/client/react` provider and hooks under a Next-specific factory name.
 
 ## Install
 
@@ -52,7 +52,7 @@ import type { ApiClient } from './generated/http-client.generated.js';
 export const api = createZmdbNextClient<ApiClient>('Accounts');
 ```
 
-The client entry contains no server export, request object, environment read, credential, or cache. It reuses `@zmdb/react` directly, including its provider, query cancellation, stale-result
+The client entry contains no server export, request object, environment read, credential, or cache. It reuses `@zmdb/client/react` directly, including its provider, query cancellation, stale-result
 suppression and mutation lifecycle.
 
 ## Entry points
