@@ -15,8 +15,12 @@ import {
 
 const require = createRequire(import.meta.url);
 const GROUPS = new Set(['core', 'integration', 'tooling']);
-const POLICY_FIELDS = ['group', 'internalCompatibility', 'peers'];
+const POLICY_FIELDS = ['group', 'internalCompatibility', 'peers', 'support'];
 const COMPATIBILITY_FIELDS = ['evidence', 'floor', 'range', 'tested'];
+const SUPPORT_FIELDS = Object.freeze({
+  provisional: ['evidence', 'gaps', 'tier'],
+  supported: ['evidence', 'tier'],
+});
 
 const freezeArray = values => Object.freeze([...values]);
 const isRecord = value => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -70,6 +74,41 @@ function loadReleasePolicy(root) {
   }
   const namespace = require(path);
   return namespace.RELEASE_PACKAGE_POLICY;
+}
+
+function loadRetiredReleaseIds(root) {
+  const path = join(root, 'scripts', 'release', 'policy.mjs');
+  if (!existsSync(path)) return {};
+  const retired = require(path).RETIRED_RELEASE_IDS;
+  return isRecord(retired) ? retired : {};
+}
+
+// Retired ids own only their historical changelog sections. They are merged into the
+// owner map the changelog parser sees and nowhere else, so a retired id can never enter
+// a publish plan.
+function changelogOwners(owners, retired) {
+  const diagnostics = Object.keys(retired)
+    .filter(id => Object.hasOwn(owners, id))
+    .toSorted(compareText)
+    .map(id =>
+      diagnostic(
+        'RELEASE_RETIRED_ID_ACTIVE',
+        id,
+        'a retired release id is also a live release owner',
+        'remove the id from RETIRED_RELEASE_IDS or rename the package',
+      ),
+    );
+  return {
+    diagnostics,
+    owners: Object.freeze({
+      ...owners,
+      ...Object.fromEntries(
+        Object.keys(retired)
+          .toSorted(compareText)
+          .map(id => [id, freezeArray([id])]),
+      ),
+    }),
+  };
 }
 
 function nextPrerelease(version) {
@@ -217,6 +256,111 @@ function compatibilityDiagnostics(subject, compatibility) {
           subject,
           `range ${range} admits untested ${next} while tested contains ${measured}`,
           `use ${floor} until another exact prerelease passes, then list an explicit union`,
+        ),
+      );
+    }
+  }
+  return diagnostics;
+}
+
+function tierOf(policy, id) {
+  const tier = policy[id]?.support?.tier;
+  return typeof tier === 'string' ? tier : undefined;
+}
+
+// The declared support tier is a promise about evidence, so every path it names must
+// exist and a package may not promise more than what it is built on. Whether a push
+// actually runs the evidence is a review question; nothing here reads a workflow file.
+function supportDiagnostics(architecture, releasePolicy, root) {
+  const diagnostics = [];
+  const graph = createDependencyGraph(architecture);
+  for (const packageRecord of architecture.packages) {
+    const subject = `${packageRecord.id} (${packageRecord.npmName})`;
+    const support = releasePolicy[packageRecord.id]?.support;
+    const expected = SUPPORT_FIELDS[support?.tier];
+    if (!isRecord(support) || expected === undefined) {
+      diagnostics.push(
+        diagnostic(
+          'RELEASE_SUPPORT_INVALID',
+          subject,
+          `support tier is ${JSON.stringify(support?.tier)}, expected supported or provisional`,
+          'declare the tier with supported(evidence) or provisional(evidence, gaps)',
+        ),
+      );
+      continue;
+    }
+    const fields = Object.keys(support).toSorted(compareText);
+    if (!sameValues(fields, expected)) {
+      diagnostics.push(
+        diagnostic(
+          'RELEASE_SUPPORT_INVALID',
+          subject,
+          `support fields are ${fields.join(', ') || 'empty'}, expected ${expected.join(', ')}`,
+          'restore the exact support shape for the declared tier',
+        ),
+      );
+    }
+    const gaps = support.tier === 'provisional' ? support.gaps : [];
+    if (
+      support.tier === 'provisional' &&
+      (!Array.isArray(gaps) ||
+        gaps.length === 0 ||
+        new Set(gaps).size !== gaps.length ||
+        !sameValues(gaps, [...gaps].toSorted(compareText)))
+    ) {
+      diagnostics.push(
+        diagnostic(
+          'RELEASE_SUPPORT_INVALID',
+          subject,
+          `gaps are ${JSON.stringify(gaps)}, expected sorted unique repository paths`,
+          'name every unrun evidence path exactly once, or declare the package supported',
+        ),
+      );
+    }
+    for (const path of [support.evidence, ...(Array.isArray(gaps) ? gaps : [])]) {
+      if (typeof path !== 'string' || path.length === 0 || path.startsWith('/') || !existsSync(join(root, path))) {
+        diagnostics.push(
+          diagnostic(
+            'RELEASE_SUPPORT_EVIDENCE_MISSING',
+            subject,
+            `support names ${JSON.stringify(path)}, which is not a repository path`,
+            'name an existing spec, fixture or check, or delete the claim it supports',
+          ),
+        );
+      }
+    }
+    if (Array.isArray(gaps) && gaps.includes(support.evidence)) {
+      diagnostics.push(
+        diagnostic(
+          'RELEASE_SUPPORT_INVALID',
+          subject,
+          `${String(support.evidence)} is named as both the evidence and a gap`,
+          'name the evidence that runs and the evidence that does not separately',
+        ),
+      );
+    }
+    if (support.tier === 'supported') {
+      for (const dependency of graph[packageRecord.id] ?? []) {
+        if (tierOf(releasePolicy, dependency) === 'provisional') {
+          diagnostics.push(
+            diagnostic(
+              'RELEASE_SUPPORT_MONOTONICITY',
+              `${subject} -> ${dependency}`,
+              'a supported package depends on a provisional one',
+              `run the ${dependency} gaps on every push, or declare ${packageRecord.id} provisional`,
+            ),
+          );
+        }
+      }
+    }
+    const version = parseSemver(packageRecord.manifest.version);
+    if (version !== undefined && version.prerelease.length === 0 && support.tier !== 'supported') {
+      diagnostics.push(
+        diagnostic(
+          'RELEASE_SUPPORT_STABLE',
+          subject,
+          `manifest version ${String(packageRecord.manifest.version)} is stable while the tier is ${support.tier}`,
+          'run the declared gaps on every push before leaving prerelease',
         ),
       );
     }
@@ -469,7 +613,7 @@ function policyDiagnostics(architecture, releasePolicy) {
           'RELEASE_POLICY_INVALID',
           `${packageRecord.id} (${packageRecord.npmName})`,
           'policy row is not an object',
-          'restore group, internalCompatibility and peers',
+          'restore group, internalCompatibility, peers and support',
         ),
       );
       continue;
@@ -612,6 +756,7 @@ export function releaseModel(root, options = {}) {
   const diagnostics = [
     ...policyDiagnostics(architecture, releasePolicy),
     ...coreVersionDiagnostics(architecture, releasePolicy),
+    ...supportDiagnostics(architecture, releasePolicy, resolvedRoot),
   ];
   for (const packageRecord of architecture.packages) {
     diagnostics.push(
@@ -635,8 +780,9 @@ export function releaseModel(root, options = {}) {
     );
   }
   const owners = releaseOwners(architecture, releasePolicy);
-  const changelog = parseChangelog(changelogSource, owners);
-  diagnostics.push(...changelog.diagnostics);
+  const historical = changelogOwners(owners, loadRetiredReleaseIds(resolvedRoot));
+  const changelog = parseChangelog(changelogSource, historical.owners);
+  diagnostics.push(...historical.diagnostics, ...changelog.diagnostics);
 
   if (diagnostics.length > 0) {
     throw new ReleaseGovernanceError([...new Set(diagnostics)].toSorted(compareText));
@@ -673,6 +819,20 @@ export function currentCoreTarget(model) {
   return Object.freeze({ kind: 'core', version: packageRecord.manifest.version });
 }
 
+// A stable version is the promise that semantic versioning applies from here on, so only
+// a supported package may take one. A provisional package can still ship: it ships as a
+// prerelease until every gap its tier names runs on every push.
+function assertSupportedForStable(model, version, ids) {
+  const parsed = parseSemver(version);
+  if (parsed === undefined || parsed.prerelease.length > 0) return;
+  const provisional = ids.filter(id => tierOf(model.releasePolicy, id) !== 'supported').toSorted(compareText);
+  if (provisional.length > 0) {
+    throw new TypeError(
+      `stable release ${version} includes provisional ${provisional.join(', ')}: run the declared support gaps on every push first`,
+    );
+  }
+}
+
 function targetIdentity(model, target) {
   if (!isRecord(target) || (target.kind !== 'core' && target.kind !== 'package')) {
     throw new TypeError('release target must be { kind: "core"|"package", ... }');
@@ -681,6 +841,13 @@ function targetIdentity(model, target) {
     throw new TypeError(`release target version ${String(target.version)} is not a supported SemVer`);
   }
   if (target.kind === 'core') {
+    assertSupportedForStable(
+      model,
+      target.version,
+      model.architecture.packages
+        .filter(packageRecord => groupOf(model.releasePolicy, packageRecord.id) === 'core')
+        .map(packageRecord => packageRecord.id),
+    );
     return Object.freeze({ releaseId: 'core', version: target.version });
   }
   if (typeof target.id !== 'string' || target.id.length === 0) {
@@ -691,6 +858,7 @@ function targetIdentity(model, target) {
   if (groupOf(model.releasePolicy, packageRecord.id) === 'core') {
     throw new TypeError(`${target.id} belongs to the core release target`);
   }
+  assertSupportedForStable(model, target.version, [packageRecord.id]);
   return Object.freeze({ releaseId: packageRecord.id, version: target.version });
 }
 

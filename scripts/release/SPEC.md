@@ -56,6 +56,16 @@ export interface CompatibilityRange {
   readonly evidence: string;
 }
 
+export type SupportTier = 'supported' | 'provisional';
+
+export interface SupportDeclaration {
+  readonly tier: SupportTier;
+  /** Repository-relative evidence that every push runs. */
+  readonly evidence: string;
+  /** Repository-relative evidence that no push runs. Present only when provisional. */
+  readonly gaps?: readonly string[];
+}
+
 export interface ReleasePackagePolicy {
   readonly group: ReleaseGroup;
   /**
@@ -65,6 +75,8 @@ export interface ReleasePackagePolicy {
   readonly internalCompatibility: Readonly<Record<string, CompatibilityRange>>;
   /** One entry for every third-party peer in the package manifest. */
   readonly peers: Readonly<Record<string, CompatibilityRange>>;
+  /** What a version number of this package promises, and the evidence for it. */
+  readonly support: SupportDeclaration;
 }
 
 export const RELEASE_PACKAGE_POLICY: Readonly<Record<string, ReleasePackagePolicy>>;
@@ -83,52 +95,37 @@ never accepted by `RELEASE_PACKAGE_POLICY`. A package is publishable only when i
 
 The current public inventory is classified exactly once:
 
-| Catalog id           | npm package                | Release group | Existing external-consumer evidence            |
-| -------------------- | -------------------------- | ------------- | ---------------------------------------------- |
-| `ai`                 | `@zmdb/ai`                 | integration   | `yarn verify:publish`                          |
-| `ai-anthropic`       | `@zmdb/ai-anthropic`       | integration   | `yarn verify:publish`                          |
-| `ai-langchain`       | `@zmdb/ai-langchain`       | integration   | `fixtures/llm-adapters`                        |
-| `ai-vercel`          | `@zmdb/ai-vercel`          | integration   | `fixtures/llm-adapters` plus the #746 probe    |
-| `angular`            | `@zmdb/angular`            | integration   | `fixtures/client-adapters`                     |
-| `aot-validator`      | `@zmdb/validator`          | core          | `yarn verify:publish`                          |
-| `app`                | `@zmdb/app`                | core          | `yarn verify:publish`                          |
-| `cli`                | `@zmdb/cli`                | tooling       | `fixtures/consumer-cli`                        |
-| `client`             | `@zmdb/client`             | integration   | `packages/client/src/runtime.spec.ts`          |
-| `cockroach`          | `@zmdb/cockroach`          | integration   | `fixtures/database-cockroach`                  |
-| `compiler`           | `@zmdb/compiler`           | tooling       | `fixtures/consumer-compiler`                   |
-| `jobs`               | `@zmdb/jobs`               | core          | `packages/jobs/src/provider-lifecycle.spec.ts` |
-| `jobs-postgres`      | `@zmdb/jobs-postgres`      | integration   | `packages/jobs-postgres/src/index.spec.ts`     |
-| `jobs-sqlite`        | `@zmdb/jobs-sqlite`        | integration   | `packages/jobs-sqlite/src/index.spec.ts`       |
-| `mcp`                | `@zmdb/mcp`                | integration   | `fixtures/consumer-mcp`                        |
-| `migrations`         | `@zmdb/migrations`         | tooling       | `yarn verify:publish`                          |
-| `mssql`              | `@zmdb/mssql`              | integration   | `fixtures/database-mssql`                      |
-| `mysql`              | `@zmdb/mysql`              | integration   | `fixtures/database-mysql`                      |
-| `next`               | `@zmdb/next`               | integration   | `fixtures/next-app-router`                     |
-| `nuxt`               | `@zmdb/nuxt`               | integration   | `fixtures/client-adapters/nuxt`                |
-| `otel`               | `@zmdb/otel`               | integration   | `fixtures/consumer-server-integrations`        |
-| `postgres`           | `@zmdb/postgres`           | integration   | `fixtures/database-postgres`                   |
-| `protobuf`           | `@zmdb/protobuf`           | integration   | `yarn verify:publish`                          |
-| `query-compiler`     | `@zmdb/sql`                | core          | `yarn verify:publish`                          |
-| `react`              | `@zmdb/react`              | integration   | `fixtures/client-adapters`                     |
-| `react-native`       | `@zmdb/react-native`       | integration   | `fixtures/client-adapters`                     |
-| `repository`         | `@zmdb/orm`                | core          | `yarn verify:publish`                          |
-| `schema-core`        | `@zmdb/schema`             | core          | `yarn verify:publish`                          |
-| `singlestore`        | `@zmdb/singlestore`        | integration   | `fixtures/database-singlestore`                |
-| `solid`              | `@zmdb/solid`              | integration   | `fixtures/client-adapters`                     |
-| `sqlite`             | `@zmdb/sqlite`             | integration   | `fixtures/database-sqlite`                     |
-| `svelte`             | `@zmdb/svelte`             | integration   | `fixtures/client-adapters`                     |
-| `sveltekit`          | `@zmdb/sveltekit`          | integration   | `fixtures/client-adapters/sveltekit-packed`    |
-| `transport-grpc`     | `@zmdb/transport-grpc`     | integration   | `fixtures/consumer-server-integrations`        |
-| `transport-kafka`    | `@zmdb/transport-kafka`    | integration   | `fixtures/consumer-transport-kafka`            |
-| `transport-nats`     | `@zmdb/transport-nats`     | integration   | `fixtures/consumer-server-integrations`        |
-| `transport-rabbitmq` | `@zmdb/transport-rabbitmq` | integration   | `fixtures/consumer-server-integrations`        |
-| `transport-redis`    | `@zmdb/transport-redis`    | integration   | `fixtures/consumer-server-integrations`        |
-| `transport-sqs`      | `@zmdb/transport-sqs`      | integration   | `fixtures/consumer-transport-sqs`              |
-| `vue`                | `@zmdb/vue`                | integration   | `fixtures/client-adapters/vue`                 |
-| `web`                | `@zmdb/web`                | core          | `yarn verify:publish`                          |
-| `@zmdb/core`         | `@zmdb/core`               | core          | `fixtures/consumer-product`                    |
+| Catalog id      | npm package           | Release group | Support tier  | Evidence every push runs                                | Evidence no push runs                                                  |
+| --------------- | --------------------- | ------------- | ------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `ai`            | `@zmdb/ai`            | integration   | `supported`   | `packages/ai/src/langchain/index.spec.ts`               | none                                                                   |
+| `app`           | `@zmdb/app`           | core          | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
+| `cli`           | `@zmdb/cli`           | tooling       | `supported`   | `packages/cli/src/packed-cli.spec.ts`                   | none                                                                   |
+| `client`        | `@zmdb/client`        | integration   | `provisional` | `packages/client/src/react/react.spec.ts`               | `fixtures/client-adapters`                                             |
+| `cockroach`     | `@zmdb/cockroach`     | integration   | `supported`   | `fixtures/database-cockroach`                           | none                                                                   |
+| `compiler`      | `@zmdb/compiler`      | tooling       | `supported`   | `packages/compiler/src/metro/metro.integration.spec.ts` | none                                                                   |
+| `jobs`          | `@zmdb/jobs`          | core          | `supported`   | `packages/jobs/src/provider-lifecycle.spec.ts`          | none                                                                   |
+| `jobs-postgres` | `@zmdb/jobs-postgres` | integration   | `supported`   | `fixtures/consumer-server-integrations`                 | none                                                                   |
+| `jobs-sqlite`   | `@zmdb/jobs-sqlite`   | integration   | `supported`   | `fixtures/consumer-server-integrations`                 | none                                                                   |
+| `mcp`           | `@zmdb/mcp`           | integration   | `provisional` | `packages/mcp/src/mcp.spec.ts`                          | `fixtures/consumer-mcp`                                                |
+| `migrations`    | `@zmdb/migrations`    | tooling       | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
+| `mssql`         | `@zmdb/mssql`         | integration   | `supported`   | `fixtures/database-mssql`                               | none                                                                   |
+| `mysql`         | `@zmdb/mysql`         | integration   | `supported`   | `packages/mysql/src/live.spec.ts`                       | none                                                                   |
+| `next`          | `@zmdb/next`          | integration   | `provisional` | `packages/next/src/server.spec.ts`                      | `fixtures/next-app-router`                                             |
+| `nuxt`          | `@zmdb/nuxt`          | integration   | `provisional` | `packages/nuxt/src/server/server.spec.ts`               | `fixtures/client-adapters/nuxt`                                        |
+| `orm`           | `@zmdb/orm`           | core          | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
+| `postgres`      | `@zmdb/postgres`      | integration   | `supported`   | `fixtures/database-postgres`                            | none                                                                   |
+| `protobuf`      | `@zmdb/protobuf`      | integration   | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
+| `schema`        | `@zmdb/schema`        | core          | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
+| `singlestore`   | `@zmdb/singlestore`   | integration   | `supported`   | `packages/singlestore/src/singlestore.live.spec.ts`     | none                                                                   |
+| `sql`           | `@zmdb/sql`           | core          | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
+| `sqlite`        | `@zmdb/sqlite`        | integration   | `supported`   | `packages/sqlite/src/driver.spec.ts`                    | none                                                                   |
+| `sveltekit`     | `@zmdb/sveltekit`     | integration   | `provisional` | `packages/sveltekit/src/server.spec.ts`                 | `fixtures/client-adapters/sveltekit-packed`                            |
+| `transport`     | `@zmdb/transport`     | integration   | `provisional` | `fixtures/consumer-server-integrations`                 | `fixtures/consumer-transport-kafka`, `fixtures/consumer-transport-sqs` |
+| `validator`     | `@zmdb/validator`     | core          | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
+| `web`           | `@zmdb/web`           | core          | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
+| `zmdb`          | `@zmdb/core`          | core          | `supported`   | `.github/scripts/verify-publish.mjs`                    | none                                                                   |
 
-Counts are therefore eight core packages, 28 independently versioned integrations, and two independently versioned tooling packages.
+Counts are therefore eight core packages, sixteen independently versioned integrations, and three independently versioned tooling packages. Twenty-one are supported and six are provisional.
 
 The six private root workspaces are:
 
@@ -178,26 +175,26 @@ is exactly the range in `internalCompatibility`. Publication removes only the `w
 
 ### 4.3 Tooling
 
-`@zmdb/migrations` and `@zmdb/compiler` are public tooling release units with independent versions. Either may release without a core, integration, or unrelated tooling bump. Migrations' direct
-query-compiler relationship is a required core peer with an explicit compatibility range and an exact workspace development dependency. Compiler's direct aot-validator, query-compiler, and schema-core
-relationships are required core peers under the same rule; its AI relationship is an explicit cross-unit dependency.
+`@zmdb/cli`, `@zmdb/compiler` and `@zmdb/migrations` are public tooling release units with independent versions. Any of them may release without a core, integration, or unrelated tooling bump.
+Migrations' direct `@zmdb/sql` relationship is a required core peer with an explicit compatibility range and an exact workspace development dependency. Compiler's direct `@zmdb/validator`, `@zmdb/sql`
+and `@zmdb/schema` relationships are required core peers under the same rule; its `@zmdb/ai` relationship is an explicit cross-unit dependency.
 
 No benchmark, fixture, generated project, repository script, or root workspace is publishable tooling. Those remain private.
 
 ### 4.4 Cross-unit ranges
 
-Every architecture edge crossing release units has one explicit `internalCompatibility` entry. At this alpha baseline, every such entry has:
+Every architecture edge crossing release units has one explicit `internalCompatibility` entry. At this beta baseline, every such entry has:
 
 ```ts
 {
-  range: '1.0.0-alpha.4',
-  floor: '1.0.0-alpha.4',
-  tested: ['1.0.0-alpha.4'],
+  range: '1.0.0-beta.2',
+  floor: '1.0.0-beta.2',
+  tested: ['1.0.0-beta.2'],
 }
 ```
 
-Prerelease ranges do not admit an untested future prerelease. When `1.0.0-alpha.5` is proven compatible, the owning package may widen to an explicit union such as `1.0.0-alpha.4 || 1.0.0-alpha.5`; it
-may not use `^1.0.0-alpha.4` as a shortcut for versions the matrix never installed.
+Prerelease ranges do not admit an untested future prerelease. When `1.0.0-beta.3` is proven compatible, the owning package may widen to an explicit union such as `1.0.0-beta.2 || 1.0.0-beta.3`; it may
+not use `^1.0.0-beta.2` as a shortcut for versions the matrix never installed.
 
 After a stable release, a range may span compatible releases within one major, for example `>=1.2.0 <2.0.0`, when the packed matrix installs the floor and current supported version and the upstream
 release unit follows SemVer. A range never crosses the next breaking major.
@@ -217,6 +214,26 @@ change the requested channel.
 Publication uses the version's first prerelease identifier as its npm dist-tag: `alpha`, `beta`, or `rc`. A stable version uses `latest`. A prerelease is never published under `latest`, and a stable
 release never rewrites an older channel tag as a side effect.
 
+### 4.6 Support tiers
+
+Release units say which packages move together. Support tiers say what a version number promises. Every policy row declares exactly one tier alongside the evidence that justifies it.
+
+`supported` means every push exercises the package against the real technology it integrates: a live database, an installed packed consumer, or the real peer library in process. Semantic versioning
+applies to it across the rules in §6, and it may take a stable version.
+
+`provisional` means every push exercises the package's own behaviour, but the promise it makes about an external runtime, such as a framework build, a bundler, a broker no push starts, or a host
+process, rests on evidence that no push runs. The declaration names every such path as a gap. A provisional package still releases, as a prerelease, and it leaves prerelease only in the change that
+starts running its gaps on every push.
+
+Three rules follow, and the release model enforces all three:
+
+- a `supported` package may not depend on a `provisional` one, because a promise cannot be stronger than what it is built on;
+- every evidence and gap path must exist in the repository, so deleting a fixture cannot leave its claim behind; and
+- a stable manifest version, and a release plan targeting a stable version, is refused for any package that is not `supported`.
+
+The tier is declared, not derived from a workflow file: acceptance must not depend on a hosted continuous-integration provider's configuration. Each declaration is therefore a review question, and the
+evidence path is what a reviewer opens to answer it.
+
 ## 5. Third-party peer floors
 
 A peer range is a support promise, not a package-manager suggestion. Its lower bound equals the exact tested floor. A package cannot advertise a lower version merely because its types happen to
@@ -227,37 +244,26 @@ or compile-only fixture identifies the version to test; it does not prove suppor
 qualified. The #749 implementation projects these frozen targets into policy and manifests; if a #750 packed case fails, its advertised range and floor must be corrected before #750 closes. Issue #746
 changes no manifest.
 
-| Package                    | Third-party peer(s): frozen range; exact floor/current matrix version                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@zmdb/ai-anthropic`       | `@anthropic-ai/sdk@0.124.0`; `0.124.0`                                                                                                                              |
-| `@zmdb/ai-langchain`       | `@langchain/core@^1.2.9`; `1.2.9`                                                                                                                                   |
-| `@zmdb/ai-vercel`          | `ai@^7.0.93`; `7.0.93`                                                                                                                                              |
-| `@zmdb/angular`            | `@angular/core@>=22.1.5 <23.0.0`; `22.1.5`; `rxjs@>=7.8.2 <8.0.0`; `7.8.2`                                                                                          |
-| `@zmdb/compiler`           | `metro@>=0.87.0 <0.88.0`; `0.87.0`; `metro-babel-transformer@>=0.87.0 <0.88.0`; `0.87.0`; `oxlint@>=1.81.0 <1.82.0`; `1.81.0`; `typescript@>=7.0.2 <8.0.0`; `7.0.2` |
-| `@zmdb/jobs-postgres`      | `pg@^8.23.0`; `8.23.0`                                                                                                                                              |
-| `@zmdb/mssql`              | `mssql@^12.7.0`; `12.7.0`                                                                                                                                           |
-| `@zmdb/mysql`              | `mysql2@^3.24.3`; `3.24.3`                                                                                                                                          |
-| `@zmdb/next`               | `next@>=16.3.4 <17.0.0`; `16.3.4`; `react@>=19.2.8 <20.0.0`; `19.2.8`; `react-dom@>=19.2.8 <20.0.0`; `19.2.8`                                                       |
-| `@zmdb/nuxt`               | `nuxt@>=4.5.2 <5.0.0`; `4.5.2`; `vue@>=3.5.42 <4.0.0`; `3.5.42`                                                                                                     |
-| `@zmdb/otel`               | `@opentelemetry/api@^1.9.1`; `1.9.1`                                                                                                                                |
-| `@zmdb/postgres`           | `pg@^8.23.0`; `8.23.0`                                                                                                                                              |
-| `@zmdb/react`              | `react@>=19.2.8 <20.0.0`; `19.2.8`                                                                                                                                  |
-| `@zmdb/react-native`       | `react@>=19.2.8 <20.0.0`; `19.2.8`; `react-native@>=0.87.1 <0.88.0`; `0.87.1`                                                                                       |
-| `@zmdb/singlestore`        | `mysql2@^3.24.3`; `3.24.3`                                                                                                                                          |
-| `@zmdb/solid`              | `solid-js@>=1.9.15 <2.0.0`; `1.9.15`                                                                                                                                |
-| `@zmdb/svelte`             | `svelte@>=5.57.0 <6.0.0`; `5.57.0`                                                                                                                                  |
-| `@zmdb/sveltekit`          | `@sveltejs/kit@>=2.70.3 <3.0.0`; `2.70.3`; `svelte@>=5.57.0 <6.0.0`; `5.57.0`                                                                                       |
-| `@zmdb/transport-grpc`     | `@grpc/grpc-js@^1.14.4`; `1.14.4`                                                                                                                                   |
-| `@zmdb/transport-kafka`    | `kafkajs@>=2.2.4 <3.0.0`; `2.2.4`                                                                                                                                   |
-| `@zmdb/transport-nats`     | `@nats-io/transport-node@^3.4.0`; `3.4.0`                                                                                                                           |
-| `@zmdb/transport-rabbitmq` | `amqplib@^2.0.1`; `2.0.1`                                                                                                                                           |
-| `@zmdb/transport-redis`    | `redis@^6.2.1`; `6.2.1`                                                                                                                                             |
-| `@zmdb/transport-sqs`      | `@aws-sdk/client-sqs@>=3.1127.0 <4.0.0`; `3.1127.0`                                                                                                                 |
-| `@zmdb/vue`                | `vue@>=3.5.42 <4.0.0`; `3.5.42`                                                                                                                                     |
-| `@zmdb/web`                | `typescript@>=7.0.2 <8.0.0`; `7.0.2`                                                                                                                                |
+| Package               | Third-party peer(s): frozen range; exact floor/current matrix version                                                                                                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@zmdb/ai`            | `@anthropic-ai/sdk@0.124.0`; `0.124.0`; `@langchain/core@^1.2.9`; `1.2.9`; `ai@^7.0.93`; `7.0.93`                                                                                                                                                                    |
+| `@zmdb/app`           | `@opentelemetry/api@^1.9.1`; `1.9.1`                                                                                                                                                                                                                                 |
+| `@zmdb/cli`           | `esbuild@>=0.28.2 <0.29.0`; `0.28.2`; `typescript@>=7.0.2 <8.0.0`; `7.0.2`                                                                                                                                                                                           |
+| `@zmdb/client`        | `@angular/core@>=22.1.5 <23.0.0`; `22.1.5`; `react@>=19.2.8 <20.0.0`; `19.2.8`; `react-native@>=0.87.1 <0.88.0`; `0.87.1`; `rxjs@>=7.8.2 <8.0.0`; `7.8.2`; `solid-js@>=1.9.15 <2.0.0`; `1.9.15`; `svelte@>=5.57.0 <6.0.0`; `5.57.0`; `vue@>=3.5.42 <4.0.0`; `3.5.42` |
+| `@zmdb/compiler`      | `metro@>=0.87.0 <0.88.0`; `0.87.0`; `metro-babel-transformer@>=0.87.0 <0.88.0`; `0.87.0`; `oxlint@>=1.81.0 <1.82.0`; `1.81.0`; `typescript@>=7.0.2 <8.0.0`; `7.0.2`                                                                                                  |
+| `@zmdb/jobs-postgres` | `pg@^8.23.0`; `8.23.0`                                                                                                                                                                                                                                               |
+| `@zmdb/mssql`         | `mssql@^12.7.0`; `12.7.0`                                                                                                                                                                                                                                            |
+| `@zmdb/mysql`         | `mysql2@^3.24.3`; `3.24.3`                                                                                                                                                                                                                                           |
+| `@zmdb/next`          | `next@>=16.3.4 <17.0.0`; `16.3.4`; `react@>=19.2.8 <20.0.0`; `19.2.8`; `react-dom@>=19.2.8 <20.0.0`; `19.2.8`                                                                                                                                                        |
+| `@zmdb/nuxt`          | `nuxt@>=4.5.2 <5.0.0`; `4.5.2`; `vue@>=3.5.42 <4.0.0`; `3.5.42`                                                                                                                                                                                                      |
+| `@zmdb/postgres`      | `pg@^8.23.0`; `8.23.0`                                                                                                                                                                                                                                               |
+| `@zmdb/singlestore`   | `mysql2@^3.24.3`; `3.24.3`                                                                                                                                                                                                                                           |
+| `@zmdb/sveltekit`     | `@sveltejs/kit@>=2.70.3 <3.0.0`; `2.70.3`; `svelte@>=5.57.0 <6.0.0`; `5.57.0`                                                                                                                                                                                        |
+| `@zmdb/transport`     | `@aws-sdk/client-sqs@>=3.1127.0 <4.0.0`; `3.1127.0`; `@grpc/grpc-js@^1.14.4`; `1.14.4`; `@nats-io/transport-node@^3.4.0`; `3.4.0`; `amqplib@^2.0.1`; `2.0.1`; `kafkajs@>=2.2.4 <3.0.0`; `2.2.4`; `redis@^6.2.1`; `6.2.1`                                             |
+| `@zmdb/web`           | `typescript@>=7.0.2 <8.0.0`; `7.0.2`                                                                                                                                                                                                                                 |
 
 Packages absent from the table have no third-party peer. `@zmdb/core` additionally has internal optional peers on `@zmdb/mssql` and `@zmdb/postgres`; their measured current manifest ranges are both
-`workspace:^`. The implemented compatibility policy requires both peers to use the explicit cross-unit alpha range `1.0.0-alpha.4` until a wider range is proven, with manifest projection owned by the
+`workspace:^`. The implemented compatibility policy requires both peers to use the explicit cross-unit beta range `1.0.0-beta.2` until a wider range is proven, with manifest projection owned by the
 release model.
 
 `tested` contains exact versions, never tags such as `latest`, ranges, workspace aliases, or npm aliases. The floor is always present in `tested`. A current-version case may equal the floor; if it
@@ -396,12 +402,12 @@ Unqualified integration ranges do not widen automatically.
 
 ### 8.3 Integration-only release
 
-`@zmdb/ai-vercel@1.3.0` to `1.3.1` publishes only `@zmdb/ai-vercel`. The core remains `1.4.3`, `@zmdb/ai` retains its own version, and unrelated integrations do not receive metadata-only bumps.
+`@zmdb/mcp@1.3.0` to `1.3.1` publishes only `@zmdb/mcp`. The core remains `1.4.3`, `@zmdb/ai` retains its own version, and unrelated integrations do not receive metadata-only bumps.
 
 ### 8.4 Peer-floor raise
 
 Changing the supported AI SDK floor from `7.0.93` to `8.1.0` first installs exact `ai@8.1.0` in a packed external consumer. The policy range changes from `^7.0.93` to `^8.1.0`, the changelog marks the
-removal of AI SDK 7 support, and stable `@zmdb/ai-vercel` takes a major version. No core version changes.
+removal of AI SDK 7 support, and stable `@zmdb/ai`, which publishes the adapter, takes a major version. No core version changes.
 
 ### 8.5 Prerelease
 
@@ -422,6 +428,9 @@ Issues #747–#750 must make these failures deterministic and actionable:
 - a floor or current tested version lacks a clean packed-consumer case;
 - a compatibility consumer resolves a workspace, root dependency, alias, or undeclared package;
 - a prerelease range admits an untested future prerelease;
+- a support tier is unknown, misshapen, or names an evidence or gap path that is not in the repository;
+- a `supported` package depends on a `provisional` one;
+- a manifest version or release target is stable while the declared tier is `provisional`;
 - a release plan changes an unrelated package version;
 - a tag, changelog release id, plan, and manifest version disagree; or
 - an unclassified publishable package is added later.

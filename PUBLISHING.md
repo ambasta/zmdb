@@ -1,7 +1,8 @@
 # Publishing zmdb to npm (Trusted Publishing / OIDC)
 
-> **Prerelease.** The prepared first beta is `1.0.0-beta.1`. The workflow publishes a version under `latest` when it becomes the highest policy-precedence release (`stable > rc > beta > alpha`);
-> otherwise it uses its channel tag. Use an exact version for a deterministic prerelease install. Increment the beta number for subsequent beta releases.
+> **Prerelease.** The current baseline is `1.0.0-beta.2`. The workflow publishes a version under `latest` when it becomes the highest policy-precedence release (`stable > rc > beta > alpha`);
+> otherwise it uses its channel tag. Use an exact version for a deterministic prerelease install. Increment the beta number for subsequent beta releases. No package leaves prerelease before its
+> declared support tier is `supported`; see [support tiers](./docs-site/content/support-tiers.md).
 
 The `@zmdb/*` packages publish from GitHub Actions using **Trusted Publishing (OIDC)** — **no npm token**. GitHub Actions proves its identity to npm with a short-lived OIDC credential, so there is no
 long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo also get automatic **provenance**.
@@ -11,7 +12,13 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 ## Release model
 
 The release-group contract in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md) defines one core train and independently versioned integration and tooling packages. The generated
-[package reference](./docs-site/content/package-reference.md) lists every current package's release unit, supported internal ranges and external peers directly from the catalog and release policy.
+[package reference](./docs-site/content/package-reference.md) lists every current package's release unit, support tier, supported internal ranges and external peers directly from the catalog and
+release policy.
+
+Release unit and support tier answer different questions. The unit says which packages move together: the eight core packages carry one byte-identical version, and every other package versions on its
+own. The tier says how much evidence stands behind that version. `supported` means every push exercises the package against the real technology it integrates, so it may take a stable version.
+`provisional` means the package's own behaviour runs on every push but its promise about an external runtime rests on evidence no push runs; the policy names those gaps, and the release model refuses
+a stable version until they run. A supported package may not depend on a provisional one. [Support tiers](./docs-site/content/support-tiers.md) states the current assignment and why.
 
 ### Authorities and release plan
 
@@ -30,7 +37,7 @@ const architecture = await loadArchitecture(root);
 const model = releaseModel(root, { architecture });
 const plan = createReleasePlan(model, {
   kind: 'core',
-  version: '1.0.0-alpha.5',
+  version: '1.0.0-beta.2',
 });
 ```
 
@@ -40,7 +47,7 @@ registry lookup, build, tag or publish.
 
 ### Selecting versions and upgrading
 
-Start an application with the product, for example `yarn add zmdb@1.0.0-beta.1`. Select an integration only when the application uses it. Independent versioning lets an integration release without
+Start an application with the product, for example `yarn add zmdb@1.0.0-beta.2`. Select an integration only when the application uses it. Independent versioning lets an integration release without
 forcing a core release; it does not mean every integration version works with every core version. Its published peer and dependency ranges must admit the installed core and SDK versions.
 
 Read the generated [package reference](./docs-site/content/package-reference.md) for membership and the [release policy](./scripts/release/policy.mjs) for these distinct promises:
@@ -52,8 +59,8 @@ Read the generated [package reference](./docs-site/content/package-reference.md)
 | `tested`   | Explicit versions selected for consumer qualification; this is not a claim about the newest version on npm. |
 | `evidence` | The owning consumer program or verifier for the compatibility promise.                                      |
 
-For example, `@zmdb/ai-vercel` declares `ai` range `^7.0.93`, floor `7.0.93`, and tested input `7.0.93`. Framework-specific integration tests exercise the selected SDK version. A wider dependency
-range alone is not evidence that its lower bound works. Historical pre-extraction versions in the AI specification are dated inputs, not current supported floors.
+For example, `@zmdb/ai` declares `ai` range `^7.0.93`, floor `7.0.93`, and tested input `7.0.93`. Framework-specific integration tests exercise the selected SDK version. A wider dependency range alone
+is not evidence that its lower bound works. Historical pre-extraction versions in the AI specification are dated inputs, not current supported floors.
 
 | Change                   | Application upgrade                                                                                           | Maintainer preparation                                                                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -105,7 +112,7 @@ the core unit. The requested release id and version must have a non-empty sectio
 
 ### Release preparation, tag and publish order
 
-Choose one release id and version. Use `core` for the cohesive train or an integration/tooling catalog id such as `angular`:
+Choose one release id and version. Use `core` for the cohesive train or an integration/tooling catalog id such as `postgres`:
 
 ```bash
 RELEASE_ID=core
@@ -143,18 +150,22 @@ version, and resumes the remaining topological suffix. It never changes the sele
 
 Release verification reports every problem in deterministic package/path order and exits non-zero:
 
-| Code                         | Violation                                                               | Required remediation                                                        |
-| ---------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `RELEASE_CORE_VERSION_DRIFT` | Core manifests do not carry one version                                 | Run the core release bump; never move one core package alone                |
-| `RELEASE_INTERNAL_RANGE`     | A same-core or crossing internal range disagrees with release policy    | Restore the policy-derived range and regenerate the publish manifest        |
-| `RELEASE_PEER_FLOOR`         | A peer range, floor, tested set, or evidence path disagrees with policy | Correct the policy or manifest from measured packed-consumer evidence       |
-| `RELEASE_CHANGELOG_MISSING`  | The selected release id and version have no non-empty changelog section | Move reviewed, unit-owned `Unreleased` notes into the exact release heading |
-| `RELEASE_CHANGELOG_OWNER`    | A bullet is not owned by the selected release unit                      | Use an owner assigned to that unit; `product` is reserved for core          |
-| `RELEASE_TAG_MISMATCH`       | A real-publish tag disagrees with `<release-id>-v<version>`             | Create the exact tag at the verified release commit                         |
-| `RELEASE_MEMBERSHIP_DRIFT`   | A release consumer repeats or omits catalog membership                  | Read membership from the product catalog                                    |
-| `RELEASE_ORDER_DRIFT`        | A publish consumer disagrees with the policy-derived topological order  | Consume the snapshot-backed release plan's `publishOrder`                   |
-| `RELEASE_PARTIAL_TRAIN`      | A core plan selects fewer than all eight core packages                  | Prepare the complete core unit or one independent package                   |
-| `RELEASE_EXISTING_MISMATCH`  | A retry finds the same version with different packed bytes              | Stop; investigate the immutable registry conflict rather than overwriting   |
+| Code                               | Violation                                                                 | Required remediation                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `RELEASE_CORE_VERSION_DRIFT`       | Core manifests do not carry one version                                   | Run the core release bump; never move one core package alone                  |
+| `RELEASE_INTERNAL_RANGE`           | A same-core or crossing internal range disagrees with release policy      | Restore the policy-derived range and regenerate the publish manifest          |
+| `RELEASE_PEER_FLOOR`               | A peer range, floor, tested set, or evidence path disagrees with policy   | Correct the policy or manifest from measured packed-consumer evidence         |
+| `RELEASE_SUPPORT_INVALID`          | A support tier is not `supported` or `provisional`, or its shape is wrong | Declare the tier with `supported(evidence)` or `provisional(evidence, gaps)`  |
+| `RELEASE_SUPPORT_EVIDENCE_MISSING` | A tier names an evidence or gap path that is not in the repository        | Name an existing spec, fixture or check, or drop the claim it supports        |
+| `RELEASE_SUPPORT_MONOTONICITY`     | A `supported` package depends on a `provisional` one                      | Run the dependency's gaps on every push, or declare the dependent provisional |
+| `RELEASE_SUPPORT_STABLE`           | A manifest or release target is stable while its tier is `provisional`    | Run the declared gaps on every push before leaving prerelease                 |
+| `RELEASE_CHANGELOG_MISSING`        | The selected release id and version have no non-empty changelog section   | Move reviewed, unit-owned `Unreleased` notes into the exact release heading   |
+| `RELEASE_CHANGELOG_OWNER`          | A bullet is not owned by the selected release unit                        | Use an owner assigned to that unit; `product` is reserved for core            |
+| `RELEASE_TAG_MISMATCH`             | A real-publish tag disagrees with `<release-id>-v<version>`               | Create the exact tag at the verified release commit                           |
+| `RELEASE_MEMBERSHIP_DRIFT`         | A release consumer repeats or omits catalog membership                    | Read membership from the product catalog                                      |
+| `RELEASE_ORDER_DRIFT`              | A publish consumer disagrees with the policy-derived topological order    | Consume the snapshot-backed release plan's `publishOrder`                     |
+| `RELEASE_PARTIAL_TRAIN`            | A core plan selects fewer than all eight core packages                    | Prepare the complete core unit or one independent package                     |
+| `RELEASE_EXISTING_MISMATCH`        | A retry finds the same version with different packed bytes                | Stop; investigate the immutable registry conflict rather than overwriting     |
 
 ## Requirements (already handled in the workflow)
 
