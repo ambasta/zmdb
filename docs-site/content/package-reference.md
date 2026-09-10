@@ -20,65 +20,57 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 
 <!-- generated: product-catalog package-reference -->
 
-| Package                  | Version      | Release unit | Role            | Install mode                                   | Installation                                                                                                     | Description                                                                                                                                                                    | Documentation                |
-| ------------------------ | ------------ | ------------ | --------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
-| @zmdb/ai                 | 1.0.0-beta.2 | integration  | ai              | integration: provider-neutral AI tools         | `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/schema@1.0.0-beta.2 @zmdb/validator@1.0.0-beta.2`                          | Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, and OpenAPI-derived tools for zmdb.                                                    | llm-function-calling         |
-| @zmdb/ai-anthropic       | 1.0.0-beta.2 | integration  | anthropic       | integration: Anthropic Messages API            | `yarn add @zmdb/ai-anthropic@1.0.0-beta.2`                                                                       | Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.                                                                                                  | llm-chat                     |
-| @zmdb/ai-langchain       | 1.0.0-beta.2 | integration  | langchain       | integration: LangChain                         | `yarn add @zmdb/ai-langchain@1.0.0-beta.2`                                                                       | Optional LangChain structured-tool adapter for provider-neutral zmdb AI tool documents.                                                                                        | llm-langchain                |
-| @zmdb/ai-vercel          | 1.0.0-beta.2 | integration  | vercel-ai       | integration: Vercel AI SDK                     | `yarn add @zmdb/ai-vercel@1.0.0-beta.2`                                                                          | Vercel AI SDK tool integration for provider-neutral zmdb AI contracts.                                                                                                         | llm-vercel-ai-sdk            |
-| @zmdb/angular            | 1.0.0-beta.2 | integration  | angular         | integration: Angular generated-client bindings | `yarn add @zmdb/angular@1.0.0-beta.2 '@angular/core@>=22.1.5 <23.0.0' 'rxjs@>=7.8.2 <8.0.0'`                     | Angular dependency-injection, signal, lifecycle, and Observable bindings for generated zmdb clients.                                                                           | client-angular               |
-| @zmdb/app                | 1.0.0-beta.2 | core         | app             | required                                       | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability. | web-app                      |
-| @zmdb/cli                | 1.0.0-beta.2 | tooling      | cli             | tooling                                        | `yarn add --dev @zmdb/cli@1.0.0-beta.2`                                                                          | The zmdb executable and developer command APIs for schema, application and HTTP workflows.                                                                                     | cli-overview                 |
-| @zmdb/client             | 1.0.0-beta.2 | integration  | client          | integration: generated HTTP clients            | `yarn add @zmdb/client@1.0.0-beta.2`                                                                             | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                       | generated-client             |
-| @zmdb/cockroach          | 1.0.0-beta.2 | integration  | cockroach       | integration: CockroachDB                       | `yarn add @zmdb/cockroach@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                            | CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.                                      | dialect-cockroach            |
-| @zmdb/compiler           | 1.0.0-beta.2 | tooling      | compiler        | tooling                                        | `yarn add --dev @zmdb/compiler@1.0.0-beta.2`                                                                     | The single TypeScript front end for zmdb reflection, AOT emission, code generation, build adapters, lint rules, and project configuration.                                     | aot-setup                    |
-| @zmdb/core               | 1.0.0-beta.2 | core         | product         | required                                       | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.           | package-reference            |
-| @zmdb/jobs               | 1.0.0-beta.2 | core         | jobs            | capability: jobs                               | `yarn add @zmdb/jobs@1.0.0-beta.2`                                                                               | Portable typed queues, workers, scheduling, leases, and application lifecycle integration.                                                                                     | web-queues                   |
-| @zmdb/jobs-postgres      | 1.0.0-beta.2 | integration  | jobs-postgres   | provider: jobs / PostgreSQL                    | `yarn add @zmdb/jobs-postgres@1.0.0-beta.2 @zmdb/jobs@1.0.0-beta.2 pg@^8.23.0`                                   | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                  | web-queues                   |
-| @zmdb/jobs-sqlite        | 1.0.0-beta.2 | integration  | jobs-sqlite     | provider: jobs / SQLite                        | `yarn add @zmdb/jobs-sqlite@1.0.0-beta.2 @zmdb/jobs@1.0.0-beta.2`                                                | Explicit SQLite persistence and owned memory storage for portable zmdb jobs.                                                                                                   | web-queues                   |
-| @zmdb/mcp                | 1.0.0-beta.2 | integration  | mcp             | integration: Model Context Protocol            | `yarn add @zmdb/mcp@1.0.0-beta.2`                                                                                | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                  | llm-mcp                      |
-| @zmdb/migrations         | 1.0.0-beta.2 | tooling      | migrations      | tooling                                        | `yarn add --dev @zmdb/migrations@1.0.0-beta.2`                                                                   | Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.                                 | migrations                   |
-| @zmdb/mssql              | 1.0.0-beta.2 | integration  | mssql           | integration: SQL Server                        | `yarn add @zmdb/mssql@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                                | Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural node-mssql execution, catalog introspection, and capability metadata.                         | dialect-mssql                |
-| @zmdb/mysql              | 1.0.0-beta.2 | integration  | mysql           | integration: MySQL                             | `yarn add @zmdb/mysql@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                                | Complete MySQL compiler, migrations, introspection, and structural mysql2 driver vertical for zmdb.                                                                            | dialect-mysql                |
-| @zmdb/next               | 1.0.0-beta.2 | integration  | next            | integration: Next.js                           | `yarn add @zmdb/next@1.0.0-beta.2 'next@>=16.3.4 <17.0.0' 'react@>=19.2.8 <20.0.0' 'react-dom@>=19.2.8 <20.0.0'` | Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.                                                                                   | client-next                  |
-| @zmdb/nuxt               | 1.0.0-beta.2 | integration  | nuxt            | integration: Nuxt 4                            | `yarn add @zmdb/nuxt@1.0.0-beta.2 'nuxt@>=4.5.2 <5.0.0' 'vue@>=3.5.42 <4.0.0'`                                   | Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.                                                                    | client-nuxt                  |
-| @zmdb/orm                | 1.0.0-beta.2 | core         | orm             | required                                       | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and seeding. No proxies, no identity map.                         | repository                   |
-| @zmdb/otel               | 1.0.0-beta.2 | integration  | otel            | integration: OpenTelemetry                     | `yarn add @zmdb/otel@1.0.0-beta.2 @opentelemetry/api@^1.9.1 @zmdb/app@1.0.0-beta.2`                              | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                           | web-observability            |
-| @zmdb/postgres           | 1.0.0-beta.2 | integration  | postgres        | integration: PostgreSQL                        | `yarn add @zmdb/postgres@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                             | The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspection, node-postgres driver, cursors, and cancellation.                                        | dialect-postgres             |
-| @zmdb/protobuf           | 1.0.0-beta.2 | integration  | protobuf        | integration: Protocol Buffers                  | `yarn add @zmdb/protobuf@1.0.0-beta.2`                                                                           | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                  | protobuf-message             |
-| @zmdb/react              | 1.0.0-beta.2 | integration  | react           | integration: React                             | `yarn add @zmdb/react@1.0.0-beta.2 'react@>=19.2.8 <20.0.0'`                                                     | React context, query, and mutation lifecycle bindings for generated zmdb clients.                                                                                              | client-react                 |
-| @zmdb/react-native       | 1.0.0-beta.2 | integration  | react-native    | integration: React Native                      | `yarn add @zmdb/react-native@1.0.0-beta.2 'react@>=19.2.8 <20.0.0' 'react-native@>=0.87.1 <0.88.0'`              | React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.                                                                                 | client-react-native          |
-| @zmdb/schema             | 1.0.0-beta.2 | core         | schema          | required                                       | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.           | schema-declaration           |
-| @zmdb/singlestore        | 1.0.0-beta.2 | integration  | singlestore     | integration: SingleStore                       | `yarn add @zmdb/singlestore@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                          | SingleStore vertical for zmdb: MySQL-family compilation, storage-aware migrations, catalog introspection, and mysql2 driver binding.                                           | dialect-singlestore          |
-| @zmdb/solid              | 1.0.0-beta.2 | integration  | solid           | integration: Solid client resources            | `yarn add @zmdb/solid@1.0.0-beta.2 'solid-js@>=1.9.15 <2.0.0'`                                                   | Solid context, resource and owner-lifetime bindings for generated zmdb clients.                                                                                                | client-solid                 |
-| @zmdb/sql                | 1.0.0-beta.2 | core         | sql             | required                                       | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, full-text search, set operations, and schema-object DDL.                                        | raw-sql                      |
-| @zmdb/sqlite             | 1.0.0-beta.2 | integration  | sqlite          | integration: SQLite                            | `yarn add @zmdb/sqlite@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                               | Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.                  | dialect-sqlite               |
-| @zmdb/svelte             | 1.0.0-beta.2 | integration  | svelte          | integration: Svelte 5                          | `yarn add @zmdb/svelte@1.0.0-beta.2 'svelte@>=5.57.0 <6.0.0'`                                                    | Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.                                                               | client-svelte                |
-| @zmdb/sveltekit          | 1.0.0-beta.2 | integration  | sveltekit       | integration: SvelteKit                         | `yarn add @zmdb/sveltekit@1.0.0-beta.2 '@sveltejs/kit@>=2.70.3 <3.0.0' 'svelte@>=5.57.0 <6.0.0'`                 | Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.                                   | client-sveltekit             |
-| @zmdb/transport-grpc     | 1.0.0-beta.2 | integration  | grpc            | integration: gRPC                              | `yarn add @zmdb/transport-grpc@1.0.0-beta.2 @grpc/grpc-js@^1.14.4 @zmdb/app@1.0.0-beta.2`                        | Typed gRPC server and client integration for generated @zmdb/protobuf service artifacts and the @zmdb/app lifecycle.                                                           | web-microservices-grpc       |
-| @zmdb/transport-kafka    | 1.0.0-beta.2 | integration  | transport-kafka | integration: Kafka event messaging             | `yarn add @zmdb/transport-kafka@1.0.0-beta.2 @zmdb/app@1.0.0-beta.2 'kafkajs@>=2.2.4 <3.0.0'`                    | Kafka event transport with ordered manual offsets, partition retries and bounded application lifecycle.                                                                        | web-microservices-transports |
-| @zmdb/transport-nats     | 1.0.0-beta.2 | integration  | transport-nats  | integration: core NATS messaging               | `yarn add @zmdb/transport-nats@1.0.0-beta.2 @nats-io/transport-node@^3.4.0 @zmdb/app@1.0.0-beta.2`               | Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.                                                                           | web-microservices-transports |
-| @zmdb/transport-rabbitmq | 1.0.0-beta.2 | integration  | rabbitmq        | integration: RabbitMQ                          | `yarn add @zmdb/transport-rabbitmq@1.0.0-beta.2 @zmdb/app@1.0.0-beta.2 amqplib@^2.0.1`                           | RabbitMQ transport strategy for the zmdb application messaging contract, with confirmed retries and owned dead-letter topology.                                                | web-microservices-transports |
-| @zmdb/transport-redis    | 1.0.0-beta.2 | integration  | transport-redis | integration: Redis Pub/Sub                     | `yarn add @zmdb/transport-redis@1.0.0-beta.2 @zmdb/app@1.0.0-beta.2 redis@^6.2.1`                                | Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.                                                                                 | web-microservices-transports |
-| @zmdb/transport-sqs      | 1.0.0-beta.2 | integration  | transport-sqs   | integration: SQS standard-queue events         | `yarn add @zmdb/transport-sqs@1.0.0-beta.2 '@aws-sdk/client-sqs@>=3.1127.0 <4.0.0' @zmdb/app@1.0.0-beta.2`       | SQS standard-queue transport for the zmdb application messaging contract, with explicit receipts, retry visibility and confirmed dead-letter handoff.                          | web-microservices-transports |
-| @zmdb/validator          | 1.0.0-beta.2 | core         | validator       | required                                       | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/validate/equals/random, unions, transforms, and generated-code errors.                          | aot-setup                    |
-| @zmdb/vue                | 1.0.0-beta.2 | integration  | vue             | integration: Vue 3                             | `yarn add @zmdb/vue@1.0.0-beta.2 'vue@>=3.5.42 <4.0.0'`                                                          | Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb clients.                                                                                        | client-vue                   |
-| @zmdb/web                | 1.0.0-beta.2 | core         | web             | required                                       | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                      | web-overview                 |
+| Package             | Version      | Release unit | Support     | Role          | Install mode                                                 | Installation                                                                                                     | Description                                                                                                                                                                                                       | Documentation                |
+| ------------------- | ------------ | ------------ | ----------- | ------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| @zmdb/ai            | 1.0.0-beta.2 | integration  | supported   | ai            | integration: provider-neutral AI tools and provider adapters | `yarn add @zmdb/ai@1.0.0-beta.2 @zmdb/schema@1.0.0-beta.2 @zmdb/validator@1.0.0-beta.2`                          | Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, OpenAPI-derived tools, and optional Anthropic, LangChain, and Vercel AI SDK adapters for zmdb.                            | llm-function-calling         |
+| @zmdb/app           | 1.0.0-beta.2 | core         | supported   | app           | required                                                     | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, observability, and an optional OpenTelemetry adapter. | web-app                      |
+| @zmdb/cli           | 1.0.0-beta.2 | tooling      | supported   | cli           | tooling                                                      | `yarn add --dev @zmdb/cli@1.0.0-beta.2`                                                                          | The zmdb executable and developer command APIs for schema, application and HTTP workflows.                                                                                                                        | cli-overview                 |
+| @zmdb/client        | 1.0.0-beta.2 | integration  | provisional | client        | integration: generated HTTP clients and framework bindings   | `yarn add @zmdb/client@1.0.0-beta.2`                                                                             | HTTP client runtime for generated and manually declared zmdb operations, with optional Angular, React, React Native, Solid, Svelte, and Vue bindings.                                                             | generated-client             |
+| @zmdb/cockroach     | 1.0.0-beta.2 | integration  | supported   | cockroach     | integration: CockroachDB                                     | `yarn add @zmdb/cockroach@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                            | CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.                                                                         | dialect-cockroach            |
+| @zmdb/compiler      | 1.0.0-beta.2 | tooling      | supported   | compiler      | tooling                                                      | `yarn add --dev @zmdb/compiler@1.0.0-beta.2`                                                                     | The single TypeScript front end for zmdb reflection, AOT emission, code generation, build adapters, lint rules, and project configuration.                                                                        | aot-setup                    |
+| @zmdb/core          | 1.0.0-beta.2 | core         | supported   | product       | required                                                     | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.                                              | package-reference            |
+| @zmdb/jobs          | 1.0.0-beta.2 | core         | supported   | jobs          | capability: jobs                                             | `yarn add @zmdb/jobs@1.0.0-beta.2`                                                                               | Portable typed queues, workers, scheduling, leases, and application lifecycle integration.                                                                                                                        | web-queues                   |
+| @zmdb/jobs-postgres | 1.0.0-beta.2 | integration  | supported   | jobs-postgres | provider: jobs / PostgreSQL                                  | `yarn add @zmdb/jobs-postgres@1.0.0-beta.2 @zmdb/jobs@1.0.0-beta.2 pg@^8.23.0`                                   | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                                                     | web-queues                   |
+| @zmdb/jobs-sqlite   | 1.0.0-beta.2 | integration  | supported   | jobs-sqlite   | provider: jobs / SQLite                                      | `yarn add @zmdb/jobs-sqlite@1.0.0-beta.2 @zmdb/jobs@1.0.0-beta.2`                                                | Explicit SQLite persistence and owned memory storage for portable zmdb jobs.                                                                                                                                      | web-queues                   |
+| @zmdb/mcp           | 1.0.0-beta.2 | integration  | provisional | mcp           | integration: Model Context Protocol                          | `yarn add @zmdb/mcp@1.0.0-beta.2`                                                                                | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                     | llm-mcp                      |
+| @zmdb/migrations    | 1.0.0-beta.2 | tooling      | supported   | migrations    | tooling                                                      | `yarn add --dev @zmdb/migrations@1.0.0-beta.2`                                                                   | Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.                                                                    | migrations                   |
+| @zmdb/mssql         | 1.0.0-beta.2 | integration  | supported   | mssql         | integration: SQL Server                                      | `yarn add @zmdb/mssql@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                                | Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural node-mssql execution, catalog introspection, and capability metadata.                                                            | dialect-mssql                |
+| @zmdb/mysql         | 1.0.0-beta.2 | integration  | supported   | mysql         | integration: MySQL                                           | `yarn add @zmdb/mysql@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                                | Complete MySQL compiler, migrations, introspection, and structural mysql2 driver vertical for zmdb.                                                                                                               | dialect-mysql                |
+| @zmdb/next          | 1.0.0-beta.2 | integration  | provisional | next          | integration: Next.js                                         | `yarn add @zmdb/next@1.0.0-beta.2 'next@>=16.3.4 <17.0.0' 'react@>=19.2.8 <20.0.0' 'react-dom@>=19.2.8 <20.0.0'` | Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.                                                                                                                      | client-next                  |
+| @zmdb/nuxt          | 1.0.0-beta.2 | integration  | provisional | nuxt          | integration: Nuxt 4                                          | `yarn add @zmdb/nuxt@1.0.0-beta.2 'nuxt@>=4.5.2 <5.0.0' 'vue@>=3.5.42 <4.0.0'`                                   | Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.                                                                                                       | client-nuxt                  |
+| @zmdb/orm           | 1.0.0-beta.2 | core         | supported   | orm           | required                                                     | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and seeding. No proxies, no identity map.                                                            | repository                   |
+| @zmdb/postgres      | 1.0.0-beta.2 | integration  | supported   | postgres      | integration: PostgreSQL                                      | `yarn add @zmdb/postgres@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                             | The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspection, node-postgres driver, cursors, and cancellation.                                                                           | dialect-postgres             |
+| @zmdb/protobuf      | 1.0.0-beta.2 | integration  | supported   | protobuf      | integration: Protocol Buffers                                | `yarn add @zmdb/protobuf@1.0.0-beta.2`                                                                           | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                     | protobuf-message             |
+| @zmdb/schema        | 1.0.0-beta.2 | core         | supported   | schema        | required                                                     | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.                                              | schema-declaration           |
+| @zmdb/singlestore   | 1.0.0-beta.2 | integration  | supported   | singlestore   | integration: SingleStore                                     | `yarn add @zmdb/singlestore@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                          | SingleStore vertical for zmdb: MySQL-family compilation, storage-aware migrations, catalog introspection, and mysql2 driver binding.                                                                              | dialect-singlestore          |
+| @zmdb/sql           | 1.0.0-beta.2 | core         | supported   | sql           | required                                                     | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, full-text search, set operations, and schema-object DDL.                                                                           | raw-sql                      |
+| @zmdb/sqlite        | 1.0.0-beta.2 | integration  | supported   | sqlite        | integration: SQLite                                          | `yarn add @zmdb/sqlite@1.0.0-beta.2 @zmdb/orm@1.0.0-beta.2 @zmdb/sql@1.0.0-beta.2`                               | Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.                                                     | dialect-sqlite               |
+| @zmdb/sveltekit     | 1.0.0-beta.2 | integration  | provisional | sveltekit     | integration: SvelteKit                                       | `yarn add @zmdb/sveltekit@1.0.0-beta.2 '@sveltejs/kit@>=2.70.3 <3.0.0' 'svelte@>=5.57.0 <6.0.0'`                 | Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.                                                                      | client-sveltekit             |
+| @zmdb/transport     | 1.0.0-beta.2 | integration  | provisional | transport     | integration: gRPC and broker transports                      | `yarn add @zmdb/transport@1.0.0-beta.2 @zmdb/app@1.0.0-beta.2`                                                   | gRPC, Kafka, NATS, RabbitMQ, Redis, and SQS transport adapters for the protocol-neutral zmdb application messaging contract.                                                                                      | web-microservices-transports |
+| @zmdb/validator     | 1.0.0-beta.2 | core         | supported   | validator     | required                                                     | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/validate/equals/random, unions, transforms, and generated-code errors.                                                             | aot-setup                    |
+| @zmdb/web           | 1.0.0-beta.2 | core         | supported   | web           | required                                                     | `yarn add @zmdb/core@1.0.0-beta.2`                                                                               | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                                                         | web-overview                 |
 
 ### `@zmdb/ai`
 
-Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, and OpenAPI-derived tools for zmdb.
+Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, OpenAPI-derived tools, and optional Anthropic, LangChain, and Vercel AI SDK adapters for zmdb.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `packages/ai/src/langchain/index.spec.ts`)
 - **Exports:**
   - `.` → `./src/index.ts`
+  - `./anthropic` → `./src/anthropic/index.ts`
   - `./chat` → `./src/chat/index.ts`
   - `./compiler` → `./src/compiler.ts`
   - `./http` → `./src/http/index.ts`
+  - `./langchain` → `./src/langchain/index.ts`
   - `./tool-runtime` → `./src/tool-runtime.ts`
+  - `./vercel` → `./src/vercel/index.ts`
 - **Dependencies:** None.
 - **Optional dependencies:** None.
-- **Optional peers:** None.
+- **Optional peers:**
+  - `@anthropic-ai/sdk` → `0.124.0`
+  - `@langchain/core` → `^1.2.9`
+  - `ai` → `^7.0.93`
 - **Required peers:**
   - `@zmdb/schema` → `1.0.0-beta.2`
   - `@zmdb/validator` → `1.0.0-beta.2`
@@ -88,87 +80,13 @@ Provider-neutral AI tool documents, bounded chat orchestration, shared tool invo
 - **Facade exposure:** None.
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
-### `@zmdb/ai-anthropic`
-
-Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:**
-  - `@zmdb/ai` → `workspace:1.0.0-beta.2`
-- **Optional dependencies:** None.
-- **Optional peers:**
-  - `@anthropic-ai/sdk` → `0.124.0`
-- **Required peers:** None.
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
-
-### `@zmdb/ai-langchain`
-
-Optional LangChain structured-tool adapter for provider-neutral zmdb AI tool documents.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:**
-  - `@zmdb/ai` → `workspace:1.0.0-beta.2`
-- **Optional dependencies:** None.
-- **Optional peers:**
-  - `@langchain/core` → `^1.2.9`
-- **Required peers:** None.
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/llm-adapters
-
-### `@zmdb/ai-vercel`
-
-Vercel AI SDK tool integration for provider-neutral zmdb AI contracts.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:**
-  - `@zmdb/ai` → `workspace:1.0.0-beta.2`
-- **Optional dependencies:** None.
-- **Optional peers:**
-  - `ai` → `^7.0.93`
-- **Required peers:** None.
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/llm-adapters
-
-### `@zmdb/angular`
-
-Angular dependency-injection, signal, lifecycle, and Observable bindings for generated zmdb clients.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:** None.
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `@angular/core` → `>=22.1.5 <23.0.0`
-  - `rxjs` → `>=7.8.2 <8.0.0`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/client-adapters
-
 ### `@zmdb/app`
 
-Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.
+Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, observability, and an optional OpenTelemetry
+adapter.
 
 - **Release unit:** `core`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./commands` → `./src/commands/index.ts`
@@ -181,6 +99,7 @@ Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injec
   - `./messaging` → `./src/messaging/index.ts`
   - `./modules` → `./src/modules/index.ts`
   - `./observability` → `./src/observability/index.ts`
+  - `./otel` → `./src/otel/index.ts`
   - `./state` → `./src/state/index.ts`
 - **Dependencies:**
   - `@zmdb/orm` → `workspace:^`
@@ -188,7 +107,8 @@ Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injec
   - `@zmdb/sql` → `workspace:^`
   - `@zmdb/validator` → `workspace:^`
 - **Optional dependencies:** None.
-- **Optional peers:** None.
+- **Optional peers:**
+  - `@opentelemetry/api` → `^1.9.1`
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
@@ -234,6 +154,7 @@ Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injec
 The zmdb executable and developer command APIs for schema, application and HTTP workflows.
 
 - **Release unit:** `tooling`
+- **Support:** `supported` (evidence `packages/cli/src/packed-cli.spec.ts`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -259,20 +180,34 @@ The zmdb executable and developer command APIs for schema, application and HTTP 
 
 ### `@zmdb/client`
 
-Dependency-free HTTP client runtime for generated and manually declared zmdb operations.
+HTTP client runtime for generated and manually declared zmdb operations, with optional Angular, React, React Native, Solid, Svelte, and Vue bindings.
 
 - **Release unit:** `integration`
+- **Support:** `provisional` (evidence `packages/client/src/react/react.spec.ts`, unrun `fixtures/client-adapters`)
 - **Exports:**
   - `.` → `./src/index.ts`
+  - `./angular` → `./src/angular/index.ts`
   - `./body` → `./src/body/index.ts`
   - `./errors` → `./src/errors/index.ts`
   - `./headers` → `./src/headers/index.ts`
+  - `./react` → `./src/react/index.ts`
+  - `./react-native` → `./src/react-native/index.ts`
+  - `./solid` → `./src/solid/index.ts`
+  - `./svelte` → `./src/svelte/index.ts`
   - `./testing` → `./src/testing/index.ts`
   - `./transport` → `./src/transport/index.ts`
   - `./url` → `./src/url/index.ts`
+  - `./vue` → `./src/vue/index.ts`
 - **Dependencies:** None.
 - **Optional dependencies:** None.
-- **Optional peers:** None.
+- **Optional peers:**
+  - `@angular/core` → `>=22.1.5 <23.0.0`
+  - `react` → `>=19.2.8 <20.0.0`
+  - `react-native` → `>=0.87.1 <0.88.0`
+  - `rxjs` → `>=7.8.2 <8.0.0`
+  - `solid-js` → `>=1.9.15 <2.0.0`
+  - `svelte` → `>=5.57.0 <6.0.0`
+  - `vue` → `>=3.5.42 <4.0.0`
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`
@@ -285,6 +220,7 @@ Dependency-free HTTP client runtime for generated and manually declared zmdb ope
 CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `fixtures/database-cockroach`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -307,6 +243,7 @@ CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, 
 The single TypeScript front end for zmdb reflection, AOT emission, code generation, build adapters, lint rules, and project configuration.
 
 - **Release unit:** `tooling`
+- **Support:** `supported` (evidence `packages/compiler/src/metro/metro.integration.spec.ts`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./config` → `./src/config/index.ts`
@@ -347,6 +284,7 @@ The single TypeScript front end for zmdb reflection, AOT emission, code generati
 The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.
 
 - **Release unit:** `core`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./app` → `./src/app.ts`
@@ -433,6 +371,7 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
 Portable typed queues, workers, scheduling, leases, and application lifecycle integration.
 
 - **Release unit:** `core`
+- **Support:** `supported` (evidence `packages/jobs/src/provider-lifecycle.spec.ts`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./schedule` → `./src/schedule/index.ts`
@@ -452,6 +391,7 @@ Portable typed queues, workers, scheduling, leases, and application lifecycle in
 node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `fixtures/consumer-server-integrations`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -472,6 +412,7 @@ node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.
 Explicit SQLite persistence and owned memory storage for portable zmdb jobs.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `fixtures/consumer-server-integrations`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -491,6 +432,7 @@ Explicit SQLite persistence and owned memory storage for portable zmdb jobs.
 Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.
 
 - **Release unit:** `integration`
+- **Support:** `provisional` (evidence `packages/mcp/src/mcp.spec.ts`, unrun `fixtures/consumer-mcp`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -509,6 +451,7 @@ Transport-neutral MCP client and server cores with validated tool dispatch, auth
 Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.
 
 - **Release unit:** `tooling`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./declarations` → `./src/declarations/index.ts`
@@ -537,6 +480,7 @@ Schema snapshots, deterministic migration plans, ledger runners, embedded execut
 Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural node-mssql execution, catalog introspection, and capability metadata.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `fixtures/database-mssql`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -559,6 +503,7 @@ Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural
 Complete MySQL compiler, migrations, introspection, and structural mysql2 driver vertical for zmdb.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `packages/mysql/src/live.spec.ts`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -581,12 +526,12 @@ Complete MySQL compiler, migrations, introspection, and structural mysql2 driver
 Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.
 
 - **Release unit:** `integration`
+- **Support:** `provisional` (evidence `packages/next/src/server.spec.ts`, unrun `fixtures/next-app-router`)
 - **Exports:**
   - `./client` → `./src/client.ts`
   - `./server` → `./src/server.ts`
 - **Dependencies:**
   - `@zmdb/client` → `workspace:1.0.0-beta.2`
-  - `@zmdb/react` → `workspace:1.0.0-beta.2`
   - `server-only` → `0.0.1`
 - **Optional dependencies:** None.
 - **Optional peers:** None.
@@ -605,13 +550,13 @@ Request-scoped Next.js server clients and React browser bindings for generated z
 Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.
 
 - **Release unit:** `integration`
+- **Support:** `provisional` (evidence `packages/nuxt/src/server/server.spec.ts`, unrun `fixtures/client-adapters/nuxt`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./client` → `./src/client/index.ts`
   - `./server` → `./src/server/index.ts`
 - **Dependencies:**
   - `@zmdb/client` → `workspace:1.0.0-beta.2`
-  - `@zmdb/vue` → `workspace:1.0.0-beta.2`
 - **Optional dependencies:** None.
 - **Optional peers:** None.
 - **Required peers:**
@@ -628,6 +573,7 @@ Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration 
 Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and seeding. No proxies, no identity map.
 
 - **Release unit:** `core`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./dto` → `./src/dto/index.ts`
@@ -656,30 +602,12 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `@zmdb/core/orm`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
-### `@zmdb/otel`
-
-OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:** None.
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `@opentelemetry/api` → `^1.9.1`
-  - `@zmdb/app` → `1.0.0-beta.2`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/consumer-server-integrations
-
 ### `@zmdb/postgres`
 
 The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspection, node-postgres driver, cursors, and cancellation.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `fixtures/database-postgres`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -702,6 +630,7 @@ The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspe
 Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./wire` → `./src/wire.ts`
@@ -715,51 +644,12 @@ Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runti
 - **Facade exposure:** None.
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
-### `@zmdb/react`
-
-React context, query, and mutation lifecycle bindings for generated zmdb clients.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:**
-  - `@zmdb/client` → `workspace:1.0.0-beta.2`
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `react` → `>=19.2.8 <20.0.0`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/client-adapters
-
-### `@zmdb/react-native`
-
-React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:**
-  - `@zmdb/client` → `workspace:1.0.0-beta.2`
-  - `@zmdb/react` → `workspace:1.0.0-beta.2`
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `react` → `>=19.2.8 <20.0.0`
-  - `react-native` → `>=0.87.1 <0.88.0`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/client-adapters
-
 ### `@zmdb/schema`
 
 Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.
 
 - **Release unit:** `core`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./custom-types` → `./src/custom-types/index.ts`
@@ -812,6 +702,7 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
 SingleStore vertical for zmdb: MySQL-family compilation, storage-aware migrations, catalog introspection, and mysql2 driver binding.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `packages/singlestore/src/singlestore.live.spec.ts`)
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
@@ -830,30 +721,12 @@ SingleStore vertical for zmdb: MySQL-family compilation, storage-aware migration
   - `@zmdb/core/singlestore`
 - **External proof:** fixtures/database-singlestore
 
-### `@zmdb/solid`
-
-Solid context, resource and owner-lifetime bindings for generated zmdb clients.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:**
-  - `@zmdb/client` → `workspace:1.0.0-beta.2`
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `solid-js` → `>=1.9.15 <2.0.0`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/client-adapters
-
 ### `@zmdb/sql`
 
 SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, full-text search, set operations, and schema-object DDL.
 
 - **Release unit:** `core`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./comments` → `./src/comments/index.ts`
@@ -876,6 +749,7 @@ SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, f
 Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.
 
 - **Release unit:** `integration`
+- **Support:** `supported` (evidence `packages/sqlite/src/driver.spec.ts`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./embedded` → `./src/embedded.ts`
@@ -894,36 +768,17 @@ Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embed
   - `@zmdb/core/sqlite`
 - **External proof:** fixtures/database-sqlite
 
-### `@zmdb/svelte`
-
-Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:**
-  - `@zmdb/client` → `workspace:1.0.0-beta.2`
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `svelte` → `>=5.57.0 <6.0.0`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/client-adapters
-
 ### `@zmdb/sveltekit`
 
 Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.
 
 - **Release unit:** `integration`
+- **Support:** `provisional` (evidence `packages/sveltekit/src/server.spec.ts`, unrun `fixtures/client-adapters/sveltekit-packed`)
 - **Exports:**
   - `./client` → `./src/client.ts`
   - `./server` → `./src/server.ts`
 - **Dependencies:**
   - `@zmdb/client` → `workspace:1.0.0-beta.2`
-  - `@zmdb/svelte` → `workspace:1.0.0-beta.2`
 - **Optional dependencies:** None.
 - **Optional peers:** None.
 - **Required peers:**
@@ -935,126 +790,43 @@ Request-local SvelteKit clients, typed load helpers, explicit credential forward
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters/sveltekit-packed
 
-### `@zmdb/transport-grpc`
+### `@zmdb/transport`
 
-Typed gRPC server and client integration for generated @zmdb/protobuf service artifacts and the @zmdb/app lifecycle.
+gRPC, Kafka, NATS, RabbitMQ, Redis, and SQS transport adapters for the protocol-neutral zmdb application messaging contract.
 
 - **Release unit:** `integration`
+- **Support:** `provisional` (evidence `fixtures/consumer-server-integrations`, unrun `fixtures/consumer-transport-kafka`, `fixtures/consumer-transport-sqs`)
 - **Exports:**
-  - `.` → `./src/index.ts`
+  - `./grpc` → `./src/grpc/index.ts`
+  - `./kafka` → `./src/kafka/index.ts`
+  - `./nats` → `./src/nats/index.ts`
+  - `./rabbitmq` → `./src/rabbitmq/index.ts`
+  - `./redis` → `./src/redis/index.ts`
+  - `./sqs` → `./src/sqs/index.ts`
 - **Dependencies:**
   - `@zmdb/protobuf` → `workspace:1.0.0-beta.2`
 - **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `@grpc/grpc-js` → `^1.14.4`
-  - `@zmdb/app` → `1.0.0-beta.2`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/consumer-server-integrations
-
-### `@zmdb/transport-kafka`
-
-Kafka event transport with ordered manual offsets, partition retries and bounded application lifecycle.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:** None.
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `@zmdb/app` → `1.0.0-beta.2`
-  - `kafkajs` → `>=2.2.4 <3.0.0`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/consumer-transport-kafka
-
-### `@zmdb/transport-nats`
-
-Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:** None.
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `@nats-io/transport-node` → `^3.4.0`
-  - `@zmdb/app` → `1.0.0-beta.2`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/consumer-server-integrations
-
-### `@zmdb/transport-rabbitmq`
-
-RabbitMQ transport strategy for the zmdb application messaging contract, with confirmed retries and owned dead-letter topology.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:** None.
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `@zmdb/app` → `1.0.0-beta.2`
-  - `amqplib` → `^2.0.1`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/consumer-server-integrations
-
-### `@zmdb/transport-redis`
-
-Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:** None.
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `@zmdb/app` → `1.0.0-beta.2`
-  - `redis` → `^6.2.1`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/consumer-server-integrations
-
-### `@zmdb/transport-sqs`
-
-SQS standard-queue transport for the zmdb application messaging contract, with explicit receipts, retry visibility and confirmed dead-letter handoff.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:** None.
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
+- **Optional peers:**
   - `@aws-sdk/client-sqs` → `>=3.1127.0 <4.0.0`
+  - `@grpc/grpc-js` → `^1.14.4`
+  - `@nats-io/transport-node` → `^3.4.0`
+  - `amqplib` → `^2.0.1`
+  - `kafkajs` → `>=2.2.4 <3.0.0`
+  - `redis` → `^6.2.1`
+- **Required peers:**
   - `@zmdb/app` → `1.0.0-beta.2`
 - **Engines:**
   - `node` → `>=26`
 - **License:** `MPL-2.0`
 - **Facade exposure:** None.
-- **External proof:** fixtures/consumer-transport-sqs
+- **External proof:** fixtures/consumer-server-integrations
 
 ### `@zmdb/validator`
 
 Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/validate/equals/random, unions, transforms, and generated-code errors.
 
 - **Release unit:** `core`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./advanced` → `./src/advanced/index.ts`
@@ -1078,30 +850,12 @@ Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/v
   - `@zmdb/core/validator`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
-### `@zmdb/vue`
-
-Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb clients.
-
-- **Release unit:** `integration`
-- **Exports:**
-  - `.` → `./src/index.ts`
-- **Dependencies:**
-  - `@zmdb/client` → `workspace:1.0.0-beta.2`
-- **Optional dependencies:** None.
-- **Optional peers:** None.
-- **Required peers:**
-  - `vue` → `>=3.5.42 <4.0.0`
-- **Engines:**
-  - `node` → `>=26`
-- **License:** `MPL-2.0`
-- **Facade exposure:** None.
-- **External proof:** fixtures/client-adapters/vue
-
 ### `@zmdb/web`
 
 HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.
 
 - **Release unit:** `core`
+- **Support:** `supported` (evidence `.github/scripts/verify-publish.mjs`)
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./app` → `./src/app/index.ts`

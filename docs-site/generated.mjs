@@ -146,6 +146,22 @@ function releaseGroupLabel(row, releasePolicy) {
   return releasePolicy[row.id]?.group ?? 'unclassified';
 }
 
+function supportTier(row, releasePolicy) {
+  return releasePolicy[row.id]?.support?.tier ?? 'undeclared';
+}
+
+// A provisional tier is only honest if the reader can see what is missing, so the detail
+// line names the evidence that runs and the evidence that does not.
+function supportDetail(row, releasePolicy) {
+  const support = releasePolicy[row.id]?.support;
+  const tier = supportTier(row, releasePolicy);
+  if (support?.evidence === undefined) return `\`${tier}\``;
+  const gaps = support.gaps ?? [];
+  const evidence = `evidence \`${String(support.evidence)}\``;
+  const missing = gaps.length === 0 ? '' : `, unrun ${gaps.map(gap => `\`${gap}\``).join(', ')}`;
+  return `\`${tier}\` (${evidence}${missing})`;
+}
+
 function consumerLabel(consumer) {
   if (typeof consumer?.fixture === 'string') return consumer.fixture;
   if (typeof consumer?.reason === 'string') return consumer.reason;
@@ -234,11 +250,22 @@ export function renderPackageReferenceRows(rows, manifests, releasePolicy) {
     .map(row => ({ row, manifest: packageManifest(manifests, row.directory) }));
 
   const summary = renderMarkdownTable(
-    ['Package', 'Version', 'Release unit', 'Role', 'Install mode', 'Installation', 'Description', 'Documentation'],
+    [
+      'Package',
+      'Version',
+      'Release unit',
+      'Support',
+      'Role',
+      'Install mode',
+      'Installation',
+      'Description',
+      'Documentation',
+    ],
     packages.map(({ row, manifest }) => [
       manifest.name ?? row.npmName,
       manifest.version ?? 'missing',
       releaseGroupLabel(row, releasePolicy),
+      supportTier(row, releasePolicy),
       row.role,
       optionalityLabel(row.optionality),
       `\`${installCommand(row, manifest, productManifest)}\``,
@@ -254,6 +281,7 @@ export function renderPackageReferenceRows(rows, manifests, releasePolicy) {
       wrapParagraph(manifest.description ?? 'No package description is present in the manifest.'),
       '',
       `- **Release unit:** \`${releaseGroupLabel(row, releasePolicy)}\``,
+      `- **Support:** ${supportDetail(row, releasePolicy)}`,
     ];
     listMap(lines, 'Exports', manifestEntries(manifest.exports));
     listMap(lines, 'Dependencies', manifestEntries(manifest.dependencies));
@@ -276,13 +304,22 @@ export function renderIntegrationRows(records) {
     .map(record => [
       record.capability,
       record.status,
+      record.entry ?? record.package ?? '—',
       record.package ?? '—',
       (record.peers ?? []).join('<br>') || '—',
       `[${record.docs}](./${record.docs}.html)`,
       (record.evidence ?? []).map(path => `\`${path}\``).join('<br>'),
     ]);
   return renderMarkdownTable(
-    ['Framework', 'Status', 'Public package', 'Framework peers', 'Documentation', 'Repository evidence'],
+    [
+      'Framework',
+      'Status',
+      'Import entry',
+      'Published package',
+      'Framework peers',
+      'Documentation',
+      'Repository evidence',
+    ],
     rows,
   );
 }
@@ -311,6 +348,18 @@ export function verifyIntegrationRecords(rows, records, options = {}) {
     if (record.package !== null && !packages.has(record.package)) {
       problems.push(`integration ${record.capability} names uncatalogued package ${record.package}`);
     }
+    if (record.entry !== undefined) {
+      if (typeof record.entry !== 'string' || !record.entry.startsWith(`${String(record.package)}/`)) {
+        problems.push(`integration ${record.capability} entry ${String(record.entry)} is not a subpath of its package`);
+      } else if (manifests !== undefined) {
+        const owner = packages.get(record.package);
+        const exported = packageManifest(manifests, owner?.directory ?? '').exports ?? {};
+        const subpath = `.${record.entry.slice(String(record.package).length)}`;
+        if (!Object.hasOwn(exported, subpath)) {
+          problems.push(`integration ${record.capability} entry ${record.entry} is not exported by ${record.package}`);
+        }
+      }
+    }
     if (record.status === 'not-planned' && record.package !== null) {
       problems.push(`not-planned integration ${record.capability} must not name a package`);
     }
@@ -337,9 +386,14 @@ export function verifyIntegrationRecords(rows, records, options = {}) {
         }
         if (manifests !== undefined && record.package !== null) {
           const manifest = packageManifest(manifests, owner?.directory ?? '');
+          const optional = new Set(optionalPeerEntries(manifest).map(([name]) => name));
           for (const peer of record.peers) {
             if (manifest.peerDependencies?.[peer] === undefined) {
               problems.push(`integration ${record.capability} peer ${peer} is absent from ${record.package}`);
+            } else if (record.entry !== undefined && !optional.has(peer)) {
+              // Only one entry point of a multi-binding package needs this framework, so
+              // installing the package must not oblige every consumer to install it too.
+              problems.push(`integration ${record.capability} peer ${peer} must be optional on ${record.package}`);
             }
           }
         }

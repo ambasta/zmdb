@@ -2,9 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- **product:** Declare a support tier per package, `supported` or `provisional`, with the evidence that justifies it and, for a provisional package, the evidence no push runs. Twenty-one packages are
+  supported and six are provisional.
+- **product:** Refuse a stable version or release target for a package that is not supported, a supported package that depends on a provisional one, and a tier that names a path absent from the
+  repository.
+
 ### Changed
 
 - **product:** Fold sixteen single-purpose packages into entry points of four, taking the published set from 42 packages to 27.
+- **product:** Publish the support tier and its evidence in the generated package reference and on a new support-tiers page, and record the versioning contract in `PUBLISHING.md`.
 - **client:** Publish the Angular, React, React Native, Solid, Svelte and Vue bindings as `@zmdb/client` subpaths, each framework library an optional peer.
 - **transport:** Add `@zmdb/transport`, one package with a subpath per gRPC and broker transport, no root export and every client library an optional peer.
 - **ai:** Publish the Anthropic, LangChain and Vercel AI SDK adapters as `@zmdb/ai` subpaths with optional provider peers.

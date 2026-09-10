@@ -4,7 +4,8 @@
 
 > **Project status: pre-1.0** (`1.0.0-beta.2`). zmdb is authored and reviewed by LLMs under the oversight of a single maintainer. The public API may change without notice before 1.0.0, there is no
 > release cadence or support commitment yet, and there is no LTS. It requires Node 26+ and TypeScript 7.0+, and it has not been exercised in production. Use it where you can afford to follow a moving
-> API; the [anti-patterns page](https://ambasta.github.io/zmdb/docs/anti-patterns.html) is the fastest way to find out whether its design suits you.
+> API; the [anti-patterns page](https://ambasta.github.io/zmdb/docs/anti-patterns.html) is the fastest way to find out whether its design suits you. Twenty-one packages are `supported` and six are
+> `provisional`; [support tiers](./docs-site/content/support-tiers.md) states what each version number promises and what evidence stands behind it.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -111,7 +112,8 @@ See also [ARCHITECTURE.md](./ARCHITECTURE.md) and the [COOKBOOK.md](./COOKBOOK.m
 ## Architecture
 
 Read [ARCHITECTURE.md](./ARCHITECTURE.md) for the policy-generated package graph and admission workflow, [PUBLISHING.md](./PUBLISHING.md) for the current executable publication workflow,
-[`scripts/release/SPEC.md`](./scripts/release/SPEC.md) for the frozen release-group and compatibility contract, and [COOKBOOK.md](./COOKBOOK.md) for practical examples.
+[`scripts/release/SPEC.md`](./scripts/release/SPEC.md) for the frozen release-group and compatibility contract, [support tiers](./docs-site/content/support-tiers.md) for what each version number
+promises, and [COOKBOOK.md](./COOKBOOK.md) for practical examples.
 
 ## Benchmarks
 

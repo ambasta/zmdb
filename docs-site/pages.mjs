@@ -1229,6 +1229,10 @@ export const PAGE_META = {
     status: 'todo',
     note: 'catalog contract frozen; generated package rows and the verified one-product documentation journey are pending',
   },
+  'support-tiers': {
+    title: 'Support tiers and versioning',
+    status: 'supported',
+  },
   benchmarks: {
     title: 'Benchmarks',
     status: 'supported',

@@ -360,6 +360,7 @@ export const PRODUCT_JOURNEY = [
       'benchmarks',
       'web-benchmarks',
       'package-reference',
+      'support-tiers',
     ],
   },
 ];
@@ -422,6 +423,11 @@ export const CANONICAL_PAGE_ADDITIONS = {
   },
   'package-reference': {
     title: 'Package reference',
+    group: 'Reference',
+    status: 'supported',
+  },
+  'support-tiers': {
+    title: 'Support tiers and versioning',
     group: 'Reference',
     status: 'supported',
   },
