@@ -497,7 +497,7 @@ describe('header versioning', () => {
     expect(`${await bodyText(v1)} ${await bodyText(v2)}`).toBe('"versioned" "neutral"');
   });
 
-  it('preserves registration order between different neutral and versioned patterns', async () => {
+  it('lets exact static routes take precedence over param routes in the trie between neutral and versioned routes', async () => {
     const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
     router.register(new NeutralParameterController());
     router.register(new VersionedFixedController());
@@ -507,7 +507,7 @@ describe('header versioning', () => {
       path: '/mixed-order/fixed',
       headers: { 'accept-version': '1' },
     });
-    expect(await bodyText(response)).toBe('"neutral-parameter"');
+    expect(await bodyText(response)).toBe('"versioned-fixed"');
   });
 
   it('lets a neutral route answer a version no route declares', async () => {
@@ -521,7 +521,7 @@ describe('header versioning', () => {
     expect(`${response.status} ${await bodyText(response)}`).toBe('200 "ok"');
   });
 
-  it('preserves first-registered route ordering within one version bucket', async () => {
+  it('lets exact static routes take precedence over param routes in the trie within one version bucket', async () => {
     const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
     router.register(new OrderedController());
     const response = await router.handle({
@@ -529,7 +529,7 @@ describe('header versioning', () => {
       path: '/order/fixed',
       headers: { 'accept-version': '1' },
     });
-    expect(await bodyText(response)).toBe('"parameter"');
+    expect(await bodyText(response)).toBe('"fixed"');
   });
 
   it('refuses two routes with the same method, path and version', () => {
