@@ -42,6 +42,7 @@ import { type Sql } from '@zmdb/schema/tags';
 import {
   trustedTable,
   type AliasedColumn,
+  type Operator,
   type ColumnExpr,
   type ComparisonPredicate,
   type CompiledQuery,
@@ -1915,7 +1916,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                 [{ leftCol, rightCol }],
                 predicates,
               );
-        if (where) builder = builder.where(this.aggregateColumn(where.col), where.op, where.value);
+        if (where) builder = builder.where(this.aggregateColumn(where.col), where.op as Operator, where.value);
         return builder;
       },
       {
@@ -2214,7 +2215,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           const physicalColumn = this.aggregateColumn(col);
           if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
             for (const [op, opVal] of Object.entries(val)) {
-              builder = builder.where(physicalColumn, op === 'eq' ? '=' : op, opVal);
+              builder = builder.where(physicalColumn, (op === 'eq' ? '=' : op) as Operator, opVal);
             }
           } else {
             builder = builder.where(physicalColumn, '=', val);
@@ -2223,7 +2224,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
 
       if (spec.having) {
-        builder = builder.having(this.aggregateColumn(String(spec.having.column)), spec.having.op, spec.having.value);
+        builder = builder.having(
+          this.aggregateColumn(String(spec.having.column)),
+          spec.having.op as Operator,
+          spec.having.value,
+        );
       }
 
       if (spec.orderBy) {
