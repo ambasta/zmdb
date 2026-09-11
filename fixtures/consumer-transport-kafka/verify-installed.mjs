@@ -100,9 +100,30 @@ async function run(label, executable, argv, cwd, env = {}) {
   return result.stdout;
 }
 
+function bytesToBase64(bytes) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let base64 = '';
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b1 = bytes[i] ?? 0;
+    const b2 = i + 1 < len ? (bytes[i + 1] ?? 0) : 0;
+    const b3 = i + 2 < len ? (bytes[i + 2] ?? 0) : 0;
+    const tri = (b1 << 16) | (b2 << 8) | b3;
+    base64 += chars[(tri >> 18) & 63] + chars[(tri >> 12) & 63];
+    base64 += i + 1 < len ? chars[(tri >> 6) & 63] : '=';
+    base64 += i + 2 < len ? chars[tri & 63] : '=';
+  }
+  return base64;
+}
+
 async function digest(bytes, algorithm, encoding = 'hex') {
   const hashed = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hashed.toBase64() : hashed.toHex();
+  if (encoding === 'base64') {
+    return typeof hashed.toBase64 === 'function' ? hashed.toBase64() : bytesToBase64(hashed);
+  }
+  return typeof hashed.toHex === 'function'
+    ? hashed.toHex()
+    : Array.from(hashed, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 try {
