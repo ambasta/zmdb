@@ -109,7 +109,7 @@ describe('aggregate compilation (postgres golden)', () => {
       .expr('sum(quantity * unit_price)::real', 'total')
       .groupBy('order_id')
       .compile();
-    expect(q.text).toContain('sum(quantity * unit_price)::real AS "total"');
+    expect(q.text).toContain('sum("quantity" * "unit_price")::real AS "total"');
   });
 });
 
