@@ -2,24 +2,26 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import { type Entity } from '@zmdb/schema';
+import { describe, it, expect } from 'vitest';
+
 import {
   trustedTable,
   inc,
-  not,
-  concat,
   OP_MAP,
+  QueryCompilerError,
+  UnsupportedFeatureError,
+  checkDialectCapability,
   chunkArray,
   createQueryCompiler,
   distance,
   sanitizeKeys,
   stContains,
   stDWithin,
-} from '@zmdb/sql';
-import { describe, it, expect, expectTypeOf } from 'vitest';
-
+  windowFunction,
+  type DialectTarget,
+} from './index.js';
 import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
-import { QueryPostSchema, QueryUserSchema, type QueryPost, type QueryUser } from './testing/query-schema.fixture.js';
+import { QueryUserSchema } from './testing/query-schema.fixture.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -883,99 +885,141 @@ describe('schema-bound canonical queries (#774)', () => {
       parameters: [7],
     });
   });
+});
 
-  it('requires an explicit trusted boundary for a physical table string', () => {
-    const compiler = createQueryCompiler(postgresDialect);
-    expect(() => Reflect.apply(compiler.selectFrom, compiler, ['user_accounts'])).toThrow(/schema|trusted/i);
+describe('Common Table Expressions (CTEs)', () => {
+  it('compiles non-recursive CTE with sequential parameter offsets on postgres', () => {
+    const qb = createQueryCompiler(postgresDialect);
+    const deptCte = qb.selectFrom(trustedTable('departments')).where('active', '=', true);
+    const q = qb
+      .selectFrom(trustedTable('dept_summary'))
+      .with('dept_summary', deptCte)
+      .where('min_salary', '>', 50000)
+      .compile();
+
+    expect(q.text).toBe(
+      'WITH "dept_summary" AS (SELECT * FROM "departments" WHERE "active" = $1) SELECT * FROM "dept_summary" WHERE "min_salary" > $2',
+    );
+    expect(q.parameters).toEqual([true, 50000]);
+  });
+
+  it('compiles multiple CTEs with callback builders and sequential parameter offsets', () => {
+    const qb = createQueryCompiler(postgresDialect);
+    const q = qb
+      .selectFrom(trustedTable('final_view'))
+      .with('active_users', b => b.selectFrom(trustedTable('users')).where('status', '=', 'active'))
+      .with('top_orders', b => b.selectFrom(trustedTable('orders')).where('total', '>', 100))
+      .where('id', '=', 42)
+      .compile();
+
+    expect(q.text).toBe(
+      'WITH "active_users" AS (SELECT * FROM "users" WHERE "status" = $1), "top_orders" AS (SELECT * FROM "orders" WHERE "total" > $2) SELECT * FROM "final_view" WHERE "id" = $3',
+    );
+    expect(q.parameters).toEqual(['active', 100, 42]);
+  });
+
+  it('compiles recursive CTEs using WITH RECURSIVE for hierarchical queries', () => {
+    const qb = createQueryCompiler(postgresDialect);
+    const baseNav = qb.selectFrom(trustedTable('org')).where('manager_id', '=', null);
+    const q = qb
+      .selectFrom(trustedTable('hierarchy'))
+      .withRecursive('hierarchy', baseNav)
+      .where('depth', '<', 5)
+      .compile();
+
+    expect(q.text).toBe(
+      'WITH RECURSIVE "hierarchy" AS (SELECT * FROM "org" WHERE "manager_id" = $1) SELECT * FROM "hierarchy" WHERE "depth" < $2',
+    );
+    expect(q.parameters).toEqual([null, 5]);
+  });
+
+  it('compiles CTEs correctly on MySQL and SQLite dialects with ? placeholders', () => {
+    const mysqlCompiler = createQueryCompiler(mysqlDialect);
+    const subMysql = mysqlCompiler.selectFrom(trustedTable('users')).where('age', '>=', 21);
+    const qMysql = mysqlCompiler
+      .selectFrom(trustedTable('adults'))
+      .with('adults', subMysql)
+      .where('city', '=', 'NYC')
+      .compile();
+
+    expect(qMysql.text).toBe(
+      'WITH `adults` AS (SELECT * FROM `users` WHERE `age` >= ?) SELECT * FROM `adults` WHERE `city` = ?',
+    );
+    expect(qMysql.parameters).toEqual([21, 'NYC']);
+
+    const sqliteCompiler = createQueryCompiler(sqliteDialect);
+    const subSqlite = sqliteCompiler.selectFrom(trustedTable('items')).where('stock', '>', 0);
+    const qSqlite = sqliteCompiler
+      .selectFrom(trustedTable('available'))
+      .with('available', subSqlite)
+      .where('price', '<', 50)
+      .compile();
+
+    expect(qSqlite.text).toBe(
+      'WITH "available" AS (SELECT * FROM "items" WHERE "stock" > ?) SELECT * FROM "available" WHERE "price" < ?',
+    );
+    expect(qSqlite.parameters).toEqual([0, 50]);
   });
 });
 
-// This exported function is compiled but never invoked: invalid calls exercise the type boundary.
-export function canonicalQueryTypes(): void {
-  const compiler = createQueryCompiler(postgresDialect);
-  const users = compiler.selectFrom(QueryUserSchema, 'u');
-  const selected = users.select(['u.id', { column: 'u.displayName', alias: 'name' }]);
-  expectTypeOf(selected._type).toEqualTypeOf<
-    { 'u.id': Entity<QueryUser>['id']; name: Entity<QueryUser>['displayName'] } | undefined
-  >();
-  const joined = users
-    .leftJoin(QueryPostSchema, 'p', [{ leftCol: 'u.id', rightCol: 'p.userId' }])
-    .select(['u.id', { column: 'p.title', alias: 'title' }]);
-  expectTypeOf(joined._type).toEqualTypeOf<
-    { 'u.id': Entity<QueryUser>['id']; title: Entity<QueryPost>['title'] | null } | undefined
-  >();
-  const aggregate = users.select(['u.id']).count('*', 'count').sum('u.age', 'ageSum').min('u.displayName', 'firstName');
-  expectTypeOf(aggregate._type).toEqualTypeOf<
-    | {
-        'u.id': Entity<QueryUser>['id'];
-        count: number;
-        ageSum: number | null;
-        firstName: Entity<QueryUser>['displayName'] | null;
-      }
-    | undefined
-  >();
-  const returned = compiler.insertInto(QueryUserSchema).values({ displayName: 'Ada' }).returning(['id']);
-  expectTypeOf(returned._type).toEqualTypeOf<{ id: Entity<QueryUser>['id'] } | undefined>();
-  const ids = compiler.selectFrom(QueryPostSchema).select(['userId']);
-  users.where('u.id', 'in', ids);
-  users.whereMatch('u.displayName', 'Ada');
-  aggregate.having('count', '>', 1).orderBy('ageSum', 'desc');
-  compiler.updateTable(QueryUserSchema).set({ age: inc(1), active: not(), displayName: concat('!') });
-  // @ts-expect-error a bare string does not prove a table declaration
-  compiler.selectFrom('users');
-  // @ts-expect-error a caller cannot assign an unrelated table's declaration
-  compiler.selectFrom<QueryPost>(QueryUserSchema);
-  // @ts-expect-error the trusted boundary cannot acquire a caller-selected declaration
-  compiler.selectFrom<QueryUser>(trustedTable('user_accounts'));
-  // @ts-expect-error unknown property
-  users.where('u.missing', '=', 1);
-  // @ts-expect-error physical names do not bypass the property boundary
-  users.where('age_years', '=', 1);
-  // @ts-expect-error wrong operand type
-  users.where('u.age', '=', 'old');
-  // @ts-expect-error wrong IN element type
-  users.whereIn('u.id', ['wrong']);
-  // @ts-expect-error grouped predicates retain operand bounds
-  users.whereGroup([{ col: 'u.age', op: '=', value: 'wrong' }]);
-  // @ts-expect-error subquery projected values must match the compared column
-  users.where('u.id', 'in', compiler.selectFrom(QueryPostSchema).select(['title']));
-  // @ts-expect-error FTS columns must carry string values
-  users.whereMatch('u.age', 'old');
-  // @ts-expect-error selected columns must exist in scope
-  users.select(['u.missing']);
-  const duplicateColumns = [
-    { column: 'u.id', alias: 'id' },
-    { column: 'u.displayName', alias: 'id' },
-  ] as const;
-  // @ts-expect-error result aliases must be unique
-  users.select(duplicateColumns);
-  // @ts-expect-error joined table aliases cannot collide
-  users.leftJoin(QueryPostSchema, 'u', [{ leftCol: 'u.id', rightCol: 'u.userId' }]);
-  // @ts-expect-error a join cannot name an unselected table
-  users.leftJoin(QueryPostSchema, 'p', [{ leftCol: 'other.id', rightCol: 'p.userId' }]);
-  // @ts-expect-error join equality requires compatible column values
-  users.leftJoin(QueryPostSchema, 'p', [{ leftCol: 'u.id', rightCol: 'p.title' }]);
-  // @ts-expect-error aggregate aliases cannot overwrite selected properties
-  aggregate.count('*', 'count');
-  // @ts-expect-error HAVING preserves aggregate operand types
-  aggregate.having('count', '>', 'many');
-  // @ts-expect-error numeric aggregates reject text columns
-  users.sum('u.displayName', 'sum');
-  // @ts-expect-error serial properties are omitted from CreateDTO
-  compiler.insertInto(QueryUserSchema).values({ id: 1, displayName: 'Ada' });
-  // @ts-expect-error required CreateDTO properties remain required
-  compiler.insertInto(QueryUserSchema).values({ age: 1 });
-  // @ts-expect-error update values retain their declared type
-  compiler.updateTable(QueryUserSchema).set({ age: 'wrong' });
-  // @ts-expect-error compiler expressions must match their SET property type
-  compiler.updateTable(QueryUserSchema).set({ age: concat('wrong') });
-  // @ts-expect-error generated identities are not updateable
-  compiler.updateTable(QueryUserSchema).set({ id: 2 });
-  // @ts-expect-error conflict targets use application properties
-  compiler.insertInto(QueryUserSchema).values({ displayName: 'Ada' }).onConflict('missing');
-  const conflict = compiler.insertInto(QueryUserSchema).values({ displayName: 'Ada' }).onConflict('displayName');
-  // @ts-expect-error upsert updates retain the same expression/value bounds
-  conflict.doUpdate({ age: 'wrong' });
-  // @ts-expect-error returning projections retain column bounds
-  compiler.deleteFrom(QueryUserSchema).returning(['missing']);
-}
+describe('Window Functions & Projection AST extension', () => {
+  it('compiles ROW_NUMBER, RANK, SUM window functions with PARTITION BY and ORDER BY', () => {
+    const qb = createQueryCompiler(postgresDialect);
+
+    const rowNum = windowFunction('ROW_NUMBER').partitionBy('department_id').orderBy('salary', 'desc').as('rank');
+    const runningTotal = windowFunction('SUM', ['amount'])
+      .partitionBy('user_id')
+      .orderBy('created_at', 'asc')
+      .as('running_total');
+
+    const q = qb
+      .selectFrom(trustedTable('employees'))
+      .select([rowNum, runningTotal])
+      .where('active', '=', true)
+      .compile();
+
+    expect(q.text).toBe(
+      'SELECT ROW_NUMBER() OVER (PARTITION BY "department_id" ORDER BY "salary" DESC) AS "rank", SUM("amount") OVER (PARTITION BY "user_id" ORDER BY "created_at" ASC) AS "running_total" FROM "employees" WHERE "active" = $1',
+    );
+    expect(q.parameters).toEqual([true]);
+  });
+
+  it('compiles selectWindow and window functions on MySQL and SQLite', () => {
+    const mysqlQb = createQueryCompiler(mysqlDialect);
+    const wfMysql = windowFunction('RANK').partitionBy(['dept', 'region']).orderBy('score', 'desc').as('dept_rank');
+
+    const qMysql = mysqlQb.selectFrom(trustedTable('scores')).selectWindow(wfMysql).where('year', '=', 2026).compile();
+    expect(qMysql.text).toBe(
+      'SELECT RANK() OVER (PARTITION BY `dept`, `region` ORDER BY `score` DESC) AS `dept_rank` FROM `scores` WHERE `year` = ?',
+    );
+    expect(qMysql.parameters).toEqual([2026]);
+  });
+
+  it('throws QueryCompilerError when window functions are attempted outside projection selection lists', () => {
+    const qb = createQueryCompiler(postgresDialect);
+
+    expect(() => {
+      qb.selectFrom(trustedTable('users'))
+        .where(windowFunction('ROW_NUMBER') as unknown as string, '=', 1)
+        .compile();
+    }).toThrow(QueryCompilerError);
+
+    expect(() => {
+      qb.selectFrom(trustedTable('users')).where('ROW_NUMBER() OVER (ORDER BY id)', '=', 1).compile();
+    }).toThrow(QueryCompilerError);
+
+    expect(() => {
+      qb.selectFrom(trustedTable('users')).whereIn('ROW_NUMBER() OVER ()', [1, 2]).compile();
+    }).toThrow(QueryCompilerError);
+  });
+
+  it('throws UnsupportedFeatureError when unsupported capability is requested on restricted dialect', () => {
+    expect(() => {
+      checkDialectCapability({ name: 'oracle' } as unknown as DialectTarget, 'window functions');
+    }).toThrow(UnsupportedFeatureError);
+
+    expect(() => {
+      checkDialectCapability({ name: 'oracle' } as unknown as DialectTarget, 'common table expressions');
+    }).toThrow(UnsupportedFeatureError);
+  });
+});

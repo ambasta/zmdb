@@ -7,10 +7,36 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const source = dirname(fileURLToPath(import.meta.url));
 const root = resolve(source, '../..');
+function toHex(bytes) {
+  if (typeof bytes.toHex === 'function') return bytes.toHex();
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function toBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const triplet = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    result +=
+      chars[(triplet >> 18) & 63] + chars[(triplet >> 12) & 63] + chars[(triplet >> 6) & 63] + chars[triplet & 63];
+  }
+  if (i < bytes.length) {
+    const byte1 = bytes[i];
+    const byte2 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const triplet = (byte1 << 16) | (byte2 << 8);
+    result += chars[(triplet >> 18) & 63] + chars[(triplet >> 12) & 63];
+    result += i + 1 < bytes.length ? chars[(triplet >> 6) & 63] : '=';
+    result += '=';
+  }
+  return result;
+}
+
 const hash = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const input = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, input));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  return encoding === 'base64' ? toBase64(digest) : toHex(digest);
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);
