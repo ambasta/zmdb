@@ -212,6 +212,58 @@ describe('optional compile-time telemetry', () => {
   });
 });
 
+describe('expr() sanitized computed expressions', () => {
+  it('expr() emits a sanitized computed expression with alias and quoted column identifiers', () => {
+    const q1 = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('orders'))
+      .expr('sum(quantity * unit_price)::real', 'total')
+      .compile();
+    expect(q1.text).toBe('SELECT sum("quantity" * "unit_price")::real AS "total" FROM "orders"');
+
+    const q2 = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('orders'))
+      .expr('sum(order_details.quantity * order_details.unit_price)', 'total')
+      .compile();
+    expect(q2.text).toBe(
+      'SELECT sum("order_details"."quantity" * "order_details"."unit_price") AS "total" FROM "orders"',
+    );
+
+    const q3 = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('orders'))
+      .expr('sum(quantity * ?) * ?', 'discounted_total', [0.9, 100])
+      .compile();
+    expect(q3.text).toBe('SELECT sum("quantity" * $1) * $2 AS "discounted_total" FROM "orders"');
+    expect(q3.parameters).toEqual([0.9, 100]);
+
+    const q4 = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('orders'))
+      .expr('sum(quantity * :multiplier) + :offset', 'adjusted_total', { multiplier: 1.5, offset: 50 })
+      .compile();
+    expect(q4.text).toBe('SELECT sum("quantity" * $1) + $2 AS "adjusted_total" FROM "orders"');
+    expect(q4.parameters).toEqual([1.5, 50]);
+
+    const q5 = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('orders'))
+      .expr("CASE WHEN status = 'active' THEN price * 1.1 ELSE price END", 'discounted_price')
+      .compile();
+    expect(q5.text).toBe(
+      'SELECT CASE WHEN "status" = $1 THEN "price" * $2 ELSE "price" END AS "discounted_price" FROM "orders"',
+    );
+    expect(q5.parameters).toEqual(['active', 1.1]);
+  });
+
+  it('neutralizes malicious raw expressions', () => {
+    const maliciousInput = "'; DROP TABLE orders; --";
+    const q = createQueryCompiler(postgresDialect)
+      .selectFrom(trustedTable('orders'))
+      .expr('title = ?', 'matched', [maliciousInput])
+      .compile();
+
+    expect(q.text).toBe('SELECT "title" = $1 AS "matched" FROM "orders"');
+    expect(q.parameters).toEqual(["'; DROP TABLE orders; --"]);
+  });
+});
+
 describe('utility functions', () => {
   it('sanitizeKeys removes null/undefined and deduplicates while preserving order', () => {
     const raw = [1, 2, null, 2, undefined, 3, 1, null, 4];
