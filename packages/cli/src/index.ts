@@ -613,7 +613,7 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
   try {
     const { createReplSession, replHistoryPath } = await import('./repl.js');
     await withSignals(async until => {
-      await using session = await createReplSession(root, {
+      const session = await createReplSession(root, {
         configPath: parsed.config,
         moduleSpec: options.moduleSpec,
         cwd: io.cwd,
@@ -623,7 +623,11 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
         historyPath: options.history ? replHistoryPath(io.environment, io.homeDirectory) : null,
         terminal: io.stdinIsTTY && streamIsTTY(io.output),
       });
-      await Promise.race([session.closed, until]);
+      try {
+        await Promise.race([session.closed, until]);
+      } finally {
+        await session[Symbol.asyncDispose]?.();
+      }
     });
     return 0;
   } catch (error) {
