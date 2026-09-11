@@ -57,6 +57,26 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
+      - name: Start CockroachDB 26.2.2
+        run: |
+          docker run --detach --name zmdb-cockroach-publish \
+            --entrypoint /cockroach/cockroach \
+            --publish 26257:26257 --publish 8080:8080 \
+            cockroachdb/cockroach:v26.2.2 \
+            start-single-node --insecure \
+            --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080
+          for attempt in $(seq 1 30); do
+            if docker exec zmdb-cockroach-publish cockroach sql --insecure --execute 'SELECT 1' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs zmdb-cockroach-publish
+          exit 1
+
+      - name: Pre-publish Dependency Vulnerability Audit
+        run: node .github/scripts/verify-audit.mjs
+
       - name: Resolve the prepared release
         env:
           REQUESTED_RELEASE: ${{ inputs.release }}

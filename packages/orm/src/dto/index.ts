@@ -5,11 +5,13 @@
 import { isRecord, type DeclaredTable } from '@zmdb/schema';
 import type { WhereDTO, UnknownRow, OrderDir, OrderBySpec, PaginationSpec } from '@zmdb/schema/dto';
 import {
-  trustedTable,
   createQueryCompiler,
+  trustedTable,
   type ComparisonPredicate,
-  type Predicate,
+  type DistanceOp,
+  type Operator,
   type SqlDialect,
+  type UnsafeOperator,
 } from '@zmdb/sql';
 import { ValidationError } from '@zmdb/validator';
 
@@ -22,10 +24,10 @@ import { ValidationError } from '@zmdb/validator';
  * every helper ended in `return b as B`.
  */
 export interface WhereTarget {
-  where(col: string, op: string, value: unknown): this;
-  orWhere(col: string, op: string, value: unknown): this;
-  whereGroup?(predicates: readonly Predicate[]): this;
-  orWhereGroup?(predicates: readonly Predicate[]): this;
+  where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): this;
+  orWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): this;
+  whereGroup?(predicates: readonly ComparisonPredicate[]): this;
+  orWhereGroup?(predicates: readonly ComparisonPredicate[]): this;
   whereExists?(subquery: unknown): this;
   orWhereExists?(subquery: unknown): this;
   whereNotExists?(subquery: unknown): this;
@@ -48,7 +50,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return isRecord(value) ? value : undefined;
 }
 
-const OP_SQL: Record<string, string> = {
+const OP_SQL: Record<string, Operator | DistanceOp> = {
   eq: '=',
   ne: '!=',
   lt: '<',
@@ -128,7 +130,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
 
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
     const resolvedColumn = resolveColumn(col);
-    const add = (op: string, rawVal: unknown) => {
+    const add = (op: Operator | DistanceOp, rawVal: unknown) => {
       const value = resolveSubqueryTarget(rawVal, dialect);
       if (connector === 'or') {
         b = b.orWhere(resolvedColumn, op, value);
@@ -298,7 +300,7 @@ class BranchTarget implements WhereTarget {
     this.firstCallInBranch = !isFirstBranch;
   }
 
-  where(col: string, op: string, value: unknown): this {
+  where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): this {
     if (this.firstCallInBranch) {
       this.firstCallInBranch = false;
       this.b = this.b.orWhere(col, op, value);
@@ -313,7 +315,7 @@ class BranchTarget implements WhereTarget {
   // Repository filters use `whereGroup` below to preserve their own OR boundary;
   // compileWhere's user-authored `or` tree is still flat and remains a separate
   // predicate-tree problem.
-  orWhere(col: string, op: string, value: unknown): this {
+  orWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): this {
     return this.where(col, op, value);
   }
 

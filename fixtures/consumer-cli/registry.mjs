@@ -55,7 +55,14 @@ const groupAlive = pid => {
 };
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  if (encoding === 'base64') {
+    return typeof digest.toBase64 === 'function'
+      ? digest.toBase64()
+      : globalThis.Buffer.from(digest).toString('base64');
+  }
+  return typeof digest.toHex === 'function'
+    ? digest.toHex()
+    : [...digest].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {

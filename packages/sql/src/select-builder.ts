@@ -148,22 +148,22 @@ export class SelectQuery {
     return this.orWhere(col, 'not in', values);
   }
   whereExists(query: { compile(): CompiledQuery }): SelectQuery {
-    return this.where('', 'EXISTS', query);
+    return this.where('', 'exists', query);
   }
   andWhereExists(query: { compile(): CompiledQuery }): SelectQuery {
     return this.whereExists(query);
   }
   orWhereExists(query: { compile(): CompiledQuery }): SelectQuery {
-    return this.orWhere('', 'EXISTS', query);
+    return this.orWhere('', 'exists', query);
   }
   whereNotExists(query: { compile(): CompiledQuery }): SelectQuery {
-    return this.where('', 'NOT EXISTS', query);
+    return this.where('', 'not exists', query);
   }
   andWhereNotExists(query: { compile(): CompiledQuery }): SelectQuery {
     return this.whereNotExists(query);
   }
   orWhereNotExists(query: { compile(): CompiledQuery }): SelectQuery {
-    return this.orWhere('', 'NOT EXISTS', query);
+    return this.orWhere('', 'not exists', query);
   }
   private outputAlias(column: string): boolean {
     return (

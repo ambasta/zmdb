@@ -1,16 +1,45 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 
+function toHex(bytes) {
+  if (typeof bytes.toHex === 'function') return bytes.toHex();
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function toBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  let result = '';
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = bytes[i];
+    const b1 = i + 1 < len ? bytes[i + 1] : 0;
+    const b2 = i + 2 < len ? bytes[i + 2] : 0;
+    result += BASE64_CHARS[b0 >> 2];
+    result += BASE64_CHARS[((b0 & 3) << 4) | (b1 >> 4)];
+    result += i + 1 < len ? BASE64_CHARS[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+    result += i + 2 < len ? BASE64_CHARS[b2 & 63] : '=';
+  }
+  return result;
+}
+
 export async function startRegistry(packages) {
   const requests = [];
   const tarballs = new Map();
   for (const entry of packages) {
     const bytes = await readFile(entry.tarball);
+    const digest512 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes));
+    const digest1 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes));
     tarballs.set(entry.manifest.name, {
       ...entry,
       bytes,
-      integrity: `sha512-${new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
-      shasum: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes)).toHex(),
+      integrity: `sha512-${toBase64(digest512)}`,
+      shasum: toHex(digest1),
     });
   }
   let origin;

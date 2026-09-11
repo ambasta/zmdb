@@ -84,6 +84,8 @@ export type WhereDTO<T extends DeclaredTable> = {
 // ---------------------------------------------------------------------------
 // §2 OrderBy + Pagination  (implemented in #183)
 // ---------------------------------------------------------------------------
+// §2 OrderBy + Pagination  (implemented in #183)
+// ---------------------------------------------------------------------------
 export type OrderDir = 'asc' | 'desc';
 
 export type OrderByDTO<T extends DeclaredTable> = ReadonlyArray<{
