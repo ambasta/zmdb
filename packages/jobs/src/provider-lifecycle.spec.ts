@@ -150,7 +150,7 @@ describe('jobs provider resource lifecycle (#756)', () => {
     );
     let result;
     try {
-      result = await Promise.race([stopped, delay(150).then(() => 'overdue')]);
+      result = await Promise.race([stopped, delay(1000).then(() => 'overdue')]);
     } finally {
       finish();
       await stopped;

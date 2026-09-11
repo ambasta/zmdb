@@ -34,6 +34,11 @@ const SQLITE_TYPES = Object.freeze({
   timestamp: 'TEXT',
   json: 'TEXT',
   jsonEnum: 'TEXT',
+  uuid: 'TEXT',
+  date: 'TEXT',
+  time: 'TEXT',
+  decimal: 'NUMERIC',
+  blob: 'BLOB',
 } as const);
 
 const EXTENSION_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;

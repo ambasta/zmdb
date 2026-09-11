@@ -49,3 +49,37 @@ describe('DDL emitter — down reverses up per dialect', () => {
     expect(emitDown(createUsers, postgresDialect)).toBe('DROP TABLE "users"');
   });
 });
+
+describe('DDL emitter — native primitive column types', () => {
+  const createPrimitives: ChangeOp = {
+    kind: 'create_table',
+    table: 'primitives',
+    columns: [
+      { name: 'guid', type: 'uuid', nullable: false, primaryKey: true },
+      { name: 'birth_date', type: 'date', nullable: false, primaryKey: false },
+      { name: 'alarm_time', type: 'time', nullable: false, primaryKey: false },
+      { name: 'price', type: 'decimal', nullable: false, primaryKey: false },
+      { name: 'data', type: 'blob', nullable: false, primaryKey: false },
+    ],
+    primaryKey: ['guid'],
+    foreignKeys: [],
+  };
+
+  it('postgres maps blob to bytea', () => {
+    expect(emitUp(createPrimitives, postgresDialect)).toBe(
+      'CREATE TABLE "primitives" ("guid" uuid PRIMARY KEY, "birth_date" date NOT NULL, "alarm_time" time NOT NULL, "price" decimal NOT NULL, "data" bytea NOT NULL)',
+    );
+  });
+
+  it('mysql maps uuid to char(36)', () => {
+    expect(emitUp(createPrimitives, mysqlDialect)).toBe(
+      'CREATE TABLE `primitives` (`guid` CHAR(36) PRIMARY KEY, `birth_date` DATE NOT NULL, `alarm_time` TIME NOT NULL, `price` DECIMAL NOT NULL, `data` BLOB NOT NULL)',
+    );
+  });
+
+  it('sqlite maps uuid to text', () => {
+    expect(emitUp(createPrimitives, sqliteDialect)).toBe(
+      'CREATE TABLE "primitives" ("guid" TEXT PRIMARY KEY NOT NULL, "birth_date" TEXT NOT NULL, "alarm_time" TEXT NOT NULL, "price" NUMERIC NOT NULL, "data" BLOB NOT NULL)',
+    );
+  });
+});
