@@ -109,7 +109,7 @@ export function resolveNaming(config: NamingStrategyConfig): NamingStrategy {
   throw new TypeError(`Unknown naming strategy ${JSON.stringify(config)}`);
 }
 
-function singularizeWord(word: string): string {
+export function singularizeWord(word: string): string {
   if (!word) return word;
   const lower = word.toLowerCase();
 

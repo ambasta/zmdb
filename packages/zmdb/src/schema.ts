@@ -186,6 +186,7 @@ export {
 
 export {
   componentName,
+  singularizeWord,
   toJsonSchema,
   toJsonSchemaWithRelations,
   toListSchema,
