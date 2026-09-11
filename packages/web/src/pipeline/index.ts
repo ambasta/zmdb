@@ -15,6 +15,7 @@ import type { Constructor } from '@zmdb/app/di';
 import { fromTraceContext } from '@zmdb/app/observability';
 import type { Observability, Span, Tracer } from '@zmdb/app/observability';
 import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/validator';
+import { compileFastStringifier, stringify } from '@zmdb/validator/serialization';
 
 import {
   compilePattern,
@@ -75,7 +76,7 @@ export interface WebResponse {
   readonly headers: Readonly<Record<string, string>>;
 }
 
-/** Per-handler pipeline, guard and OpenAPI options. */
+/** Per-handler pipeline, guard, schema, serializer, and OpenAPI options. */
 export interface RouteOptions {
   readonly validateBody?: (raw: unknown) => unknown;
   readonly guards?: readonly Guard[];
@@ -84,6 +85,8 @@ export interface RouteOptions {
   readonly filters?: readonly ExceptionFilter[];
   readonly security?: readonly SecurityRequirement[];
   readonly deprecated?: true;
+  readonly schema?: unknown;
+  readonly serialize?: (value: unknown) => string;
 }
 
 /** Router-wide guard configuration shared with OpenAPI generation. */
@@ -106,6 +109,7 @@ interface BoundRoute {
   readonly guards?: readonly Guard[];
   readonly neutral?: true;
   readonly versionJsonHeaders?: Readonly<Record<string, string>>;
+  readonly serialize?: (value: unknown) => string;
 }
 
 // Routes are indexed by method, then by segment count, because a route can only
@@ -588,9 +592,20 @@ const STANDARD_HTTP_METHODS = new Set(['CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTI
 function jsonResponse(
   status: number,
   value: unknown,
+  serializer?: (v: unknown) => string,
   headers: Readonly<Record<string, string>> = JSON_HEADERS,
 ): WebResponse {
-  return { status, body: textBody(JSON.stringify(value) ?? ''), headers };
+  let serializedText: string;
+  if (serializer !== undefined) {
+    try {
+      serializedText = serializer(value);
+    } catch (_err) {
+      serializedText = JSON.stringify(value) ?? '';
+    }
+  } else {
+    serializedText = JSON.stringify(value) ?? '';
+  }
+  return { status, body: textBody(serializedText), headers };
 }
 
 function textBody(value: string): ResponseBody {
@@ -892,6 +907,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     handler: Handler,
     validateBody: ((raw: unknown) => unknown) | undefined,
     guards: readonly Guard[],
+    serialize?: (value: unknown) => string,
   ): void {
     const pattern = compilePattern(route.path);
     bucketFor(buckets, route.method, pattern.segmentCount).push({
@@ -899,6 +915,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       pattern,
       handler,
       ...(validateBody === undefined ? {} : { validateBody }),
+      ...(serialize === undefined ? {} : { serialize }),
       ...(guards.length === 0 ? {} : { guards }),
     });
   }
@@ -909,6 +926,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     handler: Handler,
     validateBody: ((raw: unknown) => unknown) | undefined,
     guards: readonly Guard[],
+    serialize?: (value: unknown) => string,
   ): void {
     const declaration = versionsOf(controller, route.handlerName);
 
@@ -919,7 +937,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             '@Version() requires createRouter({ versioning: ... })',
         );
       }
-      addPathRoute(route, handler, validateBody, guards);
+      addPathRoute(route, handler, validateBody, guards, serialize);
       return;
     }
 
@@ -932,13 +950,13 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
 
     if (versioning.kind === 'path') {
       if (declaration === 'neutral') {
-        addPathRoute(route, handler, validateBody, guards);
+        addPathRoute(route, handler, validateBody, guards, serialize);
         return;
       }
       for (const version of declaration) {
         const publicPath = pathForVersion(versioning.prefix, version, route.path);
         claimVersionedRoute(controller, route, version, publicPath);
-        addPathRoute({ ...route, path: publicPath }, handler, validateBody, guards);
+        addPathRoute({ ...route, path: publicPath }, handler, validateBody, guards, serialize);
       }
       return;
     }
@@ -949,6 +967,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       pattern,
       handler,
       ...(validateBody === undefined ? {} : { validateBody }),
+      ...(serialize === undefined ? {} : { serialize }),
       ...(guards.length === 0 ? {} : { guards }),
     };
     if (declaration === 'neutral') {
@@ -1178,7 +1197,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         try {
           const result = await matched.handler(handlerCtx);
           response = mediaVersionedResponse(
-            isTaggedResponse(result) ? result : jsonResponse(200, result, matched.versionJsonHeaders ?? JSON_HEADERS),
+            isTaggedResponse(result)
+              ? result
+              : jsonResponse(200, result, matched.serialize, matched.versionJsonHeaders ?? JSON_HEADERS),
             matched.versionJsonHeaders,
           );
           return response;
@@ -1247,6 +1268,14 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           continue;
         }
         const opts = options[route.handlerName];
+        let serializeFn: ((v: unknown) => string) | undefined = opts?.serialize;
+        if (serializeFn === undefined && opts?.schema !== undefined) {
+          try {
+            serializeFn = compileFastStringifier(opts.schema);
+          } catch (_e) {
+            serializeFn = (v: unknown) => stringify(v);
+          }
+        }
         const middleware = middlewareFor(controller, ctor, route.handlerName);
         const routeGuards = [...middleware.guards, ...(opts?.guards ?? [])];
         const publicRoute = isPublic(ctor, route.handlerName);
@@ -1256,7 +1285,14 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           );
         }
         const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
-        addBoundRoute(ctor, route, middlewareHandler(handler, middleware, opts), opts?.validateBody, guards);
+        addBoundRoute(
+          ctor,
+          route,
+          middlewareHandler(handler, middleware, opts),
+          opts?.validateBody,
+          guards,
+          serializeFn,
+        );
       }
     },
 
@@ -1439,7 +1475,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           // One symbol check on the hot path, no extra allocation: a handler that
           // returns a plain value takes exactly the path it took before.
           return mediaVersionedResponse(
-            isTaggedResponse(result) ? result : jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
+            isTaggedResponse(result)
+              ? result
+              : jsonResponse(200, result, bound.serialize, bound.versionJsonHeaders ?? JSON_HEADERS),
             bound.versionJsonHeaders,
           );
         } catch (error) {

@@ -33,7 +33,14 @@ export {
   type UnionRule,
 } from '@zmdb/validator/advanced';
 
-export { assertStringify, decode, parse, stringify } from '@zmdb/validator/serialization';
+export {
+  assertStringify,
+  compileFastStringifier,
+  compileStringifier,
+  decode,
+  parse,
+  stringify,
+} from '@zmdb/validator/serialization';
 
 export {
   MAX_REGEX_CACHE_SIZE,
