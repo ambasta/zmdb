@@ -63,7 +63,7 @@
     "@zmdb/validator": "workspace:^",
     "metro": "0.87.0",
     "metro-babel-transformer": "0.87.0",
-    "oxlint": "1.81.0",
+    "oxlint": "1.82.0",
     "protobufjs": "8.8.0",
     "typescript": "7.0.2"
   },
