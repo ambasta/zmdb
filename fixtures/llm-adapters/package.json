@@ -7,7 +7,7 @@
     "@langchain/core": "1.2.9",
     "@zmdb/ai": "workspace:^",
     "@zmdb/schema": "workspace:^",
-    "ai": "7.0.93",
+    "ai": "7.0.95",
     "zod": "4.5.4"
   }
 }
