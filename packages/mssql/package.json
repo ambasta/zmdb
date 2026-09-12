@@ -46,7 +46,7 @@
     "@types/mssql": "^12.3.0",
     "@zmdb/orm": "workspace:^",
     "@zmdb/sql": "workspace:^",
-    "mssql": "12.7.0",
+    "mssql": "12.7.1",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
