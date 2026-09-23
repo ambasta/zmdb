@@ -3,27 +3,47 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import { type SchemaIR } from '../ir/index.js';
+import { singularizeWord } from '../naming/index.js';
+
+function inferFkName(tableName: string): string {
+  const tableParts = tableName.split('.');
+  const table = tableParts[tableParts.length - 1] ?? tableName;
+  const parts = table.split(/[-_]+/);
+  const lastIndex = parts.length - 1;
+  const lastWord = parts[lastIndex];
+  if (lastWord !== undefined) {
+    parts[lastIndex] = singularizeWord(lastWord);
+  }
+  const camel = parts
+    .map((word, i) => (i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()))
+    .join('');
+  return `${camel}Id`;
+}
 
 export interface ResolvedRelation {
   readonly name: string;
+  readonly isManyToMany?: boolean;
   /** Where the related rows live. */
   readonly targetTable: string;
   /** Ordered columns on the declaring table whose values the join matches. */
   readonly parentKey: readonly string[];
   /** Ordered columns on the target table, positionally paired with `parentKey`. */
   readonly targetKey: readonly string[];
-  /** `true` for `oneToMany`: the relation attaches an array, empty where nothing matched. */
+  /** `true` for `oneToMany` or `manyToMany`: the relation attaches an array, empty where nothing matched. */
   readonly toMany: boolean;
+  /** For manyToMany: the pivot/join table name. */
+  readonly through?: string;
+  /** For manyToMany: FK on pivot pointing to base table. */
+  readonly baseFk?: string;
+  /** For manyToMany: FK on pivot pointing to target table. */
+  readonly targetFk?: string;
 }
 
 /**
  * Resolve one relation of a table by name.
  *
  * Throws for a name the type does not declare — naming the ones it does, because a
- * misspelled `populate` is the common case — and for `manyToMany`, whose `via` is a join
- * table rather than a column: two hops cannot be expressed as one `IN`, and guessing the
- * join table's two foreign keys from the table names either side is how a wrong query gets
- * built quietly.
+ * misspelled `populate` is the common case.
  */
 export function resolveRelation(ir: SchemaIR, name: string): ResolvedRelation {
   const declared = ir.relations;
@@ -36,10 +56,22 @@ export function resolveRelation(ir: SchemaIR, name: string): ResolvedRelation {
     );
   }
   if (rel.relation === 'manyToMany') {
-    throw new Error(
-      `relation "${name}" on ${ir.table} is many-to-many through "${rel.via}", which populate ` +
-        'does not resolve — join the two tables explicitly',
-    );
+    const through = rel.via;
+    const baseFk = rel.fk ?? inferFkName(ir.table);
+    const targetFk = rel.mappedBy ?? inferFkName(rel.target);
+    const parentKey = primaryKeyOf(ir);
+    const targetKey = ['id'];
+    return {
+      name,
+      isManyToMany: true,
+      targetTable: rel.target,
+      parentKey,
+      targetKey,
+      toMany: true,
+      through,
+      baseFk,
+      targetFk,
+    };
   }
   if (rel.relation === 'oneToMany') {
     // The inverse side: the foreign key is a column of the *target*, holding this row's key.

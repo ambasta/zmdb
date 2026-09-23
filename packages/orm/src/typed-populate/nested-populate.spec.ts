@@ -138,7 +138,7 @@ describe('nested and deferred population', () => {
     }
   });
 
-  it.each(['posts.missing', 'posts.comments.body', 'posts..comments', '.posts', 'posts.', 'groups'])(
+  it.each(['posts.missing', 'posts.comments.body', 'posts..comments', '.posts', 'posts.', 'unknown_relation'])(
     'rejects invalid path %s before SQL',
     async path => {
       const { db, repo, queries } = fixture();

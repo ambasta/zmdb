@@ -1428,6 +1428,36 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return populated;
   }
 
+  private async fetchRowsWhereIn(
+    table: string,
+    column: string,
+    values: readonly unknown[],
+    options?: ReadOptions,
+    filters?: ResolvedFilters,
+  ): Promise<Record<string, unknown>[]> {
+    options?.signal?.throwIfAborted();
+    const ids = sanitizeKeys(values);
+    if (ids.length === 0) return [];
+    const limit = this.dialectTraits.paramLimit;
+    const chunks = chunkArray(ids, limit);
+    const rows: Record<string, unknown>[] = [];
+    for (const chunk of chunks) {
+      const query = this.compileRead(
+        'populate',
+        options,
+        () => this.qb.selectFrom(trustedTable(table)).whereIn(column, chunk),
+        {
+          table,
+          qualifyColumns: true,
+          ...(filters === undefined ? {} : { resolvedFilters: filters }),
+        },
+      );
+      const res = await this.executeRead(query, options?.signal);
+      rows.push(...res);
+    }
+    return rows;
+  }
+
   /** The children of every parent in parameter-bounded queries, grouped by the ordered target key. */
   private async childrenByParent(
     childTable: string,
@@ -1539,39 +1569,112 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     for (const node of nodes) {
       const { relation: rel, target } = node;
       const name = rel.name;
-      const byParent = await this.childrenByParent(
-        target?.schema.table ?? rel.targetTable,
-        rel.targetKey,
-        current.map(parent => relationKeyValues(parent, rel.parentKey)),
-        options,
-        populateFilters.get(node.path),
-        target,
-      );
-      if (node.children.length > 0) {
-        const children = [...byParent.values()].flat();
-        const populated = await this.populateRows(children, node.children, options, populateFilters);
-        let offset = 0;
-        for (const [key, group] of byParent) {
-          byParent.set(key, populated.slice(offset, offset + group.length));
-          offset += group.length;
+
+      if (rel.isManyToMany) {
+        const through = rel.through ?? '';
+        const baseFk = rel.baseFk ?? '';
+        const targetFk = rel.targetFk ?? '';
+        const targetTable = rel.targetTable;
+
+        // Pass 1: pivot lookup
+        const parentKeysList = current.map(parent => relationKeyValues(parent, rel.parentKey));
+        const parentIds = parentKeysList.map(pk => pk[0]);
+        const pivotRows = await this.fetchRowsWhereIn(through, baseFk, parentIds, options);
+
+        if (pivotRows.length === 0) {
+          // Gracefully handle empty pivot results without querying target table
+          const property: PropertyDescriptor = { configurable: true, enumerable: true, writable: true, value: [] };
+          current.forEach(parent => {
+            Object.defineProperty(parent, name, property);
+          });
+          continue;
         }
-      }
-      const property: PropertyDescriptor = { configurable: true, enumerable: true, writable: true };
-      current.forEach(parent => {
-        const key = relationRowKey(parent, rel.parentKey);
-        if (key === undefined) {
-          property.value = rel.toMany ? [] : null;
-        } else {
-          const list = byParent.get(key) ?? [];
-          if (rel.toMany) {
-            property.value = list.map(child => copyPopulatedRow(child, node.children));
-          } else {
-            const first = list[0];
-            property.value = first ? copyPopulatedRow(first, node.children) : null;
+
+        // Pass 2: target entity lookup
+        const targetIds = pivotRows.map(r => r[targetFk]);
+        const targetParentKeys = targetIds.map(id => [id]);
+        const targetPhysicalTable = target?.schema.table ?? targetTable;
+        const byTargetKey = await this.childrenByParent(
+          targetPhysicalTable,
+          rel.targetKey,
+          targetParentKeys,
+          options,
+          populateFilters.get(node.path),
+          target,
+        );
+
+        if (node.children.length > 0) {
+          const children = [...byTargetKey.values()].flat();
+          const populated = await this.populateRows(children, node.children, options, populateFilters);
+          let offset = 0;
+          for (const [key, group] of byTargetKey) {
+            byTargetKey.set(key, populated.slice(offset, offset + group.length));
+            offset += group.length;
           }
         }
-        Object.defineProperty(parent, name, property);
-      });
+
+        const byParent = new Map<string, Record<string, unknown>[]>();
+        for (const pivotRow of pivotRows) {
+          const pId = pivotRow[baseFk];
+          const tId = pivotRow[targetFk];
+          if (pId === null || pId === undefined || tId === null || tId === undefined) continue;
+          const pKey = scalarLoaderKey(pId);
+          const tKey = scalarLoaderKey(tId);
+          const targetList = byTargetKey.get(tKey);
+          const targetEntity = targetList?.[0];
+          if (targetEntity) {
+            const list = byParent.get(pKey);
+            if (list === undefined) byParent.set(pKey, [targetEntity]);
+            else list.push(targetEntity);
+          }
+        }
+
+        const property: PropertyDescriptor = { configurable: true, enumerable: true, writable: true };
+        current.forEach(parent => {
+          const key = relationRowKey(parent, rel.parentKey);
+          if (key === undefined) {
+            property.value = [];
+          } else {
+            const list = byParent.get(key) ?? [];
+            property.value = list.map(child => copyPopulatedRow(child, node.children));
+          }
+          Object.defineProperty(parent, name, property);
+        });
+      } else {
+        const byParent = await this.childrenByParent(
+          target?.schema.table ?? rel.targetTable,
+          rel.targetKey,
+          current.map(parent => relationKeyValues(parent, rel.parentKey)),
+          options,
+          populateFilters.get(node.path),
+          target,
+        );
+        if (node.children.length > 0) {
+          const children = [...byParent.values()].flat();
+          const populated = await this.populateRows(children, node.children, options, populateFilters);
+          let offset = 0;
+          for (const [key, group] of byParent) {
+            byParent.set(key, populated.slice(offset, offset + group.length));
+            offset += group.length;
+          }
+        }
+        const property: PropertyDescriptor = { configurable: true, enumerable: true, writable: true };
+        current.forEach(parent => {
+          const key = relationRowKey(parent, rel.parentKey);
+          if (key === undefined) {
+            property.value = rel.toMany ? [] : null;
+          } else {
+            const list = byParent.get(key) ?? [];
+            if (rel.toMany) {
+              property.value = list.map(child => copyPopulatedRow(child, node.children));
+            } else {
+              const first = list[0];
+              property.value = first ? copyPopulatedRow(first, node.children) : null;
+            }
+          }
+          Object.defineProperty(parent, name, property);
+        });
+      }
     }
 
     return current;
