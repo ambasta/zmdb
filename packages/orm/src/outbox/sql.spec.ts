@@ -23,7 +23,7 @@ import {
   outboxTableDdl,
   type OutboxStatus,
 } from '@zmdb/orm/outbox';
-import { trustedTable, createQueryCompiler, quoteIdentifier, type CompiledQuery, type DialectTarget } from '@zmdb/sql';
+import { createQueryCompiler, quoteIdentifier, trustedTable, type CompiledQuery, type DialectTarget } from '@zmdb/sql';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 import { describe, expect, it } from 'vitest';
 

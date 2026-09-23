@@ -299,9 +299,7 @@ jobs:
           node-version: '26'
 
       - name: Audit dependencies
-        run: >
-          yarn npm audit --all --recursive --severity high --no-deprecations
-          --ignore 1138808 --ignore 1138809
+        run: node .github/scripts/verify-audit.mjs
 
   codeql:
     name: CodeQL SAST Analysis

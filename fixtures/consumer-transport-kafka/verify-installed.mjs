@@ -100,9 +100,31 @@ async function run(label, executable, argv, cwd, env = {}) {
   return result.stdout;
 }
 
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
 async function digest(bytes, algorithm, encoding = 'hex') {
   const hashed = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hashed.toBase64() : hashed.toHex();
+  if (encoding === 'base64') {
+    if (typeof hashed.toBase64 === 'function') return hashed.toBase64();
+    let result = '';
+    const len = hashed.length;
+    for (let i = 0; i < len; i += 3) {
+      const b0 = hashed[i];
+      const b1 = i + 1 < len ? hashed[i + 1] : 0;
+      const b2 = i + 2 < len ? hashed[i + 2] : 0;
+      result += BASE64_CHARS[b0 >> 2];
+      result += BASE64_CHARS[((b0 & 3) << 4) | (b1 >> 4)];
+      result += i + 1 < len ? BASE64_CHARS[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+      result += i + 2 < len ? BASE64_CHARS[b2 & 63] : '=';
+    }
+    return result;
+  }
+  if (typeof hashed.toHex === 'function') return hashed.toHex();
+  let hex = '';
+  for (let i = 0; i < hashed.length; i++) {
+    hex += hashed[i].toString(16).padStart(2, '0');
+  }
+  return hex;
 }
 
 try {
