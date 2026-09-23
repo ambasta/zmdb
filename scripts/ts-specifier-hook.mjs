@@ -23,6 +23,22 @@ import { existsSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
+/* oxlint-disable */
+if (typeof Uint8Array.prototype.toBase64 !== 'function') {
+  Uint8Array.prototype.toBase64 = function (options) {
+    const format = options?.alphabet === 'base64url' ? 'base64url' : 'base64';
+    return globalThis.Buffer.from(this.buffer, this.byteOffset, this.byteLength).toString(format);
+  };
+}
+
+if (typeof Uint8Array.fromBase64 !== 'function') {
+  Uint8Array.fromBase64 = function (string, options) {
+    const format = options?.alphabet === 'base64url' ? 'base64url' : 'base64';
+    return new Uint8Array(globalThis.Buffer.from(string, format));
+  };
+}
+/* oxlint-enable */
+
 const RELATIVE_JS = /^\.{1,2}\/.*\.js$/;
 
 registerHooks({
