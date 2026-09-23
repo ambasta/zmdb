@@ -15,7 +15,7 @@ import {
   type QueryBinding,
   type TrustedTable,
 } from './query-binding.js';
-import type { QueryCompiler } from './query-types.js';
+import type { QueryCompiler, SelectBuilder } from './query-types.js';
 import { SelectQuery } from './select-builder.js';
 export { trustedTable } from './query-binding.js';
 export type { TrustedTable } from './query-binding.js';
@@ -28,17 +28,17 @@ export type {
   OnConflictBuilder,
   QueryPredicate,
 } from './query-types.js';
-// @zmdb/sql — implementation.
 import {
   dialectName,
   dialectTraits,
+  isSqlDialect,
   type DialectReturningSql,
   type DialectTarget,
   type ReturningStatement,
   type SqlDialect,
 } from './dialects/index.js';
-import { UnsupportedFeatureError } from './errors.js';
-
+// @zmdb/sql — implementation.
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export type { CompiledQuery, QueryEffects, QueryTelemetry } from './compiled-query.js';
 export {
@@ -109,6 +109,7 @@ export type {
 
 import { frozenQuery, queryTelemetry, whereClause, type Predicate } from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
+import type { AliasedDistanceExpression } from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
@@ -157,8 +158,157 @@ export interface AliasedColumn {
   readonly alias: string;
 }
 
-type ReturningColumn = string | AliasedColumn;
+export interface WindowProjectionNode {
+  readonly kind: 'window';
+  readonly functionName: string;
+  readonly args?: readonly string[];
+  readonly partitionBy?: readonly string[];
+  readonly orderBys?: readonly { col: string; dir: Direction }[];
+  readonly alias?: string;
+}
 
+export interface WindowFunctionBuilder {
+  readonly kind: 'window';
+  functionName(fn: string): WindowFunctionBuilder;
+  args(...args: string[]): WindowFunctionBuilder;
+  partitionBy(...cols: (string | readonly string[])[]): WindowFunctionBuilder;
+  orderBy(col: string, dir?: Direction): WindowFunctionBuilder;
+  as(alias: string): WindowFunctionBuilder;
+  toNode(): WindowProjectionNode;
+  compile(dialect: DialectTarget): string;
+}
+
+export type ProjectionItem =
+  | string
+  | AliasedColumn
+  | WindowProjectionNode
+  | WindowFunctionBuilder
+  | AliasedDistanceExpression;
+
+export type SelectedColumn = ProjectionItem;
+export type ReturningColumn = string | AliasedColumn;
+
+export type SubqueryInput =
+  | SelectBuilder<unknown>
+  | { compile(): CompiledQuery }
+  | ((builder: QueryCompiler) => SelectBuilder<unknown> | { compile(): CompiledQuery });
+
+export interface CteSpec {
+  readonly name: string;
+  readonly subquery: SubqueryInput;
+  readonly recursive?: boolean;
+}
+
+export function checkDialectCapability(dialect: DialectTarget, feature: string): void {
+  if (!isSqlDialect(dialect)) {
+    throw new UnsupportedFeatureError(feature, dialectName(dialect));
+  }
+}
+
+export function isWindowProjectionNode(value: unknown): value is WindowProjectionNode {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'kind' in value &&
+    value.kind === 'window' &&
+    'functionName' in value &&
+    typeof value.functionName === 'string'
+  );
+}
+
+export function isWindowFunctionBuilder(value: unknown): value is WindowFunctionBuilder {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'kind' in value &&
+    value.kind === 'window' &&
+    'toNode' in value &&
+    typeof value.toNode === 'function'
+  );
+}
+
+export function assertNoWindowFunction(value: unknown, context: string): void {
+  if (isWindowProjectionNode(value) || isWindowFunctionBuilder(value)) {
+    throw new QueryCompilerError(`Window functions are restricted to projection selection lists (${context})`);
+  }
+  if (typeof value === 'string' && /\bOVER\s*\(/i.test(value)) {
+    throw new QueryCompilerError(`Window functions are restricted to projection selection lists (${context})`);
+  }
+}
+
+export function renderWindowProjectionNode(
+  d: DialectTarget,
+  item: WindowProjectionNode | WindowFunctionBuilder,
+): string {
+  const node = isWindowFunctionBuilder(item) ? item.toNode() : item;
+  const fnName = node.functionName.toUpperCase();
+
+  let argsSql = '';
+  if (node.args && node.args.length > 0) {
+    argsSql = node.args.map(a => (a === '*' ? '*' : quoteColumn(d, a))).join(', ');
+  }
+
+  const overParts: string[] = [];
+  if (node.partitionBy && node.partitionBy.length > 0) {
+    const partitions = node.partitionBy.map(p => quoteColumn(d, p)).join(', ');
+    overParts.push(`PARTITION BY ${partitions}`);
+  }
+  if (node.orderBys && node.orderBys.length > 0) {
+    const orders = node.orderBys.map(o => `${quoteColumn(d, o.col)} ${o.dir.toUpperCase()}`).join(', ');
+    overParts.push(`ORDER BY ${orders}`);
+  }
+
+  const overClause = overParts.length > 0 ? `OVER (${overParts.join(' ')})` : 'OVER ()';
+  const sql = `${fnName}(${argsSql}) ${overClause}`;
+
+  if (node.alias) {
+    return `${sql} AS ${quoteIdentifier(d, node.alias)}`;
+  }
+  return sql;
+}
+
+export function windowFunction(fnName: string, args: readonly string[] = []): WindowFunctionBuilder {
+  let node: WindowProjectionNode = {
+    kind: 'window',
+    functionName: fnName,
+    args: [...args],
+    partitionBy: [],
+    orderBys: [],
+  };
+
+  const builder: WindowFunctionBuilder = {
+    kind: 'window',
+    functionName(fn: string) {
+      node = { ...node, functionName: fn };
+      return builder;
+    },
+    args(...a: string[]) {
+      node = { ...node, args: a };
+      return builder;
+    },
+    partitionBy(...cols: (string | readonly string[])[]) {
+      const flattened = cols.flatMap(c => (Array.isArray(c) ? c : [c]));
+      node = { ...node, partitionBy: [...(node.partitionBy ?? []), ...flattened] };
+      return builder;
+    },
+    orderBy(col: string, dir: Direction = 'asc') {
+      node = { ...node, orderBys: [...(node.orderBys ?? []), { col, dir }] };
+      return builder;
+    },
+    as(alias: string) {
+      node = { ...node, alias };
+      return builder;
+    },
+    toNode() {
+      return node;
+    },
+    compile(d: DialectTarget) {
+      return renderWindowProjectionNode(d, node);
+    },
+  };
+
+  return builder;
+}
 /**
  * Collection utility that deduplicates keys while preserving insertion order AND
  * filtering out `null` and `undefined` key values.

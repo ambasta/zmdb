@@ -52,9 +52,30 @@ export function isRegistryMiss(result) {
   return result.status !== 0 && /\bE404\b|404 Not Found|is not in this registry/i.test(output(result));
 }
 
+function toBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const triplet = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    result +=
+      chars[(triplet >> 18) & 63] + chars[(triplet >> 12) & 63] + chars[(triplet >> 6) & 63] + chars[triplet & 63];
+  }
+  if (i < bytes.length) {
+    const byte1 = bytes[i];
+    const byte2 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const triplet = (byte1 << 16) | (byte2 << 8);
+    result += chars[(triplet >> 18) & 63] + chars[(triplet >> 12) & 63];
+    result += i + 1 < bytes.length ? chars[(triplet >> 6) & 63] : '=';
+    result += '=';
+  }
+  return result;
+}
+
 async function fileIntegrity(path) {
-  const digest = await globalThis.crypto.subtle.digest('SHA-512', readFileSync(path));
-  return `sha512-${new Uint8Array(digest).toBase64()}`;
+  const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', readFileSync(path)));
+  return `sha512-${toBase64(digest)}`;
 }
 
 function parseArguments(argv) {
