@@ -41,13 +41,13 @@ import {
   type QueryBinding,
   type TrustedTable,
 } from './query-binding.js';
-import { qualifyRootColumn, quoteColumn, quoteIdentifier, quoteTable } from './quoting.js';
+import { qualifyRootColumn, quoteColumn, quoteIdentifier, quoteTable, sanitizeExpression } from './quoting.js';
 
 type SelectedColumn = string | AliasedColumn | AliasedDistanceExpression;
 type ResolvedColumn = string | (AliasedColumn & { readonly source?: string }) | AliasedDistanceExpression;
 type ComputedColumn =
   | { readonly fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX'; readonly col: string; readonly alias: string }
-  | { readonly raw: string; readonly alias: string };
+  | { readonly raw: string; readonly alias: string; readonly params?: readonly unknown[] | Record<string, unknown> };
 interface SelectState {
   readonly binding: QueryBinding;
   readonly columns?: readonly ResolvedColumn[];
@@ -263,8 +263,9 @@ export class SelectQuery {
   max(col: string, alias: string): SelectQuery {
     return this.aggregate('MAX', col, alias);
   }
-  expr(raw: string, alias: string): SelectQuery {
-    return this.next({ computed: [...(this.state.computed ?? []), { raw, alias }] });
+  expr(raw: string, alias: string, params?: readonly unknown[] | Record<string, unknown>): SelectQuery {
+    const entry: ComputedColumn = params !== undefined ? { raw, alias, params } : { raw, alias };
+    return this.next({ computed: [...(this.state.computed ?? []), entry] });
   }
   groupBy(...columns: string[]): SelectQuery {
     if (columns.length === 0) return this;
@@ -309,10 +310,19 @@ export class SelectQuery {
       ...(ftsJoins === undefined ? {} : { ftsJoins }),
     });
   }
-  private computedSql(item: ComputedColumn, rootReference?: string): string {
-    return 'raw' in item
-      ? item.raw
-      : `${item.fn}(${quoteColumn(this.dialect, qualifyRootColumn(item.col, rootReference))})`;
+  private computedSql(
+    item: ComputedColumn,
+    rootReference?: string,
+    startingParamIndex = 0,
+  ): { text: string; parameters: readonly unknown[] } {
+    if ('raw' in item) {
+      const sanitized = sanitizeExpression(item.raw, this.dialect, item.params, startingParamIndex);
+      return { text: sanitized.text, parameters: sanitized.parameters };
+    }
+    return {
+      text: item.fn + '(' + quoteColumn(this.dialect, qualifyRootColumn(item.col, rootReference)) + ')',
+      parameters: [],
+    };
   }
   private distanceSql(expression: DistanceExpression, params: unknown[], rootReference?: string): string {
     return renderDistanceExpression(
@@ -363,7 +373,9 @@ export class SelectQuery {
       for (const item of state.computed) {
         // Trusted SQL can call a mutating routine; its text is never classified here.
         if ('raw' in item) effects.requiresPrimary = true;
-        projections.push(`${this.computedSql(item, rootReference)} AS ${quoteIdentifier(dialect, item.alias)}`);
+        const comp = this.computedSql(item, rootReference, params.length);
+        params.push(...comp.parameters);
+        projections.push(`${comp.text} AS ${quoteIdentifier(dialect, item.alias)}`);
       }
     const joins = state.joins === undefined ? '' : joinClauses(dialect, state.joins, params, rootReference, effects);
     const ftsJoins =
@@ -377,7 +389,7 @@ export class SelectQuery {
     if (state.havings !== undefined) {
       const expressions = new Map<string, string>();
       if (state.computed !== undefined)
-        for (const item of state.computed) expressions.set(item.alias, this.computedSql(item, rootReference));
+        for (const item of state.computed) expressions.set(item.alias, this.computedSql(item, rootReference).text);
       if (state.columns !== undefined)
         for (const item of state.columns)
           if (typeof item === 'object' && !isAliasedDistanceExpression(item))

@@ -245,6 +245,7 @@ export interface SelectBuilder<
   expr<const Alias extends string>(
     sql: string,
     alias: Wide<Scope> extends true ? Alias : FreshAlias<Alias, Selected, Computed>,
+    params?: readonly unknown[] | Record<string, unknown>,
   ): SelectBuilder<Root, Scope, Aliases, Selected, Merge<Computed, Record<Alias, unknown>>>;
   groupBy(...columns: Key<Scope>[]): this;
   having<K extends Key<Merge<Scope, Computed & SelectionOrEmpty<Selected>>>, Op extends Operator>(
