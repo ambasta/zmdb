@@ -16,6 +16,8 @@ export function stringify(value: unknown): string {
   return JSON.stringify(value);
 }
 
+export { compileFastStringifier, compileStringifier } from './fast-stringifier.js';
+
 // `TypeIR`: the witness a user has is the generated one, and there is no longer a
 // hand-written form of it to accept (REQ-TF-9).
 export function assertStringify(value: unknown, schema?: TypeIR): string {

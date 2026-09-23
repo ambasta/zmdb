@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import { createRequestData } from '@zmdb/app/data';
+import { schemasFrom } from '@zmdb/compiler/testing';
+import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema/tags';
 // Tests (#299) for DTO validation/serialization pipes — RED first (dto-pipes
 // exports absent). Pipe rejects invalid, serializer emits, dtoChain composes.
 // Per packages/web/src/dto-pipes/SPEC.md.
@@ -11,6 +13,14 @@ import { describe, it, expect } from 'vitest';
 import type { Ctx } from '../context/index.js';
 import { runChain } from '../middleware/index.js';
 import { validationPipe, serializationInterceptor, decodePipe, dtoChain } from './index.js';
+
+export interface Profile extends Table<'profiles'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  handle: string;
+  ssn?: string & Sensitive;
+}
+
+const { Profile: ProfileSchema } = schemasFrom(import.meta.url, ['Profile']);
 
 interface CreateUser {
   name: string;
@@ -44,19 +54,40 @@ describe('@zmdb/web dto-pipes: serializationInterceptor', () => {
     const chain = {
       guards: [],
       pipes: [],
-      interceptors: [serializationInterceptor(v => ({ wrapped: v }))],
+      interceptors: [serializationInterceptor((v: unknown) => ({ wrapped: v }))],
       filters: [],
     };
     const result = await runChain(chain, ctxWith({}), () => ({ id: 1 }));
     expect(result).toEqual({ wrapped: { id: 1 } });
   });
+
+  it('serializes the handler result via a schema fast stringifier', async () => {
+    const chain = {
+      guards: [],
+      pipes: [],
+      interceptors: [serializationInterceptor(ProfileSchema)],
+      filters: [],
+    };
+    const result = await runChain(chain, ctxWith({}), () => ({ id: 5, handle: 'ada_l', ssn: '000-00-0000' }));
+    expect(result).toBe('{"id":5,"handle":"ada_l"}');
+  });
 });
 
 describe('@zmdb/web dto-pipes: dtoChain', () => {
   it('composes validation + serialization', async () => {
-    const chain = dtoChain({ validate: assertCreateUser, serialize: v => ({ data: v }) });
+    const chain = dtoChain({ validate: assertCreateUser, serialize: (v: unknown) => ({ data: v }) });
     const result = await runChain(chain, ctxWith({ name: 'grace' }), ctx => ctx.body);
     expect(result).toEqual({ data: { name: 'grace' } });
+  });
+
+  it('composes validation + schema fast stringifier', async () => {
+    const chain = dtoChain({ validate: assertCreateUser, schema: ProfileSchema });
+    const result = await runChain(chain, ctxWith({ name: 'grace' }), () => ({
+      id: 7,
+      handle: 'grace_h',
+      ssn: '111-11-1111',
+    }));
+    expect(result).toBe('{"id":7,"handle":"grace_h"}');
   });
 });
 
