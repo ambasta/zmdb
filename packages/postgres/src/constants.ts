@@ -15,4 +15,9 @@ export const POSTGRES_TYPES: DialectTypeMap = Object.freeze({
   timestamp: 'TIMESTAMPTZ',
   json: 'JSONB',
   jsonEnum: 'TEXT',
+  uuid: 'uuid',
+  date: 'date',
+  time: 'time',
+  decimal: 'decimal',
+  blob: 'bytea',
 });

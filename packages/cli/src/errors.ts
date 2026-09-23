@@ -2,6 +2,23 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+if (typeof SuppressedError === 'undefined') {
+  Reflect.set(
+    globalThis,
+    'SuppressedError',
+    class SuppressedError extends Error {
+      error: unknown;
+      suppressed: unknown;
+      constructor(error: unknown, suppressed: unknown, message?: string) {
+        super(message);
+        this.name = 'SuppressedError';
+        this.error = error;
+        this.suppressed = suppressed;
+      }
+    },
+  );
+}
+
 /** A command-line contract error rather than a failed schema operation. */
 export class CliInvocationError extends Error {
   constructor(message: string) {
@@ -12,7 +29,7 @@ export class CliInvocationError extends Error {
 
 /** Preserve the original failure before an error raised while disposing its resources. */
 export function errorMessage(error: unknown): string {
-  if (error instanceof SuppressedError) {
+  if (typeof SuppressedError !== 'undefined' && error instanceof SuppressedError) {
     return `${errorMessage(error.suppressed)}\ncleanup: ${errorMessage(error.error)}`;
   }
   if (error instanceof AggregateError) {

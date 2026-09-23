@@ -52,9 +52,26 @@ export function isRegistryMiss(result) {
   return result.status !== 0 && /\bE404\b|404 Not Found|is not in this registry/i.test(output(result));
 }
 
+const b64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function toBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  let result = '';
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b1 = bytes[i];
+    const b2 = i + 1 < len ? bytes[i + 1] : 0;
+    const b3 = i + 2 < len ? bytes[i + 2] : 0;
+    result += b64Chars[b1 >> 2];
+    result += b64Chars[((b1 & 3) << 4) | (b2 >> 4)];
+    result += i + 1 < len ? b64Chars[((b2 & 15) << 2) | (b3 >> 6)] : '=';
+    result += i + 2 < len ? b64Chars[b3 & 63] : '=';
+  }
+  return result;
+}
+
 async function fileIntegrity(path) {
   const digest = await globalThis.crypto.subtle.digest('SHA-512', readFileSync(path));
-  return `sha512-${new Uint8Array(digest).toBase64()}`;
+  return `sha512-${toBase64(new Uint8Array(digest))}`;
 }
 
 function parseArguments(argv) {

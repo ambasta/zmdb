@@ -14,10 +14,34 @@ await mkdir(evidence, { recursive: true });
 const directory = await mkdtemp(join(dirname(ROOT), 'zmdb-760-packed-'));
 let registry, fixtures;
 const result = { commands: [], archives: [], roots: {}, processes: [], cleaned: false };
-const digest = async (algorithm, bytes, encoding = 'hex') =>
-  encoding === 'base64'
-    ? new Uint8Array(await crypto.subtle.digest(algorithm, bytes)).toBase64()
-    : new Uint8Array(await crypto.subtle.digest(algorithm, bytes)).toHex();
+const byteHex = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+const b64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function toHex(bytes) {
+  if (typeof bytes.toHex === 'function') return bytes.toHex();
+  return Array.from(bytes, b => byteHex[b]).join('');
+}
+
+function toBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  let out = '';
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b1 = bytes[i];
+    const b2 = i + 1 < len ? bytes[i + 1] : 0;
+    const b3 = i + 2 < len ? bytes[i + 2] : 0;
+    out += b64Chars[b1 >> 2];
+    out += b64Chars[((b1 & 3) << 4) | (b2 >> 4)];
+    out += i + 1 < len ? b64Chars[((b2 & 15) << 2) | (b3 >> 6)] : '=';
+    out += i + 2 < len ? b64Chars[b3 & 63] : '=';
+  }
+  return out;
+}
+
+const digest = async (algorithm, bytes, encoding = 'hex') => {
+  const hashed = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
+  return encoding === 'base64' ? toBase64(hashed) : toHex(hashed);
+};
 const groupAlive = pid => {
   try {
     process.kill(-pid, 0);

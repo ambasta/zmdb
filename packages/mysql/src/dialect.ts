@@ -56,6 +56,11 @@ const traits: ResolvedDialectTraits = {
     timestamp: 'DATETIME(3)',
     json: 'JSON',
     jsonEnum: 'TEXT',
+    uuid: 'CHAR(36)',
+    date: 'DATE',
+    time: 'TIME',
+    decimal: 'DECIMAL',
+    blob: 'BLOB',
   }),
   paramLimit: 60000,
   // mysql2 sets `code` to the error name and `errno` to the number, so both spellings are listed:
