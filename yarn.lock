@@ -5015,7 +5015,7 @@ __metadata:
     "@zmdb/migrations": "workspace:1.0.0-beta.2"
     "@zmdb/orm": "workspace:^"
     "@zmdb/sql": "workspace:^"
-    mssql: "npm:12.7.0"
+    mssql: "npm:12.7.1"
     typescript: "npm:7.0.2"
   peerDependencies:
     "@zmdb/orm": 1.0.0-beta.2
@@ -8801,9 +8801,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mssql@npm:12.7.0":
-  version: 12.7.0
-  resolution: "mssql@npm:12.7.0"
+"mssql@npm:12.7.1":
+  version: 12.7.1
+  resolution: "mssql@npm:12.7.1"
   dependencies:
     "@tediousjs/connection-string": "npm:^1.0.0"
     commander: "npm:^11.0.0"
@@ -8812,7 +8812,7 @@ __metadata:
     tedious: "npm:^19.2.2 || ^20.0.0"
   bin:
     mssql: bin/mssql
-  checksum: 10c0/5a546cc7a082c263c043dffca86105401a8e23ae5dbff08714786d3f051dfd43e53ab42f52d128fdcfa08b5f74ee95afce40e738b868874407c97fab5751fe63
+  checksum: 10c0/0f4e68cdb53854d2ab65879d20d60bbbf99bab85e496c0e7f37769e39c0d68c07ee2095f481930d0095b207f6cdf8f6c1bd5e4bf02193431dc013c2fbf3f5d2a
   languageName: node
   linkType: hard
 
